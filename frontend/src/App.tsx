@@ -1,0 +1,34 @@
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom'
+import Home from './screens/Home'
+import Login from './screens/Login'
+import Register from './screens/Register'
+import Profile from './screens/Profile'
+import Layout from './components/Layout'
+import AuthProvider from './context/AuthContext'
+
+// import Profile from './screens/Profile'
+// import UploadImage from './screens/UploadImage'
+// import Dashboard from './screens/Dashboard'
+// import { AuthProvider } from './context/AuthContext'
+// import Login from './screens/Login'
+
+function App() {
+  return (
+  <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+            <Route path="profile" element={<Profile />} />
+            {/* <Route path="upload" element={<UploadImage />} />
+            <Route path="dashboard" element={<Dashboard />} /> */}
+          </Route>
+        </Routes>
+      </Router>
+    </AuthProvider>
+  )
+}
+
+export default App

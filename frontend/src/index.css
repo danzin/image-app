@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+
+body {
+ 
+    background-image: 
+    radial-gradient(circle at center center,rgba(33,33,33,0),rgb(27,27,46)),
+    repeating-linear-gradient(135deg, rgb(27,27,46) 0px, rgb(27,27,46) 1px,transparent 1px, transparent 4px),
+    repeating-linear-gradient(45deg, rgb(56,56,56) 0px, rgb(56,56,56) 5px,transparent 5px, transparent 6px),
+    linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
+
+  
+  /* margin: 0; */
+  /* display: grid; */
+  /* place-items: center; */
+  min-width: 320px;
+  min-height: 100vh;
+}
+.modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  right: auto;
+  bottom: auto;
+  margin-right: -50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  padding: 20px;
+  border-radius: 8px;
+  outline: none;
+}
+
+.gallery-image img {
+  width: 300px; /* Adjust the width as needed */
+  height: auto; /* Maintain aspect ratio */
+}
