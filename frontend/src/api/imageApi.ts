@@ -17,7 +17,7 @@ export const fetchImageById = async(id: string) => {
 }
 
 export const uploadImage = async(image: FormData): Promise<Image> => {
-  const token = localStorage.getItem('token'); // Retrieve the token from local storage
+  const token = localStorage.getItem('token');
 
   const response = await axiosClient.post('/api/images/upload', image, {
     headers: {

@@ -8,9 +8,8 @@ export interface User {
 }
 
 
-// Fetch current user function
 export const fetchUser = async () => {
-  const token = localStorage.getItem('token'); // Retrieve the token from local storage
+  const token = localStorage.getItem('token'); 
 
   const { data } = await axiosClient.get('/api/users/me', {
     headers: {

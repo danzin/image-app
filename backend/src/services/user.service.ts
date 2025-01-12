@@ -20,7 +20,7 @@ export class UserService {
 
   async registerUser(userData: IUser): Promise<IUser> {
     try {  
-      // Checks for uniqueness are handled and enforced by the database
+      //Checks for uniqueness are handled and enforced by the database
       return await this.userRepository.create(userData);
     } catch (error) {
       throw createError(error.name, error.message);

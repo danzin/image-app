@@ -29,8 +29,8 @@ export const useImages = (): UseImagesResult => {
   const uploadImageMutation = useMutation<Image, Error, FormData>({
     mutationFn: uploadImage,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['images'] }); // Invalidate the images query to refetch images
-      queryClient.invalidateQueries({ queryKey: ['user'] }); // Invalidate the user query to refetch user data
+      queryClient.invalidateQueries({ queryKey: ['images'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 

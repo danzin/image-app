@@ -8,7 +8,6 @@ export const EditProfile: React.FC = () => {
     try {
       console.log("Running handleSubmit");
       await editUserMutation({username: formData.username, email: formData.email, password: formData.password });
-      // Optionally, you can add a success message or redirect the user
     } catch (error: any) {
       console.error(error.message || 'An error occurred');
     }

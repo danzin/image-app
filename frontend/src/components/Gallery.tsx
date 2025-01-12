@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 
 interface Image {
   url: string;
-  // Add other properties if needed
 }
 
 interface GalleryProps {
