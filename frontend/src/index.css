@@ -48,6 +48,6 @@ body {
 }
 
 .gallery-image img {
-  width: 300px; /* Adjust the width as needed */
-  height: auto; /* Maintain aspect ratio */
+  width: 300px; 
+  height: auto;
 }
