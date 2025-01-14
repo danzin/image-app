@@ -4,7 +4,6 @@ import bcrypt from 'bcrypt';
 import Image from './image.model';
 
 export interface IUser extends Document{
-  avatar: string,
   username: string,
   email: string,
   password: string,
@@ -16,10 +15,7 @@ export interface IUser extends Document{
 }
 
 const userSchema = new Schema<IUser>({
-  avatar: {
-    type: String,
-    
-  },
+
   username: {
     type: String,
     required: [true, 'Username is required'],

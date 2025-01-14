@@ -22,7 +22,6 @@ export class ImageRoutes {
       this.imageController.uploadImage.bind(this.imageController)
     );
     
-    //TODO: Pagination
     this.router.get('/', this.imageController.getImages.bind(this.imageController)); 
   
     this.router.get('/:id', this.imageController.getImageById.bind(this.imageController));

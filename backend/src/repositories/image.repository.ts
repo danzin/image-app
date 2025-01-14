@@ -48,12 +48,10 @@ export class ImageRepository implements BaseRepository<IImage> {
 
       const skip = (page - 1) * limit;
 
-      // Create sort object
       const sort: { [key: string]: 'asc' | 'desc' } = {
         [sortBy]: sortOrder
       };
 
-      // Execute queries in parallel
       const [data, total] = await Promise.all([
         this.model
           .find()
@@ -91,12 +89,10 @@ export class ImageRepository implements BaseRepository<IImage> {
 
       const skip = (page - 1) * limit;
 
-      // Create sort object
       const sort: { [key: string]: 'asc' | 'desc' } = {
         [sortBy]: sortOrder
       };
 
-      // Execute queries in parallel
       const [data, total] = await Promise.all([
         this.model
           .find({ userId })
