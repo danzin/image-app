@@ -32,7 +32,11 @@ export class UserRepository implements BaseRepository<IUser> {
 
   async findById(id: string): Promise<IUser | null> {
     try {
-      return this.model.findById(id);
+      const result = await this.model.findById(id);
+      if(!result){
+        return null
+      }
+      return result;
     } catch (error) {
       throw createError('InternalServerError', error.message);
     }

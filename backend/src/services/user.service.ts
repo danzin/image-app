@@ -66,7 +66,7 @@ export class UserService {
     try {
       const result = await this.userRepository.delete(id);
       if(!result){
-        throw createError('InternalServerError', 'Something went horribly wrong in repository layer');
+        throw createError('InternalServerError', 'Deletion failed');
       }
     } catch (error) {
       throw createError(error.name, error.message);
@@ -75,8 +75,11 @@ export class UserService {
 
   async getUserById(id: string): Promise<IUser | null> {
     try {
-      return await this.userRepository.findById(id);
-
+      const user = await this.userRepository.findById(id);
+      if(!user){
+        throw createError('PathError', 'User not found')
+      }
+      return user
     } catch (error) {
       throw createError(error.name, error.message);
 

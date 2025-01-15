@@ -192,6 +192,7 @@ describe('UserRepository', () => {
       expect(session.endSession).toHaveBeenCalled();
 
     });
+
     it('should abort transaction and throw an error if deletion fails', async () => {
       const mockUserId = 'test-id';
       const error = new Error('Deletion failed');
@@ -210,7 +211,10 @@ describe('UserRepository', () => {
       expect(session.abortTransaction).toHaveBeenCalled();
       expect(session.endSession).toHaveBeenCalled();
     });
-  })
+  
+  });
+
+  
 
 })
 

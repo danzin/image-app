@@ -28,13 +28,12 @@ const AuthForm = <T extends { [key: string]: string }>({
     setFormData((prevData) => ({ ...prevData, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    onSubmit(formData);
     if(onSuccess){
       onSuccess();
     }
-
   };
 
   return (
