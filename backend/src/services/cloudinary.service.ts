@@ -16,6 +16,7 @@ class CloudinaryService {
       const uploadStream = cloudinary.uploader.upload_stream(
         (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
           if (error) {
+            console.log(error)
             reject(error);
           } else {
             resolve(result);

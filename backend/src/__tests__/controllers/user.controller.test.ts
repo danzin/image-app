@@ -1,0 +1,156 @@
+import { UserController } from '../../controllers/user.controller';
+import { UserService } from '../../services/user.service';
+import { Request, Response, NextFunction } from 'express';
+import { createError } from '../../utils/errors';
+import { IUser } from '../../models/user.model';
+
+jest.mock('../../services/user.service');
+
+describe('UserController', () => {
+  let userController: UserController;
+  let userService: jest.Mocked<UserService>;
+  let req: Partial<Request>;
+  let res: Partial<Response>;
+  let next: NextFunction;
+
+  beforeEach(() => {
+    userService = new UserService() as jest.Mocked<UserService>;
+    userController = new UserController();
+    userController['userService'] = userService; 
+
+    //req props needed for testing
+    req = {
+      validatedBody: {},
+      params: {},
+      decodedUser: {},
+    } as Partial<Request>;
+
+    //res props for testing
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+      end: jest.fn().mockReturnThis(),
+    } as Partial<Response>;
+
+    next = jest.fn();
+  });
+
+  describe('register', () => {
+    it('should register a user successfully', async () => {
+      const mockUser = { email: 'test@example.com', username: 'testUser' };
+      userService.registerUser.mockResolvedValueOnce(mockUser as IUser);
+
+      req.validatedBody = mockUser;
+
+      await userController.register(req as Request, res as Response, next);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(res.json).toHaveBeenCalledWith({ email: 'test@example.com', username: 'testUser' });
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('Registration failed');
+      userService.registerUser.mockRejectedValueOnce(error);
+
+      await userController.register(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('getUsers', () => {
+    it('should return a list of users', async () => {
+      const mockUsers = [{ id: '1', username: 'user1' }];
+      userService.getUsers.mockResolvedValueOnce(mockUsers as IUser[]);
+
+      await userController.getUsers(req as Request, res as Response, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockUsers);
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('Failed to get users');
+      userService.getUsers.mockRejectedValueOnce(error);
+
+      await userController.getUsers(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('updateUser', () => {
+    it('should update a user successfully', async () => {
+      req.validatedBody = { username: 'updatedUser' };
+      req.decodedUser = { id: '1' };
+
+      await userController.updateUser(req as Request, res as Response, next);
+
+      expect(userService.update).toHaveBeenCalledWith('1', { username: 'updatedUser' });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.end).toHaveBeenCalled();
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('Update failed');
+      userService.update.mockRejectedValueOnce(error);
+
+      await userController.updateUser(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('deleteUser', () => {
+    it('should delete a user successfully', async () => {
+      req.params = { id: '1' };
+      req.decodedUser = { id: '1' };
+
+      await userController.deleteUser(req as Request, res as Response, next);
+
+      expect(userService.deleteUser).toHaveBeenCalledWith('1');
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.end).toHaveBeenCalled();
+    });
+
+    it('should handle unauthorized error', async () => {
+      req.params = { id: '1' };
+      req.decodedUser = { id: '2' };
+
+      await userController.deleteUser(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(expect.objectContaining({ name: 'UnauthorizedError' }));
+    });
+
+    it('should handle other errors', async () => {
+      const error = new Error('Deletion failed');
+      userService.deleteUser.mockRejectedValueOnce(error);
+
+      await userController.deleteUser(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+
+  describe('getMe', () => {
+    it('should return the current user', async () => {
+      const mockUser = { id: '1', username: 'testUser' };
+      userService.getUserById.mockResolvedValueOnce(mockUser as IUser);
+      req.decodedUser = { id: '1' };
+
+      await userController.getMe(req as Request, res as Response, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(mockUser);
+    });
+
+    it('should handle errors', async () => {
+      const error = new Error('Failed to get user');
+      userService.getUserById.mockRejectedValueOnce(error);
+
+      await userController.getMe(req as Request, res as Response, next);
+
+      expect(next).toHaveBeenCalledWith(error);
+    });
+  });
+});

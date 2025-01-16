@@ -4,7 +4,7 @@ import { BaseRepository } from './base.repository';
 import mongoose from 'mongoose';
 
 export interface PaginationResult<T> {
-  data: T[];
+  data: T[] | T;
   total: number;
   page: number;
   limit: number;

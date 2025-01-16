@@ -76,7 +76,7 @@ export function createError(type: string, message: string): Error{
     case 'DuplicateError':
       return new DuplicateError(message);
     default: 
-      throw new Error("Server responded with an unknown error");
+      throw new Error(message);
   }
 }
 

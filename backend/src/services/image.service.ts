@@ -2,7 +2,6 @@ import { ImageRepository, PaginationResult } from '../repositories/image.reposit
 import { UserRepository } from '../repositories/user.repository';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
-import { IImage } from '../models/image.model';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -12,7 +11,7 @@ export class ImageService {
   constructor(){
     this.imageRepository = new ImageRepository();
     this.userRepository = new UserRepository();
-    this.cloudinaryService = new CloudnaryService ();
+    this.cloudinaryService = new CloudnaryService();
   }
 
   async uploadImage(userId: string, file: Buffer): Promise<Object> {
@@ -33,17 +32,24 @@ export class ImageService {
       await this.userRepository.addImageToUser(userId, img.url as string);
       return img;
     } catch (error) {
-      console.error(error)
       throw createError(error.name, error.message);
     }
   }
 
   async getImages(page: number, limit: number): Promise<Object> {
-    return await this.imageRepository.findImages({ page, limit });
+    try {
+      return await this.imageRepository.findImages({ page, limit });
+    } catch (error) {
+      throw createError('InternalServerError', error.message);
+    }
   }
   
   async getUserImages(userId: string, page: number, limit: number) {
-    return await this.imageRepository.getByUserId(userId, { page, limit });
+    try {
+      return await this.imageRepository.getByUserId(userId, { page, limit });
+    } catch (error) {
+      throw createError('InternalServerError', error.message);
+    }
   }
   
 
@@ -51,15 +57,13 @@ export class ImageService {
   async getImageById(id: string): Promise<Object> {
     try {
       const result = await this.imageRepository.findById(id);
-      console.log(result);
+      if (!result) {
+        throw createError('PathError', 'Image not found');
+      }
       return result;
     } catch (error) {
-      console.error(error)
-      throw createError(error.name, error.message);
+      throw createError('InternalServerError', error.message);
     }
   }
-
-
-  
 
 }
