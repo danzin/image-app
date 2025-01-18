@@ -10,7 +10,8 @@ jest.mock('jsonwebtoken');
 describe('UserService', () => {
   let userService: UserService;
   let userRepository: jest.Mocked<UserRepository>;
-  let mockUser: IUser
+  let mockUser: IUser;
+
   beforeEach(() => {
     userRepository = new UserRepository() as jest.Mocked<UserRepository>;
     userService = new UserService();
@@ -30,8 +31,6 @@ describe('UserService', () => {
 
   describe('registerUser', () => {
     it('should register a user successfully', async () => {
-      
-
       userRepository.create.mockResolvedValueOnce(mockUser);
 
       const result = await userService.registerUser(mockUser);
@@ -70,14 +69,10 @@ describe('UserService', () => {
     it('should throw an error if login fails', async () => {
       userRepository.loginUser.mockResolvedValueOnce(null);
 
-      await expect(userService.login({ email: 'test-email', password: 'test-password' } as IUser)).rejects.toThrow(
-        'Invalid email or password'
-      );
+      await expect(userService.login({ email: 'test-email', password: 'test-password' } as IUser))
+        .rejects
+        .toThrow('Invalid email or password');
     });
-
-
-
-
   });
 
   describe('update', () => {
@@ -111,6 +106,7 @@ describe('UserService', () => {
       expect(userRepository.delete).toHaveBeenCalledWith('test-id')
 
     });
+    
     it('should throw an error if deletion fails', async () => {
       const error = createError('InternalServerError', 'Deletion failed');
       userRepository.delete.mockRejectedValueOnce(error);

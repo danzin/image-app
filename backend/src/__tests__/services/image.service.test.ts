@@ -2,7 +2,6 @@ import { ImageRepository, PaginationResult } from "../../repositories/image.repo
 import { UserRepository } from "../../repositories/user.repository";
 import { ImageService } from "../../services/image.service";
 import { IImage } from "../../models/image.model";
-import { createError } from "../../utils/errors";
 import CloudinaryService from "../../services/cloudinary.service";
 import { UploadApiResponse } from "cloudinary";
 import { IUser } from "../../models/user.model";

@@ -12,8 +12,7 @@ export class ImageController {
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { decodedUser, file } = req;
-      console.log(file)
-      console.log(file)
+
       const result = await this.imageService.uploadImage(decodedUser.id, file.buffer);
       res.status(201).json(result);
     } catch (error) {
@@ -36,21 +35,18 @@ export class ImageController {
     }
   }
 
-  async getUserImages(req: Request, res: Response): Promise<void> {
+  async getUserImages(req: Request, res: Response, next: NextFunction): Promise<void> {
     const { userId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(req.query.limit as string) || 10;
 
     try {
       const images = await this.imageService.getUserImages(userId, page, limit);
       res.json(images);
     } catch (error) {
-      res.status(500).json({ error: 'Failed to fetch user images' });
+      next(createError('UnknownError', 'Failed to fetch images'))
     }
   }
-
-
-
 
   async getImageById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

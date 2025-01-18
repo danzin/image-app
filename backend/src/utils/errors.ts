@@ -61,6 +61,16 @@ class InternalServerError extends Error {
   }
 }
 
+class UnknownError extends Error {
+  public statusCode: number;
+
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnknownError';
+    this.statusCode = 500;
+  }
+}
+
 export function createError(type: string, message: string): Error{
   switch(type){
     case 'ValidationError':
@@ -76,7 +86,7 @@ export function createError(type: string, message: string): Error{
     case 'DuplicateError':
       return new DuplicateError(message);
     default: 
-      throw new Error(message);
+      return new UnknownError(message);
   }
 }
 
@@ -88,6 +98,7 @@ export class ErrorHandler {
     PathError: 404,
     DuplicateError: 409,
     InternalServerError: 500,
+    UnknownError: 500,
 
   }
   
