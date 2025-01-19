@@ -1,10 +1,10 @@
 import { ImageRepository, PaginationResult } from "../../repositories/image.repository";
 import { UserRepository } from "../../repositories/user.repository";
 import { ImageService } from "../../services/image.service";
-import { IImage } from "../../models/image.model";
+import { IImage } from "../../types";
 import CloudinaryService from "../../services/cloudinary.service";
 import { UploadApiResponse } from "cloudinary";
-import { IUser } from "../../models/user.model";
+import { IUser } from "../../types"
 
 jest.mock('../../repositories/image.repository.ts');
 jest.mock('../../services/cloudinary.service.ts');
@@ -140,6 +140,47 @@ describe('ImageService', () => {
       expect(result).toEqual(mockResult);
       expect(imageRepository.getByUserId).toHaveBeenCalledWith(mockUser._id, {page: 1, limit: 1})
     })
-  })
+  });
+
+  describe('searchByTags', () => {
+    it('should return images filtered by tags with pagination', async () => {
+      const mockTags = ['cat', 'cute'];
+      const mockPage = 1;
+      const mockLimit = 10;
+      const mockResult: PaginationResult<IImage> = {
+        data: [
+          { _id: '1', tags: ['cat', 'cute'], url: 'image1.jpg', userId: 'user-id', createdAt: new Date() },
+          { _id: '2', tags: ['cat'], url: 'image2.jpg', userId: 'user-id', createdAt: new Date() },
+        ] as any,
+        total: 2,
+        page: mockPage,
+        limit: mockLimit,
+        totalPages: 1,
+      };
+  
+      // Mock the repository's `searchByTags` function
+      imageRepository.searchByTags.mockResolvedValueOnce(mockResult);
+  
+      // Call the service function
+      const result = await imageService.searchByTags(mockTags, mockPage, mockLimit);
+  
+      // Assertions
+      expect(imageRepository.searchByTags).toHaveBeenCalledWith(mockTags, mockPage, mockLimit);
+      expect(result).toEqual(mockResult);
+    });
+  
+    it('should throw an error if no tags are provided', async () => {
+      await expect(imageService.searchByTags([], 1, 10)).rejects.toThrow('Tags are required for search');
+    });
+  
+    it('should throw an error if the repository throws an error', async () => {
+      const mockTags = ['cat'];
+      imageRepository.searchByTags.mockRejectedValueOnce(new Error('Database error'));
+  
+      await expect(imageService.searchByTags(mockTags, 1, 10)).rejects.toThrow('Database error');
+      expect(imageRepository.searchByTags).toHaveBeenCalledWith(mockTags, 1, 10);
+    });
+  });
+  
 
 });

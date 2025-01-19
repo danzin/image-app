@@ -5,8 +5,6 @@ import { UserService } from "../../services/user.service";
 import { IUser } from "../../types";
 import { createError } from "../../utils/errors";
 
-
-
 jest.mock('../../services/image.service.ts');
 
 describe('ImageController', () => {

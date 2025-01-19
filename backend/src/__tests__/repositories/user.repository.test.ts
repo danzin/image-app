@@ -1,5 +1,6 @@
 import { UserRepository } from "../../repositories/user.repository";
-import User, { IUser } from "../../models/user.model";
+import User from "../../models/user.model";
+import { IUser } from "../../types";
 import { createError } from "../../utils/errors";
 import mongoose from 'mongoose';
 

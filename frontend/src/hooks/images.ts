@@ -22,7 +22,7 @@ export const useImages = (): UseImagesResult => {
       }
       return undefined;
     },
-    initialPageParam: 1, // Add initialPageParam
+    initialPageParam: 1, 
   });
 
   const imageByIdQuery = (id: string) => useQuery<Image, Error>({

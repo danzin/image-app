@@ -74,7 +74,6 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
-
   async getByUserId(
     userId: string,
     options: PaginationOptions = {}
@@ -121,6 +120,56 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
+  async searchByTags(tags: string[], page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
+    try {
+      const skip = (page - 1) * limit;
+  
+      const [data, total] = await Promise.all([
+        this.model
+          .find({ tags: { $in: tags } }) 
+          .skip(skip)
+          .limit(limit)
+          .exec(),
+        this.model.countDocuments({ tags: { $in: tags } }),
+      ]);
+  
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error: any) {
+      throw createError('InternalServerError', error.message);
+    }
+  }
+  
+  async textSearch(query: string, page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
+    try {
+      const skip = (page - 1) * limit;
+  
+      const [data, total] = await Promise.all([
+        this.model
+          .find({ $text: { $search: query } }) // Text search for the query
+          .skip(skip)
+          .limit(limit)
+          .exec(),
+        this.model.countDocuments({ $text: { $search: query } }),
+      ]);
+  
+      return {
+        data,
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      };
+    } catch (error: any) {
+      throw createError('InternalServerError', error.message);
+    }
+  }
+
   async findById(id: string): Promise<IImage | null> {
     try {
       return await this.model.findById(id);
@@ -152,5 +201,4 @@ export class ImageRepository implements BaseRepository<IImage> {
       throw createError('InternalServerError', error.message);
     }
   }
-
 }

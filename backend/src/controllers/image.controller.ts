@@ -28,7 +28,7 @@ export class ImageController {
       res.header('Access-Control-Allow-Origin', 'http://localhost:5173');  //specific origin
       res.header('Access-Control-Allow-Credentials', 'true');  //allow credentials
 
-      res.status(201).json(images);
+      res.json(images);
     } catch (error) {
       next(createError(error.name, error.message));
     }
@@ -41,7 +41,7 @@ export class ImageController {
     const limit = parseInt(req.query.limit as string) || 10;
     try {
       const images = await this.imageService.getUserImages(decodedUser.id, page, limit);
-      res.status(201).json(images);
+      res.json(images);
     } catch (error) {
       next(createError('UnknownError', 'Failed to fetch images'))
     }
@@ -50,13 +50,32 @@ export class ImageController {
   async getImageById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      console.log('ID:',id);
       const result = await this.imageService.getImageById(id);
-      res.status(200).json(result);
+      res.json(result);
     } catch (error) {
-      console.error(error)
       next(createError(error.name, error.message));
     }
+  }
+
+  async searchByTags(req: Request, res: Response, next: NextFunction): Promise<void>{
+    const { tags, page, limit } = req.query;
+    try {
+      const result = await this.imageService.searchByTags((tags as string).split(','), Number(page), Number(limit));
+      res.json(result);
+    } catch (error) {
+      next(createError(error.name, error.message));
+    }
+  }
+
+  async searchByText(req: Request, res: Response, next: NextFunction): Promise<void>{
+    const { query, page, limit } = req.query;
+    try {
+      const result = await this.imageService.searchByText(query as string, Number(page), Number(limit));
+      res.json(result);
+    } catch (error) {
+      next(createError(error.name, error.message));
+    }
+  
   }
 
 }

@@ -6,9 +6,10 @@ const imageSchema = new Schema<IImage>({
   url: { type: String, required: true },
   publicId: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  tags: {type: [String], default: []}
+  tags: {type: [String], default: [], index: true}
 });
 
-const Image = mongoose.model<IImage>('Image', imageSchema);
+imageSchema.index({ tags: "text" });
 
+const Image = mongoose.model<IImage>('Image', imageSchema);
 export default Image;

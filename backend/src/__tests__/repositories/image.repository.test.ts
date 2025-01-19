@@ -137,4 +137,47 @@ describe('ImageRepository', () => {
       expect(Image.findByIdAndUpdate).toHaveBeenCalledWith(mockId, updateData, { new: true });
     });
   });
+
+  describe('searchByTags', () => {
+    it('should return images filtered by tags with pagination', async () => {
+      const mockTags = ['cat', 'cute'];
+      const mockPage = 1;
+      const mockLimit = 10;
+      const mockSkip = (mockPage - 1) * mockLimit;
+  
+      const mockImages = [
+        { _id: '1', tags: ['cat', 'cute'], url: 'image1.jpg' },
+        { _id: '2', tags: ['cat'], url: 'image2.jpg' },
+      ];
+  
+      const mockTotalCount = 2;
+  
+      //Mock query object with chaining
+      const mockFind = {
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValueOnce(mockImages),
+      };
+  
+      (Image.find as jest.Mock).mockReturnValueOnce(mockFind);
+      (Image.countDocuments as jest.Mock).mockResolvedValueOnce(mockTotalCount);
+  
+      const result = await repository.searchByTags(mockTags, mockPage, mockLimit);
+  
+      expect(Image.find).toHaveBeenCalledWith({ tags: { $in: mockTags } });
+      expect(mockFind.skip).toHaveBeenCalledWith(mockSkip);
+      expect(mockFind.limit).toHaveBeenCalledWith(mockLimit);
+      expect(Image.countDocuments).toHaveBeenCalledWith({ tags: { $in: mockTags } });
+  
+      expect(result).toEqual({
+        data: mockImages,
+        total: mockTotalCount,
+        page: mockPage,
+        limit: mockLimit,
+        totalPages: Math.ceil(mockTotalCount / mockLimit),
+      });
+    });
+  });
+  
+  
 });

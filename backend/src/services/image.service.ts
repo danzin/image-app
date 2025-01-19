@@ -56,6 +56,26 @@ export class ImageService {
       throw createError('InternalServerError', error.message);
     }
   }
+
+  async searchByTags(tags: string[], page: number, limit: number): Promise<Object> {
+    try {
+      if(!tags || tags.length === 0) {
+        throw createError('ValidationError', 'Tags are required for search')
+      }
+      return await this.imageRepository.searchByTags(tags, page, limit);
+    } catch (error) {
+      throw createError('InternalServerError', error.message);
+    }
+  }
+  
+  async searchByText(query: string, page: number, limit: number): Promise<Object> {
+    try {
+      return await this.imageRepository.textSearch(query, page, limit);
+    } catch (error) {
+      throw createError('InternalServerError', error.message);
+    }
+  }
+  
   
   async getImageById(id: string): Promise<Object> {
     try {
