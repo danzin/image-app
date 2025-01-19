@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { createError } from '../utils/errors';
 import sanitize from 'mongo-sanitize';
-import { IUser } from '../models/user.model';
+import { IUser } from '../types';
 
 
 declare global {

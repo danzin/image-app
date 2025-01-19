@@ -10,26 +10,27 @@ interface GalleryProps {
 
 const Gallery: React.FC<GalleryProps> = ({ images }) => {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const openModal = (image: string) => {
-    setSelectedImage(image);
-    const modal = document.getElementById('my_modal_3') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+  const openModal = (image: string | Image | undefined) => {
+    if (!image) return;
+    const imageUrl = typeof image === 'string' ? image : image.url;
+    setSelectedImage(imageUrl);
+    setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setSelectedImage(null);
-    const modal = document.getElementById('my_modal_3') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
+    setIsModalOpen(false);
   };
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDialogElement, MouseEvent>) => {
-    const modalBox = document.querySelector('.modal-box');
-    if (modalBox && !modalBox.contains(e.target as Node)) {
+    const dialogElement = e.currentTarget;
+    const rect = dialogElement.getBoundingClientRect();
+    const isInDialog = (e.clientY >= rect.top && e.clientY <= rect.bottom &&
+      e.clientX >= rect.left && e.clientX <= rect.right);
+    
+    if (!isInDialog) {
       closeModal();
     }
   };
@@ -39,13 +40,15 @@ const Gallery: React.FC<GalleryProps> = ({ images }) => {
     return typeof image === 'string' ? image : image.url;
   };
 
-  const gridClass = images.length < 3 ? 'sm:grid-cols-1 md:grid-cols-2 auto-rows-[600px]' : 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 auto-rows-[300px]';
+  const gridClass = images.length < 3
+    ? 'sm:grid-cols-1 md:grid-cols-2 auto-rows-[600px]'
+    : 'sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 auto-rows-[300px]';
 
   return (
     <div>
       <div className={`box-border p-4 grid ${gridClass} gap-4`}>
         {images.map((img, index) => (
-          <div key={index} className="" onClick={() => openModal(getImageUrl(img))}>
+          <div key={index} onClick={() => openModal(img)}>
             {img && (
               <img
                 src={getImageUrl(img)}
@@ -56,11 +59,13 @@ const Gallery: React.FC<GalleryProps> = ({ images }) => {
           </div>
         ))}
       </div>
-      {selectedImage && (
-        <dialog id="my_modal_3" className="modal" onClick={handleOverlayClick}>
+      {isModalOpen && selectedImage && (
+        <dialog id="my_modal_3" className="bg-transparent max-w-[700px] max-h-[900px] fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5" onClick={handleOverlayClick} open>
           <div className="modal-box">
             <img src={selectedImage} alt="Selected" className="w-full h-full object-cover" />
-            <button className="btn btn-primary" onClick={closeModal}>Close</button>
+            <button className="btn btn-primary" onClick={closeModal}>
+              Close
+            </button>
           </div>
         </dialog>
       )}

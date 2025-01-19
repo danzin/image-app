@@ -1,5 +1,4 @@
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
-import { Readable } from 'stream';
 import { bufferToStream } from '../utils/readable';
 
 cloudinary.config({

@@ -46,14 +46,17 @@ export class ImageService {
   
   async getUserImages(userId: string, page: number, limit: number) {
     try {
-      return await this.imageRepository.getByUserId(userId, { page, limit });
+      const result = await this.imageRepository.getByUserId(userId, { page, limit });
+      if(!result){
+        throw createError('InternalServerError', 'No images')
+        
+      }
+      return result
     } catch (error) {
       throw createError('InternalServerError', error.message);
     }
   }
   
-
-
   async getImageById(id: string): Promise<Object> {
     try {
       const result = await this.imageRepository.findById(id);

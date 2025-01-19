@@ -6,11 +6,7 @@ import Profile from './screens/Profile'
 import Layout from './components/Layout'
 import AuthProvider from './context/AuthContext'
 
-// import Profile from './screens/Profile'
-// import UploadImage from './screens/UploadImage'
-// import Dashboard from './screens/Dashboard'
-// import { AuthProvider } from './context/AuthContext'
-// import Login from './screens/Login'
+
 
 function App() {
   return (

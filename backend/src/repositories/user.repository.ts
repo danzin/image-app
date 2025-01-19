@@ -1,6 +1,6 @@
-import User, { IUser } from '../models/user.model';
+import User from '../models/user.model';
+import { IUser, BaseRepository } from '../types'
 import { createError } from '../utils/errors';
-import { BaseRepository } from './base.repository';
 import { ImageRepository } from './image.repository';
 import mongoose from 'mongoose';
 

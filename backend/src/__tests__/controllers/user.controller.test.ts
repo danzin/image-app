@@ -2,7 +2,7 @@ import { UserController } from '../../controllers/user.controller';
 import { UserService } from '../../services/user.service';
 import { Request, Response, NextFunction } from 'express';
 import { createError } from '../../utils/errors';
-import { IUser } from '../../models/user.model';
+import { IUser } from '../../types';
 
 jest.mock('../../services/user.service');
 

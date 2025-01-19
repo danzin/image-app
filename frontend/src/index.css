@@ -33,21 +33,9 @@ body {
   min-width: 320px;
   min-height: 100vh;
 }
-.modal {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  right: auto;
-  bottom: auto;
-  margin-right: -50%;
-  transform: translate(-50%, -50%);
-  background: transparent;
-  padding: 20px;
-  border-radius: 8px;
-  outline: none;
-}
 
 .gallery-image img {
   width: 300px; 
   height: auto;
 }
+

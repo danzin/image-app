@@ -22,27 +22,26 @@ export class ImageController {
 
   async getImages(req: Request, res: Response, next: NextFunction): Promise<void> {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-
+    const limit = parseInt(req.query.limit as string) || 9;
     try {
       const images = await this.imageService.getImages(page, limit);
       res.header('Access-Control-Allow-Origin', 'http://localhost:5173');  //specific origin
       res.header('Access-Control-Allow-Credentials', 'true');  //allow credentials
 
-      res.json(images);
+      res.status(201).json(images);
     } catch (error) {
       next(createError(error.name, error.message));
     }
   }
 
   async getUserImages(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const { userId } = req.params;
+    const {decodedUser} = req;
+   
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-
     try {
-      const images = await this.imageService.getUserImages(userId, page, limit);
-      res.json(images);
+      const images = await this.imageService.getUserImages(decodedUser.id, page, limit);
+      res.status(201).json(images);
     } catch (error) {
       next(createError('UnknownError', 'Failed to fetch images'))
     }

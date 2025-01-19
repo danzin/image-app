@@ -1,24 +1,28 @@
-import { useQuery, useMutation, UseQueryResult, UseMutationResult, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchImages, fetchImageById, uploadImage, Image } from '../api/imageApi';
 import { fetchUser, User } from '../api/userApi';
 
+
 interface UseImagesResult {
-  
-  imagesQuery: UseQueryResult<Image[], Error>;
-  imageByIdQuery: (id: string) => UseQueryResult<Image, Error>;
-  uploadImageMutation: UseMutationResult<Image, Error, FormData>;
-  userQuery: UseQueryResult<User, Error>;
+  imagesQuery: ReturnType<typeof useInfiniteQuery>;
+  imageByIdQuery: (id: string) => ReturnType<typeof useQuery>;
+  uploadImageMutation: ReturnType<typeof useMutation>;
+  userQuery: ReturnType<typeof useQuery>;
 }
-
-
-
 
 export const useImages = (): UseImagesResult => {
   const queryClient = useQueryClient();
 
-  const imagesQuery = useQuery<Image[], Error>({
+  const imagesQuery = useInfiniteQuery<{ data: Image[], total: number, page: number, limit: number, totalPages: number }, Error>({
     queryKey: ['images'],
     queryFn: fetchImages,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.page < lastPage.totalPages) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1, // Add initialPageParam
   });
 
   const imageByIdQuery = (id: string) => useQuery<Image, Error>({

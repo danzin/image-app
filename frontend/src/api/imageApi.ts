@@ -6,9 +6,11 @@ export interface Image {
   publicId: string;
 }
 
-export const fetchImages = async(): Promise<Image[]> => {
-  const { data } = await axiosClient.get('/api/images');
-  return data;
+
+export const fetchImages = async ({ pageParam = 1 }): Promise<{ data: Image[], total: number, page: number, limit: number, totalPages: number }> => {
+  const response = await axiosClient.get(`/api/images?page=${pageParam}`);
+  console.log(response.data);
+  return response.data;
 };
 
 export const fetchImageById = async(id: string) => {

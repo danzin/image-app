@@ -1,6 +1,6 @@
-import Image, {IImage} from '../models/image.model';
+import Image from '../models/image.model';
+import { IImage, BaseRepository} from '../types';
 import { createError } from '../utils/errors';
-import { BaseRepository } from './base.repository';
 import mongoose from 'mongoose';
 
 export interface PaginationResult<T> {
@@ -86,13 +86,13 @@ export class ImageRepository implements BaseRepository<IImage> {
         sortBy = 'createdAt',
         sortOrder = 'desc'
       } = options;
-
+  
       const skip = (page - 1) * limit;
-
+  
       const sort: { [key: string]: 'asc' | 'desc' } = {
         [sortBy]: sortOrder
       };
-
+  
       const [data, total] = await Promise.all([
         this.model
           .find({ userId })
@@ -102,7 +102,12 @@ export class ImageRepository implements BaseRepository<IImage> {
           .exec(),
         this.model.countDocuments({ userId })
       ]);
-
+  
+  
+      if (!data || data.length === 0) {
+        console.warn('No images found for user:', userId);
+      }
+  
       return {
         data,
         total,
@@ -111,10 +116,10 @@ export class ImageRepository implements BaseRepository<IImage> {
         totalPages: Math.ceil(total / limit)
       };
     } catch (error: any) {
+      console.error('Error fetching images:', error);
       throw createError('InternalServerError', error.message);
     }
   }
-
 
   async findById(id: string): Promise<IImage | null> {
     try {

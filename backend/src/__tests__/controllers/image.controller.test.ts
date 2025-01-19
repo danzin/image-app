@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { ImageController } from "../../controllers/image.controller";
 import { ImageService } from "../../services/image.service";
 import { UserService } from "../../services/user.service";
-import { IUser } from "../../models/user.model";
+import { IUser } from "../../types";
 import { createError } from "../../utils/errors";
 
 

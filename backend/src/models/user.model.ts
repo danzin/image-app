@@ -1,18 +1,7 @@
 import {Schema, model, Document, CallbackError} from 'mongoose';
 import validator from 'validator';
 import bcrypt from 'bcrypt';
-import Image from './image.model';
-
-export interface IUser extends Document{
-  username: string,
-  email: string,
-  password: string,
-  createdAt: Date,
-  updatedAt: Date,
-  isAdmin: boolean,
-  images: string[],
-  comparePassword(candidatePassword: string): Promise<boolean>;
-}
+import { IUser } from '../types';
 
 const userSchema = new Schema<IUser>({
 
