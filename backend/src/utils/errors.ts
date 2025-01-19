@@ -1,119 +1,89 @@
 import express from 'express';
 
-class ValidationError extends Error {
+//improved the error factory
+class AppError extends Error {
   public statusCode: number;
 
+  constructor(name: string, message: string, statusCode: number) {
+    super(message);
+    this.name = name;
+    this.statusCode = statusCode;
+  }
+}
+
+class ValidationError extends AppError {
   constructor(message: string) {
-    super(message);
-    this.name = 'ValidationError';
-    this.statusCode = 400;
-
+    super('ValidationError', message, 400);
   }
 }
 
-class UnauthorizedError extends Error{
-  public statusCode: number;
-
-  constructor(message: string){
-    super(message);
-    this.name = 'UnauthorizedError';
-    this.statusCode = 403;
-  }
-}
-
-class AuthenticationError extends Error {
-  public statusCode: number;
-
-  constructor(message: string){
-    super(message);
-    this.name = 'AuthenticationError';
-    this.statusCode = 401;
-  }
-}
-
-class PathError extends Error {
-  public statusCode: number;
-
-  constructor(message: string){
-    super(message);
-    this.name = 'PathError';
-    this.statusCode = 404;
-  }
-}
-
-class DuplicateError extends Error {
-  public statusCode: number;
-
-  constructor(message: string){
-    super(message);
-    this.name = 'DuplicateError';
-    this.statusCode = 409;
-  }
-}
-
-class InternalServerError extends Error {
-  public statusCode: number;
-
-  constructor(message: string){
-    super(message);
-    this.name = 'InternalServerError';
-    this.statusCode = 500;
-  }
-}
-
-class UnknownError extends Error {
-  public statusCode: number;
-
+class UnauthorizedError extends AppError {
   constructor(message: string) {
-    super(message);
-    this.name = 'UnknownError';
-    this.statusCode = 500;
+    super('UnauthorizedError', message, 403);
   }
 }
 
-export function createError(type: string, message: string): Error{
-  switch(type){
-    case 'ValidationError':
-      return new ValidationError(message);
-    case 'AuthenticationError':
-      return new AuthenticationError(message);
-    case 'PathError':
-      return new PathError(message);
-    case 'UnauthorizedError':
-      return new UnauthorizedError(message);
-    case 'InternalServerError':
-      return new InternalServerError(message);
-    case 'DuplicateError':
-      return new DuplicateError(message);
-    default: 
-      return new UnknownError(message);
+class AuthenticationError extends AppError {
+  constructor(message: string) {
+    super('AuthenticationError', message, 401);
   }
+}
+
+class PathError extends AppError {
+  constructor(message: string) {
+    super('PathError', message, 404);
+  }
+}
+
+class DuplicateError extends AppError {
+  constructor(message: string) {
+    super('DuplicateError', message, 409);
+  }
+}
+
+class InternalServerError extends AppError {
+  constructor(message: string) {
+    super('InternalServerError', message, 500);
+  }
+}
+
+class UnknownError extends AppError {
+  constructor(message: string) {
+    super('UnknownError', message, 500);
+  }
+}
+
+const errorMap: { [key: string]: new (message: string) => AppError } = {
+  ValidationError,
+  UnauthorizedError,
+  AuthenticationError,
+  PathError,
+  DuplicateError,
+  InternalServerError,
+  UnknownError,
+};
+
+export function createError(type: string, message: string): AppError {
+  const ErrorClass = errorMap[type] || UnknownError;
+  return new ErrorClass(message);
 }
 
 export class ErrorHandler {
-  private static errorMap: {  [key: string]: number} = {
-    ValidationError: 400,
-    AuthenticationError: 401,
-    UnauthorizedError: 403,
-    PathError: 404,
-    DuplicateError: 409,
-    InternalServerError: 500,
-    UnknownError: 500,
-
-  }
-  
   static handleError(
-    err: Error, 
-    req: express.Request, 
-    res: express.Response, 
+    err: AppError,
+    req: express.Request,
+    res: express.Response,
     next: express.NextFunction
   ): void {
-    const statusCode = ErrorHandler.errorMap[err.name] || 500;
-    res.status(statusCode).json({
+    const response: any = {
       type: err.name,
       message: err.message,
-      code: statusCode
-  });
+      code: err.statusCode || 500,
+    };
 
+    if (process.env.NODE_ENV !== 'production') {
+      response.stack = err.stack;
+    }
+    res.status(err.statusCode || 500).json(response);
   }
 }
