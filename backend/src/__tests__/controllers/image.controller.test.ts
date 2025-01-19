@@ -105,7 +105,7 @@ describe('ImageController', () => {
 
   describe('getUserImages', () => {
     it('should return user images successfully', async () => {
-      const mockImages = [{ _id: '1', url: 'http://example.com/image1.jpg' }];
+      const mockImages = [{ _id: '1', url: 'http://test.com/image1.jpg' }];
       const mockResult = {
         data: mockImages,
         total: 1,
@@ -133,7 +133,7 @@ describe('ImageController', () => {
 
   describe('getImageById', () => {
     it('should return image by id successfully', async () => {
-      const mockImage = { _id: 'image-id', url: 'http://example.com/image1.jpg' };
+      const mockImage = { _id: 'image-id', url: 'http://test.com/image1.jpg' };
       imageService.getImageById.mockResolvedValueOnce(mockImage);
 
       await imageController.getImageById(req as Request, res as Response, next);
