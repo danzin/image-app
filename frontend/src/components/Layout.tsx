@@ -6,7 +6,7 @@ const Layout: React.FC = () => {
   return (
     <div>
       <Navbar />
-      <div className="main-content grid"> 
+      <div className="main-content grid h-screen"> 
         <Outlet />
       </div>
     </div>

@@ -38,7 +38,8 @@ describe('ImageService', () => {
       url: 'http://test.com/image.jpg',
       userId: 'user-id',
       createdAt: new Date(),
-      tags: ['cat']
+      tags: ['cat'],
+      uploadedBy: 'test-uname'
     };
   
     mockUser = {

@@ -26,7 +26,8 @@ export class ImageService {
         url: cloudImage.url,
         publicId: cloudImage.public_id,
         userId,
-        tags: tags
+        tags: tags,
+        uploadedBy: user.username
       };
       
       const img = await this.imageRepository.create(image);

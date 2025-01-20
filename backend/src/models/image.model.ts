@@ -6,7 +6,8 @@ const imageSchema = new Schema<IImage>({
   url: { type: String, required: true },
   publicId: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  tags: {type: [String], default: [], index: true}
+  tags: {type: [String], default: [], index: true},
+  uploadedBy: {type: String, required: true}
 });
 
 const tagSchema = new Schema<ITag>({

@@ -5,7 +5,8 @@ export interface IImage extends Document {
   url: string;
   publicId: string;
   createdAt: Date;
-  tags: string[]
+  tags: string[];
+  uploadedBy: string;
 }
 
 export interface ITag extends Document {

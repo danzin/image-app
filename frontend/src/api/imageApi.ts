@@ -18,6 +18,13 @@ export const fetchImageById = async(id: string) => {
   return data;
 }
 
+export const fetchImagesByTag = async({tags, page, limit}: {tags: string[],page: number, limit: number }) => {
+  const tagString = tags.join(','); 
+  const { data } = await axiosClient.get(`/api/images/search/tags?tags=${tagString}&page=${page}&limit=${limit}`);
+  console.log(data);
+  return data;
+}
+
 export const uploadImage = async(image: FormData): Promise<Image> => {
   const token = localStorage.getItem('token');
 
@@ -27,4 +34,10 @@ export const uploadImage = async(image: FormData): Promise<Image> => {
     }
   });
   return response.data;
+}
+
+export const fetchTags = async() : Promise<string[]> => {
+  const {data} = await axiosClient.get('/api/images/tags');
+  console.log(data);
+  return data;
 }
