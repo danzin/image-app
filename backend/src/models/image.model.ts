@@ -36,7 +36,7 @@ imageSchema.post('save', async function (doc) {
 });
 
 //Update tags when image is deleted
-//'remove' is decremented so I'm using findOneAndDelete 
+//'remove' is deprecated so I'm using findOneAndDelete 
 imageSchema.pre('findOneAndDelete', async function (next) {
   //Unlike `save` from the function above, `findOneAndDelete` doesn't have direct access to the document it's deleting, 
   //I need to use the `this` context to access the query
