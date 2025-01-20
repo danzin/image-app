@@ -2,32 +2,40 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLogin } from '../api/login';
 import AuthForm from '../components/AuthForm';
+import { ToastContainer, toast } from 'react-toastify';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const { mutateAsync: loginMutation } = useLogin();
 
-  const handleLogin = (formData: { email: string; password: string }) => {
+  const notifySuccess = () => toast.success("Login successful!"); 
+  const notifyError = (message: string) => toast.error(`Login failed: ${message}`);
+
+  const handleLogin = async (formData: { email: string; password: string }) => {
     try {
-      loginMutation({email: formData.email, password: formData.password});
-      navigate('/');
+      await loginMutation({email: formData.email, password: formData.password});
+      notifySuccess();
+      setTimeout(() => navigate('/'), 1500)
     } catch (error: any) {
-      console.error('Login failed:', error.message);
+      notifyError(error.message);
     }  
   };
 
   return (
-    <AuthForm
-      title="Login"
-      fields={[
-        { name: 'email', type: 'email', placeholder: 'email@example.com' },
-        { name: 'password', type: 'password', placeholder: '********' },
-      ]}
-      onSubmit={handleLogin}
-      submitButtonText="Login"
-      linkText="Don't have an account?"
-      linkTo="/register"
-    />
+    <>
+      <ToastContainer />
+      <AuthForm
+        title="Login"
+        fields={[
+          { name: 'email', type: 'email', placeholder: 'email@example.com' },
+          { name: 'password', type: 'password', placeholder: '********' },
+        ]}
+        onSubmit={handleLogin}
+        submitButtonText="Login"
+        linkText="Don't have an account?"
+        linkTo="/register"
+      />
+    </>
   );
 };
 
