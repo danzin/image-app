@@ -46,14 +46,14 @@ const Gallery: React.FC<GalleryProps> = ({ images }) => {
 
   return (
     <div>
-      <div className={`box-border p-4 grid ${gridClass} gap-4`}>
+      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6`}>
         {images.map((img, index) => (
-          <div key={index} onClick={() => openModal(img)}>
+          <div key={index} className='group cursor-pointer relative' onClick={() => openModal(img)}>
             {img && (
               <img
                 src={getImageUrl(img)}
                 alt={`Gallery item ${index}`}
-                className="w-full h-full object-cover cursor-pointer rounded-lg"
+                className="w-full h-48 object-cover rounded-lg transition-transform transform scale-100 group-hover:scale-105"
               />
             )}
           </div>

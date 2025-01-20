@@ -1,6 +1,6 @@
 import { UserService } from '../../services/user.service';
 import { UserRepository } from '../../repositories/user.repository';
-import { IUser } from '../../models/user.model';
+import { IUser } from '../../types';
 import { createError } from '../../utils/errors';
 import jwt from 'jsonwebtoken';
 

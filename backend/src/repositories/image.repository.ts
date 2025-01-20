@@ -1,5 +1,5 @@
-import Image from '../models/image.model';
-import { IImage, BaseRepository} from '../types';
+import Image, { Tag } from '../models/image.model';
+import { IImage, BaseRepository, ITag} from '../types';
 import { createError } from '../utils/errors';
 import mongoose from 'mongoose';
 
@@ -20,9 +20,11 @@ interface PaginationOptions {
 
 export class ImageRepository implements BaseRepository<IImage> {
   private model: mongoose.Model<IImage>;
+  private tag: mongoose.Model<ITag>;
 
   constructor(){
     this.model = Image;
+    this.tag = Tag;
   }
 
   async create(image: any): Promise<IImage> {
@@ -88,10 +90,12 @@ export class ImageRepository implements BaseRepository<IImage> {
   
       const skip = (page - 1) * limit;
   
+      //assemble sort order
       const sort: { [key: string]: 'asc' | 'desc' } = {
         [sortBy]: sortOrder
       };
   
+
       const [data, total] = await Promise.all([
         this.model
           .find({ userId })
@@ -178,16 +182,15 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
-  
-
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string): Promise<IImage> {
     try {
-      return await this.model.findByIdAndDelete(id);
+      const result = await this.model.findOneAndDelete( {_id:id} );
+      console.log('result inside image.repository: ',result);
+      return result;
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }
   }
-
 
   async deleteMany(userId: string): Promise<boolean> {
     const result = await this.model.deleteMany({userId: userId});
@@ -197,6 +200,14 @@ export class ImageRepository implements BaseRepository<IImage> {
   async update(id: string, updateData: Partial<IImage>): Promise<IImage | null> {
     try {
       return await this.model.findByIdAndUpdate(id, updateData, { new: true });
+    } catch (error: any) {
+      throw createError('InternalServerError', error.message);
+    }
+  }
+
+  async getTags(): Promise<ITag[] | ITag> {
+    try {
+      return await this.tag.find().sort({modifiedAt: -1});
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }

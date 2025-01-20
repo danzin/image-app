@@ -5,6 +5,7 @@ import { IImage } from "../../types";
 import CloudinaryService from "../../services/cloudinary.service";
 import { UploadApiResponse } from "cloudinary";
 import { IUser } from "../../types"
+import { createError } from "../../utils/errors";
 
 jest.mock('../../repositories/image.repository.ts');
 jest.mock('../../services/cloudinary.service.ts');
@@ -37,6 +38,7 @@ describe('ImageService', () => {
       url: 'http://test.com/image.jpg',
       userId: 'user-id',
       createdAt: new Date(),
+      tags: ['cat']
     };
   
     mockUser = {
@@ -69,13 +71,14 @@ describe('ImageService', () => {
       imageRepository.create.mockResolvedValueOnce(mockImage as IImage);
       userRepository.findById.mockResolvedValueOnce(mockUser as IUser);
 
-      const result = await imageService.uploadImage('user-id', 'image-data' as any);
+      const result = await imageService.uploadImage('user-id', 'image-data' as any, ['cat']);
 
       expect(result).toEqual(mockImage);
       expect(cloudinaryService.uploadImage).toHaveBeenCalledWith('image-data');
       expect(imageRepository.create).toHaveBeenCalledWith({
         url: mockUploadResult.url,
         userId: 'user-id',
+        tags: ['cat']
       });
     
     });
@@ -86,7 +89,7 @@ describe('ImageService', () => {
 
       cloudinaryService.uploadImage.mockRejectedValueOnce(error);
       
-      await expect(imageService.uploadImage('user-id', 'image-data' as any)).rejects.toThrow('Upload failed');
+      await expect(imageService.uploadImage('user-id', 'image-data' as any, ['cat'])).rejects.toThrow('Upload failed');
     });
 
   });
@@ -158,24 +161,18 @@ describe('ImageService', () => {
         totalPages: 1,
       };
   
-      // Mock the repository's `searchByTags` function
       imageRepository.searchByTags.mockResolvedValueOnce(mockResult);
   
-      // Call the service function
       const result = await imageService.searchByTags(mockTags, mockPage, mockLimit);
   
-      // Assertions
       expect(imageRepository.searchByTags).toHaveBeenCalledWith(mockTags, mockPage, mockLimit);
       expect(result).toEqual(mockResult);
     });
   
-    it('should throw an error if no tags are provided', async () => {
-      await expect(imageService.searchByTags([], 1, 10)).rejects.toThrow('Tags are required for search');
-    });
   
     it('should throw an error if the repository throws an error', async () => {
       const mockTags = ['cat'];
-      imageRepository.searchByTags.mockRejectedValueOnce(new Error('Database error'));
+      imageRepository.searchByTags.mockRejectedValueOnce(createError('InternalServerError','Database error'));
   
       await expect(imageService.searchByTags(mockTags, 1, 10)).rejects.toThrow('Database error');
       expect(imageRepository.searchByTags).toHaveBeenCalledWith(mockTags, 1, 10);

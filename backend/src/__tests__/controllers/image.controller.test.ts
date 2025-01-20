@@ -34,6 +34,7 @@ describe('ImageController', () => {
         userId: 'user-id',
         id: 'image-id',
       },
+      body:{tags: '["cat"]'}
     } as Partial<Request>;
 
 
@@ -53,11 +54,12 @@ describe('ImageController', () => {
   describe('upploadImage', () => {
     it('should upload an image successfully', async () => {
       const mockResult = { url: 'http://example.com/image.jpg' };
+      const mockTags = JSON.parse(req.body.tags);
       imageService.uploadImage.mockResolvedValueOnce(mockResult);
 
       await imageController.uploadImage(req as Request, res as Response, next);
 
-      expect(imageService.uploadImage).toHaveBeenCalledWith('user-id', Buffer.from('mock-buffer'));
+      expect(imageService.uploadImage).toHaveBeenCalledWith('user-id', Buffer.from('mock-buffer'), mockTags);
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(mockResult);
     });

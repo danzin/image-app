@@ -1,5 +1,6 @@
 import { ImageRepository } from '../../repositories/image.repository';
 import Image from '../../models/image.model';
+import { IImage, IUser } from '../../types';
 
 
 //mock the model
@@ -7,10 +8,18 @@ jest.mock('../../models/image.model');
 
 describe('ImageRepository', () => {
   let repository: ImageRepository;
-  
+  let mockImage: IImage;
   beforeEach(() => {
     jest.clearAllMocks();
     repository = new ImageRepository();
+    mockImage = {
+      _id: 'test-id',
+      url: 'http://test.com/image.jpg',
+      userId: 'user-id',
+      createdAt: new Date(),
+      tags: ['cat']
+    } as unknown as IImage;
+
   });
 
   describe('create', () => {
@@ -102,12 +111,12 @@ describe('ImageRepository', () => {
   describe('delete', () => {
     it('should delete an image successfully', async () => {
       const mockId = 'test-id';
-      (Image.findByIdAndDelete as jest.Mock).mockResolvedValueOnce(true);
+      (Image.findOneAndDelete as jest.Mock).mockResolvedValueOnce(mockImage);
       
       const result = await repository.delete(mockId);
       
-      expect(result).toBe(true);
-      expect(Image.findByIdAndDelete).toHaveBeenCalledWith(mockId);
+      expect(result).toBe(mockImage);
+      expect(Image.findOneAndDelete).toHaveBeenCalledWith({_id: mockId});
     });
   });
 

@@ -8,6 +8,12 @@ export interface IImage extends Document {
   tags: string[]
 }
 
+export interface ITag extends Document {
+  tag: string;
+  count: number;
+  modifiedAt: Date;
+}
+
 export interface IUser extends Document{
   username: string,
   email: string,
@@ -23,6 +29,6 @@ export interface BaseRepository<T> {
   create(item: T): Promise<T>;
   findById(id: string): Promise<T | null>;
   update(id: string, item: Partial<T>): Promise<T | null>;
-  delete(id: string): Promise<|boolean>;
+  delete(id: string): Promise< T | boolean>;
 }
 

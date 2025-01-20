@@ -1,6 +1,6 @@
 import express from 'express';
 
-//improved the error factory
+//improved err factory
 class AppError extends Error {
   public statusCode: number;
 
@@ -81,6 +81,7 @@ export class ErrorHandler {
       code: err.statusCode || 500,
     };
 
+    //Return stack trace when not in production
     if (process.env.NODE_ENV !== 'production') {
       response.stack = err.stack;
     }

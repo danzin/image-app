@@ -12,8 +12,9 @@ export class ImageController {
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { decodedUser, file } = req;
+      const tags = JSON.parse(req.body.tags);
 
-      const result = await this.imageService.uploadImage(decodedUser.id, file.buffer);
+      const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
       res.status(201).json(result);
     } catch (error) {
       next(createError(error.name, error.message));
@@ -76,6 +77,27 @@ export class ImageController {
       next(createError(error.name, error.message));
     }
   
+  }
+
+  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
+    const { id } = req.params;
+    try {
+      const result = await this.imageService.deleteImage(id);
+      res.json(result)
+    } catch (error) {
+      next(createError(error.name, error.message));
+
+    }
+  }
+
+  async getTags(req: Request, res: Response, next: NextFunction): Promise<void>{
+    try {
+      const result = await this.imageService.getTags();
+      res.json(result)
+    } catch (error) {
+      next(createError(error.name, error.message));
+
+    }
   }
 
 }

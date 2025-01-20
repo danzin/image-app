@@ -2,6 +2,7 @@ import { ImageRepository, PaginationResult } from '../repositories/image.reposit
 import { UserRepository } from '../repositories/user.repository';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
+import { IImage, ITag } from '../types';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -14,7 +15,7 @@ export class ImageService {
     this.cloudinaryService = new CloudnaryService();
   }
 
-  async uploadImage(userId: string, file: Buffer): Promise<Object> {
+  async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
     try {
       const user = await this.userRepository.findById(userId);
       if(!user){
@@ -25,6 +26,7 @@ export class ImageService {
         url: cloudImage.url,
         publicId: cloudImage.public_id,
         userId,
+        tags: tags
       };
       
       const img = await this.imageRepository.create(image);
@@ -86,6 +88,28 @@ export class ImageService {
       return result;
     } catch (error) {
       throw createError('InternalServerError', error.message);
+    }
+  }
+
+  async deleteImage(id: string): Promise<IImage> {
+    try {
+      const result = await this.imageRepository.delete(id)
+      return result;
+    } catch (error) {
+      throw createError('InternalServerError', error.message);      
+    }
+  }
+
+  async getTags(): Promise<ITag[] | ITag> {
+    try {
+      const result = await this.imageRepository.getTags();
+      if(!result){
+        throw createError('PathError', 'Tags not found');
+      }
+      return result;  
+    } catch (error: any) {
+      throw createError('InternalServerError', error.message);
+
     }
   }
 

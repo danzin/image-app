@@ -24,8 +24,12 @@ export class ImageRoutes {
     
     this.router.get('/', this.imageController.getImages.bind(this.imageController)); 
     this.router.get('/user', AuthentitactionMiddleware.auth, this.imageController.getUserImages.bind(this.imageController))
+    this.router.get('/search/tags', this.imageController.searchByTags.bind(this.imageController));
+    this.router.get('/tags', this.imageController.getTags.bind(this.imageController));
 
     this.router.get('/:id', this.imageController.getImageById.bind(this.imageController));
-  
+
+    this.router.delete('/:id', this.imageController.deleteImage.bind(this.imageController));
+
   }
 }
