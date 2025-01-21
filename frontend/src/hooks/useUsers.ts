@@ -1,12 +1,8 @@
-import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useQuery } from '@tanstack/react-query';
-import { fetchUser, fetchUserImages,  } from '../api/userApi';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
+import { fetchUser, fetchUserImages } from '../api/userApi';
 import { IImage, IUser } from '../types';
-import { UserUserResult } from '../types';
 
-
-export const useUser = (): UserUserResult => {
-  
-  const useCurrentUser = () => {
+  export const useCurrentUser = () => {
     return useQuery<IUser>({
       queryKey: ['user'],
       queryFn: fetchUser,
@@ -15,35 +11,28 @@ export const useUser = (): UserUserResult => {
       refetchOnWindowFocus: true,
     });
   };
-  
-  const userQuery = useQuery<IUser, Error>({
-    queryKey: ['user'],
-    queryFn: fetchUser,
-  });
-  
-  const useUserImages = (userId: string) => {
-    return useInfiniteQuery<
-      { data: IImage[]; total: number; page: number; limit: number; totalPages: number },
-      Error
-    >({
-      queryKey: ['userImages', userId],
-      queryFn: ({ pageParam = 1 }) => fetchUserImages({ pageParam, userId }), // Pass `pageParam`
-      getNextPageParam: (lastPage) => {
-        if (lastPage.page < lastPage.totalPages) {
-          return lastPage.page + 1;
-        }
-        return undefined; // No more pages to fethc
-      },
-      initialPageParam: 1, // Start from the first page
-    });
-  };
-  
-  
-  return {
-    
-    useCurrentUser,
-    userQuery,
-    useUserImages
-  };
-}
 
+export const useUserImages = (userId: string) => {
+  console.log('useUserImages called with userId:', userId); // Add this log
+  
+  return useInfiniteQuery<
+    { data: IImage[]; total: number; page: number; limit: number; totalPages: number },
+    Error
+  >({
+    queryKey: ['userImages', userId],
+    queryFn: ({ pageParam = 1 }) => {
+      console.log('Fetching images for userId:', userId, 'page:', pageParam); // Add this log
+      return fetchUserImages({ pageParam, userId });
+    },
+    getNextPageParam: (lastPage) => {
+      console.log('Getting next page param:', lastPage); // Add this log
+      if (lastPage.page < lastPage.totalPages) {
+        return lastPage.page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
+    enabled: !!userId && userId !== '', // Make sure we have a valid userId
+  });
+};
+  

@@ -18,18 +18,21 @@
 }
 
 body {
-  min-height: 100%; 
+ 
   background-image: 
   radial-gradient(circle at center center,rgba(33,33,33,0),rgb(27,27,46)),
   repeating-linear-gradient(135deg, rgb(27,27,46) 0px, rgb(27,27,46) 1px,transparent 1px, transparent 4px),
   repeating-linear-gradient(45deg, rgb(56,56,56) 0px, rgb(56,56,56) 5px,transparent 5px, transparent 6px),
   linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
 
+
+   
   
-  /* margin: 0; */
-  /* display: grid; */
-  /* place-items: center; */
-  /* min-width: 320px; */
+  
+  /* margin: 0; 
+  display: grid;
+   place-items: center; 
+    min-width: 320px;  */
 }
 
 .gallery-image img {

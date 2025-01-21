@@ -28,7 +28,7 @@ export const fetchUserImages = async ({
 }> => {
   const token = localStorage.getItem('token');
   const { data } = await axiosClient.get(
-    `/api/images/user/${userId}?page=${pageParam}`, // Correctly pass `pageParam`
+    `/api/images/user/?page=${pageParam}`, // Correctly pass `pageParam`
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -37,3 +37,4 @@ export const fetchUserImages = async ({
   );
   return data;
 };
+

@@ -1,12 +1,12 @@
 import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, useQuery } from "@tanstack/react-query";
 
 export interface IUser {
+  _id: string;
   username: string;
   email: string;
   images: string[];
   isAdmin: boolean;
 }
-
 
 export interface IImage {
   _id: string;
@@ -30,7 +30,11 @@ export interface TagsProps {
 }
 
 export interface GalleryProps {
-  images: (IImage)[];
+  images: IImage[] | undefined;  // Make images possibly undefined
+  fetchNextPage: () => void;
+  hasNextPage: boolean | undefined;
+  isFetchingNext: boolean;
+  source: string | undefined;
 }
 
 export interface UserUserResult {
@@ -42,4 +46,11 @@ export interface UserUserResult {
 
 export interface UploadFormProps {
   onClose: () => void;
+}
+
+export interface AuthContextData {
+  isLoggedIn: boolean;
+  user: IUser | null;
+  login: (user: IUser, token: string) => void;
+  logout: () => void;
 }

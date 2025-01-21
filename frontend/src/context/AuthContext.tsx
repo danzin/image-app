@@ -1,30 +1,22 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
-import { IUser } from '../types';
+import { AuthContextData, IUser } from '../types';
 
-interface AuthContextData {
-  isLoggedIn: boolean;
-  user: IUser | null;
-  login: (user: IUser, token: string) => void;
-  logout: () => void;
 
-}
-
-const AuthContext = createContext<AuthContextData>({
-  isLoggedIn: false,
-  user: null,
-  login: () => {},
-  logout: () => {},
-
-  
-});
+//Initialize context with default values
+const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<IUser | null>(null);
+  const [loading, setLoading] = useState<boolean>(true); // Track loading
+
   useEffect(() => {
     const token = localStorage.getItem('token');
+    //Check if token exists in local storage
     if (token) {
+      //Validate token with backend
+      //Backend will respond with an error if token is invalid
       axiosClient
         .get('/api/users/me', {
           headers: { Authorization: `Bearer ${token}` },
@@ -34,17 +26,21 @@ function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoggedIn(true);
         })
         .catch(() => {
-          localStorage.removeItem('token');
+          localStorage.removeItem('token'); //Clear invadlid token
+        })
+        .finally(() => {
+          setLoading(false); //Set loading to false
         });
+    } else {
+      setLoading(false); //No need to fetch because there's no token
     }
   }, []);
 
-  const login = async (user: IUser, token: string) => {
+  const login = (user: IUser, token: string) => {
     setUser(user);
     localStorage.setItem('token', token);
     setIsLoggedIn(true);
   };
-
 
   const logout = () => {
     setUser(null);
@@ -54,11 +50,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
-      {children}
+      {!loading ? children : <div>Loading...</div>} {/* Show loading state */}
     </AuthContext.Provider>
   );
 }
 
+
+//Custom hook for AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

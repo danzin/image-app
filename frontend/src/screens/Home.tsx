@@ -1,25 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useImages } from '../hooks/useImages';
+import { Tags } from '../components/TagsContainer';
 import Gallery from '../components/Gallery';
-import {Tags} from '../components/TagsContainer';
 
-const Home = () => {
+const Home: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeImages, setActiveImages] = useState<any[]>([]);
 
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-
   const { imagesQuery, imagesByTagQuery } = useImages();
-  
+
   const {
     data: allImagesData,
     fetchNextPage: fetchNextAllImages,
     hasNextPage: hasNextAllImages,
     isFetchingNextPage: isFetchingNextAllImages,
     isLoading: isLoadingAll,
-    error: errorAll
+    error: errorAll,
   } = imagesQuery;
+
 
   const {
     data: filteredImagesData,
@@ -27,50 +25,16 @@ const Home = () => {
     hasNextPage: hasNextFiltered,
     isFetchingNextPage: isFetchingNextFiltered,
     isLoading: isLoadingFiltered,
-    error: errorFiltered
+    error: errorFiltered,
   } = imagesByTagQuery(selectedTags, 1, 10);
 
   useEffect(() => {
-    const images = selectedTags.length === 0
-      ? allImagesData?.pages.flatMap((page) => page.data) || []
-      : filteredImagesData?.pages.flatMap((page) => page.data) || [];
-    
+    const images =
+      selectedTags.length === 0
+        ? allImagesData?.pages.flatMap((page) => page.data) || []
+        : filteredImagesData?.pages.flatMap((page) => page.data) || [];
     setActiveImages(images);
   }, [allImagesData, filteredImagesData, selectedTags]);
-
-  useEffect(() => {
-    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
-      if (entries[0].isIntersecting) {
-        if (selectedTags.length === 0 && hasNextAllImages) {
-          fetchNextAllImages();
-        } else if (selectedTags.length > 0 && hasNextFiltered) {
-          fetchNextFiltered();
-        }
-      }
-    };
-
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    observerRef.current = new IntersectionObserver(handleIntersection);
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [
-    selectedTags,
-    hasNextAllImages,
-    hasNextFiltered,
-    fetchNextAllImages,
-    fetchNextFiltered
-  ]);
 
   const handleTagsChange = (tags: string[]) => {
     setSelectedTags(tags);
@@ -80,49 +44,57 @@ const Home = () => {
     setSelectedTags([]);
   };
 
-  const isLoading = (isLoadingAll && selectedTags.length === 0) || 
-                    (isLoadingFiltered && selectedTags.length > 0);
+  const isLoading =
+    (isLoadingAll && selectedTags.length === 0) ||
+    (isLoadingFiltered && selectedTags.length > 0);
   const error = errorAll || errorFiltered;
   const isFetchingNext = isFetchingNextAllImages || isFetchingNextFiltered;
 
   return (
-    <div className="grid grid-cols-5 gap-4">
-      <div className="container flex flex-col overflow-y-auto mx-auto p-6 col-span-1">
-        <h1 className="text-3xl font-bold mb-4">Search Tags</h1>
-        <Tags 
-          selectedTags={selectedTags}
-          onSelectTags={handleTagsChange}
-        />
-        {selectedTags.length > 0 && (
-          <button 
-            className="mt-4 bg-gray-200 text-gray-700 rounded-full px-4 py-2"
-            onClick={clearTags}
-          >
-            Clear Filters
-          </button>
-        )}
+    <div className="flex flex-col gap-3 h-screen">
+
+      {/* Header */}
+      <div className=" flex items-center justify-between px-4 h-[9vh]">
+        <div className="flex flex-col justify-center h-full">
+          <h1 className="text-2xl lg:text-3xl font-bold">Welcome to the Image Gallery</h1>
+        </div>
       </div>
 
-      <div className="container mx-auto p-6 col-span-4">
-        <h1 className="text-3xl font-bold mb-4">Welcome to the Image Gallery</h1>
-        <p className="text-lg mb-4">
-          {selectedTags.length > 0 
-            ? `Showing images tagged with: ${selectedTags.join(', ')}`
-            : 'Explore our collection of images.'
-          }
-        </p>
+      <div className='flex flex-grow overflow-hidden'>
 
-        {isLoading ? (
-          <p>Loading images...</p>
-        ) : error ? (
-          <p>Error fetching images</p>
-        ) : (
-          <>
-            <Gallery images={activeImages} />
-            <div ref={loadMoreRef} />
-            {isFetchingNext && <p>Loading more...</p>}
-          </>
-        )}
+        {/* Gallery Section */}
+        <div className="w-3/4 flex flex-col mx-auto p-6 overflow-y-auto items-center align-center ">
+        <div className="flex flex-col">
+            {selectedTags.length > 0 && (
+              <button
+              className="bg-gray-200 text-gray-700 rounded-full px-4 py-2"
+              onClick={clearTags}
+              >
+                Clear Filters
+              </button>
+            )}
+
+          </div>
+          {isLoading ? (
+            <p>Loading images...</p>
+          ) : error ? (
+            <p>Error fetching images</p>
+          ) : (
+            <Gallery
+            images={activeImages}
+            fetchNextPage={selectedTags.length === 0 ? fetchNextAllImages : fetchNextFiltered}
+            hasNextPage={selectedTags.length === 0 ? hasNextAllImages : hasNextFiltered}
+            isFetchingNext={isFetchingNext}
+            source="all"
+            />
+          )}
+        </div>
+
+        {/* Tags Section */}
+        <div className="w-1/4 h-full flex flex-col flex-wrap gap-4 overflow-y-auto p-6">
+          <Tags selectedTags={selectedTags} onSelectTags={handleTagsChange} />
+          
+        </div>
       </div>
     </div>
   );
