@@ -30,9 +30,6 @@ const DashboardLayout = () => {
     error
   });
 
- 
-  
-
   const handleOpenModal = () => {
     setIsModalOpen(true);
     console.log('MODAAAAAAAAAAAAAAAAAAAAAAAAAAL')
@@ -67,9 +64,6 @@ const DashboardLayout = () => {
       console.error('Error uploading avatar:', error);
     }
   }, 3500);
-
-  
-
 
   return (
     <div className="min-h-screen bg-gray-50">
