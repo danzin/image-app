@@ -10,6 +10,10 @@ const userSchema = new Schema<IUser>({
     required: [true, 'Username is required'],
     unique: true,
   },
+  avatar:{
+    type: String,
+    required: false,
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],

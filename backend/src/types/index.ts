@@ -18,6 +18,7 @@ export interface ITag extends Document {
 export interface IUser extends Document{
   username: string,
   email: string,
+  avatar: string,
   password: string,
   createdAt: Date,
   updatedAt: Date,

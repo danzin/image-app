@@ -59,6 +59,17 @@ export class UserController {
     }
   }
 
+  async updateAvatar(req: Request, res: Response, next: NextFunction): Promise<void>{
+    try {
+      const { decodedUser, file } = req;
+      console.log(file)
+      await this.userService.updateAvatar(decodedUser.id, file.buffer);
+      res.status(200).end();
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void>{
     try {
       const { id } = req.params;

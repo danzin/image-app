@@ -80,8 +80,26 @@ export class UserRepository implements BaseRepository<IUser> {
   }
 
   async addImageToUser(userId: string, imageUrl: string): Promise<IUser | null> {
-    return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
+    try {
+
+      return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
   }
+
+  async updateAvatar(userId: string, avatar: string): Promise<string | null>{
+    try {
+      const result = await this.model.findByIdAndUpdate(userId, {$set: {avatar: avatar}});
+      if(!result){
+        return null;
+      }
+      return avatar;
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
+  }
+
 
   //TODO: Handle cloudinary deletion and tags
   async delete(id: string): Promise<boolean> {

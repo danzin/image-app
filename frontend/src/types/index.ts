@@ -6,6 +6,7 @@ export interface IUser {
   email: string;
   images: string[];
   isAdmin: boolean;
+  avatar:string;
 }
 
 export interface IImage {

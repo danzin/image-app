@@ -95,7 +95,7 @@ const Navbar = () => {
                       <button className="flex items-center space-x-3" tabIndex={0}>
                         <img
                           className="w-8 h-8 rounded-full"
-                          src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+                          src={user.avatar}
                           alt="Profile"
                         />
                         <ChevronDown className="w-4 h-4 text-gray-400" />

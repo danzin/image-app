@@ -1,10 +1,13 @@
 import { UserRepository } from '../repositories/user.repository';
 import { IUser } from '../types';
 import { createError } from '../utils/errors';
+import  CloudnaryService  from './cloudinary.service';
+
 import jwt from 'jsonwebtoken';
 
 export class UserService {
   private userRepository: UserRepository;
+  private cloudinaryService: CloudnaryService;
 
   private generateToken(user: IUser): string{
     const payload = { id: user._id, email: user.email, username: user.username };
@@ -16,6 +19,8 @@ export class UserService {
   
   constructor() {
     this.userRepository = new UserRepository();
+    this.cloudinaryService = new CloudnaryService();
+
   }
 
   async registerUser(userData: IUser): Promise<IUser> {
@@ -50,14 +55,35 @@ export class UserService {
     return this.userRepository.deleteAll();
   }
 
-  async update(id: string, userData: Partial<IUser>): Promise<void>{
+  async update(id: string, userData: Partial<IUser>,): Promise<void>{
     try {
+
       const user = await this.userRepository.update(id, userData);
       if(!user){
         throw createError('ValidationError', 'User not found');
       }
     } catch (error) {
       throw createError(error.name, error.message);
+    }
+  }
+
+  async updateAvatar(userId: string, file: Buffer): Promise<null | void>{
+    try {
+      const user = await this.userRepository.findById(userId);
+      if(!user){
+        throw createError('ValidationError', 'User not found');
+      }
+      const cloudImage = await this.cloudinaryService.uploadImage(file);
+      const avatar = cloudImage.url;
+
+      const result = await this.userRepository.updateAvatar(userId, avatar);
+      if(!result){
+        throw createError('InternalServerError', 'Error uploadng avatar')
+      }
+      return null;
+    } catch (error) {
+      throw createError(error.name, error.message)
+
     }
   }
 

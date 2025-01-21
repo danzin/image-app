@@ -2,6 +2,7 @@ import express from 'express';
 import { UserController } from '../controllers/user.controller'
 import { UserEditValidation, UserLoginValidation, UserRegistrationValidation, ValidationMiddleware } from '../middleware/validation.middleware';
 import { AuthentitactionMiddleware } from '../middleware/authorization.middleware';
+import upload from '../config/multer';
 
 export class UserRoutes {
   public router: express.Router;
@@ -21,14 +22,22 @@ export class UserRoutes {
     this.router.get('/', this.userController.getUsers.bind(this.userController));
     this.router.get('/me', AuthentitactionMiddleware.auth, this.userController.getMe.bind(this.userController));
     this.router.delete('/dropUsers', this.userController.dropUsers.bind(this.userController));
+    
     this.router.post('/login',
       ValidationMiddleware.validate(new UserLoginValidation()),
       this.userController.login.bind(this.userController));
-    this.router.post('/edit',
+    
+      this.router.post('/edit',
       AuthentitactionMiddleware.auth,
       ValidationMiddleware.validate(new UserEditValidation()),
       this.userController.updateUser.bind(this.userController)),
-      this.router.delete('/delete/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
+    
+    this.router.post('/avatar',
+      AuthentitactionMiddleware.auth,
+      upload.single('avatar'),
+      this.userController.updateAvatar.bind(this.userController));
+    
+    this.router.delete('/delete/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
 
     }
 
