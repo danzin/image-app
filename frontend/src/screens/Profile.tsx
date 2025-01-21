@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { EditProfile } from '../components/EditProfile';
 import Gallery from '../components/Gallery';
 import Sidebar from '../components/Sidebar';
-import { useCurrentUser, useUserImages } from '../hooks/users';
+import { useUser } from '../hooks/useUsers';
 
 
 const Profile: React.FC = () => {
+  const { useCurrentUser, useUserImages } = useUser()
   const { data: user, isLoading: isUserLoading, error: userError } = useCurrentUser();
   const userId = user?.id || '';
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading: isImagesLoading, error: imagesError } = useUserImages(userId);
@@ -42,6 +43,7 @@ const Profile: React.FC = () => {
 
   return(
     <div className="profile-page grid">
+
 
       <Sidebar setView={setView} />
       <div className="content flex container mx-auto p-4 justify-center">

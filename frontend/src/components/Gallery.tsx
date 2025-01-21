@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
+import { IImage } from '../types'
+import { GalleryProps } from '../types';
 
-interface Image {
-  url: string;
-  tags: string[];
-  uploadedBy: string;
-}
 
-interface GalleryProps {
-  images: (string | Image | undefined)[];
-}
 
 const Gallery: React.FC<GalleryProps> = ({ images }) => {
-  const [selectedImage, setSelectedImage] = useState<Image>();
+  const [selectedImage, setSelectedImage] = useState<IImage>();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const openModal = (image: Image) => {
+  const openModal = (image: IImage) => {
     if (!image) return;
     // const imageUrl = typeof image === 'string' ? image : image.url;
     setSelectedImage(image);
@@ -38,7 +32,7 @@ const Gallery: React.FC<GalleryProps> = ({ images }) => {
   };
 
 
-  const getImageTags = (image: Image) =>{
+  const getImageTags = (image: IImage) =>{
     if (!image) return '';
 
     return image.tags.join(', ')
@@ -52,7 +46,7 @@ const Gallery: React.FC<GalleryProps> = ({ images }) => {
     <div>
       <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6`}>
         {images.map((img, index) => (
-          <div key={index} className='group cursor-pointer relative' onClick={() => openModal(img as Image)}>
+          <div key={index} className='group cursor-pointer relative' onClick={() => openModal(img as IImage)}>
             {img && (
               <>
                 <img

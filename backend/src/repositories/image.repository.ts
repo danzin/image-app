@@ -182,6 +182,7 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
+  //TODO: Handle removing images from user collection
   async delete(id: string): Promise<IImage> {
     try {
       const result = await this.model.findOneAndDelete( {_id:id} );
@@ -192,6 +193,7 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
+  //TODO: Make sure deleteMany handles tags as well
   async deleteMany(userId: string): Promise<boolean> {
     const result = await this.model.deleteMany({userId: userId});
     return !!result;

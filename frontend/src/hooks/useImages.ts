@@ -1,20 +1,12 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchImages, fetchImageById, uploadImage, Image, fetchTags, fetchImagesByTag } from '../api/imageApi';
-import { fetchUser, User } from '../api/userApi';
+import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag } from '../api/imageApi';
+import { IImage, UseImagesResult } from '../types'
 
-interface UseImagesResult {
-  imagesQuery: ReturnType<typeof useInfiniteQuery>;
-  imageByIdQuery: (id: string) => ReturnType<typeof useQuery>;
-  uploadImageMutation: ReturnType<typeof useMutation>;
-  userQuery: ReturnType<typeof useQuery>;
-  tagsQuery: ReturnType<typeof useQuery>;
-  imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
-}
 
 export const useImages = (): UseImagesResult => {
   const queryClient = useQueryClient();
 
-  const imagesQuery = useInfiniteQuery<{ data: Image[], total: number, page: number, limit: number, totalPages: number }, Error>({
+  const imagesQuery = useInfiniteQuery<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, Error>({
     queryKey: ['images'],
     queryFn: fetchImages,
     getNextPageParam: (lastPage) => {
@@ -26,12 +18,12 @@ export const useImages = (): UseImagesResult => {
     initialPageParam: 1, 
   });
 
-  const imageByIdQuery = (id: string) => useQuery<Image, Error>({
+  const imageByIdQuery = (id: string) => useQuery<IImage, Error>({
     queryKey: ['image', id],
     queryFn: () => fetchImageById(id),
   });
 
-  const uploadImageMutation = useMutation<Image, Error, FormData>({
+  const uploadImageMutation = useMutation<IImage, Error, FormData>({
     mutationFn: uploadImage,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['images'] });
@@ -39,10 +31,7 @@ export const useImages = (): UseImagesResult => {
     },
   });
 
-  const userQuery = useQuery<User, Error>({
-    queryKey: ['user'],
-    queryFn: fetchUser,
-  });
+  
 
   const tagsQuery = useQuery<string[], Error>({
     queryKey: ['tags'],
@@ -65,7 +54,6 @@ export const useImages = (): UseImagesResult => {
     imagesQuery,
     imageByIdQuery,
     uploadImageMutation,
-    userQuery,
     tagsQuery,
     imagesByTagQuery,
   };

@@ -1,12 +1,6 @@
 import axiosClient from './axiosClient';
-import { Image } from './imageApi';
+import { IImage } from '../types';
 
-export interface User { 
-  id: string;
-  name: string;
-  email: string;
-  images: string[];
-}
 
 
 export const fetchUser = async () => {
@@ -19,12 +13,27 @@ export const fetchUser = async () => {
   return data;
 };
 
-export const fetchUserImages = async ({ pageParam = 1, userId }: { pageParam?: number, userId: string }): Promise<{ data: Image[], total: number, page: number, limit: number, totalPages: number }> => {
+export const fetchUserImages = async ({
+  pageParam = 1,
+  userId,
+}: {
+  pageParam?: number;
+  userId: string;
+}): Promise<{
+  data: IImage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}> => {
   const token = localStorage.getItem('token');
-  const { data } = await axiosClient.get(`/api/images/user/${userId}?page=${pageParam}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const { data } = await axiosClient.get(
+    `/api/images/user/${userId}?page=${pageParam}`, // Correctly pass `pageParam`
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
   return data;
 };

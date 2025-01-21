@@ -1,16 +1,10 @@
 import axiosClient from './axiosClient';
+import { IImage } from '../types';
 
-export interface Image {
-  _id: string;
-  url: string;
-  publicId: string;
-}
-
-
-export const fetchImages = async ({ pageParam = 1 }): Promise<{ data: Image[], total: number, page: number, limit: number, totalPages: number }> => {
+export const fetchImages = async ({ pageParam = 1 }): Promise<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }> => {
   const response = await axiosClient.get(`/api/images?page=${pageParam}`);
   console.log(response.data);
-  return response.data;
+  return response.data ;
 };
 
 export const fetchImageById = async(id: string) => {
@@ -25,7 +19,7 @@ export const fetchImagesByTag = async({tags, page, limit}: {tags: string[],page:
   return data;
 }
 
-export const uploadImage = async(image: FormData): Promise<Image> => {
+export const uploadImage = async(image: FormData): Promise<IImage> => {
   const token = localStorage.getItem('token');
 
   const response = await axiosClient.post('/api/images/upload', image, {

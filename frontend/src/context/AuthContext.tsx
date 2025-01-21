@@ -1,11 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
-
-interface IUser {
-  username: string;
-  email: string;
-  images: string[];
-}
+import { IUser } from '../types';
 
 interface AuthContextData {
   isLoggedIn: boolean;

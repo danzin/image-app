@@ -3,6 +3,7 @@ import { IUser, BaseRepository } from '../types'
 import { createError } from '../utils/errors';
 import { ImageRepository } from './image.repository';
 import mongoose from 'mongoose';
+import cloudinary from 'cloudinary';
 
 export class UserRepository implements BaseRepository<IUser> {
   private model: mongoose.Model<IUser>;
@@ -82,6 +83,7 @@ export class UserRepository implements BaseRepository<IUser> {
     return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
   }
 
+  //TODO: Handle cloudinary deletion and tags
   async delete(id: string): Promise<boolean> {
     const session = await mongoose.startSession();
     session.startTransaction();

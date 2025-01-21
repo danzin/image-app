@@ -1,10 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
-import { useImages } from '../hooks/images';
+import { useImages } from '../hooks/useImages';
+import { UploadFormProps } from '../types';
 
-interface UploadFormProps {
-  onClose: () => void;
-}
 
 const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
   const { uploadImageMutation } = useImages();

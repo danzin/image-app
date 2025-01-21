@@ -1,9 +1,5 @@
-import { useImages } from "../hooks/images";
-
-interface TagsProps {
-  selectedTags: string[];
-  onSelectTags: (tags: string[]) => void;
-}
+import { useImages } from "../hooks/useImages";
+import { TagsProps } from "../types";
 
 export const Tags = ({ selectedTags, onSelectTags }: TagsProps) => {
   const { tagsQuery } = useImages();
