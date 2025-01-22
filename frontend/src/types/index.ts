@@ -55,4 +55,5 @@ export interface AuthContextData {
   user: IUser | null;
   login: (user: IUser, token: string) => void;
   logout: () => void;
+  setUser: (user: IUser | null) => void; // This allows you to update the user in the context
 }

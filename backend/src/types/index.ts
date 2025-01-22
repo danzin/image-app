@@ -34,6 +34,26 @@ export interface BaseRepository<T> {
   create(item: T): Promise<T>;
   findById(id: string): Promise<T | null>;
   update(id: string, item: Partial<T>): Promise<T | null>;
-  delete(id: string): Promise< T | boolean>;
+  delete(id: string): Promise< T | boolean | void>;
 }
 
+
+export interface PaginationResult<T> {
+  data: T[] | T;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface CloudinaryResponse {
+  result: 'ok' | 'error';
+  message?: string;
+}

@@ -1,22 +1,22 @@
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useState, ReactNode, useContext, useEffect } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContextData, IUser } from '../types';
 
-
-//Initialize context with default values
+// Initialize context with default values
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
-function AuthProvider({ children }: { children: ReactNode }) {
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+function AuthProvider({ children }: AuthProviderProps) {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<IUser | null>(null);
   const [loading, setLoading] = useState<boolean>(true); // Track loading
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    //Check if token exists in local storage
     if (token) {
-      //Validate token with backend
-      //Backend will respond with an error if token is invalid
       axiosClient
         .get('/users/me', {
           headers: { Authorization: `Bearer ${token}` },
@@ -26,13 +26,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoggedIn(true);
         })
         .catch(() => {
-          localStorage.removeItem('token'); //Clear invadlid token
+          localStorage.removeItem('token');
         })
         .finally(() => {
-          setLoading(false); //Set loading to false
+          setLoading(false);
         });
     } else {
-      setLoading(false); //No need to fetch because there's no token
+      setLoading(false);
     }
   }, []);
 
@@ -48,15 +48,15 @@ function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoggedIn(false);
   };
 
+  // Make sure to pass the correct values to the context
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
-      {!loading ? children : <div>Loading...</div>} {/* Show loading state */}
+    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, setUser }}>
+      {!loading ? children : <div>Loading...</div>}
     </AuthContext.Provider>
   );
 }
 
-
-//Custom hook for AuthContext
+// Custom hook to access AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

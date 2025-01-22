@@ -31,16 +31,20 @@ export class UserRepository implements BaseRepository<IUser> {
     return this.model.find();
   }
 
-  async findById(id: string): Promise<IUser | null> {
-    try {
-      const result = await this.model.findById(id);
-      if(!result){
-        return null
-      }
-      return result;
-    } catch (error) {
-      throw createError('InternalServerError', error.message);
-    }
+  // async findById(id: string): Promise<IUser | null> {
+  //   try {
+  //     const result = await this.model.findById(id);
+  //     if(!result){
+  //       return null
+  //     }
+  //     return result;
+  //   } catch (error) {
+  //     throw createError('InternalServerError', error.message);
+  //   }
+  // }
+
+  async findById(id: string, session?: mongoose.ClientSession): Promise<IUser | null> {
+    return this.model.findById(id).setOptions({ session }).exec();
   }
 
   async findByEmail(email: string): Promise<IUser | null> {
@@ -108,18 +112,25 @@ export class UserRepository implements BaseRepository<IUser> {
 
 
   //TODO: Handle cloudinary deletion and tags
-  async delete(id: string): Promise<boolean> {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-    try {
-      //then delete the user
-      const result = await this.model.deleteOne({ _id: id }); 
+  // async delete(id: string): Promise<boolean> {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+  //   try {
+  //     //then delete the user
+  //     const result = await this.model.deleteOne({ _id: id }); 
 
-      return !!result.deletedCount;
-    } catch (error) {
+  //     return !!result.deletedCount;
+  //   } catch (error) {
      
-      throw createError('InternalServerError', error.message);
-    }
+  //     throw createError('InternalServerError', error.message);
+  //   }
+  // }
+
+  //delete now accepts transactions, returns 
+  //!! IMPORTANT!!!: 
+  // since it resolves with .exec() I can't chain additional methods like sort() in the service layer
+  async delete(id: string, session?: mongoose.ClientSession): Promise<void> {
+    await this.model.findByIdAndDelete(id).setOptions({ session }).exec();
   }
 
   async deleteAll(): Promise<Object>{

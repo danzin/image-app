@@ -82,7 +82,7 @@ export class UserService {
       }
       const oldAvatarUrl = user.avatar; // Store the old avatar URL
   
-      const cloudImage = await this.cloudinaryService.uploadImage(file, `users/${userId}/avatars`);
+      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
       const newAvatarUrl = cloudImage.url;
   
       const result = await this.userRepository.updateAvatar(userId, newAvatarUrl);
@@ -106,36 +106,79 @@ export class UserService {
   }
   
 
-  
+  //NOT AN ACTUAL ATOMIC SESSION TRANSACTION AS NONE
+  //OF THE OPERATIONS INCLUDE THE SESSION
+  //BIG FAIL ON MY PART FFS
+  // async deleteUser(id: string): Promise<void> {
+  //   const session = await mongoose.startSession();
+  //   console.log('initiating transaction...')
+  //   session.startTransaction();
+  //   try {
+  //     const user = await this.userRepository.findById(id);
+  //     if(!user){
+  //       throw createError('PathError', 'User not found')
+  //     }
+      
+  //     //delete images from Cloudinary
+  //     console.log('trying to delete images from cloudinary....')
+  //     await this.cloudinaryService.deleteMany(user.username);
+
+  //     //delete images from MongoDB
+  //     console.log('trying to delete images related to the user from MongoDB')
+  //     await this.imageRepository.deleteMany(id);
+
+  //     //delete the user from MongoDB
+  //     console.log('trying to delete the user from MongoDB')
+  //     await this.userRepository.delete(id);
+
+  //     console.log('concluding transaction...')
+  //     await session.commitTransaction();
+  //     session.endSession();
+
+    
+  //   } catch (error) {
+  //     await session.abortTransaction();
+  //     session.endSession();
+  //     throw createError(error.name, error.message);
+  //   }
+  // }
+
   async deleteUser(id: string): Promise<void> {
     const session = await mongoose.startSession();
+    console.log('initiating transaction...');
     session.startTransaction();
+  
     try {
-      const user = await this.userRepository.findById(id);
-      if(!user){
-        throw createError('PathError', 'User not found')
+      const user = await this.userRepository.findById(id, session);
+      if (!user) {
+        throw createError('PathError', 'User not found');
       }
-      const imageUrls = user.images;
-      
-      //delete images from Cloudinary
-      await this.cloudinaryService.deleteMany(imageUrls);
-
-      //delete images from MongoDB
-      await this.imageRepository.deleteMany(id);
-
-      //delete the user from MongoDB
-      await this.userRepository.delete(id);
-
+  
+      console.log('trying to delete images from cloudinary...');
+      const cloudResult = await this.cloudinaryService.deleteMany(user.username);
+      if (cloudResult.result !== 'ok') {
+        await session.abortTransaction();
+        throw createError(
+          'CloudinaryError',
+          cloudResult.message || 'Error deleting cloudinary data'
+        );
+      }
+      console.log('trying to delete images related to the user from MongoDB...');
+      await this.imageRepository.deleteMany(id, session);
+  
+      console.log('trying to delete the user from MongoDB...');
+      await this.userRepository.delete(id, session);
+  
+      console.log('concluding transaction...');
       await session.commitTransaction();
-      session.endSession();
-    
     } catch (error) {
       await session.abortTransaction();
-      session.endSession();
       throw createError(error.name, error.message);
+    } finally {
+      session.endSession();
     }
   }
-
+  
   async getUserById(id: string): Promise<IUser | null> {
     try {
       const user = await this.userRepository.findById(id);

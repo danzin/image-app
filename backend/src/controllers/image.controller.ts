@@ -13,7 +13,6 @@ export class ImageController {
     try {
       const { decodedUser, file } = req;
       const tags = JSON.parse(req.body.tags);
-
       const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
       res.status(201).json(result);
     } catch (error) {

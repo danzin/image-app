@@ -13,7 +13,7 @@ const userSchema = new Schema<IUser>({
   avatar:{
     type: String,
     required: false,
-    default: ''
+    default: 'https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg'
   },
   email: {
     type: String,

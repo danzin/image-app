@@ -1,8 +1,9 @@
-import { ImageRepository, PaginationResult } from '../repositories/image.repository';
+import { ImageRepository } from '../repositories/image.repository';
 import { UserRepository } from '../repositories/user.repository';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
 import { IImage, ITag } from '../types';
+import mongoose from 'mongoose';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -21,7 +22,7 @@ export class ImageService {
       if(!user){
         throw createError('ValidationError', 'User not found');
       }
-      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
+      const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
       const image = {
         url: cloudImage.url,
         publicId: cloudImage.public_id,
@@ -94,16 +95,46 @@ export class ImageService {
   }
 
   async deleteImage(id: string): Promise<IImage> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
-      const result = await this.imageRepository.delete(id)
-      if(!result){
-        throw(createError('PathError', 'Image not found'))
+
+      //only return parts of the file I need later while including the transaction
+      const image = await this.imageRepository.findById(id, {
+        session,
+        select: 'uploadedBy url',
+      });
+  
+      if (!image) {
+        throw createError('PathError', 'Image not found');
       }
+  
+      // Delete the asset from cloud storage
+      const cloudResult = await this.cloudinaryService.deleteAssetByUrl(image.uploadedBy, image.url);
+      if (cloudResult.result !== 'ok') {
+        // Abort the transaction if cloud delete fails
+        await session.abortTransaction();
+        throw createError(
+          'CloudinaryError',
+          cloudResult.message || 'Error deleting cloudinary data'
+        );
+      }
+      // Delete the image from the database with session
+      const result = await this.imageRepository.delete(id, { session });
+  
+      // Commit the transaction
+      await session.commitTransaction();
       return result;
     } catch (error) {
-      throw createError(error.name, error.message);      
+      // Abort the transaction on error
+      await session.abortTransaction();
+      throw createError(error.name, error.message);
+    } finally {
+      // End the session
+      session.endSession();
     }
   }
+  
 
   async getTags(): Promise<ITag[] | ITag> {
     try {

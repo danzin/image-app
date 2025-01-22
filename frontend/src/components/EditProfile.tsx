@@ -1,7 +1,6 @@
 import React from 'react';
-import { useEditUser } from '../api/editUser';
 import AuthForm from './AuthForm';
-import { ToastContainer, toast } from 'react-toastify';
+import { useEditUser } from '../hooks/useUsers';
 
 interface EditProfileProps {
   onComplete: () => void;
@@ -29,9 +28,9 @@ export const EditProfile: React.FC<EditProfileProps> = ({ onComplete, notifySucc
       <AuthForm 
       title="Edit profile"
       fields={[
-        { name: 'email', type: 'email', placeholder: 'email@example.com' },
-        { name: 'username', type: 'username', placeholder: 'username'},
-        { name: 'password', type: 'password', placeholder: '********' },
+        { name: 'email', type: 'email', placeholder: 'email@example.com', required: false },
+        { name: 'username', type: 'username', placeholder: 'username', required: false},
+        { name: 'password', type: 'password', placeholder: '********', required: false },
       ]}
       onSubmit={handleEdit}
       submitButtonText="Submit"
