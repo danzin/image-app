@@ -47,6 +47,12 @@ class InternalServerError extends AppError {
   }
 }
 
+class CloudError extends AppError {
+  constructor(message: string){
+    super('CloudError', message, 500)
+  }
+}
+
 class UnknownError extends AppError {
   constructor(message: string) {
     super('UnknownError', message, 500);
@@ -60,6 +66,7 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   PathError,
   DuplicateError,
   InternalServerError,
+  CloudError,
   UnknownError,
 };
 

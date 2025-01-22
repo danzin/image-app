@@ -18,7 +18,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
       //Validate token with backend
       //Backend will respond with an error if token is invalid
       axiosClient
-        .get('/api/users/me', {
+        .get('/users/me', {
           headers: { Authorization: `Bearer ${token}` },
         })
         .then((response) => {

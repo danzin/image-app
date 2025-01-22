@@ -36,12 +36,13 @@ export class ImageController {
   }
 
   async getUserImages(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const {decodedUser} = req;
+    const {id} = req.params;
    
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    console.log('ID of getUserImages: ', id)
     try {
-      const images = await this.imageService.getUserImages(decodedUser.id, page, limit);
+      const images = await this.imageService.getUserImages(id, page, limit);
       res.json(images);
     } catch (error) {
       next(createError('UnknownError', 'Failed to fetch images'))

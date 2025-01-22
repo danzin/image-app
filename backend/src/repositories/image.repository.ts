@@ -182,7 +182,7 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
-  //TODO: Handle removing images from user collection
+ 
   async delete(id: string): Promise<IImage> {
     try {
       const result = await this.model.findOneAndDelete( {_id:id} );

@@ -1,16 +1,27 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchUser, fetchUserImages, updateUserAvatar } from '../api/userApi';
+import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar } from '../api/userApi';
 import { IImage, IUser } from '../types';
 
   export const useCurrentUser = () => {
     return useQuery<IUser>({
       queryKey: ['user'],
-      queryFn: fetchUser,
+      queryFn: fetchCurrentUser,
       staleTime: 0,
       refetchOnMount: true,
       refetchOnWindowFocus: true,
     });
   };
+
+  export const useGetUser = (id: string) => {
+    return useQuery({
+      queryKey: ['user', id],
+      queryFn: fetchUserData, 
+      staleTime: 0,
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
+    });
+  };
+
 
 export const useUserImages = (userId: string) => {
   console.log('useUserImages called with userId:', userId); 
@@ -20,7 +31,7 @@ export const useUserImages = (userId: string) => {
     queryKey: ['userImages', userId],
     queryFn: ({ pageParam = 1 }) => {
       console.log('Fetching images for userId:', userId, 'page:', pageParam); 
-      return fetchUserImages({ pageParam, userId });
+      return fetchUserImages(pageParam, userId);
     },
     getNextPageParam: (lastPage) => {
       console.log('Getting next page param:', lastPage); 

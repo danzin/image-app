@@ -1,9 +1,9 @@
 import axiosClient from './axiosClient';
-import { IImage } from '../types';
+import { IImage, IUser } from '../types';
 
-export const fetchUser = async () => {
+export const fetchCurrentUser = async () => {
   const token = localStorage.getItem('token'); 
-  const { data } = await axiosClient.get('/api/users/me', {
+  const { data } = await axiosClient.get('/users/me', {
     headers: {
     Authorization: `Bearer ${token}`
   }} );
@@ -11,7 +11,28 @@ export const fetchUser = async () => {
   return data;
 };
 
-export const fetchUserImages = async ({pageParam = 1,}:{pageParam?: number;}):
+/**
+ * react query expects this function not to take any parameter directly, 
+ * but instead to receive an object containing a queryKey.
+ * const [_, id] = queryKey extracts the required value from the queryKey object.
+ * It's later called within a hook with the userId as parameter
+ * and used as [QueryFn] callback within useQuery with  
+*/
+
+export const fetchUserData = async ({queryKey}): Promise<any> => {
+  try {
+    const [_, id] = queryKey;
+    const response = await axiosClient(`/users/${id}`);
+    console.log('response from fetchUserData: ', response.data)
+    return response.data;
+  } catch (error) {
+    console.error(error)
+  }
+}
+
+
+
+export const fetchUserImages = async (pageParam, userId):
   Promise<{
     data: IImage[];
     total: number;
@@ -20,7 +41,7 @@ export const fetchUserImages = async ({pageParam = 1,}:{pageParam?: number;}):
     totalPages: number; }> => {
   const token = localStorage.getItem('token');
   const { data } = await axiosClient.get(
-    `/api/images/user/?page=${pageParam}`, 
+    `/images/user/${userId}?page=${pageParam}`, 
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -32,7 +53,7 @@ export const fetchUserImages = async ({pageParam = 1,}:{pageParam?: number;}):
 
 export const updateUserAvatar = async (avatar: FormData): Promise<any> => {
   const token = localStorage.getItem('token');
-  const { data } = await axiosClient.post('api/users/avatar', avatar, {
+  const { data } = await axiosClient.post('/users/avatar', avatar, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

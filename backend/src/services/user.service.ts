@@ -1,14 +1,16 @@
+import mongoose, { ClientSession } from 'mongoose';
 import { UserRepository } from '../repositories/user.repository';
 import { IUser } from '../types';
 import { createError } from '../utils/errors';
 import  CloudnaryService  from './cloudinary.service';
 
 import jwt from 'jsonwebtoken';
+import { ImageRepository } from '../repositories/image.repository';
 
 export class UserService {
   private userRepository: UserRepository;
   private cloudinaryService: CloudnaryService;
-
+  private imageRepository: ImageRepository;
   private generateToken(user: IUser): string{
     const payload = { id: user._id, email: user.email, username: user.username };
     const secret = process.env.JWT_SECRET;
@@ -20,7 +22,7 @@ export class UserService {
   constructor() {
     this.userRepository = new UserRepository();
     this.cloudinaryService = new CloudnaryService();
-
+    this.imageRepository = new ImageRepository();
   }
 
   async registerUser(userData: IUser): Promise<IUser> {
@@ -67,34 +69,69 @@ export class UserService {
     }
   }
 
-  async updateAvatar(userId: string, file: Buffer): Promise<null | void>{
+  //make sure old avatars are deleted froum cloudinary when user updates them
+  async updateAvatar(userId: string, file: Buffer): Promise<null> {
+    let session: ClientSession | null = null;
     try {
+      session = await mongoose.startSession();
+      session.startTransaction();
+  
       const user = await this.userRepository.findById(userId);
-      if(!user){
+      if (!user) {
         throw createError('ValidationError', 'User not found');
       }
-      const cloudImage = await this.cloudinaryService.uploadImage(file);
-      const avatar = cloudImage.url;
-
-      const result = await this.userRepository.updateAvatar(userId, avatar);
-      if(!result){
-        throw createError('InternalServerError', 'Error uploadng avatar')
+      const oldAvatarUrl = user.avatar; // Store the old avatar URL
+  
+      const cloudImage = await this.cloudinaryService.uploadImage(file, `users/${userId}/avatars`);
+      const newAvatarUrl = cloudImage.url;
+  
+      const result = await this.userRepository.updateAvatar(userId, newAvatarUrl);
+      if (!result) {
+        throw createError('InternalServerError', 'Error updating avatar');
       }
+  
+      if (oldAvatarUrl) {
+        await this.cloudinaryService.deleteAssetByUrl(userId ,oldAvatarUrl);
+      }
+      await session.commitTransaction();
+      session.endSession();
       return null;
-    } catch (error) {
-      throw createError(error.name, error.message)
-
+    } catch (error: any) {
+      if (session) {
+        await session.abortTransaction();
+        session.endSession();
+      }
+      throw createError(error.name, error.message);
     }
   }
+  
 
   
   async deleteUser(id: string): Promise<void> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
-      const result = await this.userRepository.delete(id);
-      if(!result){
-        throw createError('InternalServerError', 'Deletion failed');
+      const user = await this.userRepository.findById(id);
+      if(!user){
+        throw createError('PathError', 'User not found')
       }
+      const imageUrls = user.images;
+      
+      //delete images from Cloudinary
+      await this.cloudinaryService.deleteMany(imageUrls);
+
+      //delete images from MongoDB
+      await this.imageRepository.deleteMany(id);
+
+      //delete the user from MongoDB
+      await this.userRepository.delete(id);
+
+      await session.commitTransaction();
+      session.endSession();
+    
     } catch (error) {
+      await session.abortTransaction();
+      session.endSession();
       throw createError(error.name, error.message);
     }
   }

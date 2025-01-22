@@ -7,7 +7,9 @@ const imageSchema = new Schema<IImage>({
   publicId: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   tags: {type: [String], default: [], index: true},
-  uploadedBy: {type: String, required: true}
+  uploadedBy: {type: String, required: true},
+  uploaderId: {type: String, required: true}
+  
 });
 
 const tagSchema = new Schema<ITag>({
@@ -58,6 +60,37 @@ imageSchema.pre('findOneAndDelete', async function (next) {
     }
   }
   next();
+});
+
+//Remove or decrement tags when deleting many images
+imageSchema.pre('deleteMany', async function (next) {
+  try {
+    // `this` is a query object
+    const query = this.getQuery();
+    const docs = await this.model.find(query); // Find all documents that match the query
+
+    for (const doc of docs) {
+      if (doc.tags && doc.tags.length > 0) {
+        for (let tag of doc.tags) {
+          await Tag.findOneAndUpdate(
+            { tag },
+            { $inc: { count: -1 } },
+            { new: true }
+          );
+
+          // If the tag count is 0, remove the tag
+          const updatedTag = await Tag.findOne({ tag });
+          if (updatedTag && updatedTag.count <= 0) {
+            await Tag.deleteOne({ tag });
+          }
+        }
+      }
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 });
 
 

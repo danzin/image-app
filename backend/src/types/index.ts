@@ -7,6 +7,7 @@ export interface IImage extends Document {
   createdAt: Date;
   tags: string[];
   uploadedBy: string;
+  uploaderId: string;
 }
 
 export interface ITag extends Document {
@@ -24,6 +25,8 @@ export interface IUser extends Document{
   updatedAt: Date,
   isAdmin: boolean,
   images: string[],
+  followers: string[],
+  following: string[]
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

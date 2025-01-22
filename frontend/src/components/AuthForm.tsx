@@ -37,7 +37,7 @@ const AuthForm = <T extends { [key: string]: string }>({
   };
 
   return (
-    <div className="hero min-h-screen bg-transparent">
+    <div className="hero h-auto bg-transparent">
       <div className="hero-content flex-col">
         <div className="text-center">
           <h1 className="text-5xl font-bold">{title}</h1>

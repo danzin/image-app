@@ -15,6 +15,7 @@ export interface IImage {
   publicId: string;
   tags: string[];
   uploadedBy: string;
+  uploaderId: string;
 }
 
 export interface UseImagesResult {
@@ -31,7 +32,7 @@ export interface TagsProps {
 }
 
 export interface GalleryProps {
-  images: IImage[] | undefined;  // Make images possibly undefined
+  images: IImage[] | undefined;  // Make images possibvly undefined 
   fetchNextPage: () => void;
   hasNextPage: boolean | undefined;
   isFetchingNext: boolean;

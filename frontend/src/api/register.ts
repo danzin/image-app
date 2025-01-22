@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import axiosClient from './axiosClient';
 
 export const registerRequest = async (credentials: any) => {
-  const response = await axiosClient.post('/api/users/register', credentials);
+  const response = await axiosClient.post('/users/register', credentials);
   return response.data;
 };
 

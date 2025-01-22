@@ -1,19 +1,22 @@
-import React from 'react'
+import React from 'react';
 import { useEditUser } from '../api/editUser';
 import AuthForm from './AuthForm';
 import { ToastContainer, toast } from 'react-toastify';
 
+interface EditProfileProps {
+  onComplete: () => void;
+  notifySuccess: (message: string) => void;
+  notifyError: (message: string) => void
+}
 
-
-export const EditProfile: React.FC = () => {
+export const EditProfile: React.FC<EditProfileProps> = ({ onComplete, notifySuccess, notifyError }) => {
   const { mutateAsync: editUserMutation } = useEditUser();
   const handleEdit = async (formData: { username: string; email: string; password: string }) => {
-  const notifySuccess = () => toast.success("Profile edited!"); 
-  const notifyError = (message: string) => toast.error(`Error: ${message}`);
     try {
       console.log("Running handleSubmit");
       await editUserMutation({username: formData.username, email: formData.email, password: formData.password });
-      notifySuccess();
+      notifySuccess('Profile edited!');
+      onComplete()
     } catch (error: any) {
       notifyError(error.message)
       console.error(error.message || 'An error occurred');
@@ -22,7 +25,7 @@ export const EditProfile: React.FC = () => {
     
   return (
     <>
-      <ToastContainer />
+      
       <AuthForm 
       title="Edit profile"
       fields={[

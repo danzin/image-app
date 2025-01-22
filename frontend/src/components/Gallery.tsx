@@ -9,7 +9,6 @@ const Gallery: React.FC<GalleryProps> = ({
   isFetchingNext,
   source
 }) => {
-  console.log('Gallery Props:', { images, hasNextPage, isFetchingNext, source });
 
   if (!images) {
     return <div className="p-4">Loading gallery...</div>;
@@ -88,7 +87,7 @@ const Gallery: React.FC<GalleryProps> = ({
       </div>
       {isModalOpen && selectedImage && (
         <dialog
-          className="bg-transparent max-w-[700px] max-h-100vh fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5"
+          className="bg-transparent max-w-[700px] max-h-100vh flex flex-col fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5"
           onClick={handleOverlayClick}
           open
         >
@@ -107,8 +106,12 @@ const Gallery: React.FC<GalleryProps> = ({
               </svg>
             </button>
             <img src={selectedImage.url} alt="Selected" className="w-full h-full object-cover" />
-            <span className="font-bold">
-              <span className="font-extrabold">Tags:</span> {getImageTags(selectedImage)}
+      
+              <span className="font-bold flex flex-col">
+                <span className="font-extrabold">Tags:  {getImageTags(selectedImage)}</span>
+                <span className="font-extrabold">Uploaded by: {selectedImage.uploadedBy}</span>
+         
+
             </span>
           </div>
         </dialog>

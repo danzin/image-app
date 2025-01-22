@@ -23,7 +23,9 @@ export class ImageRoutes {
     );
     
     this.router.get('/', this.imageController.getImages.bind(this.imageController)); 
-    this.router.get('/user', AuthentitactionMiddleware.auth, this.imageController.getUserImages.bind(this.imageController))
+
+    //returns images uploaded by user using the user object from the request
+    this.router.get('/user/:id', this.imageController.getUserImages.bind(this.imageController))
     this.router.get('/search/tags', this.imageController.searchByTags.bind(this.imageController));
     this.router.get('/tags', this.imageController.getTags.bind(this.imageController));
 

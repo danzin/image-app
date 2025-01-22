@@ -21,6 +21,20 @@ export class UserController {
     }
   }
 
+  async getUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params
+      const user = await this.userService.getUserById(id);
+     
+      if(!user){
+        throw createError('PathError', 'User not found');
+      }
+      res.json(user);
+    } catch (error) {
+      next(error)
+    }
+  }
+
   async getUsers(req: Request, res: Response, next: NextFunction): Promise<void>{
   try {
       const users = await this.userService.getUsers();

@@ -69,7 +69,13 @@ export class UserRepository implements BaseRepository<IUser> {
 
   async update(id: string, userData: Partial<IUser>): Promise<IUser | null> {
     try {
-      const user = await this.model.findByIdAndUpdate(id, userData, { new: true });
+      const filter = {_id: id}
+      const update = {
+        $set: {...userData}
+      }
+      const options = { returnOriginal: false };
+
+      const user = await this.model.findOneAndUpdate(filter, update, options);
       if(!user){
         return null;
       }
@@ -106,19 +112,12 @@ export class UserRepository implements BaseRepository<IUser> {
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
-      //delete user images
-      await this.imageRepository.deleteMany(id);
-      
       //then delete the user
-      const result = await this.model.deleteOne({ _id: id });
-      
-      await session.commitTransaction();
-      session.endSession();
-      
+      const result = await this.model.deleteOne({ _id: id }); 
+
       return !!result.deletedCount;
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
+     
       throw createError('InternalServerError', error.message);
     }
   }

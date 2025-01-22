@@ -18,7 +18,7 @@ function App() {
             <Route index element={<Home />} />
             <Route path="login" element={<Login />} />
             <Route path="register" element={<Register />} />
-            <Route path="profile" element={<ProtectedRoute element={<Profile />} />} />
+            <Route path="profile/:id" element={<Profile />} />
             <Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
             {/* <Route path="upload" element={<UploadImage />} />
             <Route path="dashboard" element={<Dashboard />} /> */}

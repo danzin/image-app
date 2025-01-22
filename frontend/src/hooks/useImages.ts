@@ -28,6 +28,7 @@ export const useImages = (): UseImagesResult => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['images'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['userImages'] }); // Invalidate user-specific image queries
     },
   });
 

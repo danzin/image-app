@@ -21,13 +21,14 @@ export class ImageService {
       if(!user){
         throw createError('ValidationError', 'User not found');
       }
-      const cloudImage = await this.cloudinaryService.uploadImage(file);
+      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
       const image = {
         url: cloudImage.url,
         publicId: cloudImage.public_id,
         userId,
         tags: tags,
-        uploadedBy: user.username
+        uploadedBy: user.username,
+        uploaderId: user._id
       };
       
       const img = await this.imageRepository.create(image);
@@ -95,9 +96,12 @@ export class ImageService {
   async deleteImage(id: string): Promise<IImage> {
     try {
       const result = await this.imageRepository.delete(id)
+      if(!result){
+        throw(createError('PathError', 'Image not found'))
+      }
       return result;
     } catch (error) {
-      throw createError('InternalServerError', error.message);      
+      throw createError(error.name, error.message);      
     }
   }
 
@@ -109,7 +113,7 @@ export class ImageService {
       }
       return result;  
     } catch (error: any) {
-      throw createError('InternalServerError', error.message);
+      throw createError(error.name, error.message);
 
     }
   }

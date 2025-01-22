@@ -19,8 +19,13 @@ export class UserRoutes {
       ValidationMiddleware.validate(new UserRegistrationValidation()),
       this.userController.register.bind(this.userController)
     );
+    //all users
     this.router.get('/', this.userController.getUsers.bind(this.userController));
+
+    //curently logged in user
     this.router.get('/me', AuthentitactionMiddleware.auth, this.userController.getMe.bind(this.userController));
+    
+    //drop all user documents
     this.router.delete('/dropUsers', this.userController.dropUsers.bind(this.userController));
     
     this.router.post('/login',
@@ -32,12 +37,17 @@ export class UserRoutes {
       ValidationMiddleware.validate(new UserEditValidation()),
       this.userController.updateUser.bind(this.userController)),
     
+    //update user avatar
     this.router.post('/avatar',
       AuthentitactionMiddleware.auth,
       upload.single('avatar'),
       this.userController.updateAvatar.bind(this.userController));
-    
-    this.router.delete('/delete/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
+
+    //return specific user by id
+    this.router.get('/:id', this.userController.getUser.bind(this.userController));
+
+    //delete specific user by id
+    this.router.delete('/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
 
     }
 
