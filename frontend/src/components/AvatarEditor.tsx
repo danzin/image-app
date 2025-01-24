@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Avatar from 'react-avatar-edit';
-
+//TODO: CHANGE  THIS WHOLE THING
 interface AvatarEditorProps {
   onImageUpload: (croppedImage: string | null) => void;
 }

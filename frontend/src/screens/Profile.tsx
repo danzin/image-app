@@ -1,13 +1,18 @@
 import { useState } from 'react';
 // import { Menu, X, ChevronDown, User, Calendar, Settings, BarChart2, Layout, FileText, Grid, LogOut } from 'lucide-react';
 import AvatarEditor from '../components/AvatarEditor'; 
-import { useGetUser, useUpdateUserAvatar, useUserImages } from '../hooks/useUsers';
+import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/useUsers';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
 import { ToastContainer, toast } from 'react-toastify'
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+//TODO: CHANGE THE AVATAR CROPPER
+// IMAGE COVER FUNCTIONALITY IS UP AND RUNNING, BUT I NEED TO IMPLEMENT A PROPER
+// IMAGE CROPPER COMPONENT TO REUSE IN BOTH AVATAR AND COVER
+
+ 
 const DashboardLayout = () => {
   //user from page params id
   const { id } = useParams();
@@ -31,8 +36,8 @@ const DashboardLayout = () => {
   const isProfileOwner = id === user?._id;
   
   // const [croppedImage, setCroppedImage] = useState(null);
-  const mutation = useUpdateUserAvatar(); 
-    
+  const avatarMutation = useUpdateUserAvatar(); 
+  const coverMutation = useUpdateUserCover();
 
   const flattenedImages = imagesData?.pages?.flatMap(page => page.data) || [];
 
@@ -61,12 +66,9 @@ const DashboardLayout = () => {
   }
 
   
-//TODO: ADD HANDLE DELETE THAT CLOSES THE MODAL AND REFRESHES THE IMAGES STATE SO DELETION IS REFLECTED! 
-
-
 const debounce = (func: any, delay: number) => {
     let timeout:any;
-    return function (...args) {
+    return function (...args: any[]) {
       clearTimeout(timeout);
       timeout = setTimeout(() => func.apply(this, args) , delay);
     };
@@ -83,12 +85,11 @@ const debounce = (func: any, delay: number) => {
       const formData = new FormData();
       formData.append('avatar', blob, 'avatar.jpg'); 
 
-      mutation.mutate(formData);
+      avatarMutation.mutate(formData);
     } catch (error) {
       console.error('Error uploading avatar:', error);
     }
   }, 1000);
-
   return (
     <div className="min-h-screen bg-gray-50">
   
@@ -100,7 +101,7 @@ const debounce = (func: any, delay: number) => {
           <div className="relative h-64 bg-gray-900">
             <img
               className="w-full h-full object-cover"
-              src="/api/placeholder/1200/256"
+              src={userData?.cover}
               alt="Cover"
             />
             <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/60 to-transparent"></div>
@@ -117,7 +118,7 @@ const debounce = (func: any, delay: number) => {
                   {isModalOpen && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
                       <div className="bg-white p-6 rounded-lg shadow-lg relative" onClick={(e) => e.stopPropagation()}>
-                        <AvatarEditor onImageUpload={handleImageUpload} />
+                        <AvatarEditor  onImageUpload={handleImageUpload} />
                         <button onClick={handleCloseModal} className="mt-4 px-4 py-2 bg-blue-500 text-white rounded">Close</button>
                       </div>
                     </div>

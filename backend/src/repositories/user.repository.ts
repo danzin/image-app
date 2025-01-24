@@ -43,8 +43,16 @@ export class UserRepository implements BaseRepository<IUser> {
   //   }
   // }
 
-  async findById(id: string, session?: mongoose.ClientSession): Promise<IUser | null> {
-    return this.model.findById(id).setOptions({ session }).exec();
+  async findById(id: string, options?: {session?: mongoose.ClientSession}): Promise<IUser | null> {
+    try {
+      const result = this.model.findById(id).setOptions({ session: options?.session }).exec();
+      if(!result) {
+        return null;
+      }
+      return result
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
   }
 
   async findByEmail(email: string): Promise<IUser | null> {
@@ -98,9 +106,9 @@ export class UserRepository implements BaseRepository<IUser> {
     }
   }
 
-  async updateAvatar(userId: string, avatar: string): Promise<string | null>{
+  async updateAvatar(userId: string, avatar: string, options?: {session?: mongoose.ClientSession}): Promise<string | null>{
     try {
-      const result = await this.model.findByIdAndUpdate(userId, {$set: {avatar: avatar}});
+      const result = await this.model.findByIdAndUpdate(userId, {$set: {avatar: avatar}}).setOptions({session: options.session});
       if(!result){
         return null;
       }
@@ -109,6 +117,19 @@ export class UserRepository implements BaseRepository<IUser> {
       throw createError('InternalServerError', error.message)
     }
   }
+
+  async updateCover(userId: string, cover: string, options?: {session?: mongoose.ClientSession}): Promise<string | null>{
+    try {
+      const result = await this.model.findByIdAndUpdate(userId, {$set: {cover: cover}}).setOptions({session: options.session});
+      if(!result){
+        return null;
+      }
+      return cover;
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
+  }
+
 
 
   //TODO: Handle cloudinary deletion and tags
@@ -132,6 +153,8 @@ export class UserRepository implements BaseRepository<IUser> {
   async delete(id: string, options?: {session?: mongoose.ClientSession}): Promise<void> {
     await this.model.findByIdAndDelete(id).setOptions({session: options.session }).exec();
   }
+
+  
 
   async deleteAll(): Promise<Object>{
     try {

@@ -15,6 +15,11 @@ const userSchema = new Schema<IUser>({
     required: false,
     default: 'https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg'
   },
+  cover:{
+    type: String,
+    required: false,
+    default: '',
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],

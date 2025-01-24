@@ -5,7 +5,6 @@ import { createError } from '../utils/errors';
 import { IImage, ITag } from '../types';
 import mongoose from 'mongoose';
 import { errorLogger } from '../utils/winston';
-import { loggers } from 'winston';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -119,7 +118,7 @@ export class ImageService {
       console.log(`calling await this.imageRepository.delete(${id}, ${{ session }});`)
       const result = await this.imageRepository.delete(id, { session });
       console.log('result: ',result)
-      //add deleting the image from user's image array
+      //deleting the image from user's images array is handled via mongoose middleware over at image.model.ts
       
       // Delete the asset from cloud storage
       console.log(`await this.cloudinaryService.deleteAssetByUrl(${image.uploadedBy}, ${image.url})`)
@@ -143,7 +142,6 @@ export class ImageService {
       errorLogger.error(error.stack)
       throw createError(error.name, error.message);
     } finally {
-      // End the session
       session.endSession();
     }
   }

@@ -43,6 +43,12 @@ export class UserRoutes {
       upload.single('avatar'),
       this.userController.updateAvatar.bind(this.userController));
 
+    //update user cover
+    this.router.post('/cover', 
+      AuthentitactionMiddleware.auth,
+      upload.single('cover'),
+      this.userController.updateCover.bind(this.userController));
+
     //return specific user by id
     this.router.get('/:id', this.userController.getUser.bind(this.userController));
 

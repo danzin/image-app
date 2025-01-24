@@ -61,3 +61,12 @@ export const updateUserAvatar = async (avatar: FormData): Promise<any> => {
   return data;
 };
 
+export const updateUserCover = async (cover: FormData): Promise<any> => {
+  const token = localStorage.getItem('token');
+  const { data } = await axiosClient.post('/users/cover', cover, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return data;
+}

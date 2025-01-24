@@ -1,5 +1,5 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar } from '../api/userApi';
+import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar, updateUserCover } from '../api/userApi';
 import { IImage, IUser } from '../types';
 import { editUserRequest } from '../api/editUser';
 import { useAuth } from '../context/AuthContext';
@@ -58,10 +58,24 @@ export const useUpdateUserAvatar = () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (error: Error) => {
-      console.error("Error updating avatar:", error);
+      console.error('Error updating avatar: ', error);
     }
   });
 };
+
+export const useUpdateUserCover = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (cover: FormData) => updateUserCover(cover),
+    onSuccess: () => {
+      queryClient.invalidateQueries({queryKey: ['user']});
+    },
+    onError: (error: Error) => {
+      console.error('Error updating cover: ', error)
+    }
+  })
+}
 
 export const useEditUser = () => {
   const queryClient = useQueryClient(); // Get the QueryClient instance

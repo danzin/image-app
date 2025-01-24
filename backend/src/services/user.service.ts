@@ -74,13 +74,50 @@ export class UserService {
   }
 
   //make sure old avatars are deleted froum cloudinary when user updates them
-  async updateAvatar(userId: string, file: Buffer): Promise<null> {
+  // async updateAvatar(userId: string, file: Buffer): Promise<null> {
+  //   let session: ClientSession | null = null;
+  //   try {
+  //     session = await mongoose.startSession();
+  //     session.startTransaction();
+  
+  //     const user = await this.userRepository.findById(userId);
+  //     if (!user) {
+  //       throw createError('ValidationError', 'User not found');
+  //     }
+  //     const oldAvatarUrl = user.avatar; // Store the old avatar URL
+  
+  //     const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
+  //     const newAvatarUrl = cloudImage.url;
+  
+  //     const result = await this.userRepository.updateAvatar(userId, newAvatarUrl);
+  //     if (!result) {
+  //       throw createError('InternalServerError', 'Error updating avatar');
+  //     }
+  
+  //     if (oldAvatarUrl) {
+  //       await this.cloudinaryService.deleteAssetByUrl(userId ,oldAvatarUrl);
+  //     }
+  //     await session.commitTransaction();
+  //     session.endSession();
+  //     return null;
+  //   } catch (error: any) {
+  //     if (session) {
+  //       await session.abortTransaction();
+  //       session.endSession();
+  //     }
+  //     throw createError(error.name, error.message);
+  //   }
+  // }
+
+  async updateAvatar(userId: string, file: Buffer): Promise<void> {
     let session: ClientSession | null = null;
+  
     try {
+      // Start the MongoDB session
       session = await mongoose.startSession();
       session.startTransaction();
   
-      const user = await this.userRepository.findById(userId);
+      const user = await this.userRepository.findById(userId, {session} );
       if (!user) {
         throw createError('ValidationError', 'User not found');
       }
@@ -89,28 +126,75 @@ export class UserService {
       const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
       const newAvatarUrl = cloudImage.url;
   
-      const result = await this.userRepository.updateAvatar(userId, newAvatarUrl);
+      const result = await this.userRepository.updateAvatar(userId, newAvatarUrl, { session });
       if (!result) {
         throw createError('InternalServerError', 'Error updating avatar');
       }
   
-      if (oldAvatarUrl) {
-        await this.cloudinaryService.deleteAssetByUrl(userId ,oldAvatarUrl);
-      }
+      // Step 3: Delete the old avatar from Cloudinary, if it exists
+      // if (oldAvatarUrl) {
+      //   const cloudDeleteResult = await this.cloudinaryService.deleteAssetByUrl(userId, oldAvatarUrl);
+      //   if (cloudDeleteResult.result !== 'ok') {
+      //     throw createError('CloudinaryError', 'Failed to delete old avatar');
+      //   }
+      // }
+  
       await session.commitTransaction();
-      session.endSession();
-      return null;
     } catch (error: any) {
       if (session) {
         await session.abortTransaction();
-        session.endSession();
       }
       throw createError(error.name, error.message);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
     }
   }
-  
 
- 
+
+  async updateCover(userId: string, file: Buffer): Promise<void> {
+    let session: ClientSession | null = null;
+  
+    try {
+      // Start the MongoDB session
+      session = await mongoose.startSession();
+      session.startTransaction();
+  
+      const user = await this.userRepository.findById(userId, { session });
+      if (!user) {
+        throw createError('ValidationError', 'User not found');
+      }
+      const oldCoverUrl = user.cover; 
+  
+      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
+      const newCoverUrl = cloudImage.url;
+  
+      const result = await this.userRepository.updateCover(userId, newCoverUrl, { session });
+      if (!result) {
+        throw createError('InternalServerError', 'Error updating cover');
+      }
+  
+      // if (oldCoverUrl) {
+      //   const cloudDeleteResult = await this.cloudinaryService.deleteAssetByUrl(userId, oldCoverUrl);
+      //   if (cloudDeleteResult.result !== 'ok') {
+      //     throw createError('CloudinaryError', 'Failed to delete old cover');
+      //   }
+      // }
+  
+      await session.commitTransaction();
+    } catch (error: any) {
+      if (session) {
+        await session.abortTransaction();
+      }
+      throw createError(error.name, error.message);
+    } finally {
+      if (session) {
+        session.endSession();
+      }
+    }
+  }
+   
 
   async deleteUser(id: string): Promise<void> {
     const session = await mongoose.startSession();
@@ -118,7 +202,7 @@ export class UserService {
     session.startTransaction();
   
     try {
-      const user = await this.userRepository.findById(id, session);
+      const user = await this.userRepository.findById(id, {session});
       if (!user) {
         throw createError('PathError', 'User not found');
       }
