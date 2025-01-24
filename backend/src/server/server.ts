@@ -5,9 +5,11 @@ import { ImageRoutes } from '../routes/image.routes';
 // import { PhotoRoutes } from '../routes/photo.routes';
 import { createError, ErrorHandler } from '../utils/errors';
 import morgan from 'morgan'; 
-import logger from '../utils/winston';
+import  { httpLogger } from '../utils/winston';
 import cors from 'cors';
 import { corsOptions } from '../config/corsConfig';
+import { morganFormat } from '../utils/morgan';
+import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
 
 export class Server {
   private app: express.Application;
@@ -27,13 +29,14 @@ export class Server {
     this.app.use(cors(corsOptions));
     
     this.app.use(bodyParser.json({strict: true}))
-    this.app.use(morgan('combined', {
+    this.app.use(detailedRequestLogging);
+    this.app.use(morgan(morganFormat, {
       stream: {
-        write: (message) => logger.info(message.trim())
+        write: (message) => httpLogger.info(message.trim())
       }
     }));
-    this.app.use('/api/images', imageRoutes.router);
-    this.app.use('/api/users', userRoutes.router);
+    this.app.use('/api/images', logBehaviour, imageRoutes.router);
+    this.app.use('/api/users', logBehaviour, userRoutes.router);
 
 
   }

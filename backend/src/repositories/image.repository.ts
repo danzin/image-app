@@ -1,5 +1,6 @@
 import Image, { Tag } from '../models/image.model';
-import { IImage, BaseRepository, ITag, PaginationOptions, PaginationResult} from '../types';
+import User from '../models/user.model';
+import { IImage, BaseRepository, ITag, PaginationOptions, PaginationResult, IUser} from '../types';
 import { createError } from '../utils/errors';
 import mongoose from 'mongoose';
 
@@ -7,10 +8,11 @@ import mongoose from 'mongoose';
 export class ImageRepository implements BaseRepository<IImage> {
   private model: mongoose.Model<IImage>;
   private tag: mongoose.Model<ITag>;
-
+  private user: mongoose.Model<IUser>;
   constructor(){
     this.model = Image;
     this.tag = Tag;
+    this.user = User;
   }
 
   async create(image: any): Promise<IImage> {
@@ -173,7 +175,9 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async findById(id: string, options?: { session?: mongoose.ClientSession; select?: string }): Promise<IImage | null> {
+    console.log('id in findById in imageRepository: ', id)
     const query = this.model.findById(id);
+    console.log('query', query)
     if (options?.select) query.select(options.select);
     if (options?.session) query.setOptions({ session: options.session });
     return query.exec(); // Resolve the query manually
@@ -194,7 +198,10 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async delete(id: string, options?: { session?: mongoose.ClientSession }): Promise<IImage | null> {
+    console.log('Running inside imageRepository.delete with id: ', id)
     const query = this.model.findByIdAndDelete(id);
+    console.log('query: ', query)
+
     if (options?.session) query.setOptions({ session: options.session });
     return query.exec(); // Manually resolve the query
   }
@@ -209,6 +216,7 @@ export class ImageRepository implements BaseRepository<IImage> {
   async deleteMany(userId: string, session?: mongoose.ClientSession): Promise<void> {
     await this.model.deleteMany({ uploadedBy: userId }).setOptions({ session }).exec();
   }
+  
 
   async update(id: string, updateData: Partial<IImage>): Promise<IImage | null> {
     try {

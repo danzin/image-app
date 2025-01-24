@@ -1,5 +1,6 @@
 import mongoose, { Schema} from 'mongoose';
 import {IImage, ITag} from '../types'
+import User from './user.model';
 
 const imageSchema = new Schema<IImage>({
   userId: { type: String, required: true },
@@ -40,10 +41,12 @@ imageSchema.post('save', async function (doc) {
 //Update tags when image is deleted
 //'remove' is deprecated so I'm using findOneAndDelete 
 imageSchema.pre('findOneAndDelete', async function (next) {
+  console.log('Running mongoose middleware findOneAndDelete')
   //Unlike `save` from the function above, `findOneAndDelete` doesn't have direct access to the document it's deleting, 
   //I need to use the `this` context to access the query
   const doc = await this.model.findOne(this.getQuery()); //`this` refers to the query object being executed, this.getQuery() gains access the document itself
 
+  //remove tag from tags
   if (doc && doc.tags && doc.tags.length > 0) {
     for (let tag of doc.tags) {
       await Tag.findOneAndUpdate(
@@ -58,6 +61,17 @@ imageSchema.pre('findOneAndDelete', async function (next) {
         await Tag.deleteOne({ tag }); 
       }
     }
+  }
+
+  //remove image from the user's images array
+  if (doc.userId) {
+    console.log('executing findByIdAndUpdate on doc.userId: ', doc.userId);
+    const result = await User.findByIdAndUpdate(
+      doc.userId, // Match the user by ID
+      { $pull: { images: doc.url } }, // Remove the image from the `images` array
+      { new: true } // Return the updated user document (optional)
+    );
+    console.log('result: ', result)
   }
   next();
 });

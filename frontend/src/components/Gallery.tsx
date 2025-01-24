@@ -1,27 +1,40 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { IImage } from '../types';
+import { IImage, IUser } from '../types';
 import { GalleryProps } from '../types';
+import { Link, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useImages } from '../hooks/useImages';
 
 const Gallery: React.FC<GalleryProps> = ({
+  
   images,
   fetchNextPage,
   hasNextPage,
   isFetchingNext,
   source
 }) => {
-
   if (!images) {
     return <div className="p-4">Loading gallery...</div>;
   }
-
   if (images.length === 0) {
     return <div className="p-4">No images available</div>;
   }
 
+
+  const { user } = useAuth();
+  const isProfilePage = location.toString().includes('profile');
+  const { id } = useParams();
   const [selectedImage, setSelectedImage] = useState<IImage | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { deleteImage } = useImages();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  const isInOwnProfile = ((userId, profileId, isProfilePage) => {
+    return user?._id === profileId && isProfilePage;
+  })(user?._id, id, isProfilePage);
+
+  
+  
   useEffect(() => {
     const handleIntersection = (entries: IntersectionObserverEntry[]) => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNext) {
@@ -51,6 +64,12 @@ const Gallery: React.FC<GalleryProps> = ({
     setSelectedImage(null);
     setIsModalOpen(false);
   };
+
+  const handleDeleteImage = (image: IImage) => {
+    deleteImage(image._id);
+    closeModal();
+
+  }
 
   const handleOverlayClick = (e: React.MouseEvent<HTMLDialogElement, MouseEvent>) => {
     const dialogElement = e.currentTarget;
@@ -91,7 +110,7 @@ const Gallery: React.FC<GalleryProps> = ({
           onClick={handleOverlayClick}
           open
         >
-          <div className="modal-box relative">
+          <div className="modal-box relative flex flex-col">
             <button className="absolute top-1 right-2" onClick={closeModal}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -107,11 +126,15 @@ const Gallery: React.FC<GalleryProps> = ({
             </button>
             <img src={selectedImage.url} alt="Selected" className="w-full h-full object-cover" />
       
-              <span className="font-bold flex flex-col">
-                <span className="font-extrabold">Tags:  {getImageTags(selectedImage)}</span>
-                <span className="font-extrabold">Uploaded by: {selectedImage.uploadedBy}</span>
-         
-
+              <span className="font-bold flex-row content-start">
+                <div>Uploaded by: <Link to={`/profile/${selectedImage.uploaderId}`}>{selectedImage.uploadedBy} </Link></div>
+                <div>Tags: {getImageTags(selectedImage)} </div>
+                { isInOwnProfile && 
+                  (
+                  <button className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full' 
+                            onClick={() => handleDeleteImage(selectedImage)}>Delete</button>
+                    )
+                }
             </span>
           </div>
         </dialog>

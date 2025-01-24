@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag } from '../api/imageApi';
+import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById } from '../api/imageApi';
 import { IImage, UseImagesResult } from '../types'
 
 
@@ -28,7 +28,7 @@ export const useImages = (): UseImagesResult => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['images'] });
       queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['userImages'] }); // Invalidate user-specific image queries
+      queryClient.invalidateQueries({ queryKey: ['userImages'] }); 
     },
   });
 
@@ -38,6 +38,22 @@ export const useImages = (): UseImagesResult => {
     queryKey: ['tags'],
     queryFn: fetchTags,
   });
+
+
+  const deleteImageMutation = useMutation({
+    mutationFn: (id: string) => deleteImageById(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['images'] });
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ['userImages'] }); 
+
+    },
+    onError: (error: Error) => {
+      console.error("Error deleting image", error.message);
+    }
+  });
+
+
 
   const imagesByTagQuery = (tags: string[], page: number, limit: number) => useInfiniteQuery({
     queryKey: ['imagesByTag', tags, page, limit],
@@ -57,5 +73,7 @@ export const useImages = (): UseImagesResult => {
     uploadImageMutation,
     tagsQuery,
     imagesByTagQuery,
+    deleteImage: deleteImageMutation.mutate,
+
   };
 };

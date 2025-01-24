@@ -24,6 +24,7 @@ export interface UseImagesResult {
   uploadImageMutation: ReturnType<typeof useMutation>;
   tagsQuery: ReturnType<typeof useQuery>;
   imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
+  deleteImage: (id: string) => any
 }
 
 export interface TagsProps {

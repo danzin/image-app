@@ -4,6 +4,8 @@ import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
 import { IImage, ITag } from '../types';
 import mongoose from 'mongoose';
+import { errorLogger } from '../utils/winston';
+import { loggers } from 'winston';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -95,6 +97,8 @@ export class ImageService {
   }
 
   async deleteImage(id: string): Promise<IImage> {
+    console.log('--------Running DELETEIMAGE:---------- \n\r ')
+    console.log('id coming in to imageService:,' , id)
     const session = await mongoose.startSession();
     session.startTransaction();
     try {
@@ -102,16 +106,27 @@ export class ImageService {
       //only return parts of the file I need later while including the transaction
       const image = await this.imageRepository.findById(id, {
         session,
-        select: 'uploadedBy url',
+        select: 'uploadedBy url userId',
       });
+      console.log("image returned by await this.imageRepository.findById: ", image)
   
       if (!image) {
         throw createError('PathError', 'Image not found');
       }
   
+      
+      // Delete the image from the database with session
+      console.log(`calling await this.imageRepository.delete(${id}, ${{ session }});`)
+      const result = await this.imageRepository.delete(id, { session });
+      console.log('result: ',result)
+      //add deleting the image from user's image array
+      
       // Delete the asset from cloud storage
+      console.log(`await this.cloudinaryService.deleteAssetByUrl(${image.uploadedBy}, ${image.url})`)
       const cloudResult = await this.cloudinaryService.deleteAssetByUrl(image.uploadedBy, image.url);
+      console.log('cloudinary result: ',cloudResult )
       if (cloudResult.result !== 'ok') {
+        
         // Abort the transaction if cloud delete fails
         await session.abortTransaction();
         throw createError(
@@ -119,15 +134,13 @@ export class ImageService {
           cloudResult.message || 'Error deleting cloudinary data'
         );
       }
-      // Delete the image from the database with session
-      const result = await this.imageRepository.delete(id, { session });
-  
       // Commit the transaction
       await session.commitTransaction();
       return result;
     } catch (error) {
       // Abort the transaction on error
       await session.abortTransaction();
+      errorLogger.error(error.stack)
       throw createError(error.name, error.message);
     } finally {
       // End the session

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ImageService } from '../services/image.service';
 import { createError } from '../utils/errors';
+import { errorLogger } from '../utils/winston';
 
 export class ImageController {
   private imageService: ImageService;
@@ -44,6 +45,7 @@ export class ImageController {
       const images = await this.imageService.getUserImages(id, page, limit);
       res.json(images);
     } catch (error) {
+      errorLogger.error(error.stack);
       next(createError('UnknownError', 'Failed to fetch images'))
     }
   }
@@ -81,10 +83,12 @@ export class ImageController {
 
   async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
     const { id } = req.params;
+    
     try {
       const result = await this.imageService.deleteImage(id);
       res.json(result)
     } catch (error) {
+      errorLogger.error(error.stack)
       next(createError(error.name, error.message));
 
     }

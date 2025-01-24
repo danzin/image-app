@@ -35,3 +35,14 @@ export const fetchTags = async() : Promise<string[]> => {
   console.log(data);
   return data;
 }
+
+export const deleteImageById = async(id: string): Promise<string> => {
+  const token = localStorage.getItem('token');
+  console.log('Deleting image with ID: ', id, `\r\n`, `from user with token: ${token}` )
+      const { data } = await axiosClient.delete(`images/${id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
+  return data;
+}

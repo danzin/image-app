@@ -3,6 +3,7 @@ import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar } fr
 import { IImage, IUser } from '../types';
 import { editUserRequest } from '../api/editUser';
 import { useAuth } from '../context/AuthContext';
+
   export const useCurrentUser = () => {
     return useQuery<IUser>({
       queryKey: ['user'],

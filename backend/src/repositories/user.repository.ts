@@ -129,8 +129,8 @@ export class UserRepository implements BaseRepository<IUser> {
   //delete now accepts transactions, returns 
   //!! IMPORTANT!!!: 
   // since it resolves with .exec() I can't chain additional methods like sort() in the service layer
-  async delete(id: string, session?: mongoose.ClientSession): Promise<void> {
-    await this.model.findByIdAndDelete(id).setOptions({ session }).exec();
+  async delete(id: string, options?: {session?: mongoose.ClientSession}): Promise<void> {
+    await this.model.findByIdAndDelete(id).setOptions({session: options.session }).exec();
   }
 
   async deleteAll(): Promise<Object>{

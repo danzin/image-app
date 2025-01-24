@@ -1,7 +1,7 @@
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 // import { Menu, X, ChevronDown, User, Calendar, Settings, BarChart2, Layout, FileText, Grid, LogOut } from 'lucide-react';
 import AvatarEditor from '../components/AvatarEditor'; 
-import { useCurrentUser, useGetUser, useUpdateUserAvatar, useUserImages } from '../hooks/useUsers';
+import { useGetUser, useUpdateUserAvatar, useUserImages } from '../hooks/useUsers';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
 import { ToastContainer, toast } from 'react-toastify'
@@ -23,21 +23,16 @@ const DashboardLayout = () => {
   
   //logged user
   const { user, isLoggedIn } = useAuth();
-  const isProfileOwner = id === user?._id;
-  
   const notifySuccess = (message: string) => toast.success(message);
   const notifyError = (message: string) => toast.error(message);
-  
-  console.log('Is user logged in? ', isLoggedIn)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+
+  const isProfileOwner = id === user?._id;
+  
   // const [croppedImage, setCroppedImage] = useState(null);
-  console.log(' LOADED PROFILE SCREEN')
   const mutation = useUpdateUserAvatar(); 
-  
-  console.log('params: ', id)
-  console.log('Current User Data from useParams ID:' , user)
-  
+    
 
   const flattenedImages = imagesData?.pages?.flatMap(page => page.data) || [];
 
@@ -51,8 +46,6 @@ const DashboardLayout = () => {
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
-    console.log('MODAAAAAAAAAAAAAAAAAAAAAAAAAAL')
-    console.log(isModalOpen)
   };
   
   const handleCloseModal = () => {
@@ -61,17 +54,17 @@ const DashboardLayout = () => {
   
   const handleEditOpen = () => {
     setIsEditOpen(true);
-    console.log(isEditOpen);
   }
 
   const handleEditClose = () => {
     setIsEditOpen(false);
-    console.log(isEditOpen)
   }
 
-
   
-  const debounce = (func: any, delay: number) => {
+//TODO: ADD HANDLE DELETE THAT CLOSES THE MODAL AND REFRESHES THE IMAGES STATE SO DELETION IS REFLECTED! 
+
+
+const debounce = (func: any, delay: number) => {
     let timeout:any;
     return function (...args) {
       clearTimeout(timeout);
@@ -176,9 +169,13 @@ const DashboardLayout = () => {
                   <h1 className="text-2xl font-bold text-black">{userData?.username}</h1>
                   <p className="text-sm text-black">Software Developer</p>
                 </div>
-                <div className="mb-4 ml-auto">
+                  {
+
+                    isProfileOwner && (
+                      <div className="mb-4 ml-auto">
                   <p className="text-sm text-black" onClick={handleEditOpen}>Edit profile</p>
-                </div>
+                </div>)
+                  }
       
               </div>
             </div>

@@ -59,7 +59,11 @@ export class UserService {
 
   async update(id: string, userData: Partial<IUser>,): Promise<void>{
     try {
-
+      for(let key in userData){
+        if(userData[key] === ''){
+          delete userData[key]
+        }
+      }
       const user = await this.userRepository.update(id, userData);
       if(!user){
         throw createError('ValidationError', 'User not found');
@@ -106,42 +110,7 @@ export class UserService {
   }
   
 
-  //NOT AN ACTUAL ATOMIC SESSION TRANSACTION AS NONE
-  //OF THE OPERATIONS INCLUDE THE SESSION
-  //BIG FAIL ON MY PART FFS
-  // async deleteUser(id: string): Promise<void> {
-  //   const session = await mongoose.startSession();
-  //   console.log('initiating transaction...')
-  //   session.startTransaction();
-  //   try {
-  //     const user = await this.userRepository.findById(id);
-  //     if(!user){
-  //       throw createError('PathError', 'User not found')
-  //     }
-      
-  //     //delete images from Cloudinary
-  //     console.log('trying to delete images from cloudinary....')
-  //     await this.cloudinaryService.deleteMany(user.username);
-
-  //     //delete images from MongoDB
-  //     console.log('trying to delete images related to the user from MongoDB')
-  //     await this.imageRepository.deleteMany(id);
-
-  //     //delete the user from MongoDB
-  //     console.log('trying to delete the user from MongoDB')
-  //     await this.userRepository.delete(id);
-
-  //     console.log('concluding transaction...')
-  //     await session.commitTransaction();
-  //     session.endSession();
-
-    
-  //   } catch (error) {
-  //     await session.abortTransaction();
-  //     session.endSession();
-  //     throw createError(error.name, error.message);
-  //   }
-  // }
+ 
 
   async deleteUser(id: string): Promise<void> {
     const session = await mongoose.startSession();
@@ -167,7 +136,7 @@ export class UserService {
       await this.imageRepository.deleteMany(id, session);
   
       console.log('trying to delete the user from MongoDB...');
-      await this.userRepository.delete(id, session);
+      await this.userRepository.delete(id, {session});
   
       console.log('concluding transaction...');
       await session.commitTransaction();

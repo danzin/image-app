@@ -31,7 +31,9 @@ export class ImageRoutes {
 
     this.router.get('/:id', this.imageController.getImageById.bind(this.imageController));
 
-    this.router.delete('/:id', this.imageController.deleteImage.bind(this.imageController));
+    this.router.delete('/:id',  
+      AuthentitactionMiddleware.auth,
+      this.imageController.deleteImage.bind(this.imageController));
 
   }
 }
