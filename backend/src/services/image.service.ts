@@ -2,49 +2,102 @@ import { ImageRepository } from '../repositories/image.repository';
 import { UserRepository } from '../repositories/user.repository';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
-import { IImage, ITag } from '../types';
-import mongoose from 'mongoose';
+import { IImage, ITag, PaginationResult } from '../types';
+import mongoose, { ObjectId } from 'mongoose';
 import { errorLogger } from '../utils/winston';
+import { TagRepository } from '../repositories/tag.repository';
 
 export class ImageService {
   private imageRepository: ImageRepository;
   private userRepository: UserRepository;
   private cloudinaryService: CloudnaryService;
+  private tagRepository: TagRepository;
 
   constructor(){
     this.imageRepository = new ImageRepository();
     this.userRepository = new UserRepository();
     this.cloudinaryService = new CloudnaryService();
+    this.tagRepository = new TagRepository();
+
   }
 
-  async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
-    try {
-      const user = await this.userRepository.findById(userId);
-      if(!user){
-        throw createError('ValidationError', 'User not found');
-      }
-      const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
-      const image = {
-        url: cloudImage.url,
-        publicId: cloudImage.public_id,
-        userId,
-        tags: tags,
-        uploadedBy: user.username,
-        uploaderId: user._id
-      };
+  // async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+  //   try {
+  //     const user = await this.userRepository.findById(userId);
+  //     if(!user){
+  //       throw createError('ValidationError', 'User not found');
+  //     }
+  //     const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+  //     const image = {
+  //       url: cloudImage.url,
+  //       publicId: cloudImage.public_id,
+  //       userId,
+  //       tags: tags,
+  //       uploadedBy: user.username,
+  //       uploaderId: user._id
+  //     };
       
-      const img = await this.imageRepository.create(image);
+  //     const img = await this.imageRepository.create(image);
 
-      await this.userRepository.addImageToUser(userId, img.url as string);
-      return img;
-    } catch (error) {
-      throw createError(error.name, error.message);
+  //     await this.userRepository.addImageToUser(userId, img.url as string);
+  //     return img;
+  //   } catch (error) {
+  //     throw createError(error.name, error.message);
+  //   }
+  // }
+async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+  try {
+    // Find the user
+    console.log('finding user in uploadImage: ,', userId)
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw createError('ValidationError', 'User not found');
     }
+
+    // Upload the image to Cloudinary
+    const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+
+    // Convert tag strings to ObjectId references
+    const tagIds = await Promise.all(
+      tags.map(async (tag) => {
+        console.log('Tag inside tagIds conversion in imageService: ', tag)
+        const existingTag = await this.tagRepository.findByTag(tag);
+        if (existingTag) {
+          return existingTag._id; // Use existing tag's ObjectId
+        } else {
+          const newTag = await this.tagRepository.create(tag); 
+          return newTag._id;
+        }
+      })
+    );
+
+    // Create the image object
+    const image = {
+      url: cloudImage.url,
+      publicId: cloudImage.public_id,
+      user: {
+        _id: user._id,
+        username: user.username
+      }, 
+      tags: tagIds, //use teh converted ObjectId references
+    };
+
+    // Save the image to the database
+    const img = await this.imageRepository.create(image);
+
+    //Add the image URL to the user's images array
+    await this.userRepository.addImageToUser(userId, img.url as string);
+
+    return img;
+  } catch (error) {
+    throw createError(error.name, error.message);
   }
+}
 
   async getImages(page: number, limit: number): Promise<Object> {
     try {
-      return await this.imageRepository.findImages({ page, limit });
+      const result = await this.imageRepository.findImages({ page, limit });
+      return result;
     } catch (error) {
       throw createError('InternalServerError', error.message);
     }
@@ -55,7 +108,7 @@ export class ImageService {
       const result = await this.imageRepository.getByUserId(userId, { page, limit });
       if(!result){
         throw createError('InternalServerError', 'No images')
-        
+      
       }
       return result
     } catch (error) {
@@ -63,16 +116,33 @@ export class ImageService {
     }
   }
 
-  async searchByTags(tags: string[], page: number, limit: number): Promise<Object> {
+  async searchByTags(tags: string[], page: number, limit: number): Promise<PaginationResult<IImage>> {
     try {
-      if(!tags || tags.length === 0) {
-        throw createError('ValidationError', 'Tags are required for search')
+      let tagIds: any[] = [];
+      console.log(`tags inside searchByTags in imageService: ${tags}`)
+      // Only convert tags if they exist
+      if (tags.length > 0) {
+        tagIds = await Promise.all(
+          tags.map(async (tag) => {
+            const existingTag = await this.tagRepository.findByTag(tag);
+            if (!existingTag) {
+              throw createError('NotFoundError', `Tag '${tag}' not found.`);
+            }
+            return existingTag._id as Partial<mongoose.Types.ObjectId>;
+          })
+        );
       }
-      return await this.imageRepository.searchByTags(tags, page, limit);
+      console.log('tagIds: ', tagIds)
+  
+      // If no tags, return all images 
+      const result = await this.imageRepository.searchByTags(tagIds, page, limit);
+      console.log('result: ', result)
+      return result;
     } catch (error) {
-      throw createError('InternalServerError', error.message);
+      throw createError(error.name, error.message);
     }
   }
+
   
   async searchByText(query: string, page: number, limit: number): Promise<Object> {
     try {
@@ -96,51 +166,48 @@ export class ImageService {
   }
 
   async deleteImage(id: string): Promise<IImage> {
-    console.log('--------Running DELETEIMAGE:---------- \n\r ')
-    console.log('id coming in to imageService:,' , id)
+    console.log('--------Running DELETEIMAGE:---------- \n\r ');
+    console.log('id coming in to imageService:', id);
+  
     const session = await mongoose.startSession();
     session.startTransaction();
+  
     try {
-
-      //only return parts of the file I need later while including the transaction
+      // Fetch the image with the required fields, including the session
       const image = await this.imageRepository.findById(id, {
         session,
         select: 'uploadedBy url userId',
       });
-      console.log("image returned by await this.imageRepository.findById: ", image)
+      console.log('image returned by await this.imageRepository.findById:', image);
   
       if (!image) {
         throw createError('PathError', 'Image not found');
       }
   
-      
-      // Delete the image from the database with session
-      console.log(`calling await this.imageRepository.delete(${id}, ${{ session }});`)
+      // Delete the image from the database with the session
+      console.log(`calling await this.imageRepository.delete(${id}, ${{ session }});`);
       const result = await this.imageRepository.delete(id, { session });
-      console.log('result: ',result)
-      //deleting the image from user's images array is handled via mongoose middleware over at image.model.ts
-      
-      // Delete the asset from cloud storage
-      console.log(`await this.cloudinaryService.deleteAssetByUrl(${image.uploadedBy}, ${image.url})`)
-      const cloudResult = await this.cloudinaryService.deleteAssetByUrl(image.uploadedBy, image.url);
-      console.log('cloudinary result: ',cloudResult )
+      console.log('result:', result);
+  
+      // Delete the asset from Cloudinary
+      console.log(`await this.cloudinaryService.deleteAssetByUrl(${image.user.username}, ${image.url})`);
+      const cloudResult = await this.cloudinaryService.deleteAssetByUrl(image.user.username, image.url);
+      console.log('cloudinary result:', cloudResult);
+  
       if (cloudResult.result !== 'ok') {
-        
-        // Abort the transaction if cloud delete fails
         await session.abortTransaction();
-        throw createError(
-          'CloudinaryError',
-          cloudResult.message || 'Error deleting cloudinary data'
-        );
+        throw createError('CloudError', cloudResult.message || 'Error deleting Cloudinary data');
       }
-      // Commit the transaction
+  
       await session.commitTransaction();
       return result;
     } catch (error) {
-      // Abort the transaction on error
       await session.abortTransaction();
-      errorLogger.error(error.stack)
-      throw createError(error.name, error.message);
+
+      errorLogger.error(error.stack);
+  
+      // Re-throw the error with specific transaction type
+      throw createError('TransactionError', error.message);
     } finally {
       session.endSession();
     }

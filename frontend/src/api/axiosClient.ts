@@ -1,10 +1,9 @@
 import axios from 'axios';
 
 const axiosClient = axios.create({
-  baseURL: 'http://127.0.0.1:12000/api',
-  withCredentials: true,  
+  baseURL: '/api', //relative URL
+  withCredentials: true,
 });
-
 // Interceptors for better logging of requests
 axiosClient.interceptors.request.use(
   (config) => {

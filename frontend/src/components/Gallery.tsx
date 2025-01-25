@@ -29,8 +29,9 @@ const Gallery: React.FC<GalleryProps> = ({
   const { deleteImage } = useImages();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  //IIFE to check if the the profile belongs to the logged in user
   const isInOwnProfile = ((userId, profileId, isProfilePage) => {
-    return user?._id === profileId && isProfilePage;
+    return userId === profileId && isProfilePage;
   })(user?._id, id, isProfilePage);
 
   
@@ -82,8 +83,8 @@ const Gallery: React.FC<GalleryProps> = ({
   };
 
   const getImageTags = (image: IImage) => {
-    if (!image) return '';
-    return image.tags.join(', ');
+    if (!image || !image.tags) return ''; // Handle undefined image or tags
+    return image.tags.map(tag => tag.tag).join(', ');
   };
 
   return (
@@ -127,14 +128,19 @@ const Gallery: React.FC<GalleryProps> = ({
             <img src={selectedImage.url} alt="Selected" className="w-full h-full object-cover" />
       
               <span className="font-bold flex-row content-start">
-                <div>Uploaded by: <Link to={`/profile/${selectedImage.uploaderId}`}>{selectedImage.uploadedBy} </Link></div>
+                <div>Uploaded by: <Link to={`/profile/${selectedImage.user.id}`}><span className='text-blue-700 text-xl'> {selectedImage.user.username} </span> </Link></div>
                 <div>Tags: {getImageTags(selectedImage)} </div>
-                { isInOwnProfile && 
-                  (
-                  <button className='bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full' 
-                            onClick={() => handleDeleteImage(selectedImage)}>Delete</button>
-                    )
-                }
+                {isInOwnProfile && 
+                  (<button 
+                    className='bg-blue-500
+                                hover:bg-blue-700
+                                text-white 
+                                  font-bold
+                                  py-2
+                                  px-4
+                                  rounded-full' 
+                      onClick={() => handleDeleteImage(selectedImage)}>Delete</button>)
+                  }
             </span>
           </div>
         </dialog>

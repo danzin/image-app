@@ -12,9 +12,9 @@ export class UserService {
   private cloudinaryService: CloudnaryService;
   private imageRepository: ImageRepository;
   private generateToken(user: IUser): string{
-    const payload = { id: user._id, email: user.email, username: user.username };
-    const secret = process.env.JWT_SECRET;
-    const options = {expiresIn: '6h'};
+  const payload = { id: user._id, email: user.email, username: user.username };
+  const secret = process.env.JWT_SECRET;
+  const options = {expiresIn: '6h'};
   
     return jwt.sign(payload, secret, options);
   }
@@ -33,6 +33,27 @@ export class UserService {
       throw createError(error.name, error.message);
     }
   }
+
+  async followUser(followerId: string, followeeId: string): Promise<void> {
+    try {
+      if (followerId === followeeId) {
+        throw createError('ValidationError', 'You cannot follow yourself.');
+      }
+
+      await this.userRepository.followUser(followerId, followeeId);
+    } catch (error) {
+      throw createError(error.name, error.message);
+    }
+  }
+
+  async unfollowUser(followerId: string, followeeId: string): Promise<void> {
+    try {
+      await this.userRepository.unfollowUser(followerId, followeeId);
+    } catch (error) {
+      throw createError(error.name, error.message);
+    }
+  }
+
 
   async login(userData: IUser): Promise<{user: IUser; token: string}> {
     try {
@@ -217,7 +238,7 @@ export class UserService {
         );
       }
       console.log('trying to delete images related to the user from MongoDB...');
-      await this.imageRepository.deleteMany(id, session);
+      await this.imageRepository.deleteMany(id, {session});
   
       console.log('trying to delete the user from MongoDB...');
       await this.userRepository.delete(id, {session});

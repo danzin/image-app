@@ -3,104 +3,164 @@ import {IImage, ITag} from '../types'
 import User from './user.model';
 
 const imageSchema = new Schema<IImage>({
-  userId: { type: String, required: true },
+  user: {
+    type: mongoose.Schema.Types.ObjectId, // Reference to user instead of only string for userId
+    ref: 'User',
+    required: true
+  },
+
+  tags: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Tag' 
+  }],
   url: { type: String, required: true },
   publicId: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
-  tags: {type: [String], default: [], index: true},
-  uploadedBy: {type: String, required: true},
-  uploaderId: {type: String, required: true}
-  
-});
+  });
 
 const tagSchema = new Schema<ITag>({
   tag: { type: String, required: true, unique: true },
-  count: { type: Number, default: 0 },
-  modifiedAt: {type: Date, default: Date.now}
+  count: { type: Number, default: 0 }, 
+  modifiedAt: { type: Date, default: Date.now }, 
 });
 
 //Update tags every time an image is uploaded
-imageSchema.post('save', async function (doc) {
-  //Check if tags exist
-  if (doc.tags && doc.tags.length > 0) {
-    for (let tag of doc.tags) {
-      console.log(`Updating tag: ${tag} at ${new Date().toISOString()}`);
-      //Write tag if it doesn't exist or increment it if it does
-       await Tag.findOneAndUpdate(
-        { tag },
-        {
-          $inc: { count: 1 }, //Increment tag counter
-          $set: { modifiedAt: new Date() }, //st modifiedAt for each tag 
-        },
-        { upsert: true, new: true }
-      );
+imageSchema.post('save', async function (doc, next) {
+  const session = doc.$session(); // Get session from the document
+  try {
+    if (doc.tags && doc.tags.length > 0) {
+      for (let tagId of doc.tags) {
+        // Fetch the actual tag string from the Tag collection
+        const tagDoc = await Tag.findById(tagId).session(session);
+        if (tagDoc) {
+          console.log('Updating tag:', tagDoc.tag);
+          await Tag.findOneAndUpdate(
+            { tag: tagDoc.tag }, // Use the tag string, not the ObjectId
+            { $inc: { count: 1 }, $set: { modifiedAt: new Date() } },
+            { upsert: true, new: true, session } // Pass the session
+          );
+        }
+      }
     }
+    next();
+  } catch (error) {
+    next(error);
   }
 });
 
-//Update tags when image is deleted
-//'remove' is deprecated so I'm using findOneAndDelete 
+
+/**This mongoose middleware allows for much easier work with data 
+ * on the frontend. Everything broke when I directly referenced User and Tag inside the
+ * Image document because react-query was supposed to receive string as id, now it receives 
+ * mongoose object id. 
+ * 
+ * This function strips the `_id` and converts it to `id` of type string.
+ * It transforms the nested user object that now resides inside images.
+ * It removes reduntant, repetitive fields from the object(username, id)
+ * and transforms nested arrays tags create. 
+ * Also removes __v 
+ */
+imageSchema.set("toJSON", {
+  transform: (_doc, ret) => {
+    // Convert _id fields to id
+    if (ret._id) ret.id = ret._id.toString();
+    delete ret._id;
+
+    // Transform the nested user object
+    if (ret.user && ret.user._id) {
+      ret.user.id = ret.user._id.toString();
+      delete ret.user._id;
+    }
+
+    // Remove redundant fields on the top level
+    delete ret.id; 
+    delete ret.username; 
+
+    // Transform nested arrays like `tags`
+    if (Array.isArray(ret.tags)) {
+      ret.tags = ret.tags.map((tag) => {
+        if (tag._id) {
+          return {
+            id: tag._id.toString(),
+            tag: tag.tag,
+          };
+        }
+        return tag;
+      });
+    }
+
+    // Remove __v
+    delete ret.__v;
+    return ret;
+  },
+});
+
+/**Update tags when images are deleted. 
+ * `remove` is deprecated so I'm using `findOneAndDelete` as trigger
+ * Now also respects the session
+ */
 imageSchema.pre('findOneAndDelete', async function (next) {
-  console.log('Running mongoose middleware findOneAndDelete')
-  //Unlike `save` from the function above, `findOneAndDelete` doesn't have direct access to the document it's deleting, 
-  //I need to use the `this` context to access the query
-  const doc = await this.model.findOne(this.getQuery()); //`this` refers to the query object being executed, this.getQuery() gains access the document itself
+  // Get the session from the query options if it exists
+  // if it doesn't exist, it's undefined, and passing undefined as a session later on 
+  //just means there's no session and execution continues without session
+  const session = this.getOptions().session; 
+  try {
+    const doc = await this.model.findOne(this.getQuery()).session(session); 
+    if (doc && doc.tags && doc.tags.length > 0) {
+      console.log(`running in doc of docs loop \r\n doc: ${doc}`)
 
-  //remove tag from tags
-  if (doc && doc.tags && doc.tags.length > 0) {
-    for (let tag of doc.tags) {
-      await Tag.findOneAndUpdate(
-        { tag },
-        { $inc: { count: -1 } }, 
-        { new: true } 
-      );
+      
+      for (let tag of doc.tags) {
+        console.log(`running in tag of doc.tags loop \r\n tag: ${tag} \r\n tags: ${doc.tags}`)
+        await Tag.findOneAndUpdate(
+          { _id: tag },
+          { $inc: { count: -1 } },
+          { new: true, session } 
+        );
 
-      //If the tag count is 0, remove the tag
-      const updatedTag = await Tag.findOne({ tag });
-      if (updatedTag && updatedTag.count <= 0) {
-        await Tag.deleteOne({ tag }); 
+        const updatedTag = await Tag.findOne({ _id: tag }).session(session);
+        if (updatedTag && updatedTag.count <= 0) {
+          await Tag.deleteOne({ _id: tag }).session(session);
+        }
       }
     }
-  }
 
-  //remove image from the user's images array
-  if (doc.userId) {
-    console.log('executing findByIdAndUpdate on doc.userId: ', doc.userId);
-    const result = await User.findByIdAndUpdate(
-      doc.userId, // Match the user by ID
-      { $pull: { images: doc.url } }, // Remove the image from the `images` array
-      { new: true } // Return the updated user document (optional)
-    );
-    console.log('result: ', result)
+    if (doc.user._id) {
+      console.log(`deleting image ${doc._id} from user ${doc.user.username} with user id ${doc.user._id}`)
+      await User.findByIdAndUpdate(
+        doc.user._id,
+        { $pull: { images: doc.url } },
+        { new: true, session }
+      );
+    }
+    next();
+  } catch (error) {
+    next(error);
   }
-  next();
 });
 
 //Remove or decrement tags when deleting many images
+//Respect the session
 imageSchema.pre('deleteMany', async function (next) {
+  const session = this.getOptions().session; // Get the session from the query options
   try {
-    // `this` is a query object
-    const query = this.getQuery();
-    const docs = await this.model.find(query); // Find all documents that match the query
-
+    const docs = await this.model.find(this.getQuery()).session(session); // Pass the session
     for (const doc of docs) {
       if (doc.tags && doc.tags.length > 0) {
         for (let tag of doc.tags) {
           await Tag.findOneAndUpdate(
             { tag },
             { $inc: { count: -1 } },
-            { new: true }
+            { new: true, session } 
           );
-
-          // If the tag count is 0, remove the tag
-          const updatedTag = await Tag.findOne({ tag });
+          
+          const updatedTag = await Tag.findOne({ tag }).session(session);
           if (updatedTag && updatedTag.count <= 0) {
-            await Tag.deleteOne({ tag });
+            await Tag.deleteOne({ tag }).session(session);
           }
         }
       }
     }
-
     next();
   } catch (error) {
     next(error);
