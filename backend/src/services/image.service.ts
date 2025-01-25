@@ -1,8 +1,10 @@
-import { ImageRepository, PaginationResult } from '../repositories/image.repository';
+import { ImageRepository } from '../repositories/image.repository';
 import { UserRepository } from '../repositories/user.repository';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
 import { IImage, ITag } from '../types';
+import mongoose from 'mongoose';
+import { errorLogger } from '../utils/winston';
 
 export class ImageService {
   private imageRepository: ImageRepository;
@@ -21,13 +23,14 @@ export class ImageService {
       if(!user){
         throw createError('ValidationError', 'User not found');
       }
-      const cloudImage = await this.cloudinaryService.uploadImage(file);
+      const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
       const image = {
         url: cloudImage.url,
         publicId: cloudImage.public_id,
         userId,
         tags: tags,
-        uploadedBy: user.username
+        uploadedBy: user.username,
+        uploaderId: user._id
       };
       
       const img = await this.imageRepository.create(image);
@@ -93,13 +96,56 @@ export class ImageService {
   }
 
   async deleteImage(id: string): Promise<IImage> {
+    console.log('--------Running DELETEIMAGE:---------- \n\r ')
+    console.log('id coming in to imageService:,' , id)
+    const session = await mongoose.startSession();
+    session.startTransaction();
     try {
-      const result = await this.imageRepository.delete(id)
+
+      //only return parts of the file I need later while including the transaction
+      const image = await this.imageRepository.findById(id, {
+        session,
+        select: 'uploadedBy url userId',
+      });
+      console.log("image returned by await this.imageRepository.findById: ", image)
+  
+      if (!image) {
+        throw createError('PathError', 'Image not found');
+      }
+  
+      
+      // Delete the image from the database with session
+      console.log(`calling await this.imageRepository.delete(${id}, ${{ session }});`)
+      const result = await this.imageRepository.delete(id, { session });
+      console.log('result: ',result)
+      //deleting the image from user's images array is handled via mongoose middleware over at image.model.ts
+      
+      // Delete the asset from cloud storage
+      console.log(`await this.cloudinaryService.deleteAssetByUrl(${image.uploadedBy}, ${image.url})`)
+      const cloudResult = await this.cloudinaryService.deleteAssetByUrl(image.uploadedBy, image.url);
+      console.log('cloudinary result: ',cloudResult )
+      if (cloudResult.result !== 'ok') {
+        
+        // Abort the transaction if cloud delete fails
+        await session.abortTransaction();
+        throw createError(
+          'CloudinaryError',
+          cloudResult.message || 'Error deleting cloudinary data'
+        );
+      }
+      // Commit the transaction
+      await session.commitTransaction();
       return result;
     } catch (error) {
-      throw createError('InternalServerError', error.message);      
+      // Abort the transaction on error
+      await session.abortTransaction();
+      errorLogger.error(error.stack)
+      throw createError(error.name, error.message);
+    } finally {
+      session.endSession();
     }
   }
+  
 
   async getTags(): Promise<ITag[] | ITag> {
     try {
@@ -109,7 +155,7 @@ export class ImageService {
       }
       return result;  
     } catch (error: any) {
-      throw createError('InternalServerError', error.message);
+      throw createError(error.name, error.message);
 
     }
   }

@@ -7,6 +7,7 @@ export interface IImage extends Document {
   createdAt: Date;
   tags: string[];
   uploadedBy: string;
+  uploaderId: string;
 }
 
 export interface ITag extends Document {
@@ -18,11 +19,15 @@ export interface ITag extends Document {
 export interface IUser extends Document{
   username: string,
   email: string,
+  avatar: string,
+  cover: string,
   password: string,
   createdAt: Date,
   updatedAt: Date,
   isAdmin: boolean,
   images: string[],
+  followers: string[],
+  following: string[]
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
@@ -30,6 +35,26 @@ export interface BaseRepository<T> {
   create(item: T): Promise<T>;
   findById(id: string): Promise<T | null>;
   update(id: string, item: Partial<T>): Promise<T | null>;
-  delete(id: string): Promise< T | boolean>;
+  delete(id: string): Promise< T | boolean | void>;
 }
 
+
+export interface PaginationResult<T> {
+  data: T[] | T;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface CloudinaryResponse {
+  result: 'ok' | 'error';
+  message?: string;
+}

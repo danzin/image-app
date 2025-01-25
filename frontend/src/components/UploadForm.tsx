@@ -30,14 +30,28 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
     if (e.key === 'Enter' && tagInput.trim() && tags.length < 5) {
       e.preventDefault();
       if (!tags.includes(tagInput.trim())) {
-        setTags([...tags, tagInput.trim()]);
+        // Useing functional state update to ensure the latest state is used
+        // because the tags variable represents the tags from the previous state update, not the
+        // most up-to-date state, because react batches state updates and re-renders components
+        // Without the functional updater, the tags state represents the tags from the previous update
+        setTags((prevTags) => {
+          const updatedTags = [...prevTags, tagInput.trim()];
+          console.log('Updated Tags:', updatedTags); // Logs the new state
+          return updatedTags;
+        });
         setTagInput('');
       }
     }
   };
+  
 
   const removeTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags((prevTags) => {
+      const updatedTags = prevTags.filter(tag => tag !== tagToRemove);
+      console.log('Updated Tags:', updatedTags); // Logs the new state
+      return updatedTags;
+    });
+    console.log(tags)
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -57,8 +71,10 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
   const handleUpload = () => {
     if (file) {
       const formData = new FormData();
+      console.log('tags:', JSON.stringify(tags));
       formData.append('image', file);
       formData.append('tags', JSON.stringify(tags));
+      console.log('formData: ', formData)
       uploadImageMutation.mutate(formData);
       onClose();
     }

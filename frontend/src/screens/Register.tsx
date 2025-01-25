@@ -25,7 +25,6 @@ const Login: React.FC = () => {
   
   return (
     <>
-      <ToastContainer />
       <AuthForm 
       title="Register"
       fields={[
@@ -38,6 +37,8 @@ const Login: React.FC = () => {
       linkText="Already have an account?"
       linkTo="/login"
       />
+      <ToastContainer />
+
     </>
   );
 };

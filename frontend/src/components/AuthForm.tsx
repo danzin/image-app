@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 interface AuthFormProps<T> {
   title: string;
-  fields: { name: keyof T; type: string; placeholder: string }[];
+  fields: { 
+    name: keyof T;
+    type: string;
+    placeholder: string,
+    required: boolean,
+  }[];
   onSubmit: (formData: T) => void;
   error?: string | null;
   submitButtonText: string;
@@ -37,7 +42,7 @@ const AuthForm = <T extends { [key: string]: string }>({
   };
 
   return (
-    <div className="hero min-h-screen bg-transparent">
+    <div className="hero h-auto bg-transparent">
       <div className="hero-content flex-col">
         <div className="text-center">
           <h1 className="text-5xl font-bold">{title}</h1>
@@ -58,7 +63,7 @@ const AuthForm = <T extends { [key: string]: string }>({
                   className="input input-bordered"
                   value={formData[field.name] || ''}
                   onChange={handleChange}
-                  required
+                  required={field.required}
                 />
               </div>
             ))}

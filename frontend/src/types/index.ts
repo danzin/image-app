@@ -1,12 +1,14 @@
 import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, useQuery } from "@tanstack/react-query";
 
 export interface IUser {
+  _id: string;
   username: string;
   email: string;
   images: string[];
   isAdmin: boolean;
+  avatar: string;
+  cover: string;
 }
-
 
 export interface IImage {
   _id: string;
@@ -14,6 +16,7 @@ export interface IImage {
   publicId: string;
   tags: string[];
   uploadedBy: string;
+  uploaderId: string;
 }
 
 export interface UseImagesResult {
@@ -22,6 +25,7 @@ export interface UseImagesResult {
   uploadImageMutation: ReturnType<typeof useMutation>;
   tagsQuery: ReturnType<typeof useQuery>;
   imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
+  deleteImage: (id: string) => any
 }
 
 export interface TagsProps {
@@ -30,7 +34,11 @@ export interface TagsProps {
 }
 
 export interface GalleryProps {
-  images: (IImage)[];
+  images: IImage[] | undefined;  // Make images possibvly undefined 
+  fetchNextPage: () => void;
+  hasNextPage: boolean | undefined;
+  isFetchingNext: boolean;
+  source: string | undefined;
 }
 
 export interface UserUserResult {
@@ -42,4 +50,12 @@ export interface UserUserResult {
 
 export interface UploadFormProps {
   onClose: () => void;
+}
+
+export interface AuthContextData {
+  isLoggedIn: boolean;
+  user: IUser | null;
+  login: (user: IUser, token: string) => void;
+  logout: () => void;
+  setUser: (user: IUser | null) => void; // This allows you to update the user in the context
 }

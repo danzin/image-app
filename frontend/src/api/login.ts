@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import axiosClient from './axiosClient';
 
 export const loginRequest = async (credentials: any) => {
-  const response = await axiosClient.post('/api/users/login', credentials);
+  const response = await axiosClient.post('/users/login', credentials);
   return response.data;
 };
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ImageService } from '../services/image.service';
 import { createError } from '../utils/errors';
+import { errorLogger } from '../utils/winston';
 
 export class ImageController {
   private imageService: ImageService;
@@ -13,7 +14,6 @@ export class ImageController {
     try {
       const { decodedUser, file } = req;
       const tags = JSON.parse(req.body.tags);
-
       const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
       res.status(201).json(result);
     } catch (error) {
@@ -36,14 +36,16 @@ export class ImageController {
   }
 
   async getUserImages(req: Request, res: Response, next: NextFunction): Promise<void> {
-    const {decodedUser} = req;
+    const {id} = req.params;
    
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
+    console.log('ID of getUserImages: ', id)
     try {
-      const images = await this.imageService.getUserImages(decodedUser.id, page, limit);
+      const images = await this.imageService.getUserImages(id, page, limit);
       res.json(images);
     } catch (error) {
+      errorLogger.error(error.stack);
       next(createError('UnknownError', 'Failed to fetch images'))
     }
   }
@@ -81,10 +83,12 @@ export class ImageController {
 
   async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
     const { id } = req.params;
+    
     try {
       const result = await this.imageService.deleteImage(id);
       res.json(result)
     } catch (error) {
+      errorLogger.error(error.stack)
       next(createError(error.name, error.message));
 
     }

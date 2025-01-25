@@ -31,15 +31,27 @@ export class UserRepository implements BaseRepository<IUser> {
     return this.model.find();
   }
 
-  async findById(id: string): Promise<IUser | null> {
+  // async findById(id: string): Promise<IUser | null> {
+  //   try {
+  //     const result = await this.model.findById(id);
+  //     if(!result){
+  //       return null
+  //     }
+  //     return result;
+  //   } catch (error) {
+  //     throw createError('InternalServerError', error.message);
+  //   }
+  // }
+
+  async findById(id: string, options?: {session?: mongoose.ClientSession}): Promise<IUser | null> {
     try {
-      const result = await this.model.findById(id);
-      if(!result){
-        return null
+      const result = this.model.findById(id).setOptions({ session: options?.session }).exec();
+      if(!result) {
+        return null;
       }
-      return result;
+      return result
     } catch (error) {
-      throw createError('InternalServerError', error.message);
+      throw createError('InternalServerError', error.message)
     }
   }
 
@@ -69,7 +81,13 @@ export class UserRepository implements BaseRepository<IUser> {
 
   async update(id: string, userData: Partial<IUser>): Promise<IUser | null> {
     try {
-      const user = await this.model.findByIdAndUpdate(id, userData, { new: true });
+      const filter = {_id: id}
+      const update = {
+        $set: {...userData}
+      }
+      const options = { returnOriginal: false };
+
+      const user = await this.model.findOneAndUpdate(filter, update, options);
       if(!user){
         return null;
       }
@@ -80,30 +98,63 @@ export class UserRepository implements BaseRepository<IUser> {
   }
 
   async addImageToUser(userId: string, imageUrl: string): Promise<IUser | null> {
-    return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
-  }
-
-  //TODO: Handle cloudinary deletion and tags
-  async delete(id: string): Promise<boolean> {
-    const session = await mongoose.startSession();
-    session.startTransaction();
     try {
-      //delete user images
-      await this.imageRepository.deleteMany(id);
-      
-      //then delete the user
-      const result = await this.model.deleteOne({ _id: id });
-      
-      await session.commitTransaction();
-      session.endSession();
-      
-      return !!result.deletedCount;
+
+      return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
     } catch (error) {
-      await session.abortTransaction();
-      session.endSession();
-      throw createError('InternalServerError', error.message);
+      throw createError('InternalServerError', error.message)
     }
   }
+
+  async updateAvatar(userId: string, avatar: string, options?: {session?: mongoose.ClientSession}): Promise<string | null>{
+    try {
+      const result = await this.model.findByIdAndUpdate(userId, {$set: {avatar: avatar}}).setOptions({session: options.session});
+      if(!result){
+        return null;
+      }
+      return avatar;
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
+  }
+
+  async updateCover(userId: string, cover: string, options?: {session?: mongoose.ClientSession}): Promise<string | null>{
+    try {
+      const result = await this.model.findByIdAndUpdate(userId, {$set: {cover: cover}}).setOptions({session: options.session});
+      if(!result){
+        return null;
+      }
+      return cover;
+    } catch (error) {
+      throw createError('InternalServerError', error.message)
+    }
+  }
+
+
+
+  //TODO: Handle cloudinary deletion and tags
+  // async delete(id: string): Promise<boolean> {
+  //   const session = await mongoose.startSession();
+  //   session.startTransaction();
+  //   try {
+  //     //then delete the user
+  //     const result = await this.model.deleteOne({ _id: id }); 
+
+  //     return !!result.deletedCount;
+  //   } catch (error) {
+     
+  //     throw createError('InternalServerError', error.message);
+  //   }
+  // }
+
+  //delete now accepts transactions, returns 
+  //!! IMPORTANT!!!: 
+  // since it resolves with .exec() I can't chain additional methods like sort() in the service layer
+  async delete(id: string, options?: {session?: mongoose.ClientSession}): Promise<void> {
+    await this.model.findByIdAndDelete(id).setOptions({session: options.session }).exec();
+  }
+
+  
 
   async deleteAll(): Promise<Object>{
     try {
