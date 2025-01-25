@@ -28,7 +28,6 @@ export class ImageController {
       const images = await this.imageService.getImages(page, limit);
       res.header('Access-Control-Allow-Origin', 'http://localhost:5173');  //specific origin
       res.header('Access-Control-Allow-Credentials', 'true');  //allow credentials
-
       res.json(images);
     } catch (error) {
       next(createError(error.name, error.message));
@@ -43,6 +42,7 @@ export class ImageController {
     console.log('ID of getUserImages: ', id)
     try {
       const images = await this.imageService.getUserImages(id, page, limit);
+      console.log(`images of user ${id}: ${images}`);
       res.json(images);
     } catch (error) {
       errorLogger.error(error.stack);
@@ -60,13 +60,22 @@ export class ImageController {
     }
   }
 
-  async searchByTags(req: Request, res: Response, next: NextFunction): Promise<void>{
-    const { tags, page, limit } = req.query;
+  async searchByTags(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const result = await this.imageService.searchByTags((tags as string).split(','), Number(page), Number(limit));
-      res.json(result);
+      const { tags } = req.query; // Get tags from query parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      console.log('tags in the controller:', tags)
+      // Handle empty tags gracefully (no error)
+      const tagArray = tags 
+        ? (tags as string).split(',').filter(tag => tag.trim() !== '')
+        : [];
+      console.log(tagArray)
+      // Call the service method
+      const result = await this.imageService.searchByTags(tagArray, page, limit);
+      res.status(200).json(result);
     } catch (error) {
-      next(createError(error.name, error.message));
+      next(error);
     }
   }
 

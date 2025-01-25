@@ -43,6 +43,20 @@ export class UserRoutes {
       upload.single('avatar'),
       this.userController.updateAvatar.bind(this.userController));
 
+    //follow user
+    this.router.post(
+      '/follow/:userId',
+      AuthentitactionMiddleware.auth, // Ensure the user is authenticated
+      this.userController.followUser.bind(this.userController)
+    );
+  
+    //unfollow user
+    this.router.post(
+      '/unfollow/:userId',
+      AuthentitactionMiddleware.auth, // Ensure the user is authenticated
+      this.userController.unfollowUser.bind(this.userController)
+    );
+
     //update user cover
     this.router.post('/cover', 
       AuthentitactionMiddleware.auth,

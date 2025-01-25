@@ -21,11 +21,39 @@ export class UserController {
     }
   }
 
+
+  async followUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId: followeeId } = req.params; // ID of user to follow(followee)
+      const { decodedUser } = req; // Logged in user is the follower
+
+      await this.userService.followUser(decodedUser.id, followeeId);
+      res.status(200).json({ message: 'Followed successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  
+  async unfollowUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { userId: followeeId } = req.params; 
+      const { decodedUser } = req; 
+
+      await this.userService.unfollowUser(decodedUser.id, followeeId);
+      res.status(200).json({ message: 'Unfollowed successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+
+
   async getUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params
       const user = await this.userService.getUserById(id);
-     
+      console.log(`user is getUser from userController: ${user}`)
       if(!user){
         throw createError('PathError', 'User not found');
       }

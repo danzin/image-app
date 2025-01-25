@@ -59,6 +59,12 @@ class UnknownError extends AppError {
   }
 }
 
+class TransactionError extends AppError {
+  constructor(message: string) {
+    super('TransactionError', message, 500);
+  }
+}
+
 const errorMap: { [key: string]: new (message: string) => AppError } = {
   ValidationError,
   UnauthorizedError,
@@ -68,6 +74,7 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   InternalServerError,
   CloudError,
   UnknownError,
+  TransactionError
 };
 
 export function createError(type: string, message: string): AppError {

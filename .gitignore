@@ -1,8 +1,11 @@
 node_modules/
 .env
 app.log
-/backend/.dev
-/backend/app.log
-/backend/app-behaviour.log
-/backend/detailed-requests.log
-/backend/http-requests.log
+backend/.dev
+backend/app.log
+backend/app-behaviour.log
+backend/detailed-requests.log
+backend/http-requests.log
+backend/src/NOTES.txt
+backend/errors.log
+backend/errors.log

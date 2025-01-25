@@ -10,13 +10,21 @@ export interface IUser {
   cover: string;
 }
 
+interface Tag {
+  tag: string;
+  count?: number; 
+  modifiedAt?: Date; 
+}
+
 export interface IImage {
   _id: string;
   url: string;
   publicId: string;
-  tags: string[];
-  uploadedBy: string;
-  uploaderId: string;
+  tags: Tag[];
+  user: {
+    _id: String,
+    username: string
+  };
 }
 
 export interface UseImagesResult {

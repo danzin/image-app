@@ -1,27 +1,43 @@
 import Image, { Tag } from '../models/image.model';
+import Like from '../models/like.model';
 import User from '../models/user.model';
-import { IImage, BaseRepository, ITag, PaginationOptions, PaginationResult, IUser} from '../types';
+import { IImage, BaseRepository, ITag, PaginationOptions, PaginationResult, IUser, ILike} from '../types';
 import { createError } from '../utils/errors';
-import mongoose from 'mongoose';
+import mongoose, { ObjectId } from 'mongoose';
 
 
 export class ImageRepository implements BaseRepository<IImage> {
   private model: mongoose.Model<IImage>;
   private tag: mongoose.Model<ITag>;
   private user: mongoose.Model<IUser>;
+  private like: mongoose.Model<ILike>;
   constructor(){
     this.model = Image;
     this.tag = Tag;
     this.user = User;
+    this.like = Like;
   }
 
-  async create(image: any): Promise<IImage> {
+  async create(image: any, options?: { session?: mongoose.ClientSession }): Promise<IImage> {
     try {
-      return await this.model.create(image);
+      console.log('image inside create image repository', image)
+      const doc = new this.model(image);
+      //session argument needs to only be passed in if necessary
+      if (options?.session) doc.$session(options.session); // Set the session
+      return await doc.save();
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }
   }
+
+  async likeImage(userId: string, imageId: string): Promise<void> {
+    await this.like.create({ userId, imageId });
+  }
+
+  async unlikeImage(userId: string, imageId: string): Promise<void> {
+    await this.like.deleteOne({ userId, imageId });
+  }
+
 
   async getAll(): Promise<IImage[]> {
     return this.model.find();
@@ -41,10 +57,12 @@ export class ImageRepository implements BaseRepository<IImage> {
       const sort: { [key: string]: 'asc' | 'desc' } = {
         [sortBy]: sortOrder
       };
-
+   
       const [data, total] = await Promise.all([
         this.model
           .find()
+          .populate('tags', 'tag') // Populate the 'tags' field and only include the 'tag' field
+          .populate('user', 'username') 
           .sort(sort)
           .skip(skip)
           .limit(limit)
@@ -83,18 +101,21 @@ export class ImageRepository implements BaseRepository<IImage> {
         [sortBy]: sortOrder
       };
   
-
+      console.log('userId to find images for: ', userId)
       const [data, total] = await Promise.all([
         this.model
-          .find({ userId })
+          .find({ 'user': userId }) 
+          .populate('tags', 'tag') // Populate the 'tags' field
+          .populate('user', 'username')  // Populate the 'user' field to include username
           .sort(sort)
           .skip(skip)
           .limit(limit)
+          
           .exec(),
-        this.model.countDocuments({ userId })
+        this.model.countDocuments({ 'user._id': userId }), 
       ]);
   
-  
+      console.log(`data from imageRepository getByUserId: ${data}`)
       if (!data || data.length === 0) {
         console.warn('No images found for user:', userId);
       }
@@ -112,30 +133,53 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
-  async searchByTags(tags: string[], page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
+  async searchByTags(tags: mongoose.Types.ObjectId[], page: number, limit: number): Promise<PaginationResult<IImage>> {
     try {
       const skip = (page - 1) * limit;
-  
+      console.log('tags inside image.repository tags mongoose objectid array type: ', tags)
       const [data, total] = await Promise.all([
         this.model
-          .find({ tags: { $in: tags } }) 
+          .find({ tags: { $in: tags } })
+          .populate('tags', 'tag') 
+          .populate('user', 'username')    
+
           .skip(skip)
           .limit(limit)
+          
           .exec(),
         this.model.countDocuments({ tags: { $in: tags } }),
       ]);
-  
-      return {
-        data,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      };
+      console.log(`data in  searchByTags in image.repository.ts: ${data}`)
+      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }
   }
+
+  // async searchByTags(tags: ObjectId[], page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
+  //   try {
+  //     const skip = (page - 1) * limit;
+  //     console.log('tags in imageRepository: ', tags)
+  //     const [data, total] = await Promise.all([
+  //       this.model
+  //         .find({ tags: { $in: tags } }) 
+  //         .skip(skip)
+  //         .limit(limit)
+  //         .exec(),
+  //       this.model.countDocuments({ tags: { $in: tags } }),
+  //     ]);
+  
+  //     return {
+  //       data,
+  //       total,
+  //       page,
+  //       limit,
+  //       totalPages: Math.ceil(total / limit),
+  //     };
+  //   } catch (error: any) {
+  //     throw createError('InternalServerError', error.message);
+  //   }
+  // }
   
   async textSearch(query: string, page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
     try {
@@ -175,12 +219,12 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async findById(id: string, options?: { session?: mongoose.ClientSession; select?: string }): Promise<IImage | null> {
-    console.log('id in findById in imageRepository: ', id)
-    const query = this.model.findById(id);
-    console.log('query', query)
+    const query = this.model.findById(id).populate('userId, username')
+;
+    //Passing options and setting session if they're provided
     if (options?.select) query.select(options.select);
-    if (options?.session) query.setOptions({ session: options.session });
-    return query.exec(); // Resolve the query manually
+    if (options?.session) query.session(options.session); 
+    return query.exec();
   }
  
   // async delete(id: string): Promise<IImage> {
@@ -198,12 +242,10 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async delete(id: string, options?: { session?: mongoose.ClientSession }): Promise<IImage | null> {
-    console.log('Running inside imageRepository.delete with id: ', id)
-    const query = this.model.findByIdAndDelete(id);
-    console.log('query: ', query)
-
-    if (options?.session) query.setOptions({ session: options.session });
-    return query.exec(); // Manually resolve the query
+    const query = this.model.findOneAndDelete({id: id});
+    //setting the session if provided
+    if (options?.session) query.session(options.session); 
+    return query.exec();
   }
 
   // async deleteMany(userId: string): Promise<boolean> {
@@ -213,8 +255,10 @@ export class ImageRepository implements BaseRepository<IImage> {
 
   //accepts transaction now. Nothing else changes because the return is directly executed with .exec();
   //everything is as it used to be except now transactions actually work as expected when passed in
-  async deleteMany(userId: string, session?: mongoose.ClientSession): Promise<void> {
-    await this.model.deleteMany({ uploadedBy: userId }).setOptions({ session }).exec();
+  async deleteMany(userId: string, options?: { session?: mongoose.ClientSession }): Promise<void> {
+    const query = this.model.deleteMany({ uploadedBy: userId });
+    if (options?.session) query.session(options.session); 
+    await query.exec();
   }
   
 
