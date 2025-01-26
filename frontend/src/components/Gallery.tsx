@@ -67,7 +67,7 @@ const Gallery: React.FC<GalleryProps> = ({
   };
 
   const handleDeleteImage = (image: IImage) => {
-    deleteImage(image._id);
+    deleteImage(image.id);
     closeModal();
 
   }

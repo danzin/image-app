@@ -13,7 +13,15 @@ export class ImageController {
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { decodedUser, file } = req;
+      console.log(req.body.tags)
       const tags = JSON.parse(req.body.tags);
+
+      if (!file) {
+        throw createError('ValidationError', 'No file uploaded');
+      }
+      console.log('Received file:', file); // log the file obj
+      console.log('File buffer:', file?.buffer); // log buffer
+
       const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
       res.status(201).json(result);
     } catch (error) {
@@ -81,16 +89,13 @@ export class ImageController {
 
  
 
-  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
-    const { id } = req.params;
-    
+  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const { id } = req.params;
       const result = await this.imageService.deleteImage(id);
-      res.json(result)
+      res.status(200).json(result); 
     } catch (error) {
-      errorLogger.error(error.stack)
       next(createError(error.name, error.message));
-
     }
   }
 

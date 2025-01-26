@@ -59,12 +59,27 @@ imageSchema.post('save', async function (doc, next) {
  * It removes reduntant, repetitive fields from the object(username, id)
  * and transforms nested arrays tags create. 
  * Also removes __v 
+ * 
+ * The `toJSON` mongoose middleware triggers on 3 occasions: 
+ *   -when calling .toJSON() on a document. for example: 
+ *     const image = await ImageModel.findById(id);
+ *     const jsonImage = image.toJSON();
+ * 
+ *   -when sending data in a response: 
+ *      const image = await ImageModel.findById(id);
+ *      res.json(image);
+ *     - this also triggers when sending arrays as responses. if res.json(data[]), 
+ *        mongoose will iterate through each document and transform it
+ *   -when using .lean()
+ * 
  */
 imageSchema.set("toJSON", {
   transform: (_doc, ret) => {
     // Convert _id fields to id
-    if (ret._id) ret.id = ret._id.toString();
-    delete ret._id;
+    if (ret._id) {
+      ret.id = ret._id.toString(); // Rename _id to id
+      delete ret._id; // Delete the original _id
+    }
 
     // Transform the nested user object
     if (ret.user && ret.user._id) {
@@ -73,8 +88,7 @@ imageSchema.set("toJSON", {
     }
 
     // Remove redundant fields on the top level
-    delete ret.id; 
-    delete ret.username; 
+    delete ret.username; // Remove username if it exists
 
     // Transform nested arrays like `tags`
     if (Array.isArray(ret.tags)) {

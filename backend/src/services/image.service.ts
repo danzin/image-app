@@ -45,8 +45,9 @@ export class ImageService {
   //     throw createError(error.name, error.message);
   //   }
   // }
-async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
-  try {
+  async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+    console.log('File buffer received:', file); // Log the buffer
+    try {
     // Find the user
     console.log('finding user in uploadImage: ,', userId)
     const user = await this.userRepository.findById(userId);
@@ -88,7 +89,14 @@ async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object>
     //Add the image URL to the user's images array
     await this.userRepository.addImageToUser(userId, img.url as string);
 
-    return img;
+     return {
+      _id: img._id,
+      url: img.url,
+      publicId: img.publicId,
+      user: img.user,
+      tags: img.tags,
+      createdAt: img.createdAt,
+    };
   } catch (error) {
     throw createError(error.name, error.message);
   }
@@ -158,7 +166,7 @@ async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object>
     }
   }
 
-  async deleteImage(id: string): Promise<IImage> {
+  async deleteImage(id: string): Promise<Object> {
     console.log('--------Running DELETEIMAGE:---------- \n\r ');
     console.log('id coming in to imageService:', id);
   
@@ -169,7 +177,7 @@ async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object>
       // Fetch the image with the required fields, including the session
       const image = await this.imageRepository.findById(id, {
         session,
-        select: 'uploadedBy url userId',
+        select: 'url user',
       });
       console.log('image returned by await this.imageRepository.findById:', image);
   
@@ -189,11 +197,29 @@ async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object>
   
       if (cloudResult.result !== 'ok') {
         await session.abortTransaction();
-        throw createError('CloudError', cloudResult.message || 'Error deleting Cloudinary data');
+        throw createError('CloudError', cloudResult.result || 'Error deleting Cloudinary data');
       }
   
       await session.commitTransaction();
-      return result;
+      /**There was a problem where after successful deletion of the document, the frontend received the following response: 
+       * 'UnknownError: Cannot create Buffer from the passed potentialBuffer.  
+       *  at createError (D:\dev\TypeScriptPhotoApp\backend\src\utils\errors.ts:82:10) 
+       *  at ImageController.deleteImage (D:\dev\TypeScriptPhotoApp\backend\src\controllers\image.controller......'
+       * 
+       *  This is due to the fact that somewhere along the chain, there is a non-serializable object in the response, like a Buffer.
+       *  I spent over 3 hours trying to figure out where this is coming from, what's causing it, 
+       *  re-writing the cloudinary service logic, the image repository logic, the image schema, the user schema, the mongoose middleware...EVERYTHING. 
+       *  I TRIED EVERYTHING AND NOTHING WORKED. I WAS HARDSTUCK. 
+       *  
+       * Well, the fix is to just return the success message. There was absolutely no need to return the object. 
+       * Nobody cares about the deleted object. Why was I returning it. 
+       * 
+       * 
+       * The fix to my 3-4 hour struggle was literally : `message: 'Image deleted successfully'`
+       * 
+       *        
+       */
+      return { message: 'Image deleted successfully' };
     } catch (error) {
       await session.abortTransaction();
 

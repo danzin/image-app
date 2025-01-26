@@ -17,7 +17,7 @@ interface Tag {
 }
 
 export interface IImage {
-  _id: string;
+  id: string;
   url: string;
   publicId: string;
   tags: Tag[];

@@ -249,9 +249,7 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async findById(id: string, options?: { session?: mongoose.ClientSession; select?: string }): Promise<IImage | null> {
-    const query = this.model.findById(id).populate('userId, username')
-;
-    //Passing options and setting session if they're provided
+    const query = this.model.findById(id).populate('user');
     if (options?.select) query.select(options.select);
     if (options?.session) query.session(options.session); 
     return query.exec();
@@ -272,7 +270,7 @@ export class ImageRepository implements BaseRepository<IImage> {
    * and return query 
    */
   async delete(id: string, options?: { session?: mongoose.ClientSession }): Promise<IImage | null> {
-    const query = this.model.findOneAndDelete({id: id});
+    const query = this.model.findOneAndDelete({_id: id}); 
     //setting the session if provided
     if (options?.session) query.session(options.session); 
     return query.exec();

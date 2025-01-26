@@ -24,11 +24,14 @@ export const uploadImage = async(image: FormData): Promise<IImage> => {
 
   const response = await axiosClient.post('/images/upload', image, {
     headers: {
-      Authorization: `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'multipart/form-data',
     }
   });
   return response.data;
 }
+
+
 
 export const fetchTags = async() : Promise<string[]> => {
   const {data} = await axiosClient.get('/images/tags');

@@ -18,25 +18,43 @@ class CloudinaryService {
   }
 
 
-  async uploadImage(buffer: Buffer, username: string): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const stream = bufferToStream(buffer);
-
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: username },
-        (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
-          
-          if (error) {
-            console.log(error)
-            reject(error);
-          } else {
-            resolve(result);
-          }
-        }
+  async uploadImage(file: Buffer, username: string) {
+    try {
+      const result = await cloudinary.uploader.upload(
+        `data:image/png;base64,${file.toString('base64')}`, // Convert Buffer to base64
+        { folder: username }
       );
+  
       
-      stream.pipe(uploadStream);
-    });
+      // return new Promise((resolve, reject) => {
+      //   const stream = bufferToStream(buffer);
+  
+      //   const uploadStream = cloudinary.uploader.upload_stream(
+      //     { folder: username },
+      //     (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
+            
+      //       if (error) {
+      //         console.log(error)
+      //         reject(error);
+      //       } else {
+      //         resolve(result);
+      //       }
+      //     }
+      //   );
+        
+      //   stream.pipe(uploadStream);
+      // });
+  
+      return {
+        url: result.secure_url,
+        public_id: result.public_id,
+      };
+    } catch (error) {
+      throw createError(error.name, error.message);
+
+    }
+    
+
   }
 
  async deleteMany(username: string): Promise<CloudinaryResponse> {
@@ -49,22 +67,23 @@ class CloudinaryService {
       console.error('Error deleting assets:', error);
       throw error;
     }
-  }
-  async deleteAssetByUrl(username:string, url: string): Promise<CloudinaryResponse> {
+  }async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
     const publicId = this.extractPublicId(url);
     if (!publicId) {
       throw new Error('Invalid URL format');
     }
-
+  
     try {
-      console.log("URL of image about to delete:", url)
-      const assetPath = `${username}/${publicId}`
+      console.log("URL of image about to delete:", url);
+      const assetPath = `${username}/${publicId}`;
       const result = await cloudinary.uploader.destroy(assetPath);
       console.log(result);
-      return result;
+  
+      // Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
+      return { result: result.result }; // Only include the result field
     } catch (error) {
       console.error('Error deleting asset:', error);
-      throw createError('CloudError', error.message)
+      throw createError('CloudError', error.message);
     }
   }
 
