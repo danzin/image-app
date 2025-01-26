@@ -90,9 +90,6 @@ export class UserRepository implements BaseRepository<IUser> {
     await this.userActionRepository.logAction(followerId, 'unfollow', followeeId);
   }
 
-
-
-
   async getAll(options: {
     search?: string;
     page?: number;
@@ -116,7 +113,6 @@ export class UserRepository implements BaseRepository<IUser> {
       if(!result || result.length === 0 ){
         return null
       }
-
 
       return result;
   }
