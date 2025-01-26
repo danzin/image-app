@@ -143,14 +143,7 @@ async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object>
     }
   }
 
-  
-  async searchByText(query: string, page: number, limit: number): Promise<Object> {
-    try {
-      return await this.imageRepository.textSearch(query, page, limit);
-    } catch (error) {
-      throw createError('InternalServerError', error.message);
-    }
-  }
+
   
   
   async getImageById(id: string): Promise<Object> {

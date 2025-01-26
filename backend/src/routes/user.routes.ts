@@ -68,7 +68,6 @@ export class UserRoutes {
 
     //delete specific user by id
     this.router.delete('/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
-
     }
 
 }

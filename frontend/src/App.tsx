@@ -5,7 +5,7 @@ import Register from './screens/Register';
 import Profile from './screens/Profile';
 import Layout from './components/Layout';
 import AuthProvider from './context/AuthContext';
-import { ProtectedRoute } from './components/ProtectedRoute';
+
 import { AdminRoute } from './components/AdminRoute';
 import { AdminDashboard } from './screens/Admin';  // Assuming you have an Admin component
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'

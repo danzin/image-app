@@ -2,10 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { useImages } from '../hooks/useImages';
 import { Tags } from '../components/TagsContainer';
 import Gallery from '../components/Gallery';
+import {
+  Container,
+  Box,
+  Grid,
+  Button,
+  Typography,
+  TextField,
+  useTheme,
+  useMediaQuery,
+  Drawer,
+  IconButton,
+} from '@mui/material';
+import MenuIcon from '@mui/icons-material/Menu';
 
 const Home: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeImages, setActiveImages] = useState<any[]>([]);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false); 
 
   const { imagesQuery, imagesByTagQuery } = useImages();
 
@@ -17,7 +31,6 @@ const Home: React.FC = () => {
     isLoading: isLoadingAll,
     error: errorAll,
   } = imagesQuery;
-
 
   const {
     data: filteredImagesData,
@@ -44,59 +57,127 @@ const Home: React.FC = () => {
     setSelectedTags([]);
   };
 
+  const toggleDrawer = (open: boolean) => () => {
+    setIsDrawerOpen(open);
+  };
+
   const isLoading =
     (isLoadingAll && selectedTags.length === 0) ||
     (isLoadingFiltered && selectedTags.length > 0);
   const error = errorAll || errorFiltered;
   const isFetchingNext = isFetchingNextAllImages || isFetchingNextFiltered;
 
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md')); // Detect small screens
+
   return (
-    <div className="flex flex-col gap-3 h-screen">
-
-      {/* Header */}
-      <div className=" flex items-center justify-between px-4 h-[9vh]">
-        <div className="flex flex-col justify-center h-full">
-          <h1 className="text-2xl lg:text-3xl font-bold">Welcome to the Image Gallery</h1>
-        </div>
-      </div>
-
-      <div className='flex flex-grow overflow-hidden'>
-
-        {/* Gallery Section */}
-        <div className="w-3/4 flex flex-col mx-auto p-6 overflow-y-auto items-center align-center ">
-        <div className="flex flex-col">
-            {selectedTags.length > 0 && (
-              <button
-              className="bg-gray-200 text-gray-700 rounded-full px-4 py-2"
-              onClick={clearTags}
-              >
-                Clear Filters
-              </button>
+    <Container maxWidth="xl" sx={{ height: '100vh', display: 'flex', flexDirection: 'column'}}>
+      <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
+        {/* Gallery */}
+        <Grid item xs={12} md={9} sx={{ p: 3, overflowY: 'auto' }}>
+          <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+            {isSmallScreen && (
+              <>
+                {/* Drawer Toggle Button */}
+                <IconButton onClick={toggleDrawer(true)} size="large">
+                  <MenuIcon />
+                </IconButton>
+                <TextField
+                  fullWidth
+                  label="Search Tags"
+                  variant="outlined"
+                  size="small"
+                  sx={{
+                    backgroundColor: 'background.paper', 
+                    color: 'text.primary', 
+                    borderRadius: 1, 
+                  }}
+                  InputProps={{
+                    style: {
+                      color: '#fff', 
+                    },
+                  }}
+                />
+              </>
             )}
+            {selectedTags.length > 0 && (
+              <Button variant="outlined" onClick={clearTags}>
+                Clear Filters
+              </Button>
+            )}
+          </Box>
 
-          </div>
           {isLoading ? (
-            <p>Loading images...</p>
+            <Typography>Loading images...</Typography>
           ) : error ? (
-            <p>Error fetching images</p>
+            <Typography>Error fetching images</Typography>
           ) : (
             <Gallery
-            images={activeImages}
-            fetchNextPage={selectedTags.length === 0 ? fetchNextAllImages : fetchNextFiltered}
-            hasNextPage={selectedTags.length === 0 ? hasNextAllImages : hasNextFiltered}
-            isFetchingNext={isFetchingNext}
-            source="all"
+              images={activeImages}
+              fetchNextPage={selectedTags.length === 0 ? fetchNextAllImages : fetchNextFiltered}
+              hasNextPage={selectedTags.length === 0 ? hasNextAllImages : hasNextFiltered}
+              isFetchingNext={isFetchingNext}
+              source="all"
             />
           )}
-        </div>
+        </Grid>
 
-        {/* Tags Section */}
-        <div className="w-1/4 h-full flex flex-col flex-wrap gap-4 overflow-y-auto p-6">
+        {/* Tags Section - Desktop View */}
+        {!isSmallScreen && (
+          <Grid
+            item
+            md={3}
+            sx={{
+              p: 3,
+              overflowY: 'auto',
+              borderLeft: '1px solid',
+              borderColor: 'divider',
+              display: { xs: 'none', md: 'block' }, 
+            }}
+          >
+            <Tags selectedTags={selectedTags} onSelectTags={handleTagsChange} />
+          </Grid>
+        )}
+      </Grid>
+
+      {/* Mobile drawer */}
+      <Drawer
+        anchor="left"
+        open={isDrawerOpen}
+        onClose={toggleDrawer(false)}
+        PaperProps={{
+          sx: { backgroundColor: 'background.paper' },
+        }}
+      >
+        <Box
+          sx={{
+            width: 250,
+            p: 2,
+            backgroundColor: 'background.default', 
+            color: 'text.secondary',
+          }}
+          role="presentation"
+        >
+          <Typography variant="h6" sx={{ mb: 2 }} color="text.primary">
+            Filter by Tags
+          </Typography>
           <Tags selectedTags={selectedTags} onSelectTags={handleTagsChange} />
-          
-        </div>
-      </div>
-    </div>
+          <Button
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            sx={{ mt: 2 }}
+            onClick={() => {
+              clearTags();
+              toggleDrawer(false)();
+            }}
+          >
+            Clear Filters
+          </Button>
+        </Box>
+      </Drawer>
+
+    </Container>
   );
 };
 

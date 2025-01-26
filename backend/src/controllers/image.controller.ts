@@ -62,11 +62,11 @@ export class ImageController {
 
   async searchByTags(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { tags } = req.query; // Get tags from query parameters
+      const { tags } = req.query; 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       console.log('tags in the controller:', tags)
-      // Handle empty tags gracefully (no error)
+      // Will leave empty tags allowed for now
       const tagArray = tags 
         ? (tags as string).split(',').filter(tag => tag.trim() !== '')
         : [];
@@ -79,16 +79,7 @@ export class ImageController {
     }
   }
 
-  async searchByText(req: Request, res: Response, next: NextFunction): Promise<void>{
-    const { query, page, limit } = req.query;
-    try {
-      const result = await this.imageService.searchByText(query as string, Number(page), Number(limit));
-      res.json(result);
-    } catch (error) {
-      next(createError(error.name, error.message));
-    }
-  
-  }
+ 
 
   async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
     const { id } = req.params;

@@ -3,7 +3,7 @@ import { Server } from './server/server';
 
 async function bootstrap(): Promise<void> {
   try {
-    const port = 3000;
+    const port = Number(process.env.PORT);
     const dbConfig = new DatabaseConfig();
     await dbConfig.connect();
     

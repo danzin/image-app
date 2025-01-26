@@ -10,6 +10,7 @@ import cors from 'cors';
 import { corsOptions } from '../config/corsConfig';
 import { morganFormat } from '../utils/morgan';
 import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
+import { SearchRoutes } from '../routes/search.routes';
 
 export class Server {
   private app: express.Application;
@@ -25,6 +26,7 @@ export class Server {
   private initializeRoutes(){
     const userRoutes = new UserRoutes();
     const imageRoutes = new ImageRoutes();
+    const searchRoutes = new SearchRoutes();
 
     this.app.use(cors(corsOptions));
     
@@ -37,6 +39,7 @@ export class Server {
     }));
     this.app.use('/api/images', logBehaviour, imageRoutes.router);
     this.app.use('/api/users', logBehaviour, userRoutes.router);
+    this.app.use('/api/search', logBehaviour, searchRoutes.router);
 
 
   }

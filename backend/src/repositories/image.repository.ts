@@ -39,9 +39,47 @@ export class ImageRepository implements BaseRepository<IImage> {
   }
 
 
-  async getAll(): Promise<IImage[]> {
-    return this.model.find();
+  async getAll(options: {
+    tags?: string[];
+    user?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<IImage[] | null> {
+    const query: any = {};
+
+    if (options.tags && options.tags.length > 0) {
+      query.tags = { $in: options.tags };
+    }
+
+    //possible need for future use
+    if (options.user) {
+      query.user = options.user;
+    }
+
+    //possible need for future use
+    if (options.search) {
+      query.$text = { $search: options.search };
+    }
+
+    const page = options.page || 1;
+    const limit = options.limit || 20;
+    const skip = (page - 1) * limit;
+    console.log(`query in getAll image.repository.ts: ${query}`)
+    const result = await this.model.find(query)
+      .populate('user', 'username')
+      .populate('tags', 'tag')
+      .skip(skip)
+      .limit(limit)
+      .exec();
+      
+    if(!result || result.length === 0) {
+      return null
+    }  
+    return result
   }
+
+
 
   async findImages(options: PaginationOptions = {}): Promise<PaginationResult<IImage>> {
     try {
@@ -133,61 +171,53 @@ export class ImageRepository implements BaseRepository<IImage> {
     }
   }
 
-  async searchByTags(tags: mongoose.Types.ObjectId[], page: number, limit: number): Promise<PaginationResult<IImage>> {
+  async searchByTags(
+    tags: mongoose.Types.ObjectId[],
+    page?: number, 
+    limit?: number 
+  ): Promise<PaginationResult<IImage>> {
     try {
-      const skip = (page - 1) * limit;
-      console.log('tags inside image.repository tags mongoose objectid array type: ', tags)
+      const skip = page && limit ? (page - 1) * limit : 0; // Calculate skip only if page and limit are provided
+  
+      const query = this.model
+        .find({ tags: { $in: tags } })
+        .populate('tags', 'tag')
+        .populate('user', 'username');
+  
+      // Apply pagination only if page and limit are provided
+      if (page && limit) {
+        query.skip(skip).limit(limit);
+      }
+  
       const [data, total] = await Promise.all([
-        this.model
-          .find({ tags: { $in: tags } })
-          .populate('tags', 'tag') 
-          .populate('user', 'username')    
-
-          .skip(skip)
-          .limit(limit)
-          
-          .exec(),
+        query.exec(),
         this.model.countDocuments({ tags: { $in: tags } }),
       ]);
-      console.log(`data in  searchByTags in image.repository.ts: ${data}`)
-      return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  
+      console.log(`data in searchByTags in image.repository.ts: ${data}`);
+  
+      return {
+        data,
+        total,
+        page: page || 1, // Default to page 1 if not provided
+        limit: limit || total, // Default to total count if not provided
+        totalPages: limit ? Math.ceil(total / limit) : 1, // Calculate total pages only if limit is provided
+      };
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }
   }
 
-  // async searchByTags(tags: ObjectId[], page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
-  //   try {
-  //     const skip = (page - 1) * limit;
-  //     console.log('tags in imageRepository: ', tags)
-  //     const [data, total] = await Promise.all([
-  //       this.model
-  //         .find({ tags: { $in: tags } }) 
-  //         .skip(skip)
-  //         .limit(limit)
-  //         .exec(),
-  //       this.model.countDocuments({ tags: { $in: tags } }),
-  //     ]);
   
-  //     return {
-  //       data,
-  //       total,
-  //       page,
-  //       limit,
-  //       totalPages: Math.ceil(total / limit),
-  //     };
-  //   } catch (error: any) {
-  //     throw createError('InternalServerError', error.message);
-  //   }
-  // }
-  
-  async textSearch(query: string, page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
+  async searchImages(query: string, page: number = 1, limit: number = 20): Promise<PaginationResult<IImage>> {
     try {
       const skip = (page - 1) * limit;
   
       const [data, total] = await Promise.all([
         this.model
-          .find({ $text: { $search: query } }) // Text search for the query
+          .find({ $text: { $search: query } })
+          .populate('tags', 'tag')
+          .populate('user', 'username')
           .skip(skip)
           .limit(limit)
           .exec(),

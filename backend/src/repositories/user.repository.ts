@@ -93,21 +93,33 @@ export class UserRepository implements BaseRepository<IUser> {
 
 
 
-  async getAll(): Promise<IUser[]>{
-    return this.model.find();
-  }
+  async getAll(options: {
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<IUser[] | null> {
+    const query: any = {};
 
-  // async findById(id: string): Promise<IUser | null> {
-  //   try {
-  //     const result = await this.model.findById(id);
-  //     if(!result){
-  //       return null
-  //     }
-  //     return result;
-  //   } catch (error) {
-  //     throw createError('InternalServerError', error.message);
-  //   }
-  // }
+    if (options.search) {
+      query.$text = { $search: options.search };
+    }
+
+    const page = options.page || 1;
+    const limit = options.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const result = await this.model.find(query)
+      .skip(skip)
+      .limit(limit)
+      .exec();
+    console.log(result) 
+      if(!result || result.length === 0 ){
+        return null
+      }
+
+
+      return result;
+  }
 
   async findById(id: string, options?: {session?: mongoose.ClientSession}): Promise<IUser | null> {
     try {
@@ -121,9 +133,10 @@ export class UserRepository implements BaseRepository<IUser> {
     }
   }
 
-  async findByEmail(email: string): Promise<IUser | null> {
-    return this.model.findOne({ email });
-  }
+  //might need to use later
+  // async findByEmail(email: string): Promise<IUser | null> {
+  //   return this.model.findOne({ email });
+  // }
 
   async loginUser(email: string, password: string): Promise<IUser | null>{
     try {
@@ -165,7 +178,6 @@ export class UserRepository implements BaseRepository<IUser> {
 
   async addImageToUser(userId: string, imageUrl: string): Promise<IUser | null> {
     try {
-
       return this.model.findByIdAndUpdate(userId, { $push: { images: imageUrl } }, { new: true });
     } catch (error) {
       throw createError('InternalServerError', error.message)
@@ -196,23 +208,6 @@ export class UserRepository implements BaseRepository<IUser> {
     }
   }
 
-
-
-  //TODO: Handle cloudinary deletion and tags
-  // async delete(id: string): Promise<boolean> {
-  //   const session = await mongoose.startSession();
-  //   session.startTransaction();
-  //   try {
-  //     //then delete the user
-  //     const result = await this.model.deleteOne({ _id: id }); 
-
-  //     return !!result.deletedCount;
-  //   } catch (error) {
-     
-  //     throw createError('InternalServerError', error.message);
-  //   }
-  // }
-
   //delete now accepts transactions, returns 
   //!! IMPORTANT!!!: 
   // since it resolves with .exec() I can't chain additional methods like sort() in the service layer
@@ -220,8 +215,7 @@ export class UserRepository implements BaseRepository<IUser> {
     await this.model.findByIdAndDelete(id).setOptions({session: options.session }).exec();
   }
 
-  
-
+  //deletes all documents from the user collection
   async deleteAll(): Promise<Object>{
     try {
       const { deletedCount } = await this.model.deleteMany(); 

@@ -120,6 +120,7 @@ userSchema.pre('findOneAndUpdate', async function (next) {
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
+userSchema.index({ username: 'text' });
 
 const User = model<IUser>('User', userSchema);
 export default User;

@@ -71,7 +71,7 @@ export class UserService {
   }
 
   async getUsers(): Promise<IUser[]>{
-    return await this.userRepository.getAll();  
+    return await this.userRepository.getAll({});  
   }
 
   async drop(): Promise<Object>{
@@ -265,6 +265,7 @@ export class UserService {
 
     }
   }
+
 
 
 }

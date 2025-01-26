@@ -149,4 +149,18 @@ export class UserController {
     }
   }
 
+  // async searchUser(req: Request, res: Response, next: NextFunction): Promise<void>{
+  //   try {
+  //     const { username } = req.query;
+  //     if (!username) {
+  //       res.status(400).json({ success: false, message: 'Query is required' });
+  //     }
+  //     const user = await this.userService.searchUser(username as string);
+  //     res.json({success: true, data: user});
+  //   } catch (error) {
+      
+  //   }
+
+  // }
+
 }

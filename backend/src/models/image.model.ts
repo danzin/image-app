@@ -169,8 +169,10 @@ imageSchema.pre('deleteMany', async function (next) {
 
 
 
-imageSchema.index({ tags: "text" });
-
+imageSchema.index({ user: 1 });
+imageSchema.index({ tags: 1 });
+imageSchema.index({ tags: 'text', user: 'text' });
+tagSchema.index({ tag: 'text' });
 const Image = mongoose.model<IImage>('Image', imageSchema);
 export const Tag = mongoose.model('Tag', tagSchema);
 export default Image;
