@@ -1,11 +1,10 @@
-import mongoose, { Schema, Document } from 'mongoose';
-import { IUserAction } from '../types';
+import mongoose from "mongoose";
+import { IUserAction } from "../types";
 
-
-const userActionSchema = new Schema<IUserAction>({
-  userId: { type: String, required: true },
-  actionType: { type: String, required: true },
-  targetId: { type: String, required: true },
+const userActionSchema = new mongoose.Schema<IUserAction>({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  actionType: { type: String, required: true }, 
+  targetId: { type: mongoose.Schema.Types.ObjectId, required: true }, 
   timestamp: { type: Date, default: Date.now },
 });
 

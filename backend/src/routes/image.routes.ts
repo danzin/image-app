@@ -2,18 +2,19 @@ import express from 'express';
 import { ImageController } from '../controllers/image.controller';
 import { ValidationMiddleware } from '../middleware/validation.middleware';
 import upload from '../config/multer';
-import { AuthentitactionMiddleware } from '../middleware/authorization.middleware';
+import { AuthentitactionMiddleware } from '../middleware/authentication.middleware';
 
 
 export class ImageRoutes {
   public router: express.Router; 
   private imageController: ImageController;
 
-  constructor(){
+  constructor(imageController: ImageController) {
     this.router = express.Router();
-    this.imageController = new ImageController();
+    this.imageController = imageController;
     this.initializeRoutes();
   }
+
 
   private initializeRoutes(): void {
     this.router.post('/upload',

@@ -1,14 +1,20 @@
 import { DatabaseConfig } from './config/dbConfig';
-import { Server } from './server/server';
+import  {Server}  from './server/server';
+import dotenv from 'dotenv';
 
 async function bootstrap(): Promise<void> {
   try {
-    const port = Number(process.env.PORT);
+    // Load environment variables first
+    dotenv.config();
+    
+    // Database connection
     const dbConfig = new DatabaseConfig();
     await dbConfig.connect();
-    
-    const server = new Server(port);
-    server.start();
+
+    // Server initialization
+    const port = Number(process.env.PORT) || 3000;
+    const server = new Server();
+    server.start(port);
   } catch (error) {
     console.error('Startup failed', error);
     process.exit(1);
@@ -16,4 +22,3 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap();
-

@@ -1,166 +1,75 @@
+// controllers/user.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/user.service';
 import { createError } from '../utils/errors';
 
 export class UserController {
-  private userService: UserService;
+  constructor(private userService: UserService) {}
 
-  constructor() {
-    this.userService = new UserService();
-  }
-
-  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async register(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await this.userService.registerUser(req.validatedBody);
-      res.status(201).json({
-        email: user.email,
-        username: user.username
-      });
+      const { user, token } = await this.userService.register(req.body);
+      res.status(201).json({ user, token });
     } catch (error) {
       next(error);
     }
   }
 
-
-  async followUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async login(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId: followeeId } = req.params; // ID of user to follow(followee)
-      const { decodedUser } = req; // Logged in user is the follower
-
-      await this.userService.followUser(decodedUser.id, followeeId);
-      res.status(200).json({ message: 'Followed successfully.' });
+      const { email, password } = req.body;
+      const { user, token } = await this.userService.login(email, password);
+      res.status(200).json({ user, token });
     } catch (error) {
       next(error);
     }
   }
 
-  
-  async unfollowUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateProfile(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId: followeeId } = req.params; 
-      const { decodedUser } = req; 
-
-      await this.userService.unfollowUser(decodedUser.id, followeeId);
-      res.status(200).json({ message: 'Unfollowed successfully.' });
+      const updatedUser = await this.userService.updateProfile(req.params.id, req.body);
+      res.status(200).json(updatedUser);
     } catch (error) {
       next(error);
     }
   }
 
-
-
-  async getUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async updateAvatar(req: Request, res: Response, next: NextFunction) {
     try {
-      const { id } = req.params
-      const user = await this.userService.getUserById(id);
-      console.log(`user is getUser from userController: ${user}`)
-      if(!user){
-        throw createError('PathError', 'User not found');
-      }
-      res.json(user);
-    } catch (error) {
-      next(error)
-    }
-  }
-
-  async getUsers(req: Request, res: Response, next: NextFunction): Promise<void>{
-  try {
-      const users = await this.userService.getUsers();
-      res.status(200).json(users);
+      const file = req.file?.buffer;
+      if (!file) throw createError('ValidationError', 'No file provided');
+      await this.userService.updateAvatar(req.params.userId, file);
+      res.status(200).json({ message: 'Avatar updated successfully' });
     } catch (error) {
       next(error);
     }
   }
 
-  async dropUsers(req: Request, res: Response, next: NextFunction): Promise<void>{
+  async deleteUser(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await this.userService.drop();
-      console.log(`Removed ${result} records.`)
-      res.status(204).end();
+      await this.userService.deleteUser(req.params.id);
+      res.status(204).send();
     } catch (error) {
       next(error);
     }
   }
 
-  async login(req: Request, res: Response, next: NextFunction): Promise<void>{
+  async getUserById(req: Request, res: Response, next: NextFunction) {
     try {
-      const { user, token } = await this.userService.login(req.validatedBody);
-      res.status(201).json({user, token});
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async updateUser(req: Request, res: Response, next: NextFunction): Promise<void>{
-    try {
-      const { validatedBody, decodedUser } = req;
-      await this.userService.update(decodedUser.id, validatedBody);
-      res.status(200).end();
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async updateAvatar(req: Request, res: Response, next: NextFunction): Promise<void>{
-    try {
-      const { decodedUser, file } = req;
-      console.log(file)
-      await this.userService.updateAvatar(decodedUser.id, file.buffer);
-      res.status(200).end();
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async updateCover(req: Request, res: Response, next: NextFunction): Promise<void>{
-    try {
-      const { decodedUser, file } = req;
-      console.log(file)
-      await this.userService.updateCover(decodedUser.id, file.buffer);
-      res.status(200).end();
-    } catch (error) {
-      next(error);
-    }
-  }
-  
-
-  async deleteUser(req: Request, res: Response, next: NextFunction): Promise<void>{
-    try {
-      const { id } = req.params;
-      const { decodedUser } = req;
-      if(decodedUser.id !== id){
-        throw createError('UnauthorizedError', 'You are not authorized to perform this action');
-      }
-      await this.userService.deleteUser(id);
-      res.status(200).end();
-    } catch (error) {
-      next(error);
-      
-    }
-  }
-
-  async getMe(req: Request, res: Response, next: NextFunction): Promise<void>{
-    try {
-      const { decodedUser } = req;
-      const user = await this.userService.getUserById(decodedUser.id);
+      const user = await this.userService.getUserById(req.params.id);
       res.status(200).json(user);
     } catch (error) {
       next(error);
     }
   }
 
-  // async searchUser(req: Request, res: Response, next: NextFunction): Promise<void>{
-  //   try {
-  //     const { username } = req.query;
-  //     if (!username) {
-  //       res.status(400).json({ success: false, message: 'Query is required' });
-  //     }
-  //     const user = await this.userService.searchUser(username as string);
-  //     res.json({success: true, data: user});
-  //   } catch (error) {
-      
-  //   }
-
-  // }
-
+  async getUsers(req: Request, res: Response, next: NextFunction) {
+    try {
+      const options = { ...req.query } as any;
+      const result = await this.userService.getUsers(options);
+      res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

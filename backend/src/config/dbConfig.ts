@@ -7,7 +7,7 @@ export class DatabaseConfig{
   private dbUri: string;
 
   constructor(){
-    this.dbUri = process.env.MONGODB_URI || '';
+    this.dbUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/myapp';
   }
 
   private setupGlobalPlugin(): void {

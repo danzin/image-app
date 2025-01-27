@@ -1,6 +1,6 @@
-import { ImageRepository, PaginationResult } from "../../repositories/image.repository";
-import { UserRepository } from "../../repositories/user.repository";
-import { ImageService } from "../../services/image.service";
+import { ImageRepository, PaginationResult } from "../../repositories/image.repository.old";
+import { UserRepository } from "../../repositories/user.repository.old";
+import { ImageService } from "../../services/image.service.old";
 import { IImage } from "../../types";
 import CloudinaryService from "../../services/cloudinary.service";
 import { UploadApiResponse } from "cloudinary";

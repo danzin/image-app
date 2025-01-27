@@ -1,73 +1,54 @@
+// routes/user.routes.ts
 import express from 'express';
-import { UserController } from '../controllers/user.controller'
-import { UserEditValidation, UserLoginValidation, UserRegistrationValidation, ValidationMiddleware } from '../middleware/validation.middleware';
-import { AuthentitactionMiddleware } from '../middleware/authorization.middleware';
+import { UserController } from '../controllers/user.controller';
+import { AuthFactory } from '../middleware/authentication.middleware';
+import { ValidationMiddleware } from '../middleware/validation.middleware';
 import upload from '../config/multer';
+import { UserSchemas, UserValidationSchemas } from '../utils/schemals/user.schemas';
+
 
 export class UserRoutes {
-  public router: express.Router;
-  private userController: UserController;
+  private router: express.Router;
+  private auth = AuthFactory.bearerToken().handle();
 
-  constructor() {
+  constructor(private controller: UserController) {
     this.router = express.Router();
-    this.userController = new UserController();
     this.initializeRoutes();
   }
 
   private initializeRoutes(): void {
-    this.router.post('/register', 
-      ValidationMiddleware.validate(new UserRegistrationValidation()),
-      this.userController.register.bind(this.userController)
+    // Public routes
+    this.router.post(
+      '/register',
+      new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
+      this.controller.register
     );
-    //all users
-    this.router.get('/', this.userController.getUsers.bind(this.userController));
 
-    //curently logged in user
-    this.router.get('/me', AuthentitactionMiddleware.auth, this.userController.getMe.bind(this.userController));
-    
-    //drop all user documents
-    this.router.delete('/dropUsers', this.userController.dropUsers.bind(this.userController));
-    
-    this.router.post('/login',
-      ValidationMiddleware.validate(new UserLoginValidation()),
-      this.userController.login.bind(this.userController));
-    
-      this.router.post('/edit',
-      AuthentitactionMiddleware.auth,
-      ValidationMiddleware.validate(new UserEditValidation()),
-      this.userController.updateUser.bind(this.userController)),
-    
-    //update user avatar
-    this.router.post('/avatar',
-      AuthentitactionMiddleware.auth,
+    this.router.post(
+      '/login',
+      new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
+      this.controller.login
+    );
+
+    // Protected routes group
+    const protectedRouter = express.Router();
+    protectedRouter.use(this.auth);
+
+    protectedRouter.put(
+      '/:id/avatar',
       upload.single('avatar'),
-      this.userController.updateAvatar.bind(this.userController));
-
-    //follow user
-    this.router.post(
-      '/follow/:userId',
-      AuthentitactionMiddleware.auth, // Ensure the user is authenticated
-      this.userController.followUser.bind(this.userController)
-    );
-  
-    //unfollow user
-    this.router.post(
-      '/unfollow/:userId',
-      AuthentitactionMiddleware.auth, // Ensure the user is authenticated
-      this.userController.unfollowUser.bind(this.userController)
+      this.controller.updateAvatar
     );
 
-    //update user cover
-    this.router.post('/cover', 
-      AuthentitactionMiddleware.auth,
-      upload.single('cover'),
-      this.userController.updateCover.bind(this.userController));
+    protectedRouter.delete(
+      '/:id',
+      this.controller.deleteUser
+    );
 
-    //return specific user by id
-    this.router.get('/:id', this.userController.getUser.bind(this.userController));
+    this.router.use('/protected', protectedRouter);
+  }
 
-    //delete specific user by id
-    this.router.delete('/:id', AuthentitactionMiddleware.auth, this.userController.deleteUser.bind((this.userController)));
-    }
-
+  public getRouter(): express.Router {
+    return this.router;
+  }
 }

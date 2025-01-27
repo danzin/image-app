@@ -1,15 +1,19 @@
-import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from 'cloudinary';
 import { bufferToStream } from '../utils/readable';
 import { createError } from '../utils/errors';
 import { CloudinaryResponse } from '../types';
 
-cloudinary.config({
+ const cloudConfig =  cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-class CloudinaryService {
+export class CloudinaryService {
+
+  constructor(private cloudinaryConfig: any){
+    cloudinary.config = cloudinaryConfig
+  }
   
   private extractPublicId(url: string): string | null {
     const regex = /\/(?:v\d+\/)?([^\/]+)\.[a-zA-Z]+$/;
@@ -88,5 +92,3 @@ class CloudinaryService {
   }
 
 }
-
-export default CloudinaryService; 

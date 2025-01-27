@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
-import { ImageRepository } from '../repositories/image.repository';
+import { ImageRepository } from '../repositories/image.repository.old';
 import { TagRepository } from '../repositories/tag.repository';
-import { UserRepository } from '../repositories/user.repository';
+import { UserRepository } from '../repositories/user.repository.old';
 import { IImage, ITag, IUser } from '../types';
 import { createError } from '../utils/errors';
 

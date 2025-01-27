@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { ImageRepository } from "../repositories/image.repository";
-import { UserRepository } from "../repositories/user.repository";
+import { ImageRepository } from "../repositories/image.repository.old";
+import { UserRepository } from "../repositories/user.repository.old";
 import { SearchService } from "../services/search.service";
 import { createError } from "../utils/errors";
 import { TagRepository } from "../repositories/tag.repository";

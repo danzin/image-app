@@ -1,4 +1,4 @@
-import { UserRepository } from "../../repositories/user.repository";
+import { UserRepository } from "../../repositories/user.repository.old";
 import User from "../../models/user.model";
 import { IUser } from "../../types";
 import { createError } from "../../utils/errors";

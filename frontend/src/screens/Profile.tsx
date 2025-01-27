@@ -174,8 +174,8 @@ const DashboardLayout = () => {
               <Grid container spacing={2} color="text.secondary">
                 {[
                   { label: 'Uploads', value: userData?.images.length || 0 },
-                  { label: 'Followers', value: 'x' },
-                  { label: 'Following', value: 'x' },
+                  { label: 'Followers', value: userData?.followers.length || 0 },
+                  { label: 'Following', value: userData?.following.length || 0 },
                 ].map((stat) => (
                   <Grid item xs={12} key={stat.label}>
                     <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 2 }}>

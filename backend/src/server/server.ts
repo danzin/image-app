@@ -1,70 +1,84 @@
-import express from 'express';
-import bodyParser from 'body-parser';
+import express, { Application } from 'express';
 import { UserRoutes } from '../routes/user.routes';
 import { ImageRoutes } from '../routes/image.routes';
-// import { PhotoRoutes } from '../routes/photo.routes';
-import { createError, ErrorHandler } from '../utils/errors';
-import morgan from 'morgan'; 
-import  { httpLogger } from '../utils/winston';
-import cors from 'cors';
-import { corsOptions } from '../config/corsConfig';
-import { morganFormat } from '../utils/morgan';
-import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
-import { SearchRoutes } from '../routes/search.routes';
-
+import { UserController } from '../controllers/user.controller';
+import { ImageController } from '../controllers/image.controller';
+import { UserService } from '../services/user.service';
+import { ImageService } from '../services/image.service';
+import { UserRepository } from '../repositories/user.repository';
+import { ImageRepository } from '../repositories/image.repository';
+import { CloudinaryService } from '../services/cloudinary.service';
+import User from '../models/user.model';
+import Image from '../models/image.model';
+import { v2 as cloudinary, ConfigOptions } from 'cloudinary'
 export class Server {
-  private app: express.Application;
-  private port: number;
-
-  constructor(port: number){
+  private app: Application;
+  private cloudConfig: (boolean | ConfigOptions)
+  constructor() {
     this.app = express();
-    this.port = port;
+    this.cloudConfig = cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    this.initializeMiddlewares();
+    this.initializeDependencies();
     this.initializeRoutes();
     this.initializeErrorHandling();
   }
 
-  private initializeRoutes(){
-    const userRoutes = new UserRoutes();
-    const imageRoutes = new ImageRoutes();
-    const searchRoutes = new SearchRoutes();
+  private initializeMiddlewares(): void {
+    this.app.use(express.json());
+    this.app.use(express.urlencoded({ extended: true }));
+    // Add other global middlewares (CORS, etc.)
+  }
 
-    this.app.use(cors(corsOptions));
-    
-    this.app.use(bodyParser.json({strict: true}))
-    this.app.use(detailedRequestLogging);
-    this.app.use(morgan(morganFormat, {
-      stream: {
-        write: (message) => httpLogger.info(message.trim())
-      }
-    }));
-    this.app.use('/api/images', logBehaviour, imageRoutes.router);
-    this.app.use('/api/users', logBehaviour, userRoutes.router);
-    this.app.use('/api/search', logBehaviour, searchRoutes.router);
+  private initializeDependencies() {
+    // ======================
+    // 1. Initialize Repositories
+    // ======================
+    const userRepository = new UserRepository(User);
+    const imageRepository = new ImageRepository(Image);
 
+    // ======================
+    // 2. Initialize Cloud Service
+    // ======================
+    const cloudinaryService = new CloudinaryService(this.cloudConfig as any);
 
+    // ======================
+    // 3. Initialize Services
+    // ======================
+    const userService = new UserService(User, imageRepository, cloudinaryService);
+    const imageService = new ImageService(imageRepository, cloudinaryService); //do like userService
+
+    // ======================
+    // 4. Initialize Controllers
+    // ======================
+    const userController = new UserController(userService);
+    const imageController = new ImageController(ImageService); // do it like userController
+
+    // ======================
+    // 5. Initialize Routes
+    // ======================
+    new UserRoutes(userController); // Pass app to routes
+    new ImageRoutes(imageController);
+  }
+
+  private initializeRoutes() {
+    // Health check endpoint
+    this.app.get('/health', (req: Request, res: Response) => res.status(200).json({ status: 'OK' }));
   }
 
   private initializeErrorHandling() {
-    //Handle malformed JSON errors
     this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      if (err instanceof SyntaxError && 'body' in err) {
-        next(createError('ValidationError', 'Malformed JSON in request'));
-      }
-      next(err); 
+      console.error(err.stack);
+      res.status(500).json({ error: 'Internal Server Error' });
     });
-
-    //Handle path errors
-    this.app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-    next(createError('PathError', `Path ${req.url} not found`));
-    });
-
-    //Other errors
-    this.app.use(ErrorHandler.handleError as express.ErrorRequestHandler);
   }
 
-  public start(){
-    this.app.listen(this.port, () =>{
-      console.log(`Server running on ${this.port}`);
+  public start(port: number): void {
+    this.app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
     });
   }
 }

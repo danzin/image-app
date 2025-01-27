@@ -1,5 +1,5 @@
-import { ImageRepository } from '../repositories/image.repository';
-import { UserRepository } from '../repositories/user.repository';
+import { ImageRepository } from '../repositories/image.repository.old';
+import { UserRepository } from '../repositories/user.repository.old';
 import  CloudnaryService  from './cloudinary.service';
 import { createError } from '../utils/errors';
 import { IImage, ITag, PaginationResult } from '../types';

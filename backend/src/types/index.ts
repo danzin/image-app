@@ -1,4 +1,6 @@
-import mongoose, { Document } from "mongoose";
+import mongoose, { Document, Mongoose } from "mongoose";
+import { UserRepository } from "../repositories/user.repository";
+import { ImageRepository } from "../repositories/image.repository";
 
 export interface IImage extends Document {
   user: {
@@ -61,20 +63,36 @@ export interface CloudinaryResponse {
 }
 
 export interface ILike {
-  userId: mongoose.Schema.Types.ObjectId;
-  imageId:  mongoose.Schema.Types.ObjectId;
+  userId: mongoose.Types.ObjectId;
+  imageId:  mongoose.Types.ObjectId;
   timestamp: Date;
 }
 
 export interface IFollow {
-  followerId: mongoose.Schema.Types.ObjectId;
-  followeeId: mongoose.Schema.Types.ObjectId;
+  followerId: mongoose.Types.ObjectId;
+  followeeId: mongoose.Types.ObjectId;
   timestamp: Date;
 }
 
 export interface IUserAction extends Document {
-  userId: string;
+  userId: mongoose.Types.ObjectId;
   actionType: string; // like, follow, upload etc
-  targetId: string; // imageId or UserId etc
+  targetId: mongoose.Types.ObjectId; // imageId or UserId etc
   timestamp: Date;
+}
+
+export interface INotification extends Document {
+  userId: mongoose.Types.ObjectId;       
+  actionType: string;   
+  actorId: mongoose.Types.ObjectId;     
+  targetId?: mongoose.Types.ObjectId;    
+  isRead: boolean;
+  timestamp: Date;
+}
+
+export interface IUnitOfWork {
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  userRepository: UserRepository;
+  imageRepository: ImageRepository;
 }

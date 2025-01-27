@@ -1,14 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
-import { ImageService } from '../services/image.service';
+import { ImageService } from '../services/image.service.old';
 import { createError } from '../utils/errors';
 import { errorLogger } from '../utils/winston';
 
 export class ImageController {
   private imageService: ImageService;
 
-  constructor(){
-    this.imageService = new ImageService();
+  constructor(imageService: ImageService) {
+    this.imageService = imageService;
   }
+
 
   async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {

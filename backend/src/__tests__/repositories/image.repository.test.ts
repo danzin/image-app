@@ -1,4 +1,4 @@
-import { ImageRepository } from '../../repositories/image.repository';
+import { ImageRepository } from '../../repositories/image.repository.old';
 import Image from '../../models/image.model';
 import { IImage, IUser } from '../../types';
 

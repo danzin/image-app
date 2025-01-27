@@ -1,5 +1,5 @@
 import { UserController } from '../../controllers/user.controller';
-import { UserService } from '../../services/user.service';
+import { UserService } from '../../services/user.service.old';
 import { Request, Response, NextFunction } from 'express';
 import { createError } from '../../utils/errors';
 import { IUser } from '../../types';
