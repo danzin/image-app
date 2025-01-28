@@ -3,11 +3,13 @@ import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, us
 export interface IUser {
   _id: string;
   username: string;
-  email: string;
-  images: string[];
-  isAdmin: boolean;
   avatar: string;
   cover: string;
+  email: string;
+  isAdmin: boolean;
+  images: string[];
+  followers: string[];
+  following: string[];
 }
 
 interface Tag {
@@ -17,7 +19,7 @@ interface Tag {
 }
 
 export interface IImage {
-  _id: string;
+  id: string;
   url: string;
   publicId: string;
   tags: Tag[];

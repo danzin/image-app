@@ -6,7 +6,7 @@
     "start-frontend": "cd frontend && npm run dev",
     "start-backend": "cd backend && npm run start",
     "test-backend": "cd backend && npm run jest",
-    "start": "concurrently \"npm run start-frontend\" \"npm run start-backend\""
+    "dev": "concurrently \"npm run start-frontend\" \"npm run start-backend\""
   },
   "author": "",
   "license": "ISC",

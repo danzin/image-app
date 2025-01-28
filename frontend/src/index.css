@@ -26,7 +26,10 @@ body {
   linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
 
 
-   
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
   
   
   /* margin: 0; 

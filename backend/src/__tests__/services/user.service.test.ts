@@ -1,5 +1,5 @@
-import { UserService } from '../../services/user.service';
-import { UserRepository } from '../../repositories/user.repository';
+import { UserService } from '../../services/user.service.old';
+import { UserRepository } from '../../repositories/user.repository.old';
 import { IUser } from '../../types';
 import { createError } from '../../utils/errors';
 import jwt from 'jsonwebtoken';

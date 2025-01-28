@@ -1,16 +1,21 @@
-import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from 'cloudinary';
 import { bufferToStream } from '../utils/readable';
 import { createError } from '../utils/errors';
 import { CloudinaryResponse } from '../types';
+import { inject, injectable } from 'tsyringe';
 
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
-class CloudinaryService {
-  
+
+@injectable()
+export class CloudinaryService {
+  constructor() {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+  }
   private extractPublicId(url: string): string | null {
     const regex = /\/(?:v\d+\/)?([^\/]+)\.[a-zA-Z]+$/;
     const matches = url.match(regex);
@@ -18,25 +23,23 @@ class CloudinaryService {
   }
 
 
-  async uploadImage(buffer: Buffer, username: string): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const stream = bufferToStream(buffer);
-
-      const uploadStream = cloudinary.uploader.upload_stream(
-        { folder: username },
-        (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
-          
-          if (error) {
-            console.log(error)
-            reject(error);
-          } else {
-            resolve(result);
-          }
-        }
+  async uploadImage(file: Buffer, username: string) {
+    try {
+      const result = await cloudinary.uploader.upload(
+        `data:image/png;base64,${file.toString('base64')}`, // Convert Buffer to base64
+        { folder: username }
       );
-      
-      stream.pipe(uploadStream);
-    });
+  
+      return {
+        url: result.secure_url,
+        public_id: result.public_id,
+      };
+    } catch (error) {
+      throw createError(error.name, error.message);
+
+    }
+    
+
   }
 
  async deleteMany(username: string): Promise<CloudinaryResponse> {
@@ -49,25 +52,24 @@ class CloudinaryService {
       console.error('Error deleting assets:', error);
       throw error;
     }
-  }
-  async deleteAssetByUrl(username:string, url: string): Promise<CloudinaryResponse> {
+  }async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
     const publicId = this.extractPublicId(url);
     if (!publicId) {
       throw new Error('Invalid URL format');
     }
-
+  
     try {
-      console.log("URL of image about to delete:", url)
-      const assetPath = `${username}/${publicId}`
+      console.log("URL of image about to delete:", url);
+      const assetPath = `${username}/${publicId}`;
       const result = await cloudinary.uploader.destroy(assetPath);
       console.log(result);
-      return result;
+  
+      // Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
+      return { result: result.result }; // Only include the result field
     } catch (error) {
       console.error('Error deleting asset:', error);
-      throw createError('CloudError', error.message)
+      throw createError('CloudError', error.message);
     }
   }
 
 }
-
-export default CloudinaryService; 

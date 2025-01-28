@@ -4,9 +4,9 @@ import Navbar from './Navbar';
 
 const Layout: React.FC = () => {
   return (
-    <div>
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
-      <div className="main-content grid h-screen"> 
+      <div className="main-content" style={{ flex: 1, overflow: 'auto' }}> {/* Allow scrolling */}
         <Outlet />
       </div>
     </div>

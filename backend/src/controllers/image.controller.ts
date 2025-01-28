@@ -2,18 +2,40 @@ import { Request, Response, NextFunction } from 'express';
 import { ImageService } from '../services/image.service';
 import { createError } from '../utils/errors';
 import { errorLogger } from '../utils/winston';
+import { inject, injectable } from 'tsyringe';
 
+/**  
+ * When using Dependency Injection in Express, there's a common
+ * issue with route handles and `this` binding. When Express calls the route handlers,
+ * it changes the context of `this`. So when I initialize the dependncy inside the constructor
+ * like this.userService = userService, `this` context is lost and this.userService is undefined.
+ * 
+ * 2 possible fixes: 
+ *  1 - manually bind all methods that will be used as route handlers:
+ *     - this.register = this.register.bind(this);
+ *     - etc etc, for every single method
+ *  2 - user arrow functions, which automatically bind `this` and it doesn't get lost. 
+ */
+
+@injectable()
 export class ImageController {
-  private imageService: ImageService;
 
-  constructor(){
-    this.imageService = new ImageService();
-  }
+  constructor(
+    @inject('ImageService') private readonly imageService: ImageService
+  ) {}
 
-  async uploadImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+
+  uploadImage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { decodedUser, file } = req;
+
+      console.log(req.body.tags)
       const tags = JSON.parse(req.body.tags);
+
+      if (!file) {
+        throw createError('ValidationError', 'No file uploaded');
+      }
+
       const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
       res.status(201).json(result);
     } catch (error) {
@@ -21,7 +43,7 @@ export class ImageController {
     }
   }
 
-  async getImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getImages = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 9;
     try {
@@ -34,7 +56,7 @@ export class ImageController {
     }
   }
 
-  async getUserImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getUserImages = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
     const {id} = req.params;
    
     const page = parseInt(req.query.page as string) || 1;
@@ -50,7 +72,7 @@ export class ImageController {
     }
   }
 
-  async getImageById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  getImageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
       const result = await this.imageService.getImageById(id);
@@ -60,13 +82,13 @@ export class ImageController {
     }
   }
 
-  async searchByTags(req: Request, res: Response, next: NextFunction): Promise<void> {
+  searchByTags = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { tags } = req.query; // Get tags from query parameters
+      const { tags } = req.query; 
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       console.log('tags in the controller:', tags)
-      // Handle empty tags gracefully (no error)
+      // Will leave empty tags allowed for now
       const tagArray = tags 
         ? (tags as string).split(',').filter(tag => tag.trim() !== '')
         : [];
@@ -79,31 +101,19 @@ export class ImageController {
     }
   }
 
-  async searchByText(req: Request, res: Response, next: NextFunction): Promise<void>{
-    const { query, page, limit } = req.query;
-    try {
-      const result = await this.imageService.searchByText(query as string, Number(page), Number(limit));
-      res.json(result);
-    } catch (error) {
-      next(createError(error.name, error.message));
-    }
-  
-  }
+ 
 
-  async deleteImage(req: Request, res: Response, next: NextFunction): Promise<void>{
-    const { id } = req.params;
-    
+  deleteImage = async(req: Request, res: Response, next: NextFunction): Promise<void> =>  {
     try {
+      const { id } = req.params;
       const result = await this.imageService.deleteImage(id);
-      res.json(result)
+      res.status(200).json(result); 
     } catch (error) {
-      errorLogger.error(error.stack)
       next(createError(error.name, error.message));
-
     }
   }
 
-  async getTags(req: Request, res: Response, next: NextFunction): Promise<void>{
+  getTags = async(req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const result = await this.imageService.getTags();
       res.json(result)
