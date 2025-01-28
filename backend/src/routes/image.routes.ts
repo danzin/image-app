@@ -2,39 +2,48 @@ import express from 'express';
 import { ImageController } from '../controllers/image.controller';
 import { ValidationMiddleware } from '../middleware/validation.middleware';
 import upload from '../config/multer';
-import { AuthentitactionMiddleware } from '../middleware/authentication.middleware';
+import { AuthFactory } from '../middleware/authentication.middleware';
+import { inject, injectable } from 'tsyringe';
 
 
+@injectable()
 export class ImageRoutes {
   public router: express.Router; 
-  private imageController: ImageController;
+  private auth = AuthFactory.bearerToken().handle();
 
-  constructor(imageController: ImageController) {
-    this.router = express.Router();
-    this.imageController = imageController;
+  constructor(
+    @inject('ImageController') private controller: ImageController) {
+    this.router = express.Router()
     this.initializeRoutes();
   }
 
 
   private initializeRoutes(): void {
-    this.router.post('/upload',
-      AuthentitactionMiddleware.auth,
-      upload.single('image'), 
-      this.imageController.uploadImage.bind(this.imageController)
-    );
-    
-    this.router.get('/', this.imageController.getImages.bind(this.imageController)); 
+   
+    // Public routes
+    this.router.get('/', this.controller.getImages); 
 
     //returns images uploaded by user using the user object from the request
-    this.router.get('/user/:id', this.imageController.getUserImages.bind(this.imageController))
-    this.router.get('/search/tags', this.imageController.searchByTags.bind(this.imageController));
-    this.router.get('/tags', this.imageController.getTags.bind(this.imageController));
+    this.router.get('/user/:id', this.controller.getUserImages)
+    this.router.get('/search/tags', this.controller.searchByTags);
+    this.router.get('/tags', this.controller.getTags);
 
-    this.router.get('/:id', this.imageController.getImageById.bind(this.imageController));
+    this.router.get('/:id', this.controller.getImageById);
 
-    this.router.delete('/:id',  
-      AuthentitactionMiddleware.auth,
-      this.imageController.deleteImage.bind(this.imageController));
+    // Protected routes group
+    const protectedRouter = express.Router();
+    this.router.use(protectedRouter); //mount the protectedRouter
+    protectedRouter.use(this.auth);
+      
+    this.router.post('/upload',
+        upload.single('image'), 
+        this.controller.uploadImage
+    );
 
+    this.router.delete('/:id', protectedRouter, this.controller.deleteImage);
+    
   }
+  public getRouter(): express.Router {
+      return this.router;
+    }
 }

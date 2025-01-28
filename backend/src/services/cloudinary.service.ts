@@ -2,19 +2,20 @@ import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOpti
 import { bufferToStream } from '../utils/readable';
 import { createError } from '../utils/errors';
 import { CloudinaryResponse } from '../types';
+import { inject, injectable } from 'tsyringe';
 
- const cloudConfig =  cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
+
+@injectable()
 export class CloudinaryService {
+  constructor() {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
 
-  constructor(private cloudinaryConfig: any){
-    cloudinary.config = cloudinaryConfig
   }
-  
   private extractPublicId(url: string): string | null {
     const regex = /\/(?:v\d+\/)?([^\/]+)\.[a-zA-Z]+$/;
     const matches = url.match(regex);
@@ -28,26 +29,6 @@ export class CloudinaryService {
         `data:image/png;base64,${file.toString('base64')}`, // Convert Buffer to base64
         { folder: username }
       );
-  
-      
-      // return new Promise((resolve, reject) => {
-      //   const stream = bufferToStream(buffer);
-  
-      //   const uploadStream = cloudinary.uploader.upload_stream(
-      //     { folder: username },
-      //     (error: UploadApiErrorResponse | undefined, result: UploadApiResponse | undefined) => {
-            
-      //       if (error) {
-      //         console.log(error)
-      //         reject(error);
-      //       } else {
-      //         resolve(result);
-      //       }
-      //     }
-      //   );
-        
-      //   stream.pipe(uploadStream);
-      // });
   
       return {
         url: result.secure_url,

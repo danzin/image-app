@@ -2,21 +2,14 @@ import mongoose, { Schema} from 'mongoose';
 import {IImage, ITag} from '../types'
 import User from './user.model';
 
-const imageSchema = new Schema<IImage>({
-  user: {
-    type: mongoose.Schema.Types.ObjectId, // Reference to user instead of only string for userId
-    ref: 'User',
-    required: true
-  },
-
-  tags: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Tag' 
-  }],
+const imageSchema = new mongoose.Schema<IImage>({
   url: { type: String, required: true },
   publicId: { type: String, required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to User schema
   createdAt: { type: Date, default: Date.now },
-  });
+  tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }] // Reference to Tag schema
+});
+
 
 const tagSchema = new Schema<ITag>({
   tag: { type: String, required: true, unique: true },

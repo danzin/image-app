@@ -6,10 +6,11 @@ import { createError } from '../utils/errors';
 declare global {
   namespace Express {
     interface Request {
-      user?: JwtPayload;
+      decodedUser?: JwtPayload;
     }
   }
 }
+
 
 export abstract class AuthStrategy {
   abstract authenticate(req: Request): Promise<JwtPayload>;
@@ -22,9 +23,10 @@ export class BearerTokenStrategy extends AuthStrategy {
 
   async authenticate(req: Request): Promise<JwtPayload> {
     const token = req.headers.authorization?.split(' ')[1];
+    console.log(`token: ${token}`)
     if (!token) throw createError('UnauthorizedError', 'Missing token');
-    
-    return jwt.verify(token, this.secret) as JwtPayload;
+    const user = jwt.verify(token, this.secret) as JwtPayload
+    return user;
   }
 }
 
@@ -34,7 +36,7 @@ export class AuthenticationMiddleware {
   handle(): RequestHandler {
     return async (req: Request, _res: Response, next: NextFunction) => {
       try {
-        req.user = await this.strategy.authenticate(req);
+        req.decodedUser = await this.strategy.authenticate(req);
         next();
       } catch (error) {
         next(createError('UnauthorizedError', error.message));

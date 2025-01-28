@@ -1,12 +1,11 @@
-// schemas/user.schemas.ts
 import Joi, { Schema } from 'joi';
 
 export class UserSchemas {
   static registration(): Joi.ObjectSchema {
     return Joi.object({
       email: Joi.string().email().required(),
-      password: Joi.string().min(8).required(),
-      username: Joi.string().alphanum().min(3).max(30).required()
+      password: Joi.string().min(1).required(),
+      username: Joi.string().alphanum().min(1).max(30).required()
     });
   }
 

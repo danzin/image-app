@@ -3,14 +3,14 @@ import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 
 export interface IImage extends Document {
-  user: {
-    _id: mongoose.Schema.Types.ObjectId,
-    username: string;
-  }
   url: string;
   publicId: string;
+  user: {
+    id: mongoose.Schema.Types.ObjectId,
+    username: string;
+  }
   createdAt: Date;
-  tags: { tag: string }[]; //populated tags
+  tags: { tag: string }[]; 
 }
 
 export interface ITag extends Document {

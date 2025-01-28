@@ -1,10 +1,14 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
     "outDir": "./dist",
     "typeRoots": [ "./node_modules/@types", "src/types" ],
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    //use decorators 
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    
+    "target": "es6",
+    "module": "commonjs",
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

@@ -1,27 +1,22 @@
 import { Model, ClientSession } from 'mongoose';
 import { UserRepository } from '../repositories/user.repository';
 import { IUser, PaginationOptions, PaginationResult } from '../types';
-import  CloudinaryService  from './cloudinary.service';
+import  {CloudinaryService}  from './cloudinary.service';
 import { ImageRepository } from '../repositories/image.repository';
 import { createError } from '../utils/errors';
 import jwt from 'jsonwebtoken';
+import { injectable, inject } from 'tsyringe';
+import { UnitOfWork } from '../database/UnitOfWork';
 
+@injectable()
 export class UserService {
-  private userRepository: UserRepository;
-  private cloudinaryService: CloudinaryService;
-  private imageRepository: ImageRepository;
-  private userModel: Model<IUser>;
-
   constructor(
-    userModel: Model<IUser>,
-    imageRepository: ImageRepository,
-    cloudinaryService: CloudinaryService
-  ) {
-    this.userModel = userModel;
-    this.userRepository = new UserRepository(userModel);
-    this.imageRepository = imageRepository;
-    this.cloudinaryService = cloudinaryService;
-  }
+    @inject('UserRepository') private readonly userRepository: UserRepository,
+    @inject('ImageRepository') private readonly imageRepository: ImageRepository,
+    @inject('CloudinaryService') private readonly cloudinaryService: CloudinaryService,
+    @inject('UserModel') private readonly userModel: Model<IUser>,
+    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork
+  ) {}
 
   private generateToken(user: IUser): string {
     const payload = { id: user._id, email: user.email, username: user.username };

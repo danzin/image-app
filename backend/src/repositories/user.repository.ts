@@ -1,9 +1,13 @@
 import { Model, ClientSession } from 'mongoose';
 import { IUser, PaginationOptions, PaginationResult } from '../types';
 import { createError } from '../utils/errors';
+import { injectable, inject } from 'tsyringe';
 
+@injectable()
 export class UserRepository {
-  constructor(private readonly model: Model<IUser>) {}
+  constructor(
+    @inject('UserModel') private readonly model: Model<IUser>
+  ) {}
 
   // Core CRUD operations
   async create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser> {

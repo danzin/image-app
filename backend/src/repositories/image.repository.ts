@@ -1,13 +1,19 @@
 import { Model, ClientSession } from 'mongoose';
+import { BaseRepository } from '../database/UnitOfWork';
 import { IImage, PaginationOptions, PaginationResult } from '../types';
 import { createError } from '../utils/errors';
+import { inject, injectable } from 'tsyringe';
 
+@injectable()
 export class ImageRepository {
-  constructor(private readonly model: Model<IImage>) {}
+  constructor(
+    @inject('ImageModel') private readonly model: Model<IImage>
+  ) {}
 
-  // Core CRUD operations
+  // Override create
   async create(image: Partial<IImage>, session?: ClientSession): Promise<IImage> {
     try {
+      console.log(`creatingItem: ${image}`)
       const doc = new this.model(image);
       if (session) doc.$session(session);
       return await doc.save();
@@ -16,11 +22,12 @@ export class ImageRepository {
     }
   }
 
+  // Override findById for population
   async findById(id: string, session?: ClientSession): Promise<IImage | null> {
     try {
       const query = this.model.findById(id)
         .populate('user', 'username')
-        .populate('tags', 'name');
+        .populate('tags', 'tag');
       
       if (session) query.session(session);
       return await query.exec();
@@ -29,18 +36,11 @@ export class ImageRepository {
     }
   }
 
-  async delete(id: string, session?: ClientSession): Promise<void> {
-    try {
-      const query = this.model.findByIdAndDelete(id);
-      if (session) query.session(session);
-      await query.exec();
-    } catch (error) {
-      throw createError('DatabaseError', error.message);
-    }
-  }
 
-  // Pagination and filtering
-  async findWithPagination(options: PaginationOptions): Promise<PaginationResult<IImage>> {
+  async findWithPagination(
+    options: PaginationOptions, 
+    session?: ClientSession
+  ): Promise<PaginationResult<IImage>> {
     try {
       const {
         page = 1,
@@ -52,16 +52,18 @@ export class ImageRepository {
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
 
+      const query = this.model.find();
+      if (session) query.session(session);
+
       const [data, total] = await Promise.all([
-        this.model
-          .find()
+        query
           .populate('user', 'username')
-          .populate('tags', 'name')
+          .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments()
+        this.model.countDocuments().session(session)
       ]);
 
       return {
@@ -71,6 +73,17 @@ export class ImageRepository {
         limit,
         totalPages: Math.ceil(total / limit)
       };
+    } catch (error) {
+      throw createError('DatabaseError', error.message);
+    }
+  }
+
+  
+  async delete(id: string, session?: ClientSession): Promise<void> {
+    try {
+      const query = this.model.findByIdAndDelete(id);
+      if (session) query.session(session);
+      await query.exec();
     } catch (error) {
       throw createError('DatabaseError', error.message);
     }
@@ -95,7 +108,7 @@ export class ImageRepository {
         this.model
           .find({ user: userId })
           .populate('user', 'username')
-          .populate('tags', 'name')
+          .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
@@ -134,7 +147,7 @@ export class ImageRepository {
         this.model
           .find({ tags: { $in: tagIds } })
           .populate('user', 'username')
-          .populate('tags', 'name')
+          .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
@@ -154,7 +167,7 @@ export class ImageRepository {
     }
   }
   //accepts transaction now. Nothing else changes because the return is directly executed with .exec();
-    //everything is as it used to be except now transactions actually work as expected when passed in
+  //everything is as it used to be except now transactions actually work as expected when passed in
     async deleteMany(userId: string,  session?: ClientSession ): Promise<void> {
       const query = this.model.deleteMany({ uploadedBy: userId });
       if (session) query.session(session); 
