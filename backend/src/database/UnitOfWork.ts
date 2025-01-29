@@ -7,7 +7,6 @@ type Operation = (session: ClientSession) => Promise<void>;
 
 export class UnitOfWork {
   private session: ClientSession | null = null;
-  private operations: Operation[] = [];
 
   constructor() {
     if (!mongoose.connection.readyState) {
@@ -15,7 +14,7 @@ export class UnitOfWork {
     }
   }
 
-  
+  //Methods to be executed within a transaction are added as callbacks
   async executeInTransaction<T>(callback: WithTransactionCallback<T>): Promise<T> {
     this.session = await mongoose.startSession();
     this.session.startTransaction();
@@ -74,64 +73,5 @@ export class UnitOfWork {
   // Get the current session
   getSession(): ClientSession | null {
     return this.session;
-  }
-}
-
-
-
-//TODO: Move in with the rest of the types
-// Interface for repositories that will use UnitOfWork
-export interface IRepository<T> {
-  create(item: Partial<T>, session?: ClientSession): Promise<T>;
-  update(id: string, item: Partial<T>, session?: ClientSession): Promise<T | null>;
-  delete(id: string, session?: ClientSession): Promise<boolean>;
-  findById(id: string, session?: ClientSession): Promise<T | null>;
-}
-
-
-
-// Base repository implementation
-export abstract class BaseRepository<T> implements IRepository<T> {
-  constructor(protected readonly model: mongoose.Model<T>) {}
-
-  async create(item: Partial<T>, session?: ClientSession): Promise<T> {
-    try {
-      console.log('Creating item:', item);
-      return await this.model.create([item], { session }).then(docs => docs[0]);
-      
-    } catch (error) {
-      createError('UoWError', error.message)
-
-    }
-  }
-
-  async update(id: string, item: Partial<T>, session?: ClientSession): Promise<T | null> {
-    try {
-      return await this.model.findByIdAndUpdate(id, item, { new: true, session });
-      
-    } catch (error) {
-      createError('UoWError', error.message)
-    }
-  }
-
-  async delete(id: string, session?: ClientSession): Promise<boolean> {
-    try {
-      const result = await this.model.findByIdAndDelete(id, { session });
-      return result !== null;
-      
-    } catch (error) {
-      createError('UoWError', error.message)
-
-    }
-  }
-
-  async findById(id: string, session?: ClientSession): Promise<T | null> {
-    try {
-      return await this.model.findById(id).session(session);
-      
-    } catch (error) {
-      createError('UoWError', error.message)
-
-    }
   }
 }

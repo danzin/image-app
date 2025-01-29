@@ -2,18 +2,18 @@ import mongoose from 'mongoose';
 import { NotificationRepository } from '../repositories/notification.respository';
 import { INotification } from '../types';
 import { createError } from '../utils/errors';
+import { inject, injectable } from 'tsyringe';
 
+@injectable()
 export class NotificationService {
-  private notificationRepository: NotificationRepository;
 
-  constructor() {
-    this.notificationRepository = new NotificationRepository();
-  }
+  constructor(@inject('NotificationRepository') private readonly notificationRepository: NotificationRepository) 
+  {}
 
   async createNotification(data: {
-    userId: string;       // User receiving the notification (e.g., followee)
-    actionType: string;   // Type of action: 'follow', 'like', 'comment'
-    actorId: string;      // User who triggered the action (e.g., follower)
+    userId: string;       // User receiving the notification 
+    actionType: string;   // Type of action: like, follow
+    actorId: string;      // User who triggered the action 
     targetId?: string;    // Optional: ID of the affected resource (e.g., image ID)
   }): Promise<INotification> {
     // Validate required fields
@@ -22,12 +22,10 @@ export class NotificationService {
     }
 
     try {
-      // Convert string IDs to ObjectId
       const userId = new mongoose.Types.ObjectId(data.userId);
       const actorId = new mongoose.Types.ObjectId(data.actorId);
       const targetId = data.targetId ? new mongoose.Types.ObjectId(data.targetId) : undefined;
 
-      // Create the notification
       return await this.notificationRepository.create({
         userId,
         actionType: data.actionType,

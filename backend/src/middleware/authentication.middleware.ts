@@ -1,4 +1,3 @@
-// middlewares/auth.middleware.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { createError } from '../utils/errors';

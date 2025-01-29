@@ -1,22 +1,24 @@
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
 import Follow from "../models/follow.model";
 import { createError } from "../utils/errors";
 import { IFollow } from "../types";
+import { inject, injectable } from "tsyringe";
+import { BaseRepository } from "./base.repository";
 
-export class FollowRepository {
-  private model: mongoose.Model<IFollow>;
+@injectable()
+export class FollowRepository extends BaseRepository<IFollow>{
 
-  constructor() {
-    this.model = Follow;
+  constructor(
+    @inject('FollowModel') model: Model<IFollow>
+  ) {
+    super(model)
   }
 
-  // Check if a follow relationship exists
   async isFollowing(followerId: string, followeeId: string): Promise<boolean> {
     const existingFollow = await this.model.findOne({ followerId, followeeId });
     return !!existingFollow;
   }
 
-  // Add a follow relationship (no transaction logic here)
   async addFollow(
     followerId: string,
     followeeId: string,
@@ -30,7 +32,6 @@ export class FollowRepository {
     return follow[0];
   }
 
-  // Remove a follow relationship (no transaction logic here)
   async removeFollow(
     followerId: string,
     followeeId: string,

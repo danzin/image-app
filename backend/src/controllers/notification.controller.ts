@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { NotificationService } from '../services/notification.service';
 import { createError } from '../utils/errors';
+import { inject, injectable } from 'tsyringe';
 
+@injectable()
 export class NotificationController {
-  private notificationService: NotificationService;
 
-  constructor() {
-    this.notificationService = new NotificationService();
-  }
+  constructor(@inject('NotificationService') private readonly notificationService: NotificationService) 
+  {}
 
   async getNotifications(req: Request, res: Response, next: NextFunction) {
     try {

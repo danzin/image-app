@@ -3,14 +3,15 @@ import { Tag } from "../models/image.model";
 import { ITag } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
+import { BaseRepository } from "./base.repository";
 
 @injectable()
-export class TagRepository {
+export class TagRepository extends BaseRepository<ITag> {
 
   constructor(
-    @inject('TagModel') private readonly model: Model<ITag>
+    @inject('TagModel') model: Model<ITag>
   ) {
-    this.model = Tag;
+    super(model)
   }
 
 
@@ -31,16 +32,9 @@ export class TagRepository {
     return this.model.findById(tag).exec();
   }
 
-  async create(tag: string, session?: ClientSession): Promise<ITag> {
-    console.log(`creating item: ${tag}`)
-    const doc = new this.model({tag: tag});
-    if (session) doc.$session(session);
-    return await doc.save();
-  }
-
   async searchTags(searchQuery: string, session?: ClientSession): Promise<ITag[]> {
     try {
-      const query = this.model.find({ tag: { $regex: searchQuery, $options: 'i' } });
+      const query = this.model.find({ tag: { $regex: searchQuery,  } });
       if(session) query.session(session);
       return await query.exec();
     } catch (error: any) {

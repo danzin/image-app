@@ -5,6 +5,7 @@ import { injectable, inject } from 'tsyringe';
 import { UserRoutes } from '../routes/user.routes';
 import { ImageRoutes } from '../routes/image.routes';
 import { ErrorHandler } from '../utils/errors';
+import { SearchRoutes } from '../routes/search.routes';
 
 @injectable()
 export class Server {
@@ -12,7 +13,8 @@ export class Server {
 
   constructor(
     @inject(UserRoutes) private readonly userRoutes: UserRoutes,
-    @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes
+    @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
+    @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes
   ) {
 
     this.app = express();
@@ -29,6 +31,7 @@ export class Server {
   private initializeRoutes() {
     this.app.use('/api/users', this.userRoutes.getRouter());
     this.app.use('/api/images', this.imageRoutes.getRouter());
+    this.app.use('/api/search', this.searchRoutes.getRouter());
   }
 
   private initializeErrorHandling() {

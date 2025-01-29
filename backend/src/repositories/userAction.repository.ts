@@ -1,17 +1,14 @@
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
 import UserAction from "../models/userAction.model";
 import { IUserAction } from "../types";
+import { inject, injectable } from "tsyringe";
+import { BaseRepository } from "./base.repository";
 
-export class UserActionRepository {
-  //here I don't think I really need a constructor 
-  //because there are no other dependencies to initialize or necessary encapsulation to be done
-  //so I omit the constructor as TS will automatically provide a default constructor 
+@injectable()
+export class UserActionRepository extends BaseRepository<IUserAction> {
 
-  private model: mongoose.Model<IUserAction>;
-  
-  //but I'll do it anyway because I've been doing in everywhere else 
-  constructor() {
-    this.model = UserAction; // Initialize the model in the constructor
+  constructor(@inject('UserActionModel') model: Model<IUserAction>) {
+    super(model)
   }
 
   async logAction(userId: string, actionType: string, targetId: string): Promise<void> {

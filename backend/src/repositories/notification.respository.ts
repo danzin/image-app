@@ -1,22 +1,24 @@
-import mongoose from "mongoose";
+import mongoose, { Model } from "mongoose";
 import Notification from "../models/notification.model";
 import { INotification } from "../types";
+import { inject, injectable } from "tsyringe";
+import { BaseRepository } from "./base.repository";
 
-export class NotificationRepository {
-  private model: mongoose.Model<INotification>;
+@injectable()
+export class NotificationRepository extends BaseRepository<INotification>{
 
-  constructor() {
-    this.model = Notification;
+  constructor(@inject('NotificationModel') model: Model<INotification>) {
+    super(model)
   }
   
-  async create(notificationData: INotification): Promise<INotification> {
-    try {
-      const notification = new this.model(notificationData);
-      return await notification.save();
-    } catch (error) {
-      throw new Error("Failed to create notification");
-    }
-  }
+  // async create(notificationData: INotification): Promise<INotification> {
+  //   try {
+  //     const notification = new this.model(notificationData);
+  //     return await notification.save();
+  //   } catch (error) {
+  //     throw new Error("Failed to create notification");
+  //   }
+  // }
 
   async getNotifications(userId: string) {
     return this.model.find({ userId }).sort({ timestamp: -1 }).exec();

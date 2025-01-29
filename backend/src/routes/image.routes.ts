@@ -11,8 +11,7 @@ export class ImageRoutes {
   public router: express.Router; 
   private auth = AuthFactory.bearerToken().handle();
 
-  constructor(
-    @inject('ImageController') private controller: ImageController) {
+  constructor(@inject('ImageController') private controller: ImageController) {
     this.router = express.Router()
     this.initializeRoutes();
   }

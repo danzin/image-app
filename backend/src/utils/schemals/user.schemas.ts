@@ -15,7 +15,21 @@ export class UserSchemas {
       password: Joi.string().required()
     });
   }
+  static followParams(): Joi.ObjectSchema {
+    return Joi.object({
+      targetUserId: Joi.string()
+        .pattern(/^[0-9a-fA-F]{24}$/)
+        .required()
+        .messages({
+          'string.pattern.base': 'Invalid target user ID format',
+          'any.required': 'Target user ID is required'
+        })
+    }).options({ allowUnknown: false });
+  }
 }
+
+  
+
 
 export interface ValidationSchema {
   body?: Schema;
@@ -39,6 +53,11 @@ export class UserValidationSchemas {
         email: Joi.string().email().required(),
         password: Joi.string().required()
       })
+    };
+  }
+  static followAction(): ValidationSchema {
+    return {
+      params: UserSchemas.followParams()
     };
   }
 }

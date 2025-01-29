@@ -44,6 +44,20 @@ export class UserRoutes {
     this.router.use(protectedRouter); //mount protected router
     protectedRouter.use(this.auth);
 
+    //TO Implement actions in userController
+    protectedRouter.post(
+      '/follow/:targetUserId',
+      new ValidationMiddleware(UserValidationSchemas.followAction()).validate(),
+      this.userController.followUser
+    );
+    
+    protectedRouter.post(
+      '/unfollow/:targetUserId',
+      new ValidationMiddleware(UserValidationSchemas.followAction()).validate(),
+      this.userController.unfollowUser
+    );
+
+
     protectedRouter.put(
       '/:id/avatar',
       upload.single('avatar'),

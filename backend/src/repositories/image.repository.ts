@@ -1,25 +1,15 @@
-import { Model, ClientSession } from 'mongoose';
-import { BaseRepository } from '../database/UnitOfWork';
+import { Model, ClientSession, SortOrder } from 'mongoose';
+import { BaseRepository } from './base.repository';
 import { IImage, PaginationOptions, PaginationResult } from '../types';
 import { createError } from '../utils/errors';
 import { inject, injectable } from 'tsyringe';
 
 @injectable()
-export class ImageRepository {
+export class ImageRepository extends BaseRepository<IImage> {
   constructor(
-    @inject('ImageModel') private readonly model: Model<IImage>
-  ) {}
-
-  // Override create
-  async create(image: Partial<IImage>, session?: ClientSession): Promise<IImage> {
-    try {
-      console.log(`creatingItem: ${image}`)
-      const doc = new this.model(image);
-      if (session) doc.$session(session);
-      return await doc.save();
-    } catch (error) {
-      throw createError('DatabaseError', error.message);
-    }
+    @inject('ImageModel') model: Model<IImage>
+  ) {
+    super(model)
   }
 
   // Override findById for population
@@ -78,17 +68,6 @@ export class ImageRepository {
     }
   }
 
-  
-  async delete(id: string, session?: ClientSession): Promise<void> {
-    try {
-      const query = this.model.findByIdAndDelete(id);
-      if (session) query.session(session);
-      await query.exec();
-    } catch (error) {
-      throw createError('DatabaseError', error.message);
-    }
-  }
-
   async findByUserId(
     userId: string,
     options: PaginationOptions
@@ -130,19 +109,22 @@ export class ImageRepository {
 
   async findByTags(
     tagIds: string[],
-    options: PaginationOptions
+    options?: {
+      page?: number;
+      limit?: number;
+      sortBy?: string;
+      sortOrder?: string;
+    }
   ): Promise<PaginationResult<IImage>> {
     try {
-      const {
-        page = 1,
-        limit = 20,
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
-      } = options;
+      
+      const page = options?.page || 1;
+      const limit = options?.limit || 20;
+      const sortOrder = options?.sortOrder || 'desc';
+      const sortBy = options?.sortBy || 'createdAt';
 
       const skip = (page - 1) * limit;
-      const sort = { [sortBy]: sortOrder };
-
+      const sort = { [sortBy]: sortOrder as SortOrder };
       const [data, total] = await Promise.all([
         this.model
           .find({ tags: { $in: tagIds } })
@@ -163,7 +145,10 @@ export class ImageRepository {
         totalPages: Math.ceil(total / limit)
       };
     } catch (error) {
-      throw createError('DatabaseError', error.message);
+      throw createError('DatabaseError', error.message, {
+        function: 'findByTags',
+        options: options
+      });
     }
   }
   //accepts transaction now. Nothing else changes because the return is directly executed with .exec();
