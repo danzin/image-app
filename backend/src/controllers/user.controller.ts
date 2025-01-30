@@ -1,4 +1,3 @@
-// controllers/user.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/user.service';
 import { createError } from '../utils/errors';
@@ -47,8 +46,8 @@ export class UserController {
 
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const {decodedUser} = req;
-
+      const {decodedUser} = req;  
+      console.log(decodedUser)
       const updatedUser = await this.userService.updateProfile(decodedUser.id, req.body);
       res.status(200).json(updatedUser);
     } catch (error) {
@@ -98,21 +97,35 @@ export class UserController {
     }
   }
 
-  followUser = async (req: Request, res: Response) => {
-    const {decodedUser} = req;
-
-    const {targetUserId } = req.params;
-    const result = await this.followService.followUser(decodedUser.id, targetUserId);
-    res.status(200).json(result ? { message: result } : { message: 'Successfully followed user' });
+  likeAction = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {decodedUser} = req;
+      const {imageId} = req.params;
+      console.log(imageId)
+      const result = await this.userService.likeAction(decodedUser.id, imageId)
+      res.status(200).json(result)
+    } catch (error) {
+      
+    }
   }
+
+
+  //will be reworked as followAction and toggle between follow/unfollow based on current follow status
+  // followUser = async (req: Request, res: Response) => {
+  //   const {decodedUser} = req;
+
+  //   const {targetUserId } = req.params;
+  //   const result = await this.followService.followUser(decodedUser.id, targetUserId);
+  //   res.status(200).json(result ? { message: result } : { message: 'Successfully followed user' });
+  // }
   
-  unfollowUser = async (req: Request, res: Response) => {
-    const {decodedUser} = req;
+  // unfollowUser = async (req: Request, res: Response) => {
+  //   const {decodedUser} = req;
 
-    const { targetUserId } = req.params;
+  //   const { targetUserId } = req.params;
 
-    const result = await this.followService.unfollowUser(decodedUser.id, targetUserId);
+  //   const result = await this.followService.unfollowUser(decodedUser.id, targetUserId);
  
-    res.status(200).json(result ? { message: result } : { message: 'Successfully unfollowed user' } );
-  }
+  //   res.status(200).json(result ? { message: result } : { message: 'Successfully unfollowed user' } );
+  // }
 }

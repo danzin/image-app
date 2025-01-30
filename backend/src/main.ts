@@ -1,4 +1,3 @@
-// src/main.ts
 import 'reflect-metadata';
 import dotenv from 'dotenv';
 import { container } from 'tsyringe';

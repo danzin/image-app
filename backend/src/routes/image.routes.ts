@@ -38,6 +38,7 @@ export class ImageRoutes {
         upload.single('image'), 
         this.controller.uploadImage
     );
+    
 
     this.router.delete('/:id', protectedRouter, this.controller.deleteImage);
     

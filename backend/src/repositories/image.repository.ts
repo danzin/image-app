@@ -27,6 +27,24 @@ export class ImageRepository extends BaseRepository<IImage> {
   }
 
 
+  //Reduntant bloat. Will use the base findOneAndUpdate method instead. 
+  // async incrementLikes(imageId: string): Promise<void> {
+  //   try {
+  //     await this.model.findByIdAndUpdate(imageId, { $inc: { likesCount: 1 } }).exec();
+  //   } catch (error) {
+  //     throw createError('DatabaseError', error.message)
+  //   }
+  // }
+
+  // async decrementLikes(imageId: string): Promise<void> {
+  //   try {
+  //     await this.model.findByIdAndUpdate(imageId, { $inc: { likesCount: -1 } }).exec();
+  //   } catch (error) {
+  //     throw createError('DatabaseError', error.message)
+  //   }
+  // }
+
+
   async findWithPagination(
     options: PaginationOptions, 
     session?: ClientSession

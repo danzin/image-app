@@ -7,7 +7,12 @@ import { createError } from '../utils/errors';
 import jwt from 'jsonwebtoken';
 import { injectable, inject } from 'tsyringe';
 import { UnitOfWork } from '../database/UnitOfWork';
-
+import { LikeRepository } from '../repositories/like.repository';
+import { FollowRepository } from '../repositories/follow.repository';
+import { UserActionRepository } from '../repositories/userAction.repository';
+import { convertToObjectId } from '../utils/helpers';
+import { NotificationService } from './notification.service';
+import { NotificationRepository } from '../repositories/notification.respository';
 @injectable()
 export class UserService {
   constructor(
@@ -15,8 +20,14 @@ export class UserService {
     @inject('ImageRepository') private readonly imageRepository: ImageRepository,
     @inject('CloudinaryService') private readonly cloudinaryService: CloudinaryService,
     @inject('UserModel') private readonly userModel: Model<IUser>,
-    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork
-  ) {}
+    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork,
+    @inject('LikeRepository') private readonly likeRepository: LikeRepository,
+    @inject('FollowRepository') private readonly followRepository: FollowRepository,
+    @inject('UserActionRepository') private readonly userActionRepository: UserActionRepository,
+    @inject('NotificationService') private readonly notificationService: NotificationService
+  ) {
+    
+  }
 
   private generateToken(user: IUser): string {
     const payload = { id: user._id, email: user.email, username: user.username };
@@ -25,6 +36,9 @@ export class UserService {
     
     return jwt.sign(payload, secret, { expiresIn: '6h' });
   }
+
+  
+
 
   async register(userData: Partial<IUser>): Promise<{ user: IUser; token: string }> {
     try {
@@ -155,4 +169,77 @@ export class UserService {
   async getUsers(options: PaginationOptions): Promise<PaginationResult<IUser>> {
     return await this.userRepository.findWithPagination(options);
   }
+
+  async likeAction(userId: string, imageId: string): Promise<void> {
+    try {
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
+        
+        if (existingLike) {
+          // Unlike: Remove the like
+          await this.likeRepository.deleteLike(userId, imageId, session);
+          // Decrement likes count on the image
+          await this.imageRepository.findOneAndUpdate(
+            { _id: imageId },
+            { $inc: { likes: -1 } },
+            session
+          );
+          // Log the user action
+          await this.userActionRepository.logAction(userId, "unlike", imageId, session);
+        } else {
+          // Like: Create a new like
+          
+          //Convert strings to mongoose.Types.ObjectId because .create expects
+          // Partial<T> aka Partial<ILike> which requires the mongoose object ID 
+          const userIdObject = convertToObjectId(userId);
+          const imageIdObject = convertToObjectId(imageId);
+          
+          await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
+          
+          // Incermet the likes count
+          await this.imageRepository.findOneAndUpdate(
+            { _id: imageId },
+            { $inc: { likes: 1 } },
+            session
+          );
+          // Log the user action
+          await this.userActionRepository.logAction(userId, "like", imageId, session);
+        }
+      });
+    } catch (error) {
+      throw createError(error.name, error.message, {
+        function: 'likeAction',
+        additionalInfo: 'Transaction failed'
+      });
+    }
+  }
+
+  //TODO
+  // async toggleFollowAction(followerId: string, followeeId: string): Promise<void> {
+   
+  
+  //   try {
+  //     const isFollowing = await this.followRepository.isFollowing(followerId, followeeId);
+  
+  //     if (isFollowing) {
+  //       // Unfollow Logic
+  //       await this.followRepository.removeFollow(followerId, followeeId, session);
+  //       await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
+  //       await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
+  //       await this.userActionRepository.logAction(followerId, "unfollow", followeeId);
+  //     } else {
+  //       // Follow Logic
+  //       await this.followRepository.addFollow(followerId, followeeId, session);
+  //       await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
+  //       await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
+  //       await this.notificationService.createNotification({ userId: followeeId, actionType: "follow", actorId: followerId });
+  //       await this.userActionRepository.logAction(followerId, "follow", followeeId);
+  //     }
+  
+  //   } catch (error) {
+
+  //   } 
+  // }
+  
+  
 }

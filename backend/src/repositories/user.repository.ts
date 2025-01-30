@@ -43,7 +43,7 @@ export class UserRepository extends BaseRepository<IUser>{
         id,
         updateData,  
         { new: true }
-      );
+      )
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {

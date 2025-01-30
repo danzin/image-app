@@ -28,7 +28,8 @@ export interface IImage extends Document {
     username: string;
   }
   createdAt: Date;
-  tags: { tag: string }[]; 
+  tags: { tag: string }[];
+  likes: number;
 }
 
 export interface ITag extends Document {

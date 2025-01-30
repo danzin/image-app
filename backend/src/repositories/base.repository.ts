@@ -1,4 +1,4 @@
-import mongoose, { ClientSession } from "mongoose";
+import mongoose, { ClientSession, FilterQuery, ModifyResult, UpdateQuery } from "mongoose";
 import { IRepository } from "../types";
 import { createError } from "../utils/errors";
 
@@ -46,5 +46,22 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
       throw createError('UoWError', error.message);
     }
   }
+
+  // Extend the Base repository with this method as I'll need it in 
+  // multiple repositories. 
+  // Adjust return type to include ModifyResult<T> because it's what findOneAndUpdate returns. 
+  // Adjust update to be of type UpdateQuery<T> as it includes all MongoDB specific operators
+  // Using .lean() instead of adjusting the return type is out of the question as it causes horrors beyond my comprehension further down the line.
+  // 
+  async findOneAndUpdate(filter: FilterQuery<T>, update: UpdateQuery<T>, session?: ClientSession): Promise<T | ModifyResult<T> | null> {
+    try {
+      const query = this.model.findOneAndUpdate(filter, update, { new: true }); // Removed the { update } wrapping
+      if (session) query.session(session);
+      return await query.exec();
+    } catch (error) {
+      throw createError('UoWError', error.message);
+    }
+  }
+
   
 }

@@ -2,8 +2,6 @@ import { WithTransactionCallback } from 'mongodb';
 import mongoose, { ClientSession } from 'mongoose';
 import { createError } from '../utils/errors';
 
-// Define types for operations
-type Operation = (session: ClientSession) => Promise<void>;
 
 export class UnitOfWork {
   private session: ClientSession | null = null;

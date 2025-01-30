@@ -41,21 +41,18 @@ export class UserRoutes {
 
     // Protected routes group
     const protectedRouter = express.Router();
-    this.router.use(protectedRouter); //mount protected router
+    this.router.use(protectedRouter); 
     protectedRouter.use(this.auth);
 
-    //TO Implement actions in userController
-    protectedRouter.post(
-      '/follow/:targetUserId',
-      new ValidationMiddleware(UserValidationSchemas.followAction()).validate(),
-      this.userController.followUser
+    protectedRouter.put(
+      '/edit',
+      this.userController.updateProfile
     );
-    
+
     protectedRouter.post(
-      '/unfollow/:targetUserId',
-      new ValidationMiddleware(UserValidationSchemas.followAction()).validate(),
-      this.userController.unfollowUser
-    );
+      '/likes/:imageId',
+      this.userController.likeAction
+    )
 
 
     protectedRouter.put(
@@ -64,12 +61,13 @@ export class UserRoutes {
       this.userController.updateAvatar
     );
 
+  
+
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser
     );
 
-    this.router.use('/protected', protectedRouter);
   }
 
   public getRouter(): express.Router {

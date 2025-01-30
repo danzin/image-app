@@ -7,7 +7,8 @@ const imageSchema = new mongoose.Schema<IImage>({
   publicId: { type: String, required: true },
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // Reference to User schema
   createdAt: { type: Date, default: Date.now },
-  tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }] // Reference to Tag schema
+  tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }], // Reference to Tag schema
+  likes: { type: Number, default: 0, required: true, }
 });
 
 

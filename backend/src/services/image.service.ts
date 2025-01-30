@@ -26,6 +26,8 @@ export class ImageService {
   
     try {
       const result = await this.unitOfWork.executeInTransaction(async (session) => {
+
+
         // Find user
         const user = await this.userRepository.findById(userId, session);
         if (!user) {
@@ -39,8 +41,14 @@ export class ImageService {
             if (existingTag) {
               return existingTag._id;
             }
-            const newTag = await this.tagRepository.create(tag as Partial<ITag>, session);
+
+            //the create method in BaseRepository expects an object
+            //so I'm creating one and passing it instead of passing directly 
+            // the tag as Partial<ITag>  
+            const tagObject = { tag: tag } as Partial<ITag>;
+            const newTag = await this.tagRepository.create(tagObject, session);
             return newTag._id;
+
           })
         );
   
@@ -55,9 +63,10 @@ export class ImageService {
           user: user.id, 
           createdAt: new Date(),
           tags: tagIds, 
+          likes: 0
         } as IImage;
   
-        const img = await this.imageRepository.create(image, session);
+        const img = await this.imageRepository.create(image as IImage, session);
        
         // Update user images array
         await this.userRepository.update(
@@ -76,6 +85,8 @@ export class ImageService {
           tags: tags.map((tag) => tag),
           createdAt: img.createdAt,
         };
+
+
       });
   
       return result;

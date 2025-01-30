@@ -10,7 +10,6 @@ declare global {
   }
 }
 
-
 export abstract class AuthStrategy {
   abstract authenticate(req: Request): Promise<JwtPayload>;
 }
