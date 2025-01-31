@@ -1,4 +1,3 @@
-// routes/user.routes.ts
 import express from 'express';
 import { UserController } from '../controllers/user.controller';
 import { AuthFactory } from '../middleware/authentication.middleware';
@@ -50,7 +49,12 @@ export class UserRoutes {
     );
 
     protectedRouter.post(
-      '/likes/:imageId',
+      '/follow/:followeeId',
+      this.userController.followAction
+    )
+
+    protectedRouter.post(
+      '/like/:imageId',
       this.userController.likeAction
     )
 

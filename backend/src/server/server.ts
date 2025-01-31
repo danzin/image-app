@@ -1,6 +1,6 @@
-// src/server/server.ts
 import 'reflect-metadata';
 import express, { Application } from 'express';
+import http from 'http';  
 import { injectable, inject } from 'tsyringe';
 import { UserRoutes } from '../routes/user.routes';
 import { ImageRoutes } from '../routes/image.routes';
@@ -16,11 +16,10 @@ export class Server {
     @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
     @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes
   ) {
-
     this.app = express();
     this.initializeMiddlewares();
     this.initializeRoutes();
-  this.initializeErrorHandling()
+    this.initializeErrorHandling();
   }
 
   private initializeMiddlewares(): void {
@@ -38,8 +37,13 @@ export class Server {
     this.app.use(ErrorHandler.handleError);
   }
 
-  public start(port: number): void {
-    this.app.listen(port, () => {
+  public getExpressApp(): Application {
+    return this.app;
+  }
+
+  //setting the http server
+  public start(server: http.Server, port: number): void {
+    server.listen(port, () => {
       console.log(`Server running on port ${port}`);
     });
   }

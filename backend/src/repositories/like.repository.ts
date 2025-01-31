@@ -18,6 +18,7 @@ export class LikeRepository extends BaseRepository<ILike>{
     const query = this.model.findOne({userId, imageId});
     if(session) query.session(session);
     const result = await query.exec();
+
     return result
   }
 

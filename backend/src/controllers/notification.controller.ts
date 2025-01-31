@@ -18,12 +18,13 @@ export class NotificationController {
     }
   }
 
-  async markAsRead(req: Request, res: Response, next: NextFunction) {
-    try {
-      const notification = await this.notificationService.markAsRead(req.params.id);
-      res.status(200).json(notification);
-    } catch (error) {
-      next(error);
-    }
-  }
+  //TODO
+  // async markAsRead(req: Request, res: Response, next: NextFunction) {
+  //   try {
+  //     const notification = await this.notificationService.markAsRead(req.params.id);
+  //     res.status(200).json(notification);
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 }

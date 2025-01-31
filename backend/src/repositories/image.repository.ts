@@ -1,4 +1,4 @@
-import { Model, ClientSession, SortOrder } from 'mongoose';
+import mongoose, { Model, ClientSession, SortOrder } from 'mongoose';
 import { BaseRepository } from './base.repository';
 import { IImage, PaginationOptions, PaginationResult } from '../types';
 import { createError } from '../utils/errors';
@@ -15,12 +15,17 @@ export class ImageRepository extends BaseRepository<IImage> {
   // Override findById for population
   async findById(id: string, session?: ClientSession): Promise<IImage | null> {
     try {
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        return null; 
+      }
       const query = this.model.findById(id)
         .populate('user', 'username')
         .populate('tags', 'tag');
       
       if (session) query.session(session);
-      return await query.exec();
+      const result = await query.exec();
+      console.log(result)
+      return result
     } catch (error) {
       throw createError('DatabaseError', error.message);
     }

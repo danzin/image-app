@@ -42,7 +42,7 @@ export class FollowService {
 
       //Create notification for followee
       await this.notificationService.createNotification({
-        userId: followeeId,
+        receiverId: followeeId,
         actionType: "follow",
         actorId: followerId, 
       });

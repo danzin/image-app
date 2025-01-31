@@ -29,8 +29,11 @@ import { LikeRepository } from '../repositories/like.repository';
 import UserAction from '../models/userAction.model';
 import { FollowRepository } from '../repositories/follow.repository';
 import { UserActionRepository } from '../repositories/userAction.repository';
+import { WebSocketServer } from '../server/socketServer';
+
 
 export function setupContainer(): void {
+
   // Register Models
   container.register('UserModel', { useValue: User });
   container.register('ImageModel', { useValue: Image });
@@ -41,6 +44,9 @@ export function setupContainer(): void {
   container.register('UserActionModel', { useValue: UserAction});
 
   // Register Repositories as singletons
+  container.register("WebSocketServer", {
+    useClass: WebSocketServer
+  });
   container.registerSingleton('UnitOfWork', UnitOfWork);
   container.registerSingleton('UserRepository', UserRepository);
   container.registerSingleton('ImageRepository', ImageRepository);
@@ -69,6 +75,7 @@ export function setupContainer(): void {
   container.registerSingleton('ImageRoutes', ImageRoutes);
   container.registerSingleton('SearchRoutes', SearchRoutes);
   // Register Server
+  container.registerSingleton('WebSocketServer', WebSocketServer); 
   container.registerSingleton('Server', Server);
-  
+
 }
