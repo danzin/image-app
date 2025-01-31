@@ -58,15 +58,12 @@ export class UserRoutes {
       this.userController.likeAction
     )
 
-
     protectedRouter.put(
       '/:id/avatar',
       upload.single('avatar'),
       this.userController.updateAvatar
     );
-
-  
-
+    
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser
