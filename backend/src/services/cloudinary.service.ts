@@ -52,7 +52,19 @@ export class CloudinaryService {
       console.error('Error deleting assets:', error);
       throw error;
     }
-  }async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
+  }
+
+  async deleteImage(publicId) {
+    cloudinary.uploader.destroy(publicId, (error, result) => {
+      if (error) {
+        console.error('Error deleting image:', error);
+      } else {
+        console.log('Image deleted successfully:', result);
+      }
+    });
+  };
+
+  async deleteAssetByUrl(id: string, url: string): Promise<{ result: string }> {
     const publicId = this.extractPublicId(url);
     if (!publicId) {
       throw new Error('Invalid URL format');
@@ -60,7 +72,7 @@ export class CloudinaryService {
   
     try {
       console.log("URL of image about to delete:", url);
-      const assetPath = `${username}/${publicId}`;
+      const assetPath = `${id}/${publicId}`;
       const result = await cloudinary.uploader.destroy(assetPath);
       console.log(result);
   

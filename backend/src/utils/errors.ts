@@ -3,11 +3,12 @@ import express from 'express';
 //improved err factory
 class AppError extends Error {
   public statusCode: number;
-
-  constructor(name: string, message: string, statusCode: number) {
+  public context: any
+  constructor(name: string, message: string, statusCode: number, context?: any) {
     super(message);
     this.name = name;
     this.statusCode = statusCode;
+    this.context = context
   }
 }
 
@@ -84,9 +85,13 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   UoWError
 };
 
-export function createError(type: string, message: string): AppError {
+export function createError(type: string, message: string, context?: any): AppError {
   const ErrorClass = errorMap[type] || UnknownError;
-  return new ErrorClass(message);
+  const error = new ErrorClass(message);
+  if (context) {
+    error.context = context;
+  }
+  return error;
 }
 
 export class ErrorHandler {
@@ -102,6 +107,9 @@ export class ErrorHandler {
       code: err.statusCode || 500,
     };
 
+    if (err.context) {
+      response.context = err.context; 
+    }
     //Return stack trace when not in production
     if (process.env.NODE_ENV !== 'production') {
       response.stack = err.stack;

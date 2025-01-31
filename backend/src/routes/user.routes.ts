@@ -1,4 +1,3 @@
-// routes/user.routes.ts
 import express from 'express';
 import { UserController } from '../controllers/user.controller';
 import { AuthFactory } from '../middleware/authentication.middleware';
@@ -41,8 +40,24 @@ export class UserRoutes {
 
     // Protected routes group
     const protectedRouter = express.Router();
-    this.router.use(protectedRouter); //mount protected router
+    this.router.use(protectedRouter); 
     protectedRouter.use(this.auth);
+
+    protectedRouter.put(
+      '/edit',
+      this.userController.updateProfile
+    );
+
+    protectedRouter.post(
+      '/follow/:followeeId',
+      this.userController.followAction
+    )
+
+    protectedRouter.post(
+      '/like/:imageId',
+      this.userController.likeAction
+    )
+
 
     protectedRouter.put(
       '/:id/avatar',
@@ -50,12 +65,13 @@ export class UserRoutes {
       this.userController.updateAvatar
     );
 
+  
+
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser
     );
 
-    this.router.use('/protected', protectedRouter);
   }
 
   public getRouter(): express.Router {

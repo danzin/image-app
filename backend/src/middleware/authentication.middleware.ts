@@ -1,4 +1,3 @@
-// middlewares/auth.middleware.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { createError } from '../utils/errors';
@@ -10,7 +9,6 @@ declare global {
     }
   }
 }
-
 
 export abstract class AuthStrategy {
   abstract authenticate(req: Request): Promise<JwtPayload>;

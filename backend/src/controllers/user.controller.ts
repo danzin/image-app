@@ -1,8 +1,8 @@
-// controllers/user.controller.ts
 import { Request, Response, NextFunction } from 'express';
 import { UserService } from '../services/user.service';
 import { createError } from '../utils/errors';
 import { injectable, inject } from 'tsyringe';
+import { FollowService } from '../services/follow.service';
 
 /**  
  * When using Dependency Injection in Express, there's a common
@@ -20,7 +20,8 @@ import { injectable, inject } from 'tsyringe';
 @injectable()
 export class UserController {
   constructor(
-    @inject('UserService') private readonly userService: UserService
+    @inject('UserService') private readonly userService: UserService,
+    @inject('FollowService') private readonly followService: FollowService
   ) {}
 
 
@@ -45,7 +46,9 @@ export class UserController {
 
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const updatedUser = await this.userService.updateProfile(req.params.id, req.body);
+      const {decodedUser} = req;  
+      console.log(decodedUser)
+      const updatedUser = await this.userService.updateProfile(decodedUser.id, req.body);
       res.status(200).json(updatedUser);
     } catch (error) {
       next(error);
@@ -54,9 +57,10 @@ export class UserController {
 
   updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const {decodedUser} = req;
       const file = req.file?.buffer;
       if (!file) throw createError('ValidationError', 'No file provided');
-      await this.userService.updateAvatar(req.params.userId, file);
+      await this.userService.updateAvatar(decodedUser.id, file);
       res.status(200).json({ message: 'Avatar updated successfully' });
     } catch (error) {
       next(error);
@@ -65,7 +69,9 @@ export class UserController {
 
   deleteUser = async(req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.userService.deleteUser(req.params.id);
+      const {decodedUser} = req;
+
+      await this.userService.deleteUser(decodedUser.id);
       res.status(204).send();
     } catch (error) {
       next(error);
@@ -90,4 +96,32 @@ export class UserController {
       next(error);
     }
   }
+
+  likeAction = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {decodedUser} = req;
+      const {imageId} = req.params;
+      console.log(imageId)
+      const result = await this.userService.likeAction(decodedUser.id, imageId)
+      res.status(200).json(result)
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  
+  followAction = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {decodedUser} = req;
+      const {followeeId} = req.params;
+      console.log(followeeId)
+      const result = await this.userService.followAction(decodedUser.id, followeeId)
+      res.status(200).json(result)
+    } catch (error) {
+      next(error)
+    }
+  }
+
+
+  
 }
