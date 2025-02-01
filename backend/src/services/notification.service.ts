@@ -1,43 +1,74 @@
-import mongoose from 'mongoose';
-import { NotificationRepository } from '../repositories/notification.respository';
-import { INotification } from '../types';
-import { createError } from '../utils/errors';
+import mongoose, { ClientSession } from "mongoose";
+import { NotificationRepository } from "../repositories/notification.respository";
+import { INotification } from "../types";
+import { createError } from "../utils/errors";
+import { inject, injectable } from "tsyringe";
+import { Server as SocketIOServer } from "socket.io";
+import { Client } from "socket.io/dist/client";
+import { WebSocketServer } from "../server/socketServer";
 
+@injectable()
 export class NotificationService {
-  private notificationRepository: NotificationRepository;
+  private io: SocketIOServer;
 
-  constructor() {
-    this.notificationRepository = new NotificationRepository();
+  constructor(
+    @inject("WebSocketServer") private webSocketServer: WebSocketServer,
+    @inject("NotificationRepository") private notificationRepository: NotificationRepository
+  ) { }
+  
+  private getIO(): SocketIOServer {
+    return this.webSocketServer.getIO();
+  }
+
+  private sendNotification(io: SocketIOServer, userId: mongoose.Types.ObjectId, notification: INotification) {
+    try {
+      console.log(`Sending notification to user ${userId}:`, notification);
+      io.to(userId.toString()).emit("new_notification", notification);
+      console.log('Notification sent successfully');
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      throw createError(error.name, error.message);
+    }
   }
 
   async createNotification(data: {
-    userId: string;       // User receiving the notification (e.g., followee)
-    actionType: string;   // Type of action: 'follow', 'like', 'comment'
-    actorId: string;      // User who triggered the action (e.g., follower)
-    targetId?: string;    // Optional: ID of the affected resource (e.g., image ID)
+    receiverId: string;       // User receiving the notification
+    actionType: string;   // Type of action: like, follow
+    actorId: string;      // User who triggered the action
+    targetId?: string;  // Optional: ID of the affected resource (e.g., image ID)
+    session?: ClientSession  
   }): Promise<INotification> {
     // Validate required fields
-    if (!data.userId || !data.actionType || !data.actorId) {
+    if (!data.receiverId || !data.actionType || !data.actorId) {
       throw createError("ValidationError", "Missing required notification fields");
     }
 
     try {
-      // Convert string IDs to ObjectId
-      const userId = new mongoose.Types.ObjectId(data.userId);
+      const userId = new mongoose.Types.ObjectId(data.receiverId);
       const actorId = new mongoose.Types.ObjectId(data.actorId);
       const targetId = data.targetId ? new mongoose.Types.ObjectId(data.targetId) : undefined;
+      const io = this.getIO();
 
-      // Create the notification
-      return await this.notificationRepository.create({
-        userId,
-        actionType: data.actionType,
-        actorId,
-        targetId,
-        isRead: false,
-        timestamp: new Date(),
-      } as INotification);
+      // Save notification to the database
+      const notification = await this.notificationRepository.create(
+        {
+          userId,
+          actionType: data.actionType,
+          actorId,
+          targetId,
+          isRead: false,
+          timestamp: new Date(),
+        }  ,
+        data.session
+         // Pass session to ensure transaction safety
+      );
+
+      //Send instant notification to user via Socket.io
+      this.sendNotification(io, userId, notification)          
+
+      return notification;
     } catch (error) {
-    throw createError("InternalServerError", "Failed to create notification");
+      throw createError("InternalServerError", "Failed to create notification");
     }
   }
 
@@ -45,16 +76,26 @@ export class NotificationService {
     try {
       return await this.notificationRepository.getNotifications(userId);
     } catch (error) {
-      throw createError('InternalServerError', 'Failed to fetch notifications');
+      throw createError("InternalServerError", "Failed to fetch notifications");
     }
   }
 
-  async markAsRead(notificationId: string) {
+  async markAsRead(notificationId: string, userId: string) {
     try {
-      return await this.notificationRepository.markAsRead(notificationId);
+      // Update the notification as read
+      const updatedNotification = await this.notificationRepository.markAsRead(notificationId);
+
+      if (!updatedNotification) {
+        throw createError("NotFoundError", "Notification not found");
+      }
+
+      
+      this.io.to(userId.toString()).emit("notification_read", updatedNotification);
+
+      return updatedNotification;
     } catch (error) {
-      throw createError('InternalServerError', 'Failed to mark notification as read');
+      throw createError("InternalServerError", "Failed to mark notification as read");
     }
   }
-  
+
 }

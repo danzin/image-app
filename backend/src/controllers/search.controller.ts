@@ -1,24 +1,16 @@
 import { NextFunction, Request, Response } from "express";
-import { ImageRepository } from "../repositories/image.repository.old";
-import { UserRepository } from "../repositories/user.repository.old";
 import { SearchService } from "../services/search.service";
 import { createError } from "../utils/errors";
-import { TagRepository } from "../repositories/tag.repository";
+import { inject, injectable } from "tsyringe";
 
+@injectable()
 export class SearchController {
-  private searchService: SearchService;
 
-  constructor() {
-    // Init repositories
-    const imageRepository = new ImageRepository();
-    const userRepository = new UserRepository();
-    const tagRepository = new TagRepository();
- 
-    // Pass them to the service
-    this.searchService = new SearchService(imageRepository, userRepository, tagRepository);
-  }
+  constructor(
+    @inject('SearchService') private readonly searchService: SearchService
+  ) {}
 
-  async searchAll(req: Request, res: Response, next: NextFunction) {
+  searchAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { q } = req.query; 
 
@@ -30,7 +22,7 @@ export class SearchController {
 
       res.status(200).json({ success: true, data: result });
     } catch (error) {
-      next(error);
+      next(createError(error.name, error.message));
     }
   }
 }

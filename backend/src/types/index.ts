@@ -1,6 +1,22 @@
-import mongoose, { Document, Mongoose } from "mongoose";
+import mongoose, { ClientSession, Document, Mongoose } from "mongoose";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
+import { createError } from "../utils/errors";
+
+export interface IUnitOfWork {
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+  userRepository: UserRepository;
+  imageRepository: ImageRepository;
+}
+
+// Interface for repositories that will use UnitOfWork
+export interface IRepository<T> {
+  create(item: Partial<T>, session?: ClientSession): Promise<T>;
+  update(id: string, item: Partial<T>, session?: ClientSession): Promise<T | null>;
+  delete(id: string, session?: ClientSession): Promise<boolean>;
+  findById(id: string, session?: ClientSession): Promise<T | null>;
+}
 
 export interface IImage extends Document {
   url: string;
@@ -10,7 +26,8 @@ export interface IImage extends Document {
     username: string;
   }
   createdAt: Date;
-  tags: { tag: string }[]; 
+  tags: { tag: string }[];
+  likes: number;
 }
 
 export interface ITag extends Document {
@@ -34,41 +51,13 @@ export interface IUser extends Document{
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-export interface BaseRepository<T> {
-  create(item: T): Promise<T>;
-  findById(id: string): Promise<T | null>;
-  update(id: string, item: Partial<T>): Promise<T | null>;
-  delete(id: string): Promise< T | boolean | void>;
-}
-
-
-export interface PaginationResult<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-export interface PaginationOptions {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-export interface CloudinaryResponse {
-  result: 'ok' | 'error';
-  message?: string;
-}
-
-export interface ILike {
+export interface ILike extends Document {
   userId: mongoose.Types.ObjectId;
   imageId:  mongoose.Types.ObjectId;
   timestamp: Date;
 }
 
-export interface IFollow {
+export interface IFollow extends Document {
   followerId: mongoose.Types.ObjectId;
   followeeId: mongoose.Types.ObjectId;
   timestamp: Date;
@@ -90,9 +79,36 @@ export interface INotification extends Document {
   timestamp: Date;
 }
 
-export interface IUnitOfWork {
-  commit(): Promise<void>;
-  rollback(): Promise<void>;
-  userRepository: UserRepository;
-  imageRepository: ImageRepository;
+export interface PaginationResult<T> {
+  data: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface PaginationOptions {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface CloudinaryResponse {
+  result: 'ok' | 'error';
+  message?: string;
+}
+
+export interface CloudinaryResult {
+  result: 'ok' | 'error';
+  message?: string;
+}
+
+export interface CloudinaryDeleteResponse {
+  deleted: Record<string, string>;
+  deleted_counts: Record<string, { original: number; derived: number }>;
+  partial: boolean;
+  rate_limit_allowed: number;
+  rate_limit_reset_at: string;
+  rate_limit_remaining: number;
 }

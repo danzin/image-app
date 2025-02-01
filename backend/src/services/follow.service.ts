@@ -4,50 +4,50 @@ import { NotificationService } from "./notification.service";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { UserRepository } from "../repositories/user.repository";
+import { inject, injectable } from "tsyringe";
 
+@injectable()
 export class FollowService {
-  private followRepository: FollowRepository;
-  private notificationService: NotificationService;
-  private userActionRepository: UserActionRepository;
-  private userRepository: UserRepository;
 
-  constructor() {
-    this.followRepository = new FollowRepository;
-    this.notificationService = new NotificationService;
-    this.userActionRepository = new UserActionRepository;
-    this.userRepository = new UserRepository;
-  }
+  constructor(
+    @inject('FollowRepository') private readonly followRepository: FollowRepository,
+    @inject('NotificationService') private readonly notificationService: NotificationService,
+    @inject('UserActionRepository') private readonly userActionRepository: UserActionRepository,
+    @inject('UserRepository') private readonly userRepository: UserRepository
+  ) {}
 
-  async followUser(followerId: string, followeeId: string): Promise<void> {
+  async followUser(followerId: string, followeeId: string): Promise<void | string> {
+    if((await this.followRepository.isFollowing(followerId, followeeId))) return 'Already following this user' 
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // 1. Add follow relationship
+
+      //Add follow relationship
       await this.followRepository.addFollow(followerId, followeeId, session);
 
-      // 2. Update follower's "following" list
-      await this.userRepository.findByIdAndUpdate(
+      //Update follower's "following" list
+      await this.userRepository.update(
         followerId,
-        { $addToSet: { following: followeeId } },
-        { session }
+        { $addToSet: { following: followeeId } },  
+        session
       );
 
-      // 3. Update followee's "followers" list
-      await mongoose.model("User").findByIdAndUpdate(
+      //Update followee's "followers" list
+      await this.userRepository.update(
         followeeId,
         { $addToSet: { followers: followerId } },
-        { session }
+        session 
       );
 
-      // 4. Create notification for followee
+      //Create notification for followee
       await this.notificationService.createNotification({
-        userId: followeeId, // The user being followed
+        receiverId: followeeId,
         actionType: "follow",
-        actorId: followerId, // The user who initiated the follow
+        actorId: followerId, 
       });
 
-      // 5. Log the follow action
+      
       await this.userActionRepository.logAction(followerId, "follow", followeeId);
 
       await session.commitTransaction();
@@ -59,29 +59,31 @@ export class FollowService {
     }
   }
 
-  async unfollowUser(followerId: string, followeeId: string): Promise<void> {
+  async unfollowUser(followerId: string, followeeId: string): Promise<void | string> {
+    if(!(await this.followRepository.isFollowing(followerId, followeeId))) return  'Already unfollowed this user' 
+
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // 1. Remove follow relationship
+      //Remove follow relationship
       await this.followRepository.removeFollow(followerId, followeeId, session);
 
-      // 2. Update follower's "following" list
-      await mongoose.model("User").findByIdAndUpdate(
+      //Update follower's "following" list
+      await this.userRepository.update(
         followerId,
         { $pull: { following: followeeId } },
-        { session }
+        session 
       );
 
-      // 3. Update followee's "followers" list
-      await mongoose.model("User").findByIdAndUpdate(
+      //Update followee's "followers" list
+      await this.userRepository.update(
         followeeId,
         { $pull: { followers: followerId } },
-        { session }
+        session 
       );
 
-      // 4. Log the unfollow action
+      //Log the unfollow action
       await this.userActionRepository.logAction(followerId, "unfollow", followeeId);
 
       await session.commitTransaction();

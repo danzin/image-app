@@ -12,7 +12,6 @@ import { inject, injectable } from 'tsyringe';
 @injectable()
 export class ImageService {
   constructor(
-    @inject('ImageModel') private readonly imageModel: Model<IImage>,
     @inject('UserRepository') private readonly userRepository: UserRepository,
     @inject('ImageRepository') private readonly imageRepository: ImageRepository,
     @inject('CloudinaryService') private readonly cloudinaryService: CloudinaryService,
@@ -23,15 +22,17 @@ export class ImageService {
 
 
   async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+    let cloudImagePublicId: string | null = null;
+  
     try {
       const result = await this.unitOfWork.executeInTransaction(async (session) => {
-       
+
+
         // Find user
         const user = await this.userRepository.findById(userId, session);
         if (!user) {
           throw createError('ValidationError', 'User not found');
         }
-        console.log(`user from findByID: ${user}`)
         
         // Process tags
         const tagIds = await Promise.all(
@@ -40,32 +41,39 @@ export class ImageService {
             if (existingTag) {
               return existingTag._id;
             }
-            const newTag = await this.tagRepository.create(tag, session);
+
+            //the create method in BaseRepository expects an object
+            //so I'm creating one and passing it instead of passing directly 
+            // the tag as Partial<ITag>  
+            const tagObject = { tag: tag } as Partial<ITag>;
+            const newTag = await this.tagRepository.create(tagObject, session);
             return newTag._id;
+
           })
-        )
+        );
   
+        // Store public_id for cleanup
         const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+        cloudImagePublicId = cloudImage.public_id;
   
+        // Create image document with Cloudinary details
         const image = {
           url: cloudImage.url,
           publicId: cloudImage.public_id,
           user: user.id, 
           createdAt: new Date(),
           tags: tagIds, 
+          likes: 0
         } as IImage;
   
-        // Create image
-        const img = await this.imageRepository.create(image, session);
-        console.log(`image from imageRepo.create: ${img}`)
-        
+        const img = await this.imageRepository.create(image as IImage, session);
+       
         // Update user images array
         await this.userRepository.update(
           userId,
           { images: [...user.images, img.url] },
           session
         );
-  
         return {
           id: img.id,
           url: img.url,
@@ -77,12 +85,63 @@ export class ImageService {
           tags: tags.map((tag) => tag),
           createdAt: img.createdAt,
         };
+
+
       });
   
       return result;
     } catch (error) {
-      throw createError(error.name, error.message);
+      // Cleanup Cloudinary asset if transaction failed after upload
+      if (cloudImagePublicId) {
+        try {
+          await this.cloudinaryService.deleteImage(cloudImagePublicId);
+        } catch (error) {
+          console.error('Failed to cleanup Cloudinary image:', error);
+          throw createError('CloudError', error.message, {
+            function: 'uploadImage',
+          })
+        }
+      }
+      throw createError(error.name, error.message, {
+        function: 'uploadImage',
+        additionalInfo: 'Transaction failed after Cloudinary upload'
+      });
     }
+  }
+
+  async deleteImage(imageId: string): Promise<{ message: string }> {
+
+    try {
+      const result = await this.unitOfWork.executeInTransaction(async (session) => {
+        const image = await this.imageRepository.findById(imageId, session);
+        if (!image) {
+          throw createError('NotFoundError', 'Image not found');
+        }
+
+        // Delete from database
+        await this.imageRepository.delete(imageId, session );
+
+        // Delete from Cloudinary
+        const deletionResult = await this.cloudinaryService.deleteAssetByUrl(
+          image.user.username,
+          image.url
+        );
+
+        if (deletionResult.result !== 'ok') {
+          throw createError('CloudError', 'Failed to delete from Cloudinary');
+        }
+      
+        return { message: 'Image deleted successfully' };
+
+      })
+      return result;
+    } catch (error) {
+      throw createError(error.name, error.message, {
+        function: 'deleteImage',
+        file: 'image.service.ts'
+      });
+    }
+   
   }
   
   async getImages(page: number, limit: number): Promise<PaginationResult<IImage>> {
@@ -131,39 +190,7 @@ export class ImageService {
     }
   }
 
-  async deleteImage(imageId: string): Promise<{ message: string }> {
-    const session = await mongoose.startSession();
-    session.startTransaction();
-
-    try {
-      const image = await this.imageRepository.findById(imageId, session);
-      if (!image) {
-        throw createError('NotFoundError', 'Image not found');
-      }
-
-      // Delete from database
-      await this.imageRepository.delete(imageId, session );
-
-      // Delete from Cloudinary
-      const deletionResult = await this.cloudinaryService.deleteAssetByUrl(
-        image.user.username,
-        image.url
-      );
-
-      if (deletionResult.result !== 'ok') {
-        throw createError('CloudError', 'Failed to delete from Cloudinary');
-      }
-
-      await session.commitTransaction();
-      return { message: 'Image deleted successfully' };
-    } catch (error) {
-      await session.abortTransaction();
-      errorLogger.error(error.stack);
-      throw createError('TransactionError', error.message);
-    } finally {
-      session.endSession();
-    }
-  }
+ 
 
   async getTags(): Promise<ITag[]> {
     try {

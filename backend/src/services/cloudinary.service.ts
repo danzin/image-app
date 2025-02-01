@@ -1,7 +1,7 @@
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from 'cloudinary';
 import { bufferToStream } from '../utils/readable';
 import { createError } from '../utils/errors';
-import { CloudinaryResponse } from '../types';
+import { CloudinaryDeleteResponse, CloudinaryResponse, CloudinaryResult } from '../types';
 import { inject, injectable } from 'tsyringe';
 
 
@@ -42,17 +42,62 @@ export class CloudinaryService {
 
   }
 
- async deleteMany(username: string): Promise<CloudinaryResponse> {
+  //deletes lots of images with username prefix
+  async deleteMany(username: string): Promise<CloudinaryResult> {
     try {
-      console.log(`executing cloudinary.api.delete_resources_by_prefix(${username})`)
       const result = await cloudinary.api.delete_resources_by_prefix(username);
-      console.log('result from execution: ', result)
-      return result;
+      return this.processDeleteResponse(result);
     } catch (error) {
-      console.error('Error deleting assets:', error);
-      throw error;
+      return {
+        result: 'error',
+        message: error.message || 'Error deleting cloudinary resources'
+      };
     }
-  }async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
+  }
+
+    /**
+     * @processDeleteResponse method accepts the response from the resolved promise returned by cloudinary.api.delete_resources_by_prefix 
+     * Object.value() converts the response object's deleted_counts into an array
+     * of the values of the object. The object in this case is {'username/imagename': { original: x, derived: 0 }}
+     * The array looks like this: 
+     * [
+     *  { original: 1, derived: 0 }
+     * ]
+     * .some() is an array method that returns true if AT LEAST ONE
+     * element in the array satisfies the condition in the callback function.
+     * The count parameter in the callback of `some()` is each object like { original: 1, derived: 0 }.
+     * and the condition is > 0 
+     * That way there are no unnecessary errors from successful deletions
+    */
+  private processDeleteResponse(response: CloudinaryDeleteResponse): CloudinaryResult {
+
+  
+    const hasSuccessfulDeletions = Object.values(response.deleted_counts).some(
+      count => count.original > 0
+    );
+  
+    if (hasSuccessfulDeletions) {
+      return { result: 'ok' };
+    }
+
+    return {
+      result: 'error',
+      message: 'No resources were deleted'
+    };
+  }
+
+  //deletes image by public Id
+  async deleteImage(publicId) {
+    cloudinary.uploader.destroy(publicId, (error, result) => {
+      if (error) {
+        console.error('Error deleting image:', error);
+      } else {
+        console.log('Image deleted successfully:', result);
+      }
+    });
+  };
+
+  async deleteAssetByUrl(id: string, url: string): Promise<{ result: string }> {
     const publicId = this.extractPublicId(url);
     if (!publicId) {
       throw new Error('Invalid URL format');
@@ -60,7 +105,7 @@ export class CloudinaryService {
   
     try {
       console.log("URL of image about to delete:", url);
-      const assetPath = `${username}/${publicId}`;
+      const assetPath = `${id}/${publicId}`;
       const result = await cloudinary.uploader.destroy(assetPath);
       console.log(result);
   
