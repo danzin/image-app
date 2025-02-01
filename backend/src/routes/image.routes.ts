@@ -22,11 +22,16 @@ export class ImageRoutes {
     // Public routes
     this.router.get('/', this.controller.getImages); 
 
-    //returns images uploaded by user using the user object from the request
-    this.router.get('/user/:id', this.controller.getUserImages)
+    //returns images uploaded by userId
+    this.router.get('/user/:id', this.controller.getUserImages);
+
+    //return images by selected tags
     this.router.get('/search/tags', this.controller.searchByTags);
+    
+    //returns all tags
     this.router.get('/tags', this.controller.getTags);
 
+    //returns image by id
     this.router.get('/:id', this.controller.getImageById);
 
     // Protected routes group
@@ -34,12 +39,13 @@ export class ImageRoutes {
     this.router.use(protectedRouter); //mount the protectedRouter
     protectedRouter.use(this.auth);
       
+    //logged in user uploads an image
     this.router.post('/upload',
         upload.single('image'), 
         this.controller.uploadImage
     );
     
-
+    //logged in deletes an image
     this.router.delete('/:id', protectedRouter, this.controller.deleteImage);
     
   }

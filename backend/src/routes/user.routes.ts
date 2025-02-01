@@ -43,30 +43,33 @@ export class UserRoutes {
     this.router.use(protectedRouter); 
     protectedRouter.use(this.auth);
 
+    //logged in user profile edit
     protectedRouter.put(
       '/edit',
       this.userController.updateProfile
     );
 
+    //logged in user follows another user
     protectedRouter.post(
       '/follow/:followeeId',
       this.userController.followAction
     )
 
+    //logged in user likes an image
     protectedRouter.post(
       '/like/:imageId',
       this.userController.likeAction
     )
 
-
+    //logged in update user avatar
     protectedRouter.put(
-      '/:id/avatar',
+      '/avatar',
       upload.single('avatar'),
       this.userController.updateAvatar
     );
 
   
-
+    //logged in delete user
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser

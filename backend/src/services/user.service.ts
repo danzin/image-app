@@ -86,7 +86,7 @@ export class UserService {
       const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
       
       await this.userRepository.updateAvatar(userId, cloudImage.url, session);
-
+      
       if (oldAvatarUrl) {
         await this.cloudinaryService.deleteAssetByUrl(userId, oldAvatarUrl);
       }
