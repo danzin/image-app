@@ -18,10 +18,14 @@ export class UserRepository extends BaseRepository<IUser>{
       const doc = new this.model(userData);
       if (session) doc.$session(session);
       return await doc.save();
+      //TODO: make sure catch blocks use custom error integrating the context
     } catch (error) {
       if (error.code === 11000) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError('DuplicateError', `${field} already exists`);
+        throw createError('DuplicateError', `${field} already exists`, { 
+          function: 'create',
+          context: 'userRepository'
+        });
       }
       throw createError('DatabaseError', error.message);
     }
@@ -47,6 +51,13 @@ export class UserRepository extends BaseRepository<IUser>{
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
+      if (error.code === 11000) {
+        const field = Object.keys(error.keyValue)[0];
+        throw createError('DuplicateError', `${field} already exists`, { 
+          function: 'create',
+          context: 'userRepository'
+        });
+      }
       throw createError('DatabaseError', error.message);
     }
   }

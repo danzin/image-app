@@ -1,7 +1,22 @@
 
 //enables the usage of decorators and metadata reflection in TypeScript
 import 'reflect-metadata';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+dotenv.config();
+// Register global mongoose plugin before individual models
+mongoose.plugin((schema) => {
+  schema.set('toJSON', {
+    transform: (doc, ret) => {
+      console.log('Global plugin transforming document:', ret);
+      ret.id = ret._id.toString();
+      delete ret._id;
+      delete ret.__v;
+      return ret;
+    },
+  });
+});
+
 import { createServer } from 'http';
 import { container } from 'tsyringe';
 import { DatabaseConfig } from './config/dbConfig';
@@ -11,15 +26,12 @@ import { WebSocketServer } from './server/socketServer';
 
 async function bootstrap(): Promise<void> {
   try {
-    // Load environment variables first
-    dotenv.config();
-    
-    // Setup dependency injection
-    setupContainer();
-    
     // Connect to database
     const dbConfig = container.resolve(DatabaseConfig);
     await dbConfig.connect();
+    
+    // Setup dependency injection
+    setupContainer(); 
     
     // Create Express app and HTTP server
     const expressServer = container.resolve(Server);

@@ -27,7 +27,7 @@ const DashboardLayout = () => {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useUserImages(userData?._id || '');
+  } = useUserImages(userData?.id || '');
 
   const { user } = useAuth();
   const theme = useTheme();
@@ -35,7 +35,7 @@ const DashboardLayout = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const isProfileOwner = id === user?._id;
+  const isProfileOwner = id === user?.id;
   const avatarMutation = useUpdateUserAvatar();
 
   const notifySuccess = (message: string) => toast.success(message);

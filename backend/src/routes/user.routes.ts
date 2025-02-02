@@ -13,6 +13,7 @@ export class UserRoutes {
   private router: express.Router;
   private auth = AuthFactory.bearerToken().handle();
 
+
   constructor(
     @inject('UserController') private readonly userController: UserController
   ) {
@@ -68,8 +69,16 @@ export class UserRoutes {
       this.userController.updateAvatar
     );
 
+    //logged in user update cover
+    protectedRouter.put(
+      '/cover',
+      upload.single('cover'),
+      this.userController.updateCover
+    );
+
   
     //logged in delete user
+    //might need the userID for later use but for now it's reduntant. 
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser

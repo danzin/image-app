@@ -12,7 +12,7 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
     super(model)
   }
 
-  async logAction(userId: string, actionType: string, targetId: string, session?: ClientSession): Promise<IUserAction> {
+  async logAction(userId: string, actionType: string, targetId: string, session?: ClientSession, admin?: boolean ): Promise<IUserAction> {
     try {
       const doc = new this.model({userId, actionType, targetId});
       // if(session) doc.$session(session);

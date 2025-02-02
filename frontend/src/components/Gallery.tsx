@@ -32,7 +32,7 @@ const Gallery: React.FC<GalleryProps> = ({
   //IIFE to check if the the profile belongs to the logged in user
   const isInOwnProfile = ((userId, profileId, isProfilePage) => {
     return userId === profileId && isProfilePage;
-  })(user?._id, id, isProfilePage);
+  })(user?.id, id, isProfilePage);
 
   
   

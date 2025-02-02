@@ -170,7 +170,7 @@ const Navbar = () => {
                 }}
               >
                 <MenuItem onClick={handleMenuClose}>
-                  <Link to={`/profile/${user?._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <Link to={`/profile/${user?.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
                     Profile
                   </Link>
                 </MenuItem>
