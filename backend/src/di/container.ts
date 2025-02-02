@@ -30,6 +30,9 @@ import UserAction from '../models/userAction.model';
 import { FollowRepository } from '../repositories/follow.repository';
 import { UserActionRepository } from '../repositories/userAction.repository';
 import { WebSocketServer } from '../server/socketServer';
+import { UserDTOService } from '../services/dto.service';
+import { AdminUserRoutes } from '../routes/admin.routes';
+import { AdminUserController } from '../controllers/admin.controller';
 
 
 export function setupContainer(): void {
@@ -63,17 +66,21 @@ export function setupContainer(): void {
   container.registerSingleton('ImageService', ImageService);
   container.registerSingleton('FollowService', FollowService);
   container.registerSingleton('NotificationService', NotificationService);
+  container.registerSingleton('UserDTOService', UserDTOService)
 
   // Register Controllers as singletons
   container.registerSingleton('SearchController', SearchController);
   container.registerSingleton('UserController', UserController);
   container.registerSingleton('ImageController', ImageController);
   container.registerSingleton('NotificationController', NotificationController);
+  container.registerSingleton('AdminUserController', AdminUserController);
   
   // Register Routes as singletons
   container.registerSingleton('UserRoutes', UserRoutes);
   container.registerSingleton('ImageRoutes', ImageRoutes);
   container.registerSingleton('SearchRoutes', SearchRoutes);
+  container.registerSingleton('AdminUserRoutes', AdminUserRoutes);
+  
   // Register Server
   container.registerSingleton('WebSocketServer', WebSocketServer); 
   container.registerSingleton('Server', Server);

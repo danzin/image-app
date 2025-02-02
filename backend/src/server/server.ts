@@ -6,6 +6,7 @@ import { UserRoutes } from '../routes/user.routes';
 import { ImageRoutes } from '../routes/image.routes';
 import { ErrorHandler } from '../utils/errors';
 import { SearchRoutes } from '../routes/search.routes';
+import { AdminUserRoutes } from '../routes/admin.routes';
 
 @injectable()
 export class Server {
@@ -14,7 +15,8 @@ export class Server {
   constructor(
     @inject(UserRoutes) private readonly userRoutes: UserRoutes,
     @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
-    @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes
+    @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
+    @inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes
   ) {
     this.app = express();
     this.initializeMiddlewares();
@@ -31,6 +33,8 @@ export class Server {
     this.app.use('/api/users', this.userRoutes.getRouter());
     this.app.use('/api/images', this.imageRoutes.getRouter());
     this.app.use('/api/search', this.searchRoutes.getRouter());
+  
+    this.app.use('/api/admin/', this.adminUserRoutes.getRouter());
   }
 
   private initializeErrorHandling() {

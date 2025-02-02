@@ -13,6 +13,8 @@ import { UserActionRepository } from '../repositories/userAction.repository';
 import { convertToObjectId } from '../utils/helpers';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.respository';
+import { UserDTOService } from './dto.service';
+import { AdminUserDTO, PublicUserDTO } from '../interfaces/dto.interfaces';
 @injectable()
 export class UserService {
   constructor(
@@ -24,31 +26,38 @@ export class UserService {
     @inject('LikeRepository') private readonly likeRepository: LikeRepository,
     @inject('FollowRepository') private readonly followRepository: FollowRepository,
     @inject('UserActionRepository') private readonly userActionRepository: UserActionRepository,
-    @inject('NotificationService') private readonly notificationService: NotificationService
+    @inject('NotificationService') private readonly notificationService: NotificationService,
+    @inject('UserDTOService') private readonly dtoService: UserDTOService,
   ) {
     
   }
 
   private generateToken(user: IUser): string {
-    const payload = { id: user._id, email: user.email, username: user.username };
+    const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
     const secret = process.env.JWT_SECRET;
     if (!secret) throw createError('ConfigError', 'JWT secret is not configured');
     
-    return jwt.sign(payload, secret, { expiresIn: '6h' });
+    return jwt.sign(payload, secret, { expiresIn: '12h' });
   }
 
 
-  async register(userData: Partial<IUser>): Promise<{ user: IUser; token: string }> {
+  async register(userData: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
     try {
       const user = await this.userRepository.create(userData);
       const token = this.generateToken(user);
-      return { user, token };
+      
+      // New users always get public DTO
+      const userDTO = this.dtoService.toPublicDTO(user);
+      
+      return { user: userDTO, token };
     } catch (error) {
       throw createError(error.name, error.message);
     }
   }
 
-  async login(email: string, password: string): Promise<{ user: IUser; token: string }> {
+
+  
+  async login(email: string, password: string): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
     try {
       const user = await this.userRepository.findByEmail(email);
       if (!user || !(await user.comparePassword?.(password))) {
@@ -56,19 +65,32 @@ export class UserService {
       }
 
       const token = this.generateToken(user);
-      return { user, token };
+      
+      // Assign appropriate DTO
+      const userDTO = user.isAdmin 
+        ? this.dtoService.toAdminDTO(user)
+        : this.dtoService.toPublicDTO(user);
+
+      return { user: userDTO, token };
     } catch (error) {
       throw createError(error.name, error.message);
     }
   }
 
-  async updateProfile(id: string, userData: Partial<IUser>): Promise<IUser> {
+  async updateProfile(id: string, userData: Partial<IUser>, requestingUser: IUser): Promise<PublicUserDTO | AdminUserDTO> {
     try {
-      const updatedUser = await this.userRepository.update(id, userData);
-      if (!updatedUser) {
-        throw createError('NotFoundError', 'User not found');
-      }
-      return updatedUser;
+      let updatedUser: IUser = null;
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        updatedUser = await this.userRepository.update(id, userData);
+        if (!updatedUser) {
+          throw createError('NotFoundError', 'User not found');
+        }
+        await this.userActionRepository.logAction(id, 'User data update', id, session);
+      });
+  
+      return requestingUser.isAdmin 
+        ? this.dtoService.toAdminDTO(updatedUser) 
+        : this.dtoService.toPublicDTO(updatedUser);
     } catch (error) {
       throw createError(error.name, error.message);
     }
@@ -83,7 +105,7 @@ export class UserService {
       }
 
       const oldAvatarUrl = user.avatar;
-      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
+      const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
       
       await this.userRepository.updateAvatar(userId, cloudImage.url, session);
       
@@ -96,23 +118,22 @@ export class UserService {
     } 
   }
 
-  //TODO: Finish this
   async updateCover(userId: string, file: Buffer): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
-      const user = await this.userRepository.findById(userId, session);
-      if (!user) {
-        throw createError('NotFoundError', 'User not found');
-      }
+        const user = await this.userRepository.findById(userId, session);
+        if (!user) {
+          throw createError('NotFoundError', 'User not found');
+        }
 
-      const oldCoverUrl = user.cover;
-      const cloudImage = await this.cloudinaryService.uploadImage(file, userId);
-      
-      await this.userRepository.updateCover(userId, cloudImage.url, session);
+        const oldCoverUrl = user.cover;
+        const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+        
+        await this.userRepository.updateCover(userId, cloudImage.url, session);
 
-      if (oldCoverUrl) {
-        await this.cloudinaryService.deleteAssetByUrl(userId, oldCoverUrl);
-      }
+        if (oldCoverUrl) {
+          await this.cloudinaryService.deleteAssetByUrl(userId, oldCoverUrl);
+        }
     })
     } catch (error) {
       throw createError(error.name, error.message);
@@ -145,17 +166,37 @@ export class UserService {
   
   }
 
-  async getUserById(id: string): Promise<IUser> {
-    const user = await this.userRepository.findById(id);
-    if (!user) {
-      throw createError('PathError', 'User not found');
+  async getUserById(id: string, requestingUser?: IUser): Promise<PublicUserDTO | AdminUserDTO> {
+    try {
+      const user = await this.userRepository.findById(id);
+      if (!user) {
+        throw createError('NotFoundError', 'User not found');
+      }
+  
+      // Return admin DTO if requesting user is admin
+      if(requestingUser?.isAdmin) {
+        return this.dtoService.toAdminDTO(user);
+      }
+      return this.dtoService.toPublicDTO(user);
+      
+    } catch (error) {
+      throw createError(error.name, error.message)
     }
-    return user;
   }
 
-  async getUsers(options: PaginationOptions): Promise<PaginationResult<IUser>> {
-    return await this.userRepository.findWithPagination(options);
+  async getUsers(options: PaginationOptions): Promise<PaginationResult<PublicUserDTO>> {
+    const result = await this.userRepository.findWithPagination(options);
+    
+    return {
+      data: result.data.map(user => this.dtoService.toPublicDTO(user)),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages
+    };
   }
+
+
 
   async likeAction(userId: string, imageId: string): Promise<void> {
   try {
@@ -214,12 +255,10 @@ export class UserService {
       additionalInfo: 'Transaction failed',
       originalError: error
     });
+   }
   }
-}
 
-  
   async followAction(followerId: string, followeeId: string): Promise<void> {
-  
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
         const isFollowing = await this.followRepository.isFollowing(followerId, followeeId);
@@ -237,8 +276,6 @@ export class UserService {
           await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
           await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
     
-
-          
           // for now I'll emit the websocket event inside the transaction
           await this.notificationService.createNotification(
             {
@@ -256,6 +293,18 @@ export class UserService {
       throw error;
     }
     
+  }
+
+  async getAllUsersAdmin(options: PaginationOptions): Promise<PaginationResult<AdminUserDTO>> {
+    const result = await this.userRepository.findWithPagination(options);
+    
+    return {
+      data: result.data.map(user => this.dtoService.toAdminDTO(user)),
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages
+    };
   }
 
   

@@ -66,6 +66,13 @@ class TransactionError extends AppError {
   }
 }
 
+class DatabaseError extends AppError {
+  constructor(message: string) {
+    super('DatabaseError', message, 500);
+  }
+}
+
+
 class UoWError extends AppError{
   constructor(message: string){
     super('UoWError', message, 500)
@@ -82,7 +89,8 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   CloudError,
   UnknownError,
   TransactionError,
-  UoWError
+  UoWError,
+  DatabaseError
 };
 
 export function createError(type: string, message: string, context?: any): AppError {

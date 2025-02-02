@@ -1,7 +1,7 @@
 import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, useQuery } from "@tanstack/react-query";
 
 export interface IUser {
-  _id: string;
+  id: string;
   username: string;
   avatar: string;
   cover: string;
@@ -24,7 +24,7 @@ export interface IImage {
   publicId: string;
   tags: Tag[];
   user: {
-    _id: String,
+    id: String,
     username: string
   };
 }
