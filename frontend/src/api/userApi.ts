@@ -19,7 +19,7 @@ export const fetchCurrentUser = async () => {
  * and used as [QueryFn] callback within useQuery with  
 */
 
-export const fetchUserData = async ({queryKey}): Promise<any> => {
+export const fetchUserData = async ({queryKey}: {queryKey: any}): Promise<any> => {
   try {
     const [_, id] = queryKey;
     const response = await axiosClient(`/users/${id}`);
