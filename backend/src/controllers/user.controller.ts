@@ -31,9 +31,7 @@ export class UserController {
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user, token } = await this.userService.register(req.body);
-      
       res.cookie('token', token, cookieOptions);
-
       res.status(201).json(user);
     } catch (error) {
       next(error);

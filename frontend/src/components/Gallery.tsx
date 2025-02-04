@@ -80,6 +80,7 @@ const Gallery: React.FC<GalleryProps> = ({
     likeImage(selectedImage.id, {
       onSuccess: (updatedData: { likeCount: number; liked: boolean }) => {
         
+        //doesn't really work and is not necessary at the moment.
         setSelectedImage((prev) =>
           prev ? { ...prev, likeCount: updatedData.likeCount, liked: updatedData.liked } : prev
         );
