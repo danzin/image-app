@@ -17,11 +17,13 @@ import AvatarEditor from '../components/AvatarEditor';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
 import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/useUsers';
+import { useFollowUser } from '../hooks/useUserAction';
 import { useAuth } from '../context/AuthContext';
+import { useIsFollowing } from '../hooks/useUserAction';
 
 const DashboardLayout = () => {
-  const { id } = useParams();
-  const { data: userData, isLoading, error: getUserError } = useGetUser(id as string);
+  const { id } = useParams(); //user profile id
+  const { data: userData, isLoading, error: getUserError } = useGetUser(id as string); //userData -> data of the user profile
   const {
     data: imagesData,
     fetchNextPage,
@@ -29,7 +31,7 @@ const DashboardLayout = () => {
     isFetchingNextPage,
   } = useUserImages(userData?.id || '');
 
-  const { user } = useAuth();
+  const { user } = useAuth(); //logged in user 
   const theme = useTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -42,6 +44,18 @@ const DashboardLayout = () => {
   const notifyError = (message: string) => toast.error(message);
 
   const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
+
+  const { mutate: followUser, isPending: followPending } = useFollowUser();
+  const handleFollowUser = (id: string) => {
+    followUser(id as string, {
+  
+      onError: (error) => {
+        console.error('Error following user:', error);
+      }
+    })
+  }
+
+  const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(id as string);
 
   const handleImageUpload = async (croppedImage: string) => {
     try {
@@ -109,7 +123,7 @@ const DashboardLayout = () => {
               <Button
                 variant="contained"
                 size="small"
-                sx={{ position: 'absolute', bottom: 0, right: 0 }}
+                sx={{ position: 'absolute', bottom: 0, mx: 'auto', background: 'transparent', color: 'black' }}
                 onClick={() => setIsModalOpen(true)}
               >
                 Update
@@ -118,13 +132,20 @@ const DashboardLayout = () => {
           </Box>
 
           {/* User Info */}
-          <Box>
-            <Typography variant="h5" fontWeight="bold" color="text.secondary">
-              {userData?.username}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Software Developer
-            </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end' }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h5" fontWeight="bold" color="text.secondary">
+                {userData?.username}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Software Developer
+              </Typography>
+              
+            </Box>
+            {!isProfileOwner && ( <Button variant="outlined" size="small" onClick={() => handleFollowUser(id as string)} sx={{ ml: 2, py: 1 }}>
+            {isFollowing ? 'Unfollow' : 'Follow'}
+            </Button>) }
+           
           </Box>
 
           {/* Edit Profile */}
@@ -132,7 +153,8 @@ const DashboardLayout = () => {
             <Button variant="outlined" onClick={() => setIsEditOpen(true)} sx={{ ml: 'auto' }}>
               Edit Profile
             </Button>
-          )}
+           ) 
+          }
         </Box>
 
         <Grid container spacing={2} sx={{ 

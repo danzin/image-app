@@ -12,7 +12,7 @@ export class DatabaseConfig {
   public async connect(): Promise<void> {
     try {
 
-      mongoose.set('debug', true);
+      // mongoose.set('debug', true);
       await mongoose.connect(this.dbUri);
       console.log('Database connected successfully');
     } catch (error) {

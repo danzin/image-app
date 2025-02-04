@@ -35,16 +35,21 @@ export class UserRoutes {
       this.userController.login
     );
 
+     // Protected routes group
+     const protectedRouter = express.Router();
+     this.router.use(protectedRouter); 
+     protectedRouter.use(this.auth);
+ 
+     protectedRouter.get(
+       '/me',
+       this.userController.getMe
+     );
+
     this.router.get('/', this.userController.getUsers);
     this.router.get('/:id', this.userController.getUserById);
-    
 
-    // Protected routes group
-    const protectedRouter = express.Router();
-    this.router.use(protectedRouter); 
-    protectedRouter.use(this.auth);
+   
 
-    //logged in user profile edit
     protectedRouter.put(
       '/edit',
       this.userController.updateProfile
@@ -54,6 +59,11 @@ export class UserRoutes {
     protectedRouter.post(
       '/follow/:followeeId',
       this.userController.followAction
+    )
+
+    protectedRouter.get(
+      '/follows/:followeeId', 
+      this.userController.followExists
     )
 
     //logged in user likes an image
@@ -87,6 +97,7 @@ export class UserRoutes {
   }
 
   public getRouter(): express.Router {
+    console.log('userRoute initialized')
     return this.router;
   }
 }

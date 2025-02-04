@@ -94,4 +94,13 @@ export class FollowService {
       session.endSession();
     }
   }
+
+  async isFollowing(followerId, followeeId): Promise<boolean> {
+    try {
+      const existingFollow = this.followRepository.isFollowing(followerId, followeeId);
+      return existingFollow
+    } catch (error) {
+      throw createError("InternalServerError", error.message)
+    }
+  }
 }

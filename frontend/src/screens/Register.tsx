@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRegister } from '../api/register';
+import { useRegister } from '../hooks/useUserRegister';
 import AuthForm from '../components/AuthForm';
 import { ToastContainer, toast } from 'react-toastify';
 
@@ -28,9 +28,9 @@ const Login: React.FC = () => {
       <AuthForm 
       title="Register"
       fields={[
-        { name: 'email', type: 'email', placeholder: 'email@example.com' },
-        { name: 'username', type: 'username', placeholder: 'username'},
-        { name: 'password', type: 'password', placeholder: '********' },
+        { name: 'email', type: 'email', placeholder: 'email@example.com', required: true },
+        { name: 'username', type: 'username', placeholder: 'username', required: true},
+        { name: 'password', type: 'password', placeholder: '********', required: true },
       ]}
       onSubmit={handleRegister}
       submitButtonText="Register"

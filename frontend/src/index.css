@@ -54,3 +54,17 @@ body {
   background-color: rgb(0,0,0) !important ; 
   background-color: rgba(0,0,0,0.4) !important;
 }
+
+/** heartbeat animation for likes */
+@keyframes heartbeat {
+  0%, 100% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(1.4);
+  }
+}
+
+.heartbeat {
+  animation: heartbeat 1s infinite;
+}

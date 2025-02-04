@@ -27,6 +27,8 @@ export interface IImage {
     id: String,
     username: string
   };
+  likes: number;
+  createdAt: Date;
 }
 
 export interface UseImagesResult {
@@ -63,9 +65,14 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
+  checkAuthState: () => void; 
+  loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
-  login: (user: IUser, token: string) => void;
+  login: (user: IUser) => void;
   logout: () => void;
-  setUser: (user: IUser | null) => void; // This allows you to update the user in the context
+}
+export interface ImageCardProps {
+  image: IImage;
+  onClick: (image: IImage) => void;
 }
