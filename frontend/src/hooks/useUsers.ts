@@ -13,6 +13,8 @@ import { useAuth } from '../context/AuthContext';
       refetchOnWindowFocus: true,
     });
   };
+  
+  
 
   export const useGetUser = (id: string) => {
     return useQuery({
@@ -33,7 +35,7 @@ export const useUserImages = (userId: string) => {
     queryKey: ['userImages', userId],
     queryFn: ({ pageParam = 1 }) => {
       console.log('Fetching images for userId:', userId, 'page:', pageParam); 
-      return fetchUserImages(pageParam, userId);
+      return fetchUserImages(pageParam as number, userId);
     },
     getNextPageParam: (lastPage) => {
       console.log('Getting next page param:', lastPage); 
@@ -47,7 +49,6 @@ export const useUserImages = (userId: string) => {
   });
 };
   
-//!!!!!!!!!!!!!!!!!!!!!
 //THE CORRECT WAY TO WRITE MUTATIONS! ALWAYS REFER HERE WHEN WTFING LATER!!!!!!!!!
 export const useUpdateUserAvatar = () => {
   const queryClient = useQueryClient();
@@ -86,7 +87,7 @@ export const useEditUser = () => {
     onSuccess: (data) => {
       console.log('User updated successfully:', data);
       
-      queryClient.setQueryData(['user'], (oldData) => ({
+      queryClient.setQueryData(['user'], (oldData: {}) => ({
         ...oldData,
         ...data, // Merge the updated data with the existing data
       }));

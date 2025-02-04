@@ -1,11 +1,12 @@
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "../context/AuthContext";
+import { LoadingSpinner } from "./LoadingSpinner"; 
+import { Navigate } from "react-router-dom"; 
 
-export const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
-  const { user } = useAuth(); 
-  if (user === null) {
-    return <Navigate to="/login" />;
-  }
+export const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+  const { isLoggedIn, loading } = useAuth();
 
-  return element;
+  if (loading) return <LoadingSpinner />; 
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
+
+  return children;
 };

@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { AdminUserDTO, PublicUserDTO } from "../interfaces/dto.interfaces";
+import { AdminUserDTO, PublicUserDTO } from "../types";
 import { IUser } from "../types";
 
 injectable()

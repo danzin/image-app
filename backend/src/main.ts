@@ -8,7 +8,7 @@ dotenv.config();
 mongoose.plugin((schema) => {
   schema.set('toJSON', {
     transform: (doc, ret) => {
-      console.log('Global plugin transforming document:', ret);
+      // console.log('Global plugin transforming document:', ret);
       ret.id = ret._id.toString();
       delete ret._id;
       delete ret.__v;

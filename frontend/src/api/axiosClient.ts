@@ -4,16 +4,17 @@ const axiosClient = axios.create({
   baseURL: '/api', //relative URL
   withCredentials: true,
 });
-// Interceptors for better logging of requests
+
+
+// Interceptors for better logging of requests/responses
 axiosClient.interceptors.request.use(
   (config) => {
-    // Log the request details
     console.log('Request:', {
       method: config.method,
       url: config.url,
       data: config.data,
       params: config.params,
-      headers: config.headers
+      headers: config.headers,
     });
     return config;
   },
@@ -23,13 +24,12 @@ axiosClient.interceptors.request.use(
   }
 );
 
-
 axiosClient.interceptors.response.use(
   (response) => {
     console.log('Response:', {
       status: response.status,
       data: response.data,
-      headers: response.headers
+      headers: response.headers,
     });
     return response;
   },
@@ -38,7 +38,7 @@ axiosClient.interceptors.response.use(
       console.error('Response Error:', {
         status: error.response.status,
         data: error.response.data,
-        headers: error.response.headers
+        headers: error.response.headers,
       });
       return Promise.reject(error.response.data);
     }

@@ -14,7 +14,7 @@ import { convertToObjectId } from '../utils/helpers';
 import { NotificationService } from './notification.service';
 import { NotificationRepository } from '../repositories/notification.respository';
 import { UserDTOService } from './dto.service';
-import { AdminUserDTO, PublicUserDTO } from '../interfaces/dto.interfaces';
+import { AdminUserDTO, PublicUserDTO } from '../types';
 @injectable()
 export class UserService {
   constructor(
@@ -72,6 +72,20 @@ export class UserService {
         : this.dtoService.toPublicDTO(user);
 
       return { user: userDTO, token };
+    } catch (error) {
+      throw createError(error.name, error.message);
+    }
+  }
+
+  async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
+    try {
+      const freshUser = await this.userRepository.findById(user.id as string);
+      if (!freshUser) {
+        throw createError('PathError', 'User not found');
+      }
+
+      const token = this.generateToken(freshUser);
+      return { user: this.dtoService.toPublicDTO(freshUser), token };
     } catch (error) {
       throw createError(error.name, error.message);
     }
