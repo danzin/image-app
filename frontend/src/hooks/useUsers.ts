@@ -94,7 +94,7 @@ export const useEditUser = () => {
       queryClient.invalidateQueries(['user', data.id]);
     },
     onError: (error) => {
-      console.error('User update failed:', error.message);
+      console.error('Userdate failed:', error.message);
     },
   });
 };

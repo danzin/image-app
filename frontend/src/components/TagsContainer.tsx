@@ -1,21 +1,19 @@
+import { useGallery } from "../context/GalleryContext";
 import { useImages } from "../hooks/useImages";
-import { TagsProps } from "../types";
 
-export const Tags = ({ selectedTags, onSelectTags }: TagsProps) => {
+export const Tags = () => {
+  const { selectedTags, setSelectedTags } = useGallery();
   const { tagsQuery } = useImages();
   const { data: tags, isLoading } = tagsQuery;
 
   const handleTagClick = (tag: string) => {
     if (selectedTags.includes(tag)) {
-      onSelectTags(selectedTags.filter(t => t !== tag));
+      setSelectedTags(selectedTags.filter(t => t !== tag));
     } else {
-      onSelectTags([...selectedTags, tag]);
+      setSelectedTags([...selectedTags, tag]);
     }
   };
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className="tags-container h-1/2 overflow-y-auto p-4 rounded-lg">

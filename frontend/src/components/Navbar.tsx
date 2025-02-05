@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { styled, alpha } from '@mui/material/styles';
+import { useGallery } from '../context/GalleryContext';
+import { useMediaQuery, useTheme } from '@mui/material';
 import {
   AppBar,
   Box,
@@ -15,10 +17,12 @@ import {
   Avatar,
   Button,
   Modal,
+  Drawer
 } from '@mui/material';
 import { Menu as MenuIcon, Search as SearchIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
 import { ChevronDown, Upload as UploadIcon } from 'lucide-react';
 import UploadForm from './UploadForm';
+import {Tags} from '../components/TagsContainer';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
@@ -72,10 +76,14 @@ const modalStyle = {
 };
 
 const Navbar = () => {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { user, isLoggedIn, logout } = useAuth();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const { isTagDrawerOpen, setIsTagDrawerOpen, isProfileView } = useGallery();
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -94,51 +102,40 @@ const Navbar = () => {
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
 
+  const toggleDrawer = (open: boolean) => () => {
+    setIsDrawerOpen(open);
+  };
+
   return (
     <>
       <AppBar position="sticky" sx={{ bgcolor: 'background.paper', color: 'text.primary' }}>
         <Toolbar>
-          {/* Mobile sidebar toggle */}
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
-
-          {/* Logo */}
+          {isSmallScreen && !isProfileView && (
+            <IconButton
+              size="large"
+              edge="start"
+              color="inherit"
+              aria-label="menu"
+              onClick={toggleDrawer(true)}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               Peek
             </Link>
           </Typography>
-
-          {/* Search Bar */}
-         
-            <Search>
-              <SearchIconWrapper>
-                <SearchIcon />
-              </SearchIconWrapper>
-              <StyledInputBase
-                placeholder="Search for anything"
-                inputProps={{ 'aria-label': 'search' }}
-              />
-            </Search>
-      
-
-          {/* Notifications */}
-          {/* {isLoggedIn && (
-            <IconButton size="large" color="inherit" sx={{ mx: 1 }}>
-              <Badge badgeContent={1} color="error">
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          )} */}
-
-          {/* User Menu */}
+          <Search>
+            <SearchIconWrapper>
+              <SearchIcon />
+            </SearchIconWrapper>
+            <StyledInputBase
+              placeholder="Search for anything"
+              inputProps={{ 'aria-label': 'search' }}
+            />
+          </Search>
           {isLoggedIn ? (
             <>
               <IconButton
@@ -153,21 +150,13 @@ const Navbar = () => {
                 <Avatar src={user?.avatar} sx={{ width: 32, height: 32 }} />
                 <ChevronDown size={16} style={{ marginLeft: 8 }} />
               </IconButton>
-
               <Menu
                 id="user-menu"
                 anchorEl={anchorEl}
                 open={Boolean(anchorEl)}
                 onClose={handleMenuClose}
-                color='primary'
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-                sx={{
-                  '& .MuiPaper-root': {
-                    backgroundColor: 'primary', // Use the theme background color
-                    boxShadow: theme => theme.shadows[3], // Add a slight shadow for visibility
-                  },
-                }}
               >
                 <MenuItem onClick={handleMenuClose}>
                   <Link to={`/profile/${user?.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
@@ -194,7 +183,39 @@ const Navbar = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Upload Modal */}
+      <Drawer
+        anchor="left"
+        open={isDrawerOpen}
+        onClose={toggleDrawer(false)}
+        PaperProps={{
+          sx: { backgroundColor: 'background.paper' },
+        }}
+      >
+        <Box
+          sx={{
+            width: 250,
+            p: 2,
+            backgroundColor: 'background.default',
+            color: 'text.secondary',
+          }}
+          role="presentation"
+        >
+          <Typography variant="h6" sx={{ mb: 2 }} color="text.primary">
+            Filter by Tags
+          </Typography>
+          <Tags />
+          <Button
+            variant="outlined"
+            color="secondary"
+            fullWidth
+            sx={{ mt: 2 }}
+            onClick={toggleDrawer(false)}
+          >
+            Clear Filters
+          </Button>
+        </Box>
+      </Drawer>
+
       <Modal
         open={isModalOpen}
         onClose={closeModal}

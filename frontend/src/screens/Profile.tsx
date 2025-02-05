@@ -11,7 +11,7 @@ import {
   CircularProgress,
   useTheme,
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import AvatarEditor from '../components/AvatarEditor';
 import Gallery from '../components/Gallery';
@@ -21,8 +21,8 @@ import { useFollowUser } from '../hooks/useUserAction';
 import { useAuth } from '../context/AuthContext';
 import { useIsFollowing } from '../hooks/useUserAction';
 
-const DashboardLayout = () => {
-  const { id } = useParams(); //user profile id
+const DashboardLayout:React.FC  = () => {
+  const { id } = useParams(); 
   const { data: userData, isLoading, error: getUserError } = useGetUser(id as string); //userData -> data of the user profile
   const {
     data: imagesData,
@@ -31,7 +31,7 @@ const DashboardLayout = () => {
     isFetchingNextPage,
   } = useUserImages(userData?.id || '');
 
-  const { user } = useAuth(); //logged in user 
+  const { user } = useAuth(); 
   const theme = useTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -157,38 +157,51 @@ const DashboardLayout = () => {
           }
         </Box>
 
-        <Grid container spacing={2} sx={{ 
-          mt: { xs: 2, sm: 4 }, // Responsive margin
-          flexDirection: { xs: 'column-reverse', lg: 'row' } // Stack vertically on mobile
-        }}>          
-        
-          <Grid item xs={12} lg={8}>
-            {/* About Section */}
-            
-
-            {/* Gallery Section */}
-            <Paper elevation={2} sx={{ p: 3, maxHeight: '60vh', overflow: 'auto' }}>
-              <Divider sx={{ my: 2 }} />
+        <Grid 
+          container 
+          spacing={2}
+          sx={{ 
+            mt: { xs: 2, sm: 4 }, 
+            flexDirection: { xs: 'column-reverse', lg: 'row' },
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Gallery */}
+          <Grid 
+            item 
+            xs={12} 
+            lg={8} 
+            sx={{ p: 3, display: 'flex', flexDirection: 'column' }}
+          > 
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                p: 3, 
+                flexGrow: 1, 
+                overflowY: 'auto', 
+                maxHeight: '500px' 
+              }} 
+            >
               <Gallery
                 images={flattenedImages}
                 fetchNextPage={fetchNextPage}
                 hasNextPage={!!hasNextPage}
                 isFetchingNext={isFetchingNextPage}
-                source={userData?.username}
               />
             </Paper>
           </Grid>
 
           {/* Stats Section */}
-          
-          <Grid item xs={12} lg={4}>
-         
-
-            <Paper elevation={2} sx={{ p: 3 }}>
-            <Typography variant="h6">About</Typography>
+          <Grid 
+            item 
+            xs={12} 
+            lg={4} 
+            sx={{ display: 'flex', flexDirection: 'column', height: '500px' }} 
+          >
+            <Paper elevation={2} sx={{ p: 3, flexGrow: 1 }}>
+              <Typography variant="h6">About</Typography>
               <Typography variant="body2" color="text.secondary">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et
-                dolore magna aliqua.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
               </Typography>
               <Divider sx={{ my: 2 }} />
 

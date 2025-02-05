@@ -32,8 +32,8 @@ export const fetchTags = async (): Promise<string[]> => {
   return data;
 };
 
-export const deleteImageById = async (id: string): Promise<string> => {
+export const deleteImageById = async (id: string): Promise<void> => {
   console.log('Deleting image with ID:', id);
-  const { data } = await axiosClient.delete(`/images/${id}`);
-  return data;
+   await axiosClient.delete(`/images/${id}`);
+
 };

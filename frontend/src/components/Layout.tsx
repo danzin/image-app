@@ -1,15 +1,24 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { Box } from '@mui/material';
 import Navbar from './Navbar';
 
 const Layout: React.FC = () => {
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
-      <div className="main-content" style={{ flex: 1, overflow: 'auto' }}> {/* Allow scrolling */}
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          px: 3,
+        }}
+      >
         <Outlet />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 };
 
