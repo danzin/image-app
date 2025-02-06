@@ -12,9 +12,13 @@ import { FollowRepository } from '../repositories/follow.repository';
 import { UserActionRepository } from '../repositories/userAction.repository';
 import { convertToObjectId } from '../utils/helpers';
 import { NotificationService } from './notification.service';
-import { NotificationRepository } from '../repositories/notification.respository';
 import { UserDTOService } from './dto.service';
 import { AdminUserDTO, PublicUserDTO } from '../types';
+
+/**
+ * UserService handles all user-related operations, including authentication, profile updates, 
+ * and interactions such as following and liking images.
+ */
 @injectable()
 export class UserService {
   constructor(
@@ -32,6 +36,11 @@ export class UserService {
     
   }
 
+  /**
+   * Generates a JWT token for a user.
+   * @param user - The user object
+   * @returns A signed JWT token
+   */
   private generateToken(user: IUser): string {
     const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
     const secret = process.env.JWT_SECRET;
@@ -40,7 +49,11 @@ export class UserService {
     return jwt.sign(payload, secret, { expiresIn: '12h' });
   }
 
-
+  /**
+   * Registers a new user and returns the user DTO along with an authentication token.
+   * @param userData - Partial user data
+   * @returns The created user and authentication token
+   */
   async register(userData: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
     try {
       const user = await this.userRepository.create(userData);
@@ -56,7 +69,12 @@ export class UserService {
   }
 
 
-  
+   /**
+   * Authenticates a user and returns their data along with a token.
+   * @param email - User's email
+   * @param password - User's password
+   * @returns The authenticated user and token
+   */
   async login(email: string, password: string): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
     try {
       const user = await this.userRepository.findByEmail(email);
@@ -77,6 +95,11 @@ export class UserService {
     }
   }
 
+  /**
+   * Retrieves the authenticated user's profile.
+   * @param user - The user object (partial).
+   * @returns The user's updated profile (DTO) and a refreshed token.
+   */
   async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
     try {
       const freshUser = await this.userRepository.findById(user.id as string);
@@ -91,6 +114,13 @@ export class UserService {
     }
   }
 
+  /**
+   * Updates a user's profile information.
+   * @param id - The ID of the user being updated.
+   * @param userData - The new user data.
+   * @param requestingUser - The user making the request.
+   * @returns The updated user (DTO).
+   */
   async updateProfile(id: string, userData: Partial<IUser>, requestingUser: IUser): Promise<PublicUserDTO | AdminUserDTO> {
     try {
       let updatedUser: IUser = null;
@@ -110,6 +140,11 @@ export class UserService {
     }
   }
 
+  /**
+   * Updates a user's avatar image.
+   * @param userId - The ID of the user updating their avatar.
+   * @param file - The new avatar image file.
+   */
   async updateAvatar(userId: string, file: Buffer): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
@@ -132,6 +167,11 @@ export class UserService {
     } 
   }
 
+  /**
+   * Updates a user's cover image.
+   * @param userId - The ID of the user updating their cover.
+   * @param file - The new cover image file.
+   */
   async updateCover(userId: string, file: Buffer): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
@@ -154,6 +194,11 @@ export class UserService {
     } 
   }
 
+  /**
+   * Deletes a user from the system.
+   * @param id - The ID of the user to be deleted.
+   * @throws NotFoundError if the user is not found.
+   */
   async deleteUser(id: string): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {   
@@ -180,6 +225,14 @@ export class UserService {
   
   }
 
+  /**
+   * Retrieves a user by ID.
+   * If the requesting user is an admin, it returns an admin DTO; otherwise, it returns a public DTO.
+   * @param id - The ID of the user to retrieve.
+   * @param requestingUser - (Optional) The user making the request (used to determine admin privileges).
+   * @returns The user's data in either admin or public DTO format.
+   * @throws NotFoundError if the user is not found.
+   */
   async getUserById(id: string, requestingUser?: IUser): Promise<PublicUserDTO | AdminUserDTO> {
     try {
       const user = await this.userRepository.findById(id);
@@ -198,6 +251,12 @@ export class UserService {
     }
   }
 
+  /**
+   * Retrieves a paginated list of users.
+   * Converts user data into public DTO format before returning.
+   * @param options - Pagination options (page number, limit, sorting).
+   * @returns A paginated result containing users in public DTO format.
+   */
   async getUsers(options: PaginationOptions): Promise<PaginationResult<PublicUserDTO>> {
     const result = await this.userRepository.findWithPagination(options);
     
@@ -211,19 +270,26 @@ export class UserService {
   }
 
 
-
+  /**
+   * Handles user "like" or "unlike" actions on an image.
+   * If the user has already liked the image, it removes the like.
+   * Otherwise, it adds a like and triggers a notification.
+   * @param userId - The ID of the user performing the action.
+   * @param imageId - The ID of the image being liked/unliked.
+   * @throws PathError if the image is not found.
+   * @throws TransactionError if the database transaction fails.
+   */
   async likeAction(userId: string, imageId: string): Promise<void> {
   try {
-   
 
     await this.unitOfWork.executeInTransaction(async (session) => {
       console.log(`running in this.unitOfWork.executeInTransaction`);
        // Check if image exists before starting transaction
-    const existingImage = await this.imageRepository.findById(imageId);
-    console.log(existingImage)
-    if (!existingImage) {
-      throw createError('PathError', `Image with id ${imageId} not found`);
-    }
+      const existingImage = await this.imageRepository.findById(imageId);
+      console.log(existingImage)
+      if (!existingImage) {
+        throw createError('PathError', `Image with id ${imageId} not found`);
+      }
     
       const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
       
@@ -272,6 +338,14 @@ export class UserService {
    }
   }
 
+  /**
+   * Handles user "follow" or "unfollow" actions.
+   * If the user is already following the target user, it removes the follow.
+   * Otherwise, it adds a follow and triggers a notification.
+   * @param followerId - The ID of the user initiating the action.
+   * @param followeeId - The ID of the user being followed/unfollowed.
+   * @throws TransactionError if the database transaction fails.
+   */
   async followAction(followerId: string, followeeId: string): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
@@ -298,17 +372,26 @@ export class UserService {
               actorId: followerId,
               session
             },
-             // Pass transaction session
           );
           
         }
       });
     } catch (error) {
-      throw error;
+      throw createError('TransactionError', error.message, {
+        function: 'likeAction',
+        additionalInfo: 'Transaction failed',
+        originalError: error
+      });
     }
     
   }
 
+  /**
+ * Retrieves a paginated list of all users, including admin details.
+ * Converts user data into admin DTO format before returning.
+ * @param options - Pagination options (page number, limit, sorting).
+ * @returns A paginated result containing users in admin DTO format.
+ */
   async getAllUsersAdmin(options: PaginationOptions): Promise<PaginationResult<AdminUserDTO>> {
     const result = await this.userRepository.findWithPagination(options);
     
