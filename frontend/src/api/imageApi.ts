@@ -1,10 +1,15 @@
 import axiosClient from './axiosClient';
-import { IImage } from '../types';
+import { IImage, ITag } from '../types';
 
-export const fetchImages = async ({ pageParam = 1 }): Promise<{ data: IImage[]; total: number; page: number; limit: number; totalPages: number }> => {
-  const response = await axiosClient.get(`/images?page=${pageParam}`);
-  console.log(response.data);
-  return response.data;
+export const fetchImages = async (pageParam: number): Promise<{ 
+  data: IImage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number
+}> => {
+  const {data } = await axiosClient.get(`/images?page=${pageParam}`);
+  return data;
 };
 
 export const fetchImageById = async (id: string) => {
@@ -26,9 +31,9 @@ export const uploadImage = async (image: FormData): Promise<IImage> => {
   return response.data;
 };
 
-export const fetchTags = async (): Promise<string[]> => {
+export const fetchTags = async (): Promise<ITag[]> => {
   const { data } = await axiosClient.get('/images/tags');
-  console.log(data);
+  console.log('TAGS:', data);
   return data;
 };
 

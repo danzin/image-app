@@ -102,11 +102,11 @@ const DashboardLayout:React.FC  = () => {
       </Box>
 
       <Box sx={{ 
-        maxWidth: '100%', // Allow full width on smaller screens
-        width: { lg: '1200px' }, // Constrain only on large screens
+        maxWidth: '100%', 
+        width: { lg: '1200px' }, 
         mx: 'auto', 
-        px: { xs: 1, sm: 2 }, // Responsive padding
-        mt: { xs: -6, sm: -8 } // Responsive negative margin
+        px: { xs: 1, sm: 2 }, 
+        mt: { xs: -6, sm: -8 }
       }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
           {/* Profile Picture */}
@@ -114,7 +114,7 @@ const DashboardLayout:React.FC  = () => {
           <Avatar
             src={userData?.avatar}
             sx={{
-              width: { xs: 96, sm: 128 }, // Smaller on mobile
+              width: { xs: 96, sm: 128 }, 
               height: { xs: 96, sm: 128 },
               border: `4px solid ${theme.palette.background.paper}`,
             }}
@@ -179,7 +179,6 @@ const DashboardLayout:React.FC  = () => {
                 p: 3, 
                 flexGrow: 1, 
                 overflowY: 'auto', 
-                maxHeight: '500px' 
               }} 
             >
               <Gallery

@@ -1,15 +1,27 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById } from '../api/imageApi';
-import { IImage } from '../types';
+import { IImage, ITag } from '../types';
 
 export const useImages = () => {
-  return useInfiniteQuery<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, Error>({
+  console.log(`useImages called`)
+
+  return useInfiniteQuery<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, Error>(
+    {
     queryKey: ['images'],
-    queryFn: ({ pageParam = 1 }) => fetchImages({pageParam} as any) ,
-    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    queryFn: ({ pageParam = 1 }) => {
+      console.log(`Fetching all images`);
+      return fetchImages(pageParam as number)
+    } ,
+    getNextPageParam: (lastPage) => {
+      console.log(`Getting next page params: ${lastPage}`);
+      if(lastPage.page < lastPage.totalPages){
+        return lastPage.page + 1;
+      }
+      return undefined
+    },
     initialPageParam: 1,
     staleTime: 0,
-    refetchOnMount: true,
+
   });
 };
 
@@ -36,7 +48,7 @@ export const useImagesByTag = (tags: string[], limit = 10) => {
 };
 
 export const useTags = () => {
-  return useQuery<string[], Error>({
+  return useQuery<ITag[], Error>({
     queryKey: ['tags'],
     queryFn: fetchTags,
     staleTime: 0,

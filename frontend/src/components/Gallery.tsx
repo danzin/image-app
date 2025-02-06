@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Grid, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { Box, Grid, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useDeleteImage, useImages } from '../hooks/useImages';
+import { useDeleteImage } from '../hooks/useImages';
 import { useLikeImage } from '../hooks/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
@@ -16,27 +16,25 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const [selectedImage, setSelectedImage] = useState<IImage | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const { deleteImage } = useDeleteImage();
+  const deleteMutation  = useDeleteImage();
 
   const isInOwnProfile = user?.id === profileId && isProfileView;
 
   useEffect(() => {
     const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNext) {
-        fetchNextPage();
+        fetchNextPage(); 
       }
-    },{
+    }, { 
       root: null,
       rootMargin: '0px',
-      threshold: 0.1, // Trigger when 10% of the element is visible
-    });
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
+      threshold: 0.1
+     });
+
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
     };
   }, [hasNextPage, isFetchingNext, fetchNextPage]);
 
@@ -52,7 +50,8 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
   const handleDeleteImage = () => {
     if (selectedImage) {
-      deleteImage(selectedImage.id);
+      //TODO:
+      deleteMutation.mutate(selectedImage.id);
       closeModal();
     }
   };
@@ -86,15 +85,15 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
     <Box sx={{ height: '100vh', overflowY: 'auto', p: 3 }}>
       <Grid container spacing={2}>
         {images.map((img) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={img.id}>
+          <Grid item xs={12} sm={12} md={8} lg={6} key={img.id}>
             <ImageCard image={img} onClick={openModal} />
           </Grid>
         ))}
        
       </Grid>
-      <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
-        {isFetchingNext && <p>Loading more...</p>}
-        </div>
+      <div ref={loadMoreRef} className="h-10 flex justify-center items-center" aria-label='REF'>
+        {isFetchingNext && <p><CircularProgress /></p>}
+      </div>
       
 
       <Dialog

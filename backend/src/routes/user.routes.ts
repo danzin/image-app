@@ -34,7 +34,11 @@ export class UserRoutes {
       new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
       this.userController.login
     );
-
+    
+    this.router.post(
+      '/logout',
+      this.userController.logout
+    );
      // Protected routes group
      const protectedRouter = express.Router();
      this.router.use(protectedRouter); 

@@ -12,7 +12,7 @@ export interface IUser {
   following: string[];
 }
 
-interface Tag {
+export interface ITag {
   tag: string;
   count?: number; 
   modifiedAt?: Date; 
@@ -22,7 +22,7 @@ export interface IImage {
   id: string;
   url: string;
   publicId: string;
-  tags: Tag[];
+  tags: ITag[];
   user: {
     id: String,
     username: string
@@ -59,7 +59,7 @@ export interface UseImagesResult {
 
 export interface TagsProps {
   selectedTags: string[];
-  onSelectTags: (tags: string[]) => void;
+  onSelectTags: (tags: ITag[]) => void;
 }
 
 export interface GalleryProps {

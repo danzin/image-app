@@ -10,7 +10,6 @@ interface GalleryContextType {
   isProfileView: boolean;
 }
 
-// Create context with a default value matching the interface
 const GalleryContext = createContext<GalleryContextType>({
   selectedTags: [],
   setSelectedTags: () => {},
