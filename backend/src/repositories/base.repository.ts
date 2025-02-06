@@ -2,10 +2,19 @@ import mongoose, { ClientSession, FilterQuery, ModifyResult, UpdateQuery } from 
 import { IRepository } from "../types";
 import { createError } from "../utils/errors";
 
-// Base repository implementation
+/**
+ * BaseRepository provides generic CRUD operations for MongoDB models.
+ * It serves as the foundation for all other repositories.
+ */
 export abstract class BaseRepository<T extends mongoose.Document> implements IRepository<T> {
   constructor(protected readonly model: mongoose.Model<T>) {}
 
+   /**
+   * Creates a new document in the database.
+   * @param item - The data to create.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The created document.
+   */
   async create(item: Partial<T>, session?: ClientSession): Promise<T> {
     try {
       const doc = new this.model(item);
@@ -16,6 +25,13 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
     }
   }
 
+   /**
+   * Updates a document by ID.
+   * @param id - The document ID to update.
+   * @param item - The update operations.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The updated document or null if not found.
+   */
   async update(id: string, item: Partial<T>, session?: ClientSession): Promise<T | null> {
     try {
       const query = this.model.findByIdAndUpdate(id, { $set: item }, { new: true });
@@ -26,6 +42,12 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
     }
   }
 
+   /**
+   * Deletes a document by ID.
+   * @param id - The document ID to delete.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns True if deleted, false otherwise.
+   */
   async delete(id: string, session?: ClientSession): Promise<boolean> {
     try {
       const query = this.model.findByIdAndDelete(id);
@@ -37,6 +59,12 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
     }
   }
 
+  /**
+   * Finds a document by ID.
+   * @param id - The document ID to search for.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The document or null if not found.
+   */
   async findById(id: string, session?: ClientSession): Promise<T | null> {
     try {
       const query = this.model.findById({_id: id});
