@@ -18,7 +18,7 @@
 }
 
 body {
- 
+  min-height: 100vh;
   background-image: 
   radial-gradient(circle at center center,rgba(33,33,33,0),rgb(27,27,46)),
   repeating-linear-gradient(135deg, rgb(27,27,46) 0px, rgb(27,27,46) 1px,transparent 1px, transparent 4px),
@@ -26,10 +26,10 @@ body {
   linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
 
 
-  height: 100%;
+ 
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  /* overflow: hidden; */
   
   
   /* margin: 0; 

@@ -174,6 +174,7 @@ export class ImageRepository extends BaseRepository<IImage> {
       });
     }
   }
+  
   //accepts transaction now. Nothing else changes because the return is directly executed with .exec();
   //everything is as it used to be except now transactions actually work as expected when passed in
     async deleteMany(userId: string,  session?: ClientSession ): Promise<void> {

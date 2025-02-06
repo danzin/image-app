@@ -38,8 +38,7 @@ function AuthProvider({ children }: AuthProviderProps) {
       await axiosClient.post('/users/logout');
     } finally {
       setUser(null);
-      // Clear any cached queries
-      queryClient.clear(); 
+
     }
   }, []);
 

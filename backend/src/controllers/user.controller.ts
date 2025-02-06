@@ -49,6 +49,15 @@ export class UserController {
     }
   }
 
+  logout = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.clearCookie('token');
+      res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+      next(error)  
+    }
+  }
+
   // Refresh
   getMe = async (req: Request, res: Response, next: NextFunction) => {
     try {

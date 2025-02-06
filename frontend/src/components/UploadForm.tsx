@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
-import { useImages } from '../hooks/useImages';
+import {  useUploadImage } from '../hooks/useImages';
 import { UploadFormProps } from '../types';
 
 
 const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
-  const { uploadImageMutation } = useImages();
+  const uploadImageMutation  = useUploadImage();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>('');
   const [tags, setTags] = useState<string[]>([]);
