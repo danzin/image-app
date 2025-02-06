@@ -52,7 +52,7 @@ export class ImageService {
           })
         );
   
-        // Store public_id for cleanup
+        // Store public_id for cleanup if transaction fails
         const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
         cloudImagePublicId = cloudImage.public_id;
   

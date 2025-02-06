@@ -1,8 +1,8 @@
-import { createContext, useState, ReactNode, useContext, useEffect } from 'react';
+import { createContext, useState, ReactNode, useContext, useEffect, useCallback } from 'react';
 import axiosClient from '../api/axiosClient';
 import { AuthContextData, IUser } from '../types';
+import { useQueryClient } from '@tanstack/react-query';
 
-// Initialize context with default values
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
 interface AuthProviderProps {
@@ -10,53 +10,55 @@ interface AuthProviderProps {
 }
 
 function AuthProvider({ children }: AuthProviderProps) {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<IUser | null>(null);
-  const [loading, setLoading] = useState<boolean>(true); // Track loading
+  const [loading, setLoading] = useState<boolean>(true); 
+  const queryClient = useQueryClient(); 
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      axiosClient
-        .get('/users/me', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((response) => {
-          setUser(response.data);
-          setIsLoggedIn(true);
-        })
-        .catch(() => {
-          localStorage.removeItem('token');
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
+  const checkAuthState = useCallback(async () => {
+    try {
+      const { data } = await axiosClient.get<IUser>('/users/me');
+      setUser(data);
+    } catch (error) {
+      setUser(null);
+    } finally {
       setLoading(false);
     }
   }, []);
 
-  const login = (user: IUser, token: string) => {
-    setUser(user);
-    localStorage.setItem('token', token);
-    setIsLoggedIn(true);
+  useEffect(() => {
+    checkAuthState();
+  }, [checkAuthState]);
+
+  const login = useCallback((userData: IUser) => {
+    setUser(userData);
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await axiosClient.post('/users/logout');
+    } finally {
+      setUser(null);
+
+    }
+  }, []);
+
+
+ 
+  const value = {
+    user,
+    isLoggedIn: !!user,
+    login,
+    logout,
+    checkAuthState, 
+    loading
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
-  };
-
-  // Make sure to pass the correct values to the context
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout, setUser }}>
-      {!loading ? children : <div>Loading...</div>}
+    <AuthContext.Provider value={ value }>
+      {loading ? <div>Loading...</div> : children}
     </AuthContext.Provider>
   );
 }
-
-// Custom hook to access AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

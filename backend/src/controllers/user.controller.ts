@@ -3,6 +3,8 @@ import { UserService } from '../services/user.service';
 import { createError } from '../utils/errors';
 import { injectable, inject } from 'tsyringe';
 import { FollowService } from '../services/follow.service';
+import { IUser } from '../types';
+import { cookieOptions } from '../config/cookieConfig';
 
 /**  
  * When using Dependency Injection in Express, there's a common
@@ -25,10 +27,12 @@ export class UserController {
   ) {}
 
 
+  //Register and login users 
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { user, token } = await this.userService.register(req.body);
-      res.status(201).json({ user, token });
+      res.cookie('token', token, cookieOptions);
+      res.status(201).json(user);
     } catch (error) {
       next(error);
     }
@@ -38,17 +42,41 @@ export class UserController {
     try {
       const { email, password } = req.body;
       const { user, token } = await this.userService.login(email, password);
-      res.status(200).json({ user, token });
+      res.cookie('token', token, cookieOptions);
+      res.status(200).json(user);
     } catch (error) {
       next(error);
     }
   }
 
+  logout = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.clearCookie('token');
+      res.status(200).json({ message: 'Logged out successfully' });
+    } catch (error) {
+      next(error)  
+    }
+  }
+
+  // Refresh
+  getMe = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { decodedUser } = req;
+      console.log(`decodedUser: ${decodedUser.id}`)
+      const { user, token } = await this.userService.getMe(decodedUser as any);
+      res.cookie('token', token, cookieOptions);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Profile updates
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const {decodedUser} = req;  
       console.log(decodedUser)
-      const updatedUser = await this.userService.updateProfile(decodedUser.id, req.body);
+      const updatedUser = await this.userService.updateProfile(decodedUser.id, req.body, decodedUser as IUser);
       res.status(200).json(updatedUser);
     } catch (error) {
       next(error);
@@ -67,6 +95,19 @@ export class UserController {
     }
   }
 
+  updateCover = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const {decodedUser} = req;
+      const file = req.file?.buffer;
+      if (!file) throw createError('ValidationError', 'No file provided');
+      await this.userService.updateCover(decodedUser.id, file);
+      res.status(200).json({ message: 'Cover updated successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  // Delete user
   deleteUser = async(req: Request, res: Response, next: NextFunction) => {
     try {
       const {decodedUser} = req;
@@ -78,9 +119,11 @@ export class UserController {
     }
   }
 
+  //User getters
   getUserById = async(req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = await this.userService.getUserById(req.params.id);
+      const { decodedUser } = req
+      const user = await this.userService.getUserById(req.params.id, decodedUser as IUser);
       res.status(200).json(user);
     } catch (error) {
       next(error);
@@ -97,6 +140,8 @@ export class UserController {
     }
   }
 
+
+  // User actions
   likeAction = async(req: Request, res: Response, next: NextFunction) => {
     try {
       const {decodedUser} = req;
@@ -117,6 +162,20 @@ export class UserController {
       console.log(followeeId)
       const result = await this.userService.followAction(decodedUser.id, followeeId)
       res.status(200).json(result)
+    } catch (error) {
+      next(error)
+    }
+  }
+
+  followExists = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { decodedUser } = req;
+
+      const followerId = decodedUser.id;
+      const {followeeId} = req.params;
+
+      const followExists = await this.followService.isFollowing(followerId, followeeId);
+      res.status(200).json({isFollowing: followExists})
     } catch (error) {
       next(error)
     }

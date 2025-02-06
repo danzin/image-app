@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useImages } from '../hooks/useImages';
+import { useImages, useImagesByTag } from '../hooks/useImages';
 import { Tags } from '../components/TagsContainer';
 import Gallery from '../components/Gallery';
 import {
@@ -8,20 +8,19 @@ import {
   Grid,
   Button,
   Typography,
-  TextField,
   useTheme,
   useMediaQuery,
-  Drawer,
-  IconButton,
+  CircularProgress,
 } from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
+import { useGallery } from '../context/GalleryContext';
 
 const Home: React.FC = () => {
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [activeImages, setActiveImages] = useState<any[]>([]);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false); 
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
+  const { selectedTags, clearTags } = useGallery();
+  const imagesQuery = useImages();
+  const imagesByTagQuery = useImagesByTag(selectedTags, 10);
 
-  const { imagesQuery, imagesByTagQuery } = useImages();
 
   const {
     data: allImagesData,
@@ -39,145 +38,85 @@ const Home: React.FC = () => {
     isFetchingNextPage: isFetchingNextFiltered,
     isLoading: isLoadingFiltered,
     error: errorFiltered,
-  } = imagesByTagQuery(selectedTags, 1, 10);
+  } = imagesByTagQuery;
+  
 
-  useEffect(() => {
-    const images =
-      selectedTags.length === 0
-        ? allImagesData?.pages.flatMap((page) => page.data) || []
-        : filteredImagesData?.pages.flatMap((page) => page.data) || [];
-    setActiveImages(images);
-  }, [allImagesData, filteredImagesData, selectedTags]);
+  /**
+   * The problem with infinite scroll was how I used to update an unnecessary
+   * state for active images inside the useEffect hook, because that's not what useEffect
+   * is supposed to be used for. Especially inside components that rely on immediate data
+   * during render phase. Effects are meant for actions to happen aftger the render,
+   * not to determine what gets rendered.
+   * 
+   * Deriving activeImages from the readily available queries and momoizing it
+   * turned out to be a proper solution. useMemo ensures the compute value is 
+   * immediately available during render.
+   */
+  const activeImages = React.useMemo(() => {
+    return selectedTags.length === 0
+      ? allImagesData?.pages.flatMap((page) => page.data) || []
+      : filteredImagesData?.pages.flatMap((page) => page.data) || [];
+  }, [selectedTags, allImagesData, filteredImagesData]);
+  
 
-  const handleTagsChange = (tags: string[]) => {
-    setSelectedTags(tags);
-  };
 
-  const clearTags = () => {
-    setSelectedTags([]);
-  };
 
-  const toggleDrawer = (open: boolean) => () => {
-    setIsDrawerOpen(open);
-  };
-
-  const isLoading =
-    (isLoadingAll && selectedTags.length === 0) ||
-    (isLoadingFiltered && selectedTags.length > 0);
   const error = errorAll || errorFiltered;
   const isFetchingNext = isFetchingNextAllImages || isFetchingNextFiltered;
-
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md')); // Detect small screens
+  const fetchNextPage = selectedTags.length === 0 ? fetchNextAllImages : fetchNextFiltered;
+  const hasNextPage = selectedTags.length === 0 ? !!hasNextAllImages : !!hasNextFiltered;
 
   return (
-    <Container maxWidth="xl" sx={{ height: '100vh', display: 'flex', flexDirection: 'column'}}>
+    <Box   sx={{ height: '100%', display: 'flex', flexDirection: 'column' , overflow: 'auto'}}>
       <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
+      
         {/* Gallery */}
-        <Grid item xs={12} md={9} sx={{ p: 3, overflowY: 'auto' }}>
-          <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-            {isSmallScreen && (
-              <>
-                {/* Drawer Toggle Button */}
-                <IconButton onClick={toggleDrawer(true)} size="large">
-                  <MenuIcon />
-                </IconButton>
-                <TextField
-                  fullWidth
-                  label="Search Tags"
-                  variant="outlined"
-                  size="small"
-                  sx={{
-                    backgroundColor: 'background.paper', 
-                    color: 'text.primary', 
-                    borderRadius: 1, 
-                  }}
-                  InputProps={{
-                    style: {
-                      color: '#fff', 
-                    },
-                  }}
-                />
-              </>
-            )}
-            {selectedTags.length > 0 && (
-              <Button variant="outlined" onClick={clearTags}>
-                Clear Filters
-              </Button>
-            )}
-          </Box>
-
-          {isLoading ? (
-            <Typography>Loading images...</Typography>
+        <Grid 
+          item 
+          xs={12} 
+          md={10} 
+          lg={10} 
+          sx={{ p: 3, display: 'flex', flexDirection: 'column' }}>
+          {selectedTags.length > 0 && (
+            <Button variant="outlined" onClick={clearTags}>
+              Clear Filters
+            </Button>
+          )}
+      
+              {isLoadingAll ? (
+            <Typography><CircularProgress /></Typography>
           ) : error ? (
             <Typography>Error fetching images</Typography>
           ) : (
             <Gallery
-              images={activeImages}
-              fetchNextPage={selectedTags.length === 0 ? fetchNextAllImages : fetchNextFiltered}
-              hasNextPage={selectedTags.length === 0 ? hasNextAllImages : hasNextFiltered}
-              isFetchingNext={isFetchingNext}
-              source="all"
-            />
+            images={activeImages}
+            fetchNextPage={fetchNextPage}
+            hasNextPage={hasNextPage}
+            isFetchingNext={isFetchingNext}
+          />
+          
+
           )}
+
         </Grid>
 
-        {/* Tags Section - Desktop View */}
-        {!isSmallScreen && (
-          <Grid
-            item
-            md={3}
-            sx={{
-              p: 3,
-              overflowY: 'auto',
-              borderLeft: '1px solid',
-              borderColor: 'divider',
-              display: { xs: 'none', md: 'block' }, 
-            }}
-          >
-            <Tags selectedTags={selectedTags} onSelectTags={handleTagsChange} />
+         {/* Desktop Tags Section */}
+         {!isSmallScreen && (
+          <Grid item md={2} sx={{
+            p: 3,
+            overflowY: 'auto',
+            borderLeft: '1px solid',
+            borderColor: 'divider',
+          }}>
+            <Tags />
           </Grid>
         )}
       </Grid>
 
-      {/* Mobile drawer */}
-      <Drawer
-        anchor="left"
-        open={isDrawerOpen}
-        onClose={toggleDrawer(false)}
-        PaperProps={{
-          sx: { backgroundColor: 'background.paper' },
-        }}
-      >
-        <Box
-          sx={{
-            width: 250,
-            p: 2,
-            backgroundColor: 'background.default', 
-            color: 'text.secondary',
-          }}
-          role="presentation"
-        >
-          <Typography variant="h6" sx={{ mb: 2 }} color="text.primary">
-            Filter by Tags
-          </Typography>
-          <Tags selectedTags={selectedTags} onSelectTags={handleTagsChange} />
-          <Button
-            variant="outlined"
-            color="secondary"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={() => {
-              clearTags();
-              toggleDrawer(false)();
-            }}
-          >
-            Clear Filters
-          </Button>
-        </Box>
-      </Drawer>
+  
+     
 
-    </Container>
+    </Box>
   );
 };
 

@@ -155,16 +155,16 @@ imageSchema.pre('deleteMany', async function (next) {
     const docs = await this.model.find(this.getQuery()).session(session); // Pass the session
     for (const doc of docs) {
       if (doc.tags && doc.tags.length > 0) {
-        for (let tag of doc.tags) {
-          await Tag.findOneAndUpdate(
-            { tag },
+        for (let tagId of doc.tags) {
+          console.log(`tagId inside deleteMany mongoosemiddleware: ${tagId}`)
+          const updatedTag = await Tag.findOneAndUpdate(
+            { _id: tagId }, 
             { $inc: { count: -1 } },
-            { new: true, session } 
+            { new: true, session }
           );
-          
-          const updatedTag = await Tag.findOne({ tag }).session(session);
+         
           if (updatedTag && updatedTag.count <= 0) {
-            await Tag.deleteOne({ tag }).session(session);
+            await Tag.deleteOne({ _id: tagId }).session(session);
           }
         }
       }
@@ -181,6 +181,7 @@ imageSchema.index({ user: 1 });
 imageSchema.index({ tags: 1 });
 imageSchema.index({ tags: 'text', user: 'text' });
 tagSchema.index({ tag: 'text' });
+console.log('Defining Image model');
 const Image = mongoose.model<IImage>('Image', imageSchema);
 export const Tag = mongoose.model('Tag', tagSchema);
 export default Image;

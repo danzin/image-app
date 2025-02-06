@@ -11,37 +11,51 @@ import {
   CircularProgress,
   useTheme,
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { ToastContainer, toast } from 'react-toastify';
 import AvatarEditor from '../components/AvatarEditor';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
 import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/useUsers';
+import { useFollowUser } from '../hooks/useUserAction';
 import { useAuth } from '../context/AuthContext';
+import { useIsFollowing } from '../hooks/useUserAction';
 
-const DashboardLayout = () => {
-  const { id } = useParams();
-  const { data: userData, isLoading, error: getUserError } = useGetUser(id as string);
+const DashboardLayout:React.FC  = () => {
+  const { id } = useParams(); 
+  const { data: userData, isLoading, error: getUserError } = useGetUser(id as string); //userData -> data of the user profile
   const {
     data: imagesData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useUserImages(userData?._id || '');
+  } = useUserImages(userData?.id || '');
 
-  const { user } = useAuth();
+  const { user } = useAuth(); 
   const theme = useTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
-  const isProfileOwner = id === user?._id;
+  const isProfileOwner = id === user?.id;
   const avatarMutation = useUpdateUserAvatar();
 
   const notifySuccess = (message: string) => toast.success(message);
   const notifyError = (message: string) => toast.error(message);
 
   const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
+
+  const { mutate: followUser, isPending: followPending } = useFollowUser();
+  const handleFollowUser = (id: string) => {
+    followUser(id as string, {
+  
+      onError: (error) => {
+        console.error('Error following user:', error);
+      }
+    })
+  }
+
+  const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(id as string);
 
   const handleImageUpload = async (croppedImage: string) => {
     try {
@@ -88,11 +102,11 @@ const DashboardLayout = () => {
       </Box>
 
       <Box sx={{ 
-        maxWidth: '100%', // Allow full width on smaller screens
-        width: { lg: '1200px' }, // Constrain only on large screens
+        maxWidth: '100%', 
+        width: { lg: '1200px' }, 
         mx: 'auto', 
-        px: { xs: 1, sm: 2 }, // Responsive padding
-        mt: { xs: -6, sm: -8 } // Responsive negative margin
+        px: { xs: 1, sm: 2 }, 
+        mt: { xs: -6, sm: -8 }
       }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
           {/* Profile Picture */}
@@ -100,7 +114,7 @@ const DashboardLayout = () => {
           <Avatar
             src={userData?.avatar}
             sx={{
-              width: { xs: 96, sm: 128 }, // Smaller on mobile
+              width: { xs: 96, sm: 128 }, 
               height: { xs: 96, sm: 128 },
               border: `4px solid ${theme.palette.background.paper}`,
             }}
@@ -109,7 +123,7 @@ const DashboardLayout = () => {
               <Button
                 variant="contained"
                 size="small"
-                sx={{ position: 'absolute', bottom: 0, right: 0 }}
+                sx={{ position: 'absolute', bottom: 0, mx: 'auto', background: 'transparent', color: 'black' }}
                 onClick={() => setIsModalOpen(true)}
               >
                 Update
@@ -118,13 +132,20 @@ const DashboardLayout = () => {
           </Box>
 
           {/* User Info */}
-          <Box>
-            <Typography variant="h5" fontWeight="bold" color="text.secondary">
-              {userData?.username}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Software Developer
-            </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end' }}>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h5" fontWeight="bold" color="text.secondary">
+                {userData?.username}
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Software Developer
+              </Typography>
+              
+            </Box>
+            {!isProfileOwner && ( <Button variant="outlined" size="small" onClick={() => handleFollowUser(id as string)} sx={{ ml: 2, py: 1 }}>
+            {isFollowing ? 'Unfollow' : 'Follow'}
+            </Button>) }
+           
           </Box>
 
           {/* Edit Profile */}
@@ -132,41 +153,54 @@ const DashboardLayout = () => {
             <Button variant="outlined" onClick={() => setIsEditOpen(true)} sx={{ ml: 'auto' }}>
               Edit Profile
             </Button>
-          )}
+           ) 
+          }
         </Box>
 
-        <Grid container spacing={2} sx={{ 
-          mt: { xs: 2, sm: 4 }, // Responsive margin
-          flexDirection: { xs: 'column-reverse', lg: 'row' } // Stack vertically on mobile
-        }}>          
-        
-          <Grid item xs={12} lg={8}>
-            {/* About Section */}
-            
-
-            {/* Gallery Section */}
-            <Paper elevation={2} sx={{ p: 3, maxHeight: '60vh', overflow: 'auto' }}>
-              <Divider sx={{ my: 2 }} />
+        <Grid 
+          container 
+          spacing={2}
+          sx={{ 
+            mt: { xs: 2, sm: 4 }, 
+            flexDirection: { xs: 'column-reverse', lg: 'row' },
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Gallery */}
+          <Grid 
+            item 
+            xs={12} 
+            lg={8} 
+            sx={{ p: 3, display: 'flex', flexDirection: 'column' }}
+          > 
+            <Paper 
+              elevation={2} 
+              sx={{ 
+                p: 3, 
+                flexGrow: 1, 
+                overflowY: 'auto', 
+              }} 
+            >
               <Gallery
                 images={flattenedImages}
                 fetchNextPage={fetchNextPage}
                 hasNextPage={!!hasNextPage}
                 isFetchingNext={isFetchingNextPage}
-                source={userData?.username}
               />
             </Paper>
           </Grid>
 
           {/* Stats Section */}
-          
-          <Grid item xs={12} lg={4}>
-         
-
-            <Paper elevation={2} sx={{ p: 3 }}>
-            <Typography variant="h6">About</Typography>
+          <Grid 
+            item 
+            xs={12} 
+            lg={4} 
+            sx={{ display: 'flex', flexDirection: 'column', height: '500px' }} 
+          >
+            <Paper elevation={2} sx={{ p: 3, flexGrow: 1 }}>
+              <Typography variant="h6">About</Typography>
               <Typography variant="body2" color="text.secondary">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et
-                dolore magna aliqua.
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
               </Typography>
               <Divider sx={{ my: 2 }} />
 

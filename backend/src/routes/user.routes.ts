@@ -13,6 +13,7 @@ export class UserRoutes {
   private router: express.Router;
   private auth = AuthFactory.bearerToken().handle();
 
+
   constructor(
     @inject('UserController') private readonly userController: UserController
   ) {
@@ -33,17 +34,26 @@ export class UserRoutes {
       new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
       this.userController.login
     );
+    
+    this.router.post(
+      '/logout',
+      this.userController.logout
+    );
+     // Protected routes group
+     const protectedRouter = express.Router();
+     this.router.use(protectedRouter); 
+     protectedRouter.use(this.auth);
+ 
+     protectedRouter.get(
+       '/me',
+       this.userController.getMe
+     );
 
     this.router.get('/', this.userController.getUsers);
     this.router.get('/:id', this.userController.getUserById);
-    
 
-    // Protected routes group
-    const protectedRouter = express.Router();
-    this.router.use(protectedRouter); 
-    protectedRouter.use(this.auth);
+   
 
-    //logged in user profile edit
     protectedRouter.put(
       '/edit',
       this.userController.updateProfile
@@ -53,6 +63,11 @@ export class UserRoutes {
     protectedRouter.post(
       '/follow/:followeeId',
       this.userController.followAction
+    )
+
+    protectedRouter.get(
+      '/follows/:followeeId', 
+      this.userController.followExists
     )
 
     //logged in user likes an image
@@ -68,8 +83,16 @@ export class UserRoutes {
       this.userController.updateAvatar
     );
 
+    //logged in user update cover
+    protectedRouter.put(
+      '/cover',
+      upload.single('cover'),
+      this.userController.updateCover
+    );
+
   
     //logged in delete user
+    //might need the userID for later use but for now it's reduntant. 
     protectedRouter.delete(
       '/:id',
       this.userController.deleteUser
@@ -78,6 +101,7 @@ export class UserRoutes {
   }
 
   public getRouter(): express.Router {
+    console.log('userRoute initialized')
     return this.router;
   }
 }

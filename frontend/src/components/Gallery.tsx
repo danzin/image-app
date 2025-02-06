@@ -1,154 +1,160 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { IImage, IUser } from '../types';
-import { GalleryProps } from '../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { Box, Grid, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
+import { IImage, GalleryProps } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useImages } from '../hooks/useImages';
+import { useDeleteImage } from '../hooks/useImages';
+import { useLikeImage } from '../hooks/useUserAction';
+import ImageCard from './ImageCard';
+import { useGallery } from '../context/GalleryContext';
 
-const Gallery: React.FC<GalleryProps> = ({
-  
-  images,
-  fetchNextPage,
-  hasNextPage,
-  isFetchingNext,
-  source
-}) => {
-  if (!images) {
-    return <div className="p-4">Loading gallery...</div>;
-  }
-  if (images.length === 0) {
-    return <div className="p-4">No images available</div>;
-  }
-
-
+const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext }) => {
   const { user } = useAuth();
-  const isProfilePage = location.toString().includes('profile');
-  const { id } = useParams();
+  const { id: profileId } = useParams<{ id: string }>();
+  const { isProfileView } = useGallery();
   const [selectedImage, setSelectedImage] = useState<IImage | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const { deleteImage } = useImages();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const deleteMutation  = useDeleteImage();
 
-  //IIFE to check if the the profile belongs to the logged in user
-  const isInOwnProfile = ((userId, profileId, isProfilePage) => {
-    return userId === profileId && isProfilePage;
-  })(user?._id, id, isProfilePage);
+  const isInOwnProfile = user?.id === profileId && isProfileView;
 
-  
-  
   useEffect(() => {
-    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
+    const observer = new IntersectionObserver((entries) => {
       if (entries[0].isIntersecting && hasNextPage && !isFetchingNext) {
-        fetchNextPage();
+        fetchNextPage(); 
       }
-    };
+    }, { 
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+     });
 
-    const observer = new IntersectionObserver(handleIntersection);
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
-
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
     };
   }, [hasNextPage, isFetchingNext, fetchNextPage]);
 
-  const openModal = (image: IImage) => {
-    if (!image) return;
+  const openModal = useCallback((image: IImage) => {
     setSelectedImage(image);
     setIsModalOpen(true);
-  };
+  }, []);
 
   const closeModal = () => {
     setSelectedImage(null);
     setIsModalOpen(false);
   };
 
-  const handleDeleteImage = (image: IImage) => {
-    deleteImage(image.id);
-    closeModal();
-
-  }
-
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDialogElement, MouseEvent>) => {
-    const dialogElement = e.currentTarget;
-    const rect = dialogElement.getBoundingClientRect();
-    const isInDialog = e.clientY >= rect.top && e.clientY <= rect.bottom && e.clientX >= rect.left && e.clientX <= rect.right;
-
-    if (!isInDialog) {
+  const handleDeleteImage = () => {
+    if (selectedImage) {
+      //TODO:
+      deleteMutation.mutate(selectedImage.id);
       closeModal();
     }
   };
 
-  const getImageTags = (image: IImage) => {
-    if (!image || !image.tags) return ''; // Handle undefined image or tags
-    return image.tags.map(tag => tag.tag).join(', ');
+  const getImageTags = (image: IImage) => image?.tags?.map((tag) => tag.tag).join(', ') || '';
+
+  const { mutate: likeImage, isPending: isLiking } = useLikeImage();
+
+  const handleLikeImage = () => {
+    if (!selectedImage) return;
+    likeImage(selectedImage.id, {
+      onSuccess: (updatedData: { likeCount: number; liked: boolean }) => {
+        setSelectedImage((prev) =>
+          prev ? { ...prev, likeCount: updatedData.likeCount, liked: updatedData.liked } : prev
+        );
+      },
+      onError: (error) => {
+        console.error('Error liking image:', error);
+      },
+    });
   };
 
+  if (!images) {
+    return <div>Loading gallery...</div>;
+  }
+  if (images.length === 0) {
+    return <div>No images available</div>;
+  }
+
   return (
-    <div className="gallery-container h-full">
-      <h2 className="text-lg font-bold">
-        {source === 'all' ? 'All Images' : 'Your Images'}
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-6">
-        {images.map((img, index) => (
-          <div key={index} className="group cursor-pointer relative" onClick={() => openModal(img)}>
-            {img && (
-              <img
-                src={img.url}
-                alt={`Gallery item ${index}`}
-                className="w-full h-52 object-cover rounded-lg transition-transform transform scale-100 group-hover:scale-105"
-              />
-            )}
-          </div>
+    <Box sx={{ height: '100vh', overflowY: 'auto', p: 3 }}>
+      <Grid container spacing={2}>
+        {images.map((img) => (
+          <Grid item xs={12} sm={12} md={8} lg={6} key={img.id}>
+            <ImageCard image={img} onClick={openModal} />
+          </Grid>
         ))}
+       
+      </Grid>
+      <div ref={loadMoreRef} className="h-10 flex justify-center items-center" aria-label='REF'>
+        {isFetchingNext && <p><CircularProgress /></p>}
       </div>
-      {isModalOpen && selectedImage && (
-        <dialog
-          className="bg-transparent max-w-[700px] max-h-100vh flex flex-col fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4/5"
-          onClick={handleOverlayClick}
-          open
-        >
-          <div className="modal-box relative flex flex-col">
-            <button className="absolute top-1 right-2" onClick={closeModal}>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                color="white"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="size-8"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="m9.75 9.75 4.5 4.5m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-              </svg>
-            </button>
-            <img src={selectedImage.url} alt="Selected" className="w-full h-full object-cover" />
       
-              <span className="font-bold flex-row content-start">
-                <div>Uploaded by: <Link to={`/profile/${selectedImage.user.id}`}><span className='text-blue-700 text-xl'> {selectedImage.user.username} </span> </Link></div>
-                <div>Tags: {getImageTags(selectedImage)} </div>
-                {isInOwnProfile && 
-                  (<button 
-                    className='bg-blue-500
-                                hover:bg-blue-700
-                                text-white 
-                                  font-bold
-                                  py-2
-                                  px-4
-                                  rounded-full' 
-                      onClick={() => handleDeleteImage(selectedImage)}>Delete</button>)
-                  }
-            </span>
-          </div>
-        </dialog>
-      )}
-      <div ref={loadMoreRef} className="h-10 flex justify-center items-center">
-        {isFetchingNext && <p>Loading more...</p>}
-      </div>
-    </div>
+
+      <Dialog
+        open={isModalOpen}
+        onClose={closeModal}
+        maxWidth="md"
+        
+      >
+        {selectedImage && (
+          
+          <DialogContent  sx={{ textAlign: 'center', overflow: 'hidden' }}>
+            <DialogTitle>
+          <IconButton
+            sx={{ position: 'absolute', top: 8, right: 8, color: 'white' }}
+            onClick={closeModal}
+          >
+            <CloseIcon />
+          </IconButton>
+          </DialogTitle>
+            <Box
+              component="img"
+              src={selectedImage.url}
+              alt={selectedImage.publicId}
+              sx={{
+                
+                width: '100%',
+                maxHeight: '60vh',
+                objectFit: 'inherit',
+              }}
+            />
+            <Box >
+            <Box sx={{ display: 'flex', flexDirection: 'column' , gap: 0,  textAlign:'start'}}>
+
+              <Typography variant="body2">Uploader:<Link className='text-blue-800' to={`/profile/${selectedImage.user.id}`}> {selectedImage.user.username}</Link></Typography>
+              <Typography variant="body2">Tags: {getImageTags(selectedImage)}</Typography>
+              </Box>
+              <Box sx={{ m:'auto', display: 'flex', gap: 2, justifyContent: 'right' }}>
+                <Button 
+                  variant="contained" 
+                  color="secondary" 
+                  onClick={handleLikeImage}
+                  disabled={isLiking} 
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                  {isLiking ? <CircularProgress size={24} /> : 'Like'}
+                </Button>
+                {isInOwnProfile && (
+                  <Button variant="contained" color="secondary" onClick={handleDeleteImage}>
+                    Delete
+                  </Button>
+                )}
+              </Box>
+            </Box>
+          </DialogContent>
+        )}
+        
+      </Dialog>
+    </Box>
   );
 };
 

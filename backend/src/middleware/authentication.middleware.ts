@@ -20,10 +20,9 @@ export class BearerTokenStrategy extends AuthStrategy {
   }
 
   async authenticate(req: Request): Promise<JwtPayload> {
-    const token = req.headers.authorization?.split(' ')[1];
-    console.log(`token: ${token}`)
+    const token = req.cookies.token;
     if (!token) throw createError('UnauthorizedError', 'Missing token');
-    const user = jwt.verify(token, this.secret) as JwtPayload
+    const user = jwt.verify(token, this.secret) as JwtPayload;
     return user;
   }
 }

@@ -28,9 +28,7 @@ export class TagRepository extends BaseRepository<ITag> {
     return await query.exec();
   }
 
-  async findById(tag: string): Promise<ITag | null> {
-    return this.model.findById(tag).exec();
-  }
+
 
   async searchTags(searchQuery: string, session?: ClientSession): Promise<ITag[]> {
     try {

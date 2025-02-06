@@ -1,7 +1,7 @@
-import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, useQuery } from "@tanstack/react-query";
+import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, UseMutationResult, useQuery, UseQueryResult } from "@tanstack/react-query";
 
 export interface IUser {
-  _id: string;
+  id: string;
   username: string;
   avatar: string;
   cover: string;
@@ -12,7 +12,7 @@ export interface IUser {
   following: string[];
 }
 
-interface Tag {
+export interface ITag {
   tag: string;
   count?: number; 
   modifiedAt?: Date; 
@@ -22,34 +22,53 @@ export interface IImage {
   id: string;
   url: string;
   publicId: string;
-  tags: Tag[];
+  tags: ITag[];
   user: {
-    _id: String,
+    id: String,
     username: string
   };
+  likes: number;
+  createdAt: Date;
+}
+export interface PaginatedResponse {
+  pages: {
+    data: IImage[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }[];
+}
+export interface UseImagesResult {
+  imagesQuery: UseInfiniteQueryResult<PaginatedResponse, Error>;
+  imageByIdQuery: (id: string) => UseInfiniteQueryResult<IImage, Error>;
+  uploadImageMutation: UseMutationResult<unknown, Error, unknown, unknown>;
+  tagsQuery: UseQueryResult<string[], Error>;
+  imagesByTagQuery: (tags: string[], page: number, limit: number) => UseInfiniteQueryResult<PaginatedResponse, Error>;
+  deleteImage: (id: string) => any;
 }
 
-export interface UseImagesResult {
-  imagesQuery: ReturnType<typeof useInfiniteQuery>;
-  imageByIdQuery: (id: string) => ReturnType<typeof useQuery>;
-  uploadImageMutation: ReturnType<typeof useMutation>;
-  tagsQuery: ReturnType<typeof useQuery>;
-  imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
-  deleteImage: (id: string) => any
-}
+// export interface UseImagesResult {
+//   imagesQuery: ReturnType<typeof useInfiniteQuery>;
+//   imageByIdQuery: (id: string) => ReturnType<typeof useQuery>;
+//   uploadImageMutation: ReturnType<typeof useMutation>;
+//   tagsQuery: ReturnType<typeof useQuery>;
+//   imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
+//   deleteImage: (id: string) => any
+// }
 
 export interface TagsProps {
   selectedTags: string[];
-  onSelectTags: (tags: string[]) => void;
+  onSelectTags: (tags: ITag[]) => void;
 }
 
 export interface GalleryProps {
-  images: IImage[] | undefined;  // Make images possibvly undefined 
+  images: IImage[];
   fetchNextPage: () => void;
-  hasNextPage: boolean | undefined;
+  hasNextPage?: boolean;
   isFetchingNext: boolean;
-  source: string | undefined;
 }
+
 
 export interface UserUserResult {
   useCurrentUser: () => ReturnType<any>;
@@ -63,9 +82,14 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
+  checkAuthState: () => void; 
+  loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
-  login: (user: IUser, token: string) => void;
+  login: (user: IUser) => void;
   logout: () => void;
-  setUser: (user: IUser | null) => void; // This allows you to update the user in the context
+}
+export interface ImageCardProps {
+  image: IImage;
+  onClick: (image: IImage) => void;
 }

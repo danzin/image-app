@@ -1,4 +1,3 @@
-// middlewares/validation.middleware.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 
 import { createError } from '../utils/errors';

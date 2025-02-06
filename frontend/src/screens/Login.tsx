@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLogin } from '../api/login';
+import { useLogin } from '../hooks/useUserLogin';
 import AuthForm from '../components/AuthForm';
 import { ToastContainer, toast } from 'react-toastify';
 
@@ -26,8 +26,8 @@ const Login: React.FC = () => {
       <AuthForm
         title="Login"
         fields={[
-          { name: 'email', type: 'email', placeholder: 'email@example.com' },
-          { name: 'password', type: 'password', placeholder: '********' },
+          { name: 'email', type: 'email', placeholder: 'email@example.com', required: true },
+          { name: 'password', type: 'password', placeholder: '********',required: true },
         ]}
         onSubmit={handleLogin}
         submitButtonText="Login"

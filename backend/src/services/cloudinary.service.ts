@@ -1,5 +1,4 @@
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from 'cloudinary';
-import { bufferToStream } from '../utils/readable';
 import { createError } from '../utils/errors';
 import { CloudinaryDeleteResponse, CloudinaryResponse, CloudinaryResult } from '../types';
 import { inject, injectable } from 'tsyringe';
