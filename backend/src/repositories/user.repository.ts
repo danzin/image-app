@@ -4,6 +4,10 @@ import { createError } from '../utils/errors';
 import { injectable, inject } from 'tsyringe';
 import { BaseRepository } from './base.repository';
 
+/**
+ * UserRepository provides database access for user-related operations.
+ * It extends BaseRepository and includes custom methods for user management.
+ */
 @injectable()
 export class UserRepository extends BaseRepository<IUser>{
   constructor(
@@ -12,7 +16,12 @@ export class UserRepository extends BaseRepository<IUser>{
     super(model)
   }
   
-  // Override create with duplicate key error handling
+  /**
+   * Creates a new user in the database, handling duplicate key errors.
+   * @param userData - Partial user data to create a new user.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The created user object.
+   */
   async create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser> {
     try {
       const doc = new this.model(userData);
@@ -32,11 +41,14 @@ export class UserRepository extends BaseRepository<IUser>{
   }
   
 
-  // Override update for more flexibility when working with different types of updates
-  //for example, this supports any type of provided, like: { $addToSet: { following: followeeId } }
-  //USE WITH CAUTION!!! If this starts backfiring, might as well keep the base repository method and add a bunch of specific methods instead,
-  //like `addToFollow` `removeFromFollow` `addToLike` and bloat the this into oblivion
-  //maybe I should also get rid of updateCover and updateAvatar.... 
+  /**
+   * Updates a user's data based on a given user ID.
+   * Supports flexible updates with MongoDB operators (e.g., `$set`, `$addToSet`).
+   * @param id - User ID to update.
+   * @param updateData - Update operations.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The updated user object or null if not found.
+   */
   async update(
     id: string,
     updateData: any,  
@@ -100,6 +112,12 @@ export class UserRepository extends BaseRepository<IUser>{
     
   }
 
+  /**
+   * Finds a user by username.
+   * @param username - The username to search for.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The user object or null if not found.
+   */
   async findByUsername(username: string, session?: ClientSession): Promise<IUser | null> {
     try {
       const query = this.model.findOne({ username }).select('+password');
@@ -111,6 +129,12 @@ export class UserRepository extends BaseRepository<IUser>{
     }
   }
   
+  /**
+   * Finds a user by email.
+   * @param email - The email to search for.
+   * @param session - (Optional) Mongoose session for transactions.
+   * @returns The user object or null if not found.
+   */
   async findByEmail(email: string, session?: ClientSession): Promise<IUser | null> {
     try {
       const query = this.model.findOne({ email }).select('+password');
@@ -121,7 +145,11 @@ export class UserRepository extends BaseRepository<IUser>{
     }
   }
 
-  // Pagination
+  /**
+   * Retrieves paginated users from the database.
+   * @param options - Pagination options (page, limit, sorting).
+   * @returns A paginated result containing users.
+   */  
   async findWithPagination(options: PaginationOptions): Promise<PaginationResult<IUser>> {
     try {
       const {
