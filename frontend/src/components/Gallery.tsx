@@ -4,8 +4,8 @@ import { Box, Grid, Typography, Button, Dialog, IconButton, DialogTitle, DialogC
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { useDeleteImage } from '../hooks/useImages';
-import { useLikeImage } from '../hooks/useUserAction';
+import { useDeleteImage } from '../hooks/images/useImages';
+import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
 
@@ -59,6 +59,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const getImageTags = (image: IImage) => image?.tags?.map((tag) => tag.tag).join(', ') || '';
 
   const { mutate: likeImage, isPending: isLiking } = useLikeImage();
+
 
   const handleLikeImage = () => {
     if (!selectedImage) return;

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
-import {  useUploadImage } from '../hooks/useImages';
+import { useUploadImage } from '../hooks/images/useImages';
 import { UploadFormProps } from '../types';
 
 
