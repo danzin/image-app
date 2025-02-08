@@ -1,6 +1,6 @@
 import { Skeleton } from "@mui/material";
 import { useGallery } from "../context/GalleryContext";
-import { useTags } from "../hooks/useImages";
+import { useTags } from "../hooks/images/useImages";
 
 export const Tags = () => {
   const { selectedTags, setSelectedTags } = useGallery();

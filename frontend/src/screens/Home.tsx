@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useImages, useImagesByTag } from '../hooks/useImages';
+import { useImages, useImagesByTag } from '../hooks/images/useImages';
 import { Tags } from '../components/TagsContainer';
 import Gallery from '../components/Gallery';
 import {

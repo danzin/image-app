@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById } from '../api/imageApi';
-import { IImage, ITag } from '../types';
+import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById } from '../../api/imageApi';
+import { IImage, ITag } from '../../types';
 
 export const useImages = () => {
   console.log(`useImages called`)

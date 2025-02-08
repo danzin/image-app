@@ -14,6 +14,7 @@ import { GalleryProvider } from './context/GalleryContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import theme from './components/Theme';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import SearchResults from './screens/SearchResults';
 
 
 function App() {
@@ -32,7 +33,7 @@ function App() {
                 <Route path="register" element={<Register />} />
                 <Route path="profile" element={<ProtectedRoute element={<Profile/>}/>} />
                 <Route path="profile/:id" element={<ProtectedRoute element={<Profile/>}/>} />
-
+                <Route path="/results" element={<SearchResults />} />
                 {/* <Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} /> */}
                 {/* <Route path="upload" element={<UploadImage />} />
                 <Route path="dashboard" element={<Dashboard />} /> */}

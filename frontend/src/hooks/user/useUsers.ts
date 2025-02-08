@@ -1,7 +1,7 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar, updateUserCover } from '../api/userApi';
-import { IImage, IUser } from '../types';
-import { editUserRequest } from '../api/editUser';
+import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar, updateUserCover } from '../../api/userApi';
+import { IImage, IUser } from '../../types';
+import { editUserRequest } from '../../api/editUser';
 
   export const useCurrentUser = () => {
     return useQuery<IUser>({

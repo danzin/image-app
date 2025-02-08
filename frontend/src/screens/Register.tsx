@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useRegister } from '../hooks/useUserRegister';
+import { useRegister } from '../hooks/user/useUserRegister';
 import AuthForm from '../components/AuthForm';
 import { ToastContainer, toast } from 'react-toastify';
 

@@ -4,7 +4,7 @@ import { GalleryProps } from '../types';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useImages } from '../hooks/useImages';
-import { useLikeImage } from '../hooks/useUserAction';
+import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 
 const Gallery: React.FC<GalleryProps> = ({
