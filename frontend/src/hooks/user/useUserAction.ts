@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { followUser, likeImage } from '../api/userActions';
-import { fetchIsFollowing } from '../api/userApi';
+import { followUser, likeImage } from '../../api/userActions';
+import { fetchIsFollowing } from '../../api/userApi';
 
 // Hook to follow a user
 export const useFollowUser = () => {

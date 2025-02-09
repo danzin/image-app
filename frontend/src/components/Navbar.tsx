@@ -84,11 +84,19 @@ const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const { isTagDrawerOpen, setIsTagDrawerOpen, isProfileView } = useGallery();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
   };
 
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (searchTerm.trim()) {
+      navigate(`/results?q=${encodeURIComponent(searchTerm)}`);
+    }
+  };
+  
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
@@ -127,15 +135,19 @@ const Navbar = () => {
               Peek
             </Link>
           </Typography>
-          <Search>
-            <SearchIconWrapper>
-              <SearchIcon />
-            </SearchIconWrapper>
-            <StyledInputBase
-              placeholder="Search for anything"
-              inputProps={{ 'aria-label': 'search' }}
-            />
-          </Search>
+          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center' }}>
+            <Search>
+              <SearchIconWrapper>
+                <SearchIcon />
+              </SearchIconWrapper>
+              <StyledInputBase
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search for anything"
+                inputProps={{ 'aria-label': 'search' }}
+              />
+            </Search>
+          </form>
           {isLoggedIn ? (
             <>
               <IconButton

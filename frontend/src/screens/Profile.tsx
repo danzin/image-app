@@ -16,10 +16,10 @@ import { ToastContainer, toast } from 'react-toastify';
 import AvatarEditor from '../components/AvatarEditor';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
-import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/useUsers';
-import { useFollowUser } from '../hooks/useUserAction';
+import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/user/useUsers';
+import { useFollowUser } from '../hooks/user/useUserAction';
 import { useAuth } from '../context/AuthContext';
-import { useIsFollowing } from '../hooks/useUserAction';
+import { useIsFollowing } from '../hooks/user/useUserAction';
 
 const DashboardLayout:React.FC  = () => {
   const { id } = useParams(); 

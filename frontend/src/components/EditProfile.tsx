@@ -1,6 +1,6 @@
 import React from 'react';
 import AuthForm from './AuthForm';
-import { useEditUser } from '../hooks/useUsers';
+import { useEditUser } from '../hooks/user/useUsers';
 
 interface EditProfileProps {
   onComplete: () => void;
