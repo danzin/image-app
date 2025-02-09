@@ -91,5 +91,5 @@ export interface AuthContextData {
 }
 export interface ImageCardProps {
   image: IImage;
-  onClick: (image: IImage) => void;
+  onClick?: (image: IImage) => void;
 }

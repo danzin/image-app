@@ -31,6 +31,7 @@ const ImageCard: React.FC<ImageCardProps>  = ({ image, onClick }) => {
         </Typography>
       </CardContent>
     </Card>
+
   );
 };
 
