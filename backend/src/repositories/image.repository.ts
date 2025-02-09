@@ -12,7 +12,13 @@ export class ImageRepository extends BaseRepository<IImage> {
     super(model)
   }
 
-  // Override findById for population
+  /**
+   * Finds an image by its ID and populates related fields.
+   * 
+   * @param {string} id - The ID of the image.
+   * @param {ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<IImage | null>} - The found image or null if not found.
+   */
   async findById(id: string, session?: ClientSession): Promise<IImage | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -31,25 +37,13 @@ export class ImageRepository extends BaseRepository<IImage> {
     }
   }
 
-
-  //Reduntant bloat. Will use the base findOneAndUpdate method instead. 
-  // async incrementLikes(imageId: string): Promise<void> {
-  //   try {
-  //     await this.model.findByIdAndUpdate(imageId, { $inc: { likesCount: 1 } }).exec();
-  //   } catch (error) {
-  //     throw createError('DatabaseError', error.message)
-  //   }
-  // }
-
-  // async decrementLikes(imageId: string): Promise<void> {
-  //   try {
-  //     await this.model.findByIdAndUpdate(imageId, { $inc: { likesCount: -1 } }).exec();
-  //   } catch (error) {
-  //     throw createError('DatabaseError', error.message)
-  //   }
-  // }
-
-
+  /**
+   * Finds images with pagination support.
+   * 
+   * @param {PaginationOptions} options - Pagination options (page, limit, sort order).
+   * @param {ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<PaginationResult<IImage>>} - Paginated result of images.
+   */
   async findWithPagination(
     options: PaginationOptions, 
     session?: ClientSession
@@ -91,6 +85,13 @@ export class ImageRepository extends BaseRepository<IImage> {
     }
   }
 
+  /**
+   * Finds images uploaded by a specific user with pagination support.
+   * 
+   * @param {string} userId - The ID of the user.
+   * @param {PaginationOptions} options - Pagination options.
+   * @returns {Promise<PaginationResult<IImage>>} - Paginated result of user's images.
+   */
   async findByUserId(
     userId: string,
     options: PaginationOptions
@@ -130,6 +131,13 @@ export class ImageRepository extends BaseRepository<IImage> {
     }
   }
 
+   /**
+   * Finds images that have specific tags, with pagination support.
+   * 
+   * @param {string[]} tagIds - List of tag IDs to filter images.
+   * @param {PaginationOptions} [options] - Optional pagination and sorting options.
+   * @returns {Promise<PaginationResult<IImage>>} - Paginated result of images matching the tags.
+   */
   async findByTags(
     tagIds: string[],
     options?: {
@@ -148,6 +156,8 @@ export class ImageRepository extends BaseRepository<IImage> {
 
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder as SortOrder };
+      
+      // Execute both queries concurrently for efficiency
       const [data, total] = await Promise.all([
         this.model
           .find({ tags: { $in: tagIds } })
@@ -175,8 +185,14 @@ export class ImageRepository extends BaseRepository<IImage> {
     }
   }
   
-  //accepts transaction now. Nothing else changes because the return is directly executed with .exec();
-  //everything is as it used to be except now transactions actually work as expected when passed in
+   /**
+   * Deletes all images associated with a specific user.
+   * Supports MongoDB transactions if a session is provided.
+   * 
+   * @param {string} userId - The ID of the user whose images will be deleted.
+   * @param {ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<void>} - Resolves when deletion is complete.
+   */
     async deleteMany(userId: string,  session?: ClientSession ): Promise<void> {
       try {
         const query = this.model.deleteMany({ user: userId });
