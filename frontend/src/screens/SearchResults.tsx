@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { IImage, ITag, IUser } from '../types';
 import { useSearch } from '../hooks/search/useSearch';
 import ImageCard from '../components/ImageCard';
-import Gallery from '../components/Gallery';
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
 
 const SearchResults = () => {
   const query = new URLSearchParams(location.search).get('q') || '';
@@ -73,7 +72,7 @@ const SearchResults = () => {
       </div>
 
       {isFetching ? (
-        <div className="loader">Loading...</div>
+        <div className="loader"><CircularProgress></CircularProgress></div>
       ) : (
         <div className="results-container">{renderResults()}</div>
       )}
