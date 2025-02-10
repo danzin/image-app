@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import theme from './components/Theme';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import SearchResults from './screens/SearchResults';
+import { SocketProvider } from './context/SocketContext';
 
 
 function App() {
@@ -25,22 +26,25 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <AuthProvider>
-          <GalleryProvider>
-            <Routes>
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Home />} />
-                <Route path="login" element={<Login />} />
-                <Route path="register" element={<Register />} />
-                <Route path="profile" element={<ProtectedRoute element={<Profile/>}/>} />
-                <Route path="profile/:id" element={<ProtectedRoute element={<Profile/>}/>} />
-                <Route path="/results" element={<SearchResults />} />
-                {/* <Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} /> */}
-                {/* <Route path="upload" element={<UploadImage />} />
-                <Route path="dashboard" element={<Dashboard />} /> */}
-              </Route>
-            </Routes>
-          <ReactQueryDevtools initialIsOpen={false} />
-          </GalleryProvider>
+          <SocketProvider>
+            <GalleryProvider>
+              <Routes>
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Home />} />
+                  <Route path="login" element={<Login />} />
+                  <Route path="register" element={<Register />} />
+                  <Route path="profile" element={<ProtectedRoute element={<Profile/>}/>} />
+                  <Route path="profile/:id" element={<ProtectedRoute element={<Profile/>}/>} />
+                  <Route path="/results" element={<SearchResults />} />
+                  {/* <Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} /> */}
+                  {/* <Route path="upload" element={<UploadImage />} />
+                  <Route path="dashboard" element={<Dashboard />} /> */}
+                </Route>
+              </Routes>
+            <ReactQueryDevtools initialIsOpen={false} />
+            </GalleryProvider>
+          </SocketProvider>
+          
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

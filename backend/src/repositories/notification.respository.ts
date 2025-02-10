@@ -1,5 +1,4 @@
-import mongoose, { ClientSession, Model } from "mongoose";
-import Notification from "../models/notification.model";
+import { ClientSession, Model } from "mongoose";
 import { INotification } from "../types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";

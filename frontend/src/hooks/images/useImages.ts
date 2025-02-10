@@ -3,17 +3,14 @@ import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, 
 import { IImage, ITag } from '../../types';
 
 export const useImages = () => {
-  console.log(`useImages called`)
 
   return useInfiniteQuery<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, Error>(
     {
     queryKey: ['images'],
     queryFn: ({ pageParam = 1 }) => {
-      console.log(`Fetching all images`);
       return fetchImages(pageParam as number)
     } ,
     getNextPageParam: (lastPage) => {
-      console.log(`Getting next page params: ${lastPage}`);
       if(lastPage.page < lastPage.totalPages){
         return lastPage.page + 1;
       }
