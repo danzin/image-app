@@ -9,7 +9,6 @@ import { createError, ErrorHandler } from '../utils/errors';
 import { SearchRoutes } from '../routes/search.routes';
 import { AdminUserRoutes } from '../routes/admin.routes';
 import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
-import { create } from 'domain';
 @injectable()
 export class Server {
   private app: Application;
