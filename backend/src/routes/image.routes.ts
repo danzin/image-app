@@ -19,7 +19,7 @@ export class ImageRoutes {
 
   private initializeRoutes(): void {
    
-    // Public routes
+    //get all images
     this.router.get('/', this.controller.getImages); 
 
     //returns images uploaded by userId
@@ -31,23 +31,15 @@ export class ImageRoutes {
     //returns all tags
     this.router.get('/tags', this.controller.getTags);
 
-    //returns image by id
-    this.router.get('/:id', this.controller.getImageById);
-
-    // Protected routes group
-    const protectedRouter = express.Router();
-    this.router.use(protectedRouter); //mount the protectedRouter
-    protectedRouter.use(this.auth);
-      
+    
     //logged in user uploads an image
-    this.router.post('/upload',
-        upload.single('image'), 
-        this.controller.uploadImage
-    );
+    this.router.post('/upload', this.auth, upload.single('image'),this.controller.uploadImage);
     
     //logged in deletes an image
-    this.router.delete('/:id', protectedRouter, this.controller.deleteImage);
+    this.router.delete('/:id', this.auth, this.controller.deleteImage);
     
+    //returns image by id
+    this.router.get('/:id', this.controller.getImageById);
   }
   public getRouter(): express.Router {
       return this.router;

@@ -28,7 +28,6 @@ export class WebSocketServer {
     const authMiddleware = AuthFactory.bearerToken().handle();
     
     this.io.engine.use((req: any, res: any, next) => {
-
       authMiddleware(req, res, (error?: any) => {
         if (error) {
           console.error("Auth error:", error);
