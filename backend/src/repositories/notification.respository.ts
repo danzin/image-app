@@ -12,12 +12,19 @@ export class NotificationRepository extends BaseRepository<INotification>{
   
   async create(notificationData: Partial<INotification>, session?: ClientSession): Promise<INotification> {
     const notification = new this.model(notificationData);
-    return await notification.save({ session });
+    await notification.save({ session });
+    await notification.populate('actorId', 'username')
+    return notification;
   }
 
   async getNotifications(userId: string) {
-    return this.model.find({ userId }).sort({ timestamp: -1 }).exec();
+    return this.model
+      .find({ userId, isRead: false }) //fetch unread notifications
+      .populate("actorId", "username") //populate the actor id field with username
+      .sort({ timestamp: -1 }) 
+      .exec();
   }
+  
 
   async markAsRead(notificationId: string) {
     return this.model.findByIdAndUpdate(

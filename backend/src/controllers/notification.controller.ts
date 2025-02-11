@@ -6,25 +6,34 @@ import { inject, injectable } from 'tsyringe';
 @injectable()
 export class NotificationController {
 
-  constructor(@inject('NotificationService') private readonly notificationService: NotificationService) 
-  {}
+  constructor(
+    @inject('NotificationService') private readonly notificationService: NotificationService
+  ) {}
 
-  async getNotifications(req: Request, res: Response, next: NextFunction) {
+ 
+  getNotifications = async(req: Request, res: Response, next: NextFunction) => {
     try {
-      const notifications = await this.notificationService.getNotifications(req.decodedUser.id);
+      const {decodedUser} = req;
+      const notifications = await this.notificationService.getNotifications(decodedUser.id);
+
       res.status(200).json(notifications);
     } catch (error) {
+      console.error(error)
       next(error);
     }
   }
 
-  //TODO
-  // async markAsRead(req: Request, res: Response, next: NextFunction) {
-  //   try {
-  //     const notification = await this.notificationService.markAsRead(req.params.id);
-  //     res.status(200).json(notification);
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // }
+
+  markAsRead = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { notificationId } = req.params;
+      const { decodedUser } = req;
+
+      const notification = await this.notificationService.markAsRead(notificationId, decodedUser.id);
+      res.status(200).json(notification);
+    } catch (error) {
+      console.error(error)
+      next(error);
+    }
+  }
 }
