@@ -6,9 +6,6 @@ import Profile from './screens/Profile';
 import Layout from './components/Layout';
 import AuthProvider from './context/AuthContext';
 import { ThemeProvider } from '@emotion/react';
-
-import { AdminRoute } from './components/AdminRoute';
-// import { AdminDashboard } from './screens/Admin';  // Assuming you have an Admin component
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { GalleryProvider } from './context/GalleryContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -36,9 +33,7 @@ function App() {
                   <Route path="profile" element={<ProtectedRoute element={<Profile/>}/>} />
                   <Route path="profile/:id" element={<ProtectedRoute element={<Profile/>}/>} />
                   <Route path="/results" element={<SearchResults />} />
-                  {/* <Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} /> */}
-                  {/* <Route path="upload" element={<UploadImage />} />
-                  <Route path="dashboard" element={<Dashboard />} /> */}
+              
                 </Route>
               </Routes>
             <ReactQueryDevtools initialIsOpen={false} />

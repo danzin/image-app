@@ -103,7 +103,7 @@ export class NotificationService {
         throw createError('NotFoundError', 'Notification not found');
       }
 
-      //emit the real-time event via websocket
+      // Emit the real-time event via websocket
       this.readNotification(io, userId, updatedNotification)
 
       return updatedNotification;
