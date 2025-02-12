@@ -1,3 +1,4 @@
+import { ErrorHandlerResponse } from '../types/customCore/others.types';
 import express from 'express';
 
 //improved err factory

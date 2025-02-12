@@ -3,6 +3,7 @@ import { IUser, PaginationOptions, PaginationResult } from '../types';
 import { createError } from '../utils/errors';
 import { injectable, inject } from 'tsyringe';
 import { BaseRepository } from './base.repository';
+import { Query, UpdateData } from '../types/customCore/others.types';
 
 /**
  * UserRepository provides database access for user-related operations.

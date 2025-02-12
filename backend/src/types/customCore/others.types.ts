@@ -1,22 +1,23 @@
-type Query = {
+
+export type Query = {
   $text?: { $search: string };
   [key: string]: any;
 };
 
-type Options = {
+export type Options = {
   search?: string;
   page?: number;
   limit?: number;
 };
 
-type UpdateData = {
+export type UpdateData = {
   username?: string;
   email?: string;
   password?: string;
-
+  images?: string[]
 };
 
-type ErrorHandlerResponse = { 
+export type ErrorHandlerResponse = { 
   type: string;
   message: string;
   code: number;

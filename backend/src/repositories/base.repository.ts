@@ -1,6 +1,7 @@
 import mongoose, { ClientSession, FilterQuery, ModifyResult, UpdateQuery } from "mongoose";
 import { IRepository } from "../types";
 import { createError } from "../utils/errors";
+import { UpdateData } from "../types/customCore/others.types";
 
 /**
  * BaseRepository provides generic CRUD operations for MongoDB models.
@@ -15,7 +16,7 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The created document.
    */
-  async create(item: Partial<T>, session?: ClientSession): Promise<T> {
+  async create(item: Partial<T> | UpdateData, session?: ClientSession): Promise<T> {
     try {
       const doc = new this.model(item);
       if (session) doc.$session(session); 
