@@ -8,6 +8,7 @@ import { BaseRepository } from './base.repository';
  * UserRepository provides database access for user-related operations.
  * It extends BaseRepository and includes custom methods for user management.
  */
+
 @injectable()
 export class UserRepository extends BaseRepository<IUser>{
   constructor(
@@ -51,7 +52,7 @@ export class UserRepository extends BaseRepository<IUser>{
    */
   async update(
     id: string,
-    updateData: any,  
+    updateData: UpdateData,  
     session?: ClientSession
   ): Promise<IUser | null> {
     try {
@@ -82,7 +83,7 @@ export class UserRepository extends BaseRepository<IUser>{
   }): Promise<IUser[] | null> {
     try {
       
-      const query: any = {};
+      const query: Query = {};
 
     if (options.search) {
       query.$text = { $search: options.search };

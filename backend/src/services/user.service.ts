@@ -1,4 +1,4 @@
-import { Model, ClientSession } from 'mongoose';
+import { Model } from 'mongoose';
 import { UserRepository } from '../repositories/user.repository';
 import { IUser, PaginationOptions, PaginationResult } from '../types';
 import  {CloudinaryService}  from './cloudinary.service';

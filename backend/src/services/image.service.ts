@@ -3,8 +3,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { CloudinaryService } from './cloudinary.service';
 import { createError } from '../utils/errors';
 import { IImage, ITag, PaginationResult } from '../types';
-import mongoose, { Model, ObjectId } from 'mongoose';
-import { errorLogger } from '../utils/winston';
+// import { errorLogger } from '../utils/winston';
 import { TagRepository } from '../repositories/tag.repository';
 import { UnitOfWork } from '../database/UnitOfWork';
 import { inject, injectable } from 'tsyringe';
@@ -21,7 +20,7 @@ export class ImageService {
 
 
 
-  async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+  async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<object> {
     let cloudImagePublicId: string | null = null;
   
     try {

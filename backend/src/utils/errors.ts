@@ -1,10 +1,10 @@
 import express from 'express';
 
 //improved err factory
-class AppError extends Error {
+export class AppError extends Error {
   public statusCode: number;
-  public context: any
-  constructor(name: string, message: string, statusCode: number, context?: any) {
+  public context: Record<string, any> | undefined;
+  constructor(name: string, message: string, statusCode: number, context?: Record<string, any>) {
     super(message);
     this.name = name;
     this.statusCode = statusCode;
@@ -93,7 +93,7 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   DatabaseError
 };
 
-export function createError(type: string, message: string, context?: any): AppError {
+export function createError(type: string, message: string, context?: Record<string, any>): AppError {
   const ErrorClass = errorMap[type] || UnknownError;
   const error = new ErrorClass(message);
   if (context) {
@@ -107,9 +107,8 @@ export class ErrorHandler {
     err: AppError,
     req: express.Request,
     res: express.Response,
-    next: express.NextFunction
   ): void {
-    const response: any = {
+    const response: ErrorHandlerResponse = {
       type: err.name,
       message: err.message,
       code: err.statusCode || 500,

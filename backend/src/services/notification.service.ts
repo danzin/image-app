@@ -4,7 +4,6 @@ import { INotification } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
-import { Client } from "socket.io/dist/client";
 import { WebSocketServer } from "../server/socketServer";
 
 @injectable()
@@ -79,7 +78,7 @@ export class NotificationService {
 
       return notification;
     } catch (error) {
-      throw createError('InternalServerError', 'Failed to create notification');
+      throw createError('InternalServerError', error.message);
     }
   }
 
@@ -87,7 +86,7 @@ export class NotificationService {
     try {
       return await this.notificationRepository.getNotifications(userId);
     } catch (error) {
-      throw createError('InternalServerError', 'Failed to fetch notifications');
+      throw createError('InternalServerError', error.message);
     }
   }
 

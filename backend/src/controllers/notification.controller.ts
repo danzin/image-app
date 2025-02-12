@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
 import { NotificationService } from '../services/notification.service';
-import { createError } from '../utils/errors';
 import { inject, injectable } from 'tsyringe';
 
 @injectable()

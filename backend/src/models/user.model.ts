@@ -1,4 +1,4 @@
-import mongoose, {Schema, model, Document, CallbackError} from 'mongoose';
+import mongoose, {Schema, model, CallbackError} from 'mongoose';
 import validator from 'validator';
 import bcrypt from 'bcrypt';
 import { IUser } from '../types';

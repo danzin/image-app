@@ -5,6 +5,13 @@ import { injectable, inject } from 'tsyringe';
 import { FollowService } from '../services/follow.service';
 import { IUser } from '../types';
 import { cookieOptions } from '../config/cookieConfig';
+import { JwtPayload } from 'jsonwebtoken';
+type Options = {
+  filter?: { [key: string]: string };
+  limit?: number;
+  offset?: number;
+  sort?: { [key: string]: number };
+};
 
 /**  
  * When using Dependency Injection in Express, there's a common
@@ -63,7 +70,7 @@ export class UserController {
     try {
       const { decodedUser } = req;
       console.log(`decodedUser: ${decodedUser.id}`)
-      const { user, token } = await this.userService.getMe(decodedUser as any);
+      const { user, token } = await this.userService.getMe(decodedUser as Partial<IUser>);
       res.cookie('token', token, cookieOptions);
       res.status(200).json(user);
     } catch (error) {
@@ -114,18 +121,19 @@ export class UserController {
 
       await this.userService.deleteUser(decodedUser.id);
       res.status(204).send();
-    } catch (error) {
+    } catch (error: any) {
       next(error);
     }
   }
 
   //User getters
+ 
   getUsers = async(req: Request, res: Response, next: NextFunction) => {
     try {
-      const options = { ...req.query } as any;
+      const options = { ...req.query } as Options;
       const result = await this.userService.getUsers(options);
       res.status(200).json(result);
-    } catch (error) {
+    } catch (error: any) {
       next(error);
     }
   }

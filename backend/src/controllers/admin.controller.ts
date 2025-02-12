@@ -11,10 +11,10 @@ export class AdminUserController {
     @inject('ImageService') private readonly imageService: ImageService,
 
   ) {}
-
+  type 
   getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const options = { ...req.query } as any;
+      const options = { ...req.query } as typeof options;
       const result = await this.userService.getAllUsersAdmin(options);
       res.status(200).json(result);
     } catch (error) {
