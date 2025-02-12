@@ -23,23 +23,20 @@ export const logBehaviour = (req: Request, res: Response, next: NextFunction) =>
 };
 
 export const detailedRequestLogging = (req: Request, res: Response, next: NextFunction) => {
-  // Prepare the log object with all interesting attributes
   const logObject = {
     method: req.method,
     url: req.url,
     params: req.params,
     query: req.query,
-    body: req.body, // Be careful with sensitive data here
+    body: req.body, 
     headers: req.headers,
     decodedUser: req?.decodedUser || {}, 
     ip: req.ip,
     timestamp: new Date().toISOString()
   };
 
-  // Log the request details
   detailedRequestLogger.info('Detailed Request Log', logObject);
 
-  // We can also log when the response is sent if needed
   res.on('finish', () => {
     detailedRequestLogger.info('Request completed', {
       method: req.method,

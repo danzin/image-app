@@ -120,16 +120,6 @@ export class UserController {
   }
 
   //User getters
-  getUserById = async(req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req
-      const user = await this.userService.getUserById(req.params.id, decodedUser as IUser);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
-    }
-  }
-
   getUsers = async(req: Request, res: Response, next: NextFunction) => {
     try {
       const options = { ...req.query } as any;
@@ -140,6 +130,15 @@ export class UserController {
     }
   }
 
+  getUserById = async(req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { decodedUser } = req
+      const user = await this.userService.getUserById(req.params.userId, decodedUser as IUser);
+      res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  }
 
   // User actions
   likeAction = async(req: Request, res: Response, next: NextFunction) => {

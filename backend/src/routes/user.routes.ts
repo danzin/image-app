@@ -6,23 +6,20 @@ import upload from '../config/multer';
 import { UserSchemas, UserValidationSchemas } from '../utils/schemals/user.schemas';
 import { inject, injectable } from 'tsyringe';
 
-
-
 @injectable()
 export class UserRoutes {
   private router: express.Router;
   private auth = AuthFactory.bearerToken().handle();
 
-
   constructor(
-    @inject('UserController') private readonly userController: UserController
+      @inject('UserController') private readonly userController: UserController
   ) {
-    this.router = express.Router();
-    this.initializeRoutes();
+      this.router = express.Router();
+      this.initializeRoutes();
   }
 
   private initializeRoutes(): void {
-    // Public routes
+    
     this.router.post(
       '/register',
       new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
@@ -34,74 +31,35 @@ export class UserRoutes {
       new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
       this.userController.login
     );
+
+    this.router.post('/logout', this.userController.logout);
     
-    this.router.post(
-      '/logout',
-      this.userController.logout
-    );
-     // Protected routes group
-     const protectedRouter = express.Router();
-     this.router.use(protectedRouter); 
-     protectedRouter.use(this.auth);
- 
-     protectedRouter.get(
-       '/me',
-       this.userController.getMe
-     );
+    this.router.get('/users', this.userController.getUsers);
 
-    this.router.get('/', this.userController.getUsers);
-    this.router.get('/:id', this.userController.getUserById);
-
-   
-
-    protectedRouter.put(
-      '/edit',
-      this.userController.updateProfile
-    );
-
-    //logged in user follows another user
-    protectedRouter.post(
-      '/follow/:followeeId',
-      this.userController.followAction
-    )
-
-    protectedRouter.get(
-      '/follows/:followeeId', 
-      this.userController.followExists
-    )
-
-    //logged in user likes an image
-    protectedRouter.post(
-      '/like/:imageId',
-      this.userController.likeAction
-    )
-
-    //logged in update user avatar
-    protectedRouter.put(
+    this.router.get('/me', this.auth, this.userController.getMe);
+    this.router.put('/edit', this.auth, this.userController.updateProfile);
+    this.router.post('/follow/:followeeId', this.auth, this.userController.followAction);
+    this.router.get('/follows/:followeeId', this.auth, this.userController.followExists);
+    this.router.post('/like/:imageId', this.auth, this.userController.likeAction);
+    this.router.put(
       '/avatar',
+      this.auth,
       upload.single('avatar'),
       this.userController.updateAvatar
     );
-
-    //logged in user update cover
-    protectedRouter.put(
+    this.router.put(
       '/cover',
+      this.auth,
       upload.single('cover'),
       this.userController.updateCover
     );
 
-  
-    //logged in delete user
-    //might need the userID for later use but for now it's reduntant. 
-    protectedRouter.delete(
-      '/:id',
-      this.userController.deleteUser
-    );
+    this.router.delete('/:id', this.auth, this.userController.deleteUser);
 
+    this.router.get('/:userId', this.userController.getUserById);
   }
 
   public getRouter(): express.Router {
-    console.log('userRoute initialized')
-    return this.router;
+      return this.router;
   }
 }
