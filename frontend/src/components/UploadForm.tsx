@@ -30,7 +30,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
     if (e.key === 'Enter' && tagInput.trim() && tags.length < 5) {
       e.preventDefault();
       if (!tags.includes(tagInput.trim())) {
-        // Useing functional state update to ensure the latest state is used
+        // Using functional state update to ensure the latest state is used
         // because the tags variable represents the tags from the previous state update, not the
         // most up-to-date state, because react batches state updates and re-renders components
         // Without the functional updater, the tags state represents the tags from the previous update

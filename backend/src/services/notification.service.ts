@@ -12,8 +12,8 @@ export class NotificationService {
   private io: SocketIOServer;
 
   constructor(
-    @inject("WebSocketServer") private webSocketServer: WebSocketServer,
-    @inject("NotificationRepository") private notificationRepository: NotificationRepository
+    @inject('WebSocketServer') private webSocketServer: WebSocketServer,
+    @inject('NotificationRepository') private notificationRepository: NotificationRepository
   ) { }
   
   private getIO(): SocketIOServer {
@@ -22,11 +22,22 @@ export class NotificationService {
 
   private sendNotification(io: SocketIOServer, userId: mongoose.Types.ObjectId, notification: INotification) {
     try {
-      console.log(`Sending notification to user ${userId}:`, notification);
-      io.to(userId.toString()).emit("new_notification", notification);
+      console.log(`Sending new_notification to user ${userId}:`, notification);
+      io.to(userId.toString()).emit('new_notification', notification);
       console.log('Notification sent successfully');
     } catch (error) {
-      console.error("Error sending notification:", error);
+      console.error('Error sending notification:', error);
+      throw createError(error.name, error.message);
+    }
+  }
+
+  private readNotification(io: SocketIOServer, userId: string, notification: INotification) {
+    try {
+      console.log(`Sending notification_read to user ${userId}:`, notification);
+      io.to(userId.toString()).emit('notification_read', notification);
+      console.log('Notification sent successfully');
+    } catch (error) {
+      console.error('Error sending notification:', error);
       throw createError(error.name, error.message);
     }
   }
@@ -40,7 +51,7 @@ export class NotificationService {
   }): Promise<INotification> {
     // Validate required fields
     if (!data.receiverId || !data.actionType || !data.actorId) {
-      throw createError("ValidationError", "Missing required notification fields");
+      throw createError('ValidationError', 'Missing required notification fields');
     }
 
     try {
@@ -68,7 +79,7 @@ export class NotificationService {
 
       return notification;
     } catch (error) {
-      throw createError("InternalServerError", "Failed to create notification");
+      throw createError('InternalServerError', 'Failed to create notification');
     }
   }
 
@@ -76,25 +87,28 @@ export class NotificationService {
     try {
       return await this.notificationRepository.getNotifications(userId);
     } catch (error) {
-      throw createError("InternalServerError", "Failed to fetch notifications");
+      throw createError('InternalServerError', 'Failed to fetch notifications');
     }
   }
 
   async markAsRead(notificationId: string, userId: string) {
     try {
+     
+      const io = this.getIO();
+
       // Update the notification as read
       const updatedNotification = await this.notificationRepository.markAsRead(notificationId);
 
       if (!updatedNotification) {
-        throw createError("NotFoundError", "Notification not found");
+        throw createError('NotFoundError', 'Notification not found');
       }
 
-      
-      this.io.to(userId.toString()).emit("notification_read", updatedNotification);
+      // Emit the real-time event via websocket
+      this.readNotification(io, userId, updatedNotification)
 
       return updatedNotification;
     } catch (error) {
-      throw createError("InternalServerError", "Failed to mark notification as read");
+      throw createError('InternalServerError', error.message);
     }
   }
 

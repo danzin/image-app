@@ -12,5 +12,5 @@ export const searchQuery = async (query: string): Promise<{
 
   const { data } = await axiosClient.get(`/search?q=${query}`)
   console.log(`Search Data: ${data}`)
-  return data
+  return data;
 }

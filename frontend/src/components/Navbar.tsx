@@ -11,19 +11,15 @@ import {
   IconButton,
   Typography,
   InputBase,
-  Badge,
-  Menu,
-  MenuItem,
-  Avatar,
   Button,
-  Modal,
   Drawer
 } from '@mui/material';
-import { Menu as MenuIcon, Search as SearchIcon, Notifications as NotificationsIcon } from '@mui/icons-material';
-import { ChevronDown, Upload as UploadIcon } from 'lucide-react';
-import UploadForm from './UploadForm';
+import { Menu as MenuIcon, Search as SearchIcon } from '@mui/icons-material';
 import {Tags} from '../components/TagsContainer';
+import NotificationBell from './NotificationBell';
+import ProfileMenu from './ProfileMenu';
 
+console.log
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
   borderRadius: theme.shape.borderRadius,
@@ -63,32 +59,17 @@ const StyledInputBase = styled(InputBase)(({ theme }) => ({
   },
 }));
 
-const modalStyle = {
-  position: 'absolute',
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: 400,
-  bgcolor: 'background.paper',
-  boxShadow: 24,
-  p: 4,
-  borderRadius: 2,
-};
-
 const Navbar = () => {
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
-  const { user, isLoggedIn, logout } = useAuth();
+  const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const { isTagDrawerOpen, setIsTagDrawerOpen, isProfileView } = useGallery();
+  const { isProfileView } = useGallery();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
   
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
+ 
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -96,19 +77,6 @@ const Navbar = () => {
       navigate(`/results?q=${encodeURIComponent(searchTerm)}`);
     }
   };
-  
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-    handleMenuClose();
-  };
-
-  const openModal = () => setIsModalOpen(true);
-  const closeModal = () => setIsModalOpen(false);
 
   const toggleDrawer = (open: boolean) => () => {
     setIsDrawerOpen(open);
@@ -130,11 +98,14 @@ const Navbar = () => {
               <MenuIcon />
             </IconButton>
           )}
+
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
               Peek
             </Link>
           </Typography>
+
+          {/** Search */}
           <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center' }}>
             <Search>
               <SearchIconWrapper>
@@ -148,39 +119,12 @@ const Navbar = () => {
               />
             </Search>
           </form>
+
+
           {isLoggedIn ? (
             <>
-              <IconButton
-                size="large"
-                edge="end"
-                aria-label="account of current user"
-                aria-controls="user-menu"
-                aria-haspopup="true"
-                onClick={handleMenuOpen}
-                color="inherit"
-              >
-                <Avatar src={user?.avatar} sx={{ width: 32, height: 32 }} />
-                <ChevronDown size={16} style={{ marginLeft: 8 }} />
-              </IconButton>
-              <Menu
-                id="user-menu"
-                anchorEl={anchorEl}
-                open={Boolean(anchorEl)}
-                onClose={handleMenuClose}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-              >
-                <MenuItem onClick={handleMenuClose}>
-                  <Link to={`/profile/${user?.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    Profile
-                  </Link>
-                </MenuItem>
-                <MenuItem onClick={openModal}>
-                  <UploadIcon size={16} style={{ marginRight: 8 }} />
-                  Upload
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>Logout</MenuItem>
-              </Menu>
+                <NotificationBell />
+                <ProfileMenu />
             </>
           ) : (
             <>
@@ -227,20 +171,6 @@ const Navbar = () => {
           </Button>
         </Box>
       </Drawer>
-
-      <Modal
-        open={isModalOpen}
-        onClose={closeModal}
-        aria-labelledby="upload-modal-title"
-        aria-describedby="upload-modal-description"
-      >
-        <Box sx={modalStyle}>
-          <Typography id="upload-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-            Upload Image
-          </Typography>
-          <UploadForm onClose={closeModal} />
-        </Box>
-      </Modal>
     </>
   );
 };
