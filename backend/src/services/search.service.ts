@@ -20,7 +20,7 @@ export class SearchService {
    * Still need to implement this functionality to the frontend. Need to build a search result component to serve results into,
    * as well as a usercard component. 
    */
- async searchAll(query: string): Promise<{ users: IUser[] | string; images: IImage[] | string; tags: ITag[] | string }> {
+ async searchAll(query: string[]): Promise<{ users: IUser[] | null; images: IImage[] | null; tags: ITag[] | null }> {
   try {
     //Search for users by query
     const users = await this.userRepository.getAll({search: query});
@@ -35,9 +35,9 @@ export class SearchService {
     const images = await this.imageRepository.findByTags(tagIds as string[]);
   
     return {
-      users: users || `No users found for ${query}`,
-      images: images?.data.length ? images?.data : `No images found for ${query}`,
-      tags: tags.length ? tags : `No tags found for ${query}`,
+      users: users || null,
+      images: images?.data.length ? images?.data : null,
+      tags: tags.length ? tags : null,
     };
   } catch (error) {
     throw createError('InternalServerError', error.message, {

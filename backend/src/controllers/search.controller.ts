@@ -18,7 +18,9 @@ export class SearchController {
         throw createError('ValidationError', 'Query parameter "q" is required');
       }
 
-      const result = await this.searchService.searchAll(q as string);
+      const searchTerms = (q as string).split(',').map((term) => term.trim());
+     
+      const result = await this.searchService.searchAll(searchTerms);
 
       res.status(200).json({ success: true, data: result });
     } catch (error) {

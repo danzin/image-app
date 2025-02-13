@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress, Skeleton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -9,7 +9,7 @@ import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
 
-const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext }) => {
+const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const { user } = useAuth();
   const { id: profileId } = useParams<{ id: string }>();
   const { isProfileView } = useGallery();
@@ -74,12 +74,8 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
     });
   };
 
-  if (!images) {
-    return <div>Loading gallery...</div>;
-  }
-  if (images.length === 0) {
-    return <div>No images available</div>;
-  }
+
+ 
 
   return (
     <Box sx={{
@@ -92,12 +88,26 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
       margin: 'auto',
       padding: 2,
     }}>
-        {images.map((img) => (
-            <ImageCard image={img} onClick={openModal} />
+      {/* Skeleton when loading images */}
+      {(isLoadingAll || isLoadingFiltered) &&
+        Array.from({ length: 6 }).map((_, index) => (
+          <Skeleton
+            key={index}
+            variant="rectangular"
+            width={'100%'}
+            height={'40vh'}
+            sx={{ borderRadius: '8px' }}
+          />
         ))}
-       
-       <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
-        {isFetchingNext && <CircularProgress />}
+       {!isLoadingAll &&
+        !isLoadingFiltered &&
+        images.map((img) => <ImageCard key={img.id} image={img} onClick={() => openModal(img)} />)}
+
+      {/* Infinite Scroll Loader */}
+      <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
+        {isFetchingNext && (
+          <Skeleton variant="rectangular" width={'100%'} height={'40vh'} sx={{ borderRadius: '8px' }} />
+        )}
       </div>
       
 

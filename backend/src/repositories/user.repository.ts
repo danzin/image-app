@@ -76,7 +76,7 @@ export class UserRepository extends BaseRepository<IUser>{
   
 
   async getAll(options: {
-    search?: string;
+    search?: string[];
     page?: number;
     limit?: number;
   }): Promise<IUser[] | null> {
@@ -84,13 +84,15 @@ export class UserRepository extends BaseRepository<IUser>{
       
       const query: any = {};
 
-    if (options.search) {
-      query.$text = { $search: options.search };
-    }
+    
+      if (options.search && options.search.length > 0) {
+        query.$or = options.search.map((term: string) => {
+          return { username: { $regex: term, $options: 'i' } }; 
+        });
+      }
 
     const page = options?.page || 1;
     const limit = options?.limit || 20;
-    
     const skip = (page - 1) * limit;
 
     const result = await this.model.find(query)
