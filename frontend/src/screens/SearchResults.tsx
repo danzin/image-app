@@ -2,18 +2,45 @@ import { useState, useEffect } from 'react';
 import { IImage, ITag, IUser } from '../types';
 import { useSearch } from '../hooks/search/useSearch';
 import ImageCard from '../components/ImageCard';
-import { Box, CircularProgress } from '@mui/material';
+import { Box, Button, CircularProgress } from '@mui/material';
+import { useImagesByTag } from '../hooks/images/useImages';
+import Gallery from '../components/Gallery';
+import { Link, useLocation } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 const SearchResults = () => {
+  const location = useLocation();
   const query = new URLSearchParams(location.search).get('q') || '';
+  const queryClient = useQueryClient();
+  const searchTerms = query.split(',').map((term) => term.trim()).filter((term) => term.length > 0);
   const [activeTab, setActiveTab] = useState<'users' | 'images' | 'tags'>('users');
   const [results, setResults] = useState<{
-    users: IUser[] | string;
-    images: IImage[] | string;
-    tags: ITag[] | string;
+    users: IUser[] | null;
+    images: IImage[] | null;
+    tags: ITag[] | null;
   }>({ users: [], images: [], tags: [] });
 
   const { data, isFetching } = useSearch(query);
+
+  useEffect(() => {
+    if (query) {
+      queryClient.invalidateQueries({ 
+        queryKey: ['query', query],
+        exact: false 
+      });
+    }
+  }, [query, queryClient,location.search]);
+
+  const {
+    data: imagePages,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useImagesByTag(searchTerms, {
+    
+    // Only run if searchTerms has items AND search results exist
+    enabled: searchTerms.length > 0 && !!data?.data.tags
+  });
 
   useEffect(() => {
     if (data) {
@@ -25,58 +52,63 @@ const SearchResults = () => {
     }
   }, [data]);
 
-  const renderResults = () => {
-    const currentResults = results[activeTab];
-
-    if (typeof currentResults === 'string') {
-      return <div className="message">{currentResults}</div>;
-    }
-
-    switch (activeTab) {
-      case 'users':
-        return (currentResults as IUser[]).map((user) => (
-          <div key={user.id} className="user-card">
-            <p>{user.username}</p>
-          </div>
-        ));
-      case 'images':
-        return (currentResults as IImage[]).map((image) => (
-          <Box>
-            <ImageCard image={image} />
-          </Box>
-          
-        ));
-      case 'tags':
-        return (currentResults as ITag[]).map((tag) => (
-          <div key={tag.id} className="tag-card">
-            <p>#{tag.tag} ({tag.count} posts)</p>
-          </div>
-        ));
-      default:
-        return null;
-    }
-  };
 
   return (
-    <div className="search-container">
-      <div className="tabs">
+    <Box sx={{ maxWidth: '800px', margin: 'auto', p: 3 }}>
+      {/* Tabs */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
         {(['users', 'images', 'tags'] as const).map((tab) => (
-          <button
+          <Button
             key={tab}
-            className={`tab ${activeTab === tab ? 'active' : ''}`}
+            variant={activeTab === tab ? 'contained' : 'outlined'}
             onClick={() => setActiveTab(tab)}
           >
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
-          </button>
+          </Button>
         ))}
-      </div>
+      </Box>
+        {isFetching 
+          ? (<CircularProgress/>)
+          : (
+            <>
+            {/* Users tab */}
+              {activeTab === 'users' &&
+                (data?.data.users === null ? (
+                  <p>No users found {query}.</p>
+                ) : (
+                  data?.data.users?.map((user) => (
+                    <Box key={user.id} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
+                      <Link to={`/profile/${user.id}`} className='text-cyan-200'>{user.username}</Link>
+                    </Box>
+                  ))
+                ))
+              }
 
-      {isFetching ? (
-        <div className="loader"><CircularProgress></CircularProgress></div>
-      ) : (
-        <div className="results-container">{renderResults()}</div>
-      )}
-    </div>
+            {/* Images Tab */}
+              {activeTab === 'images' &&
+                (data?.data.images === null ? (
+                  <p>No images found for {query}.</p>
+                ) : (
+                  <Gallery images={data?.data.images || []} fetchNextPage={fetchNextPage} isFetchingNext={isFetchingNextPage} hasNextPage={hasNextPage} />
+                ))
+              }
+
+              {/* Tags Tab */}
+                {activeTab === 'tags' &&
+                  (data?.data.tags === null ? (
+                    <p>No tags found for {query}.</p>
+                  ) : (
+                    data?.data.tags?.map((tag) => (
+                      <Box key={tag._id} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
+                        <p>#{tag.tag} ({tag.count} posts)</p>
+                      </Box>
+                    ))
+                  ))
+                }
+            </>
+          )
+        }
+    </Box>
   );
 };
 

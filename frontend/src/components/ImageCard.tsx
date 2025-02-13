@@ -1,37 +1,40 @@
 import React from 'react';
-import Card from '@mui/material/Card';
-import CardContent from '@mui/material/CardContent';
-import CardMedia from '@mui/material/CardMedia';
-import Typography from '@mui/material/Typography';
+import { Card, CardMedia, Typography, Box } from '@mui/material';
 import { ImageCardProps } from '../types';
 
-const ImageCard: React.FC<ImageCardProps>  = ({ image, onClick }) => {
-  const formatDate = (dateString: Date) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    }); 
-  };
+const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
   return (
-    <Card onClick={() => onClick(image)} className='group cursor-pointer relative rounded-lg'>
+    <Card
+      onClick={() => onClick(image)}
+      sx={{
+        width: '100%',
+        borderRadius: '8px',
+        overflow: 'hidden',
+        boxShadow: 3,
+        transition: 'transform 0.2s ease-in-out',
+        cursor: 'pointer',
+        '&:hover': { transform: 'scale(1.02)' },
+      }}
+    >
       <CardMedia
         component="img"
         image={image.url}
         alt={`Gallery item ${image.id}`}
-        className='w-full md:min-h-[50vh] h-52 object-cover transition-transform transform group-hover:scale-105' 
+        sx={{
+          width: '100%',
+          objectFit: 'cover',
+          maxHeight: '600px',
+        }}
       />
-      <CardContent className='flex flex-row'>
-        <Typography className='absolute bottom-2 right-2 bg-transparent bg-opacity-50 text-white p-1 rounded'>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2 }}>
+        <Typography variant="body2" color="text.secondary">
+          {new Date(image.createdAt).toLocaleDateString()}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
           {image.likes} ❤️
         </Typography>
-        <Typography variant="body2" color="text.primary">
-          {formatDate(image.createdAt)}
-        </Typography>
-      </CardContent>
+      </Box>
     </Card>
-
   );
 };
 

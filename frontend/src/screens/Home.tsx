@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useImages, useImagesByTag } from '../hooks/images/useImages';
 import { Tags } from '../components/TagsContainer';
 import Gallery from '../components/Gallery';
 import {
-  Container,
   Box,
   Grid,
   Button,
   Typography,
   useTheme,
   useMediaQuery,
-  CircularProgress,
 } from '@mui/material';
 import { useGallery } from '../context/GalleryContext';
 
@@ -19,7 +17,7 @@ const Home: React.FC = () => {
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { selectedTags, clearTags } = useGallery();
   const imagesQuery = useImages();
-  const imagesByTagQuery = useImagesByTag(selectedTags, 10);
+  const imagesByTagQuery = useImagesByTag(selectedTags);
 
 
   const {
@@ -83,9 +81,7 @@ const Home: React.FC = () => {
             </Button>
           )}
       
-              {isLoadingAll ? (
-            <Typography><CircularProgress /></Typography>
-          ) : error ? (
+              { error ? (
             <Typography>Error fetching images</Typography>
           ) : (
             <Gallery
@@ -93,6 +89,8 @@ const Home: React.FC = () => {
             fetchNextPage={fetchNextPage}
             hasNextPage={hasNextPage}
             isFetchingNext={isFetchingNext}
+            isLoadingFiltered={isLoadingFiltered}
+            isLoadingAll={isLoadingAll}
           />
           
 
