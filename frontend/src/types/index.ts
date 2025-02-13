@@ -69,6 +69,19 @@ export interface GalleryProps {
   isFetchingNext: boolean;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  actionType: string;
+  actorId: {
+    id: string;
+    username: string;
+  };
+  targetId?: string;
+  timestamp: string;
+  isRead: boolean;
+}
+
 
 export interface UserUserResult {
   useCurrentUser: () => ReturnType<any>;
