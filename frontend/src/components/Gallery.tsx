@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Box, Grid, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress } from '@mui/material';
+import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -50,7 +50,6 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
   const handleDeleteImage = () => {
     if (selectedImage) {
-      //TODO:
       deleteMutation.mutate(selectedImage.id);
       closeModal();
     }
@@ -83,17 +82,22 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   }
 
   return (
-    <Box sx={{ height: '100vh', overflowY: 'auto', p: 3 }}>
-      <Grid container spacing={2}>
+    <Box sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 2,
+      width: '100%',
+      maxWidth: '700px', 
+      margin: 'auto',
+      padding: 2,
+    }}>
         {images.map((img) => (
-          <Grid item xs={12} sm={12} md={8} lg={6} key={img.id}>
             <ImageCard image={img} onClick={openModal} />
-          </Grid>
         ))}
        
-      </Grid>
-      <div ref={loadMoreRef} className="h-10 flex justify-center items-center" aria-label='REF'>
-        {isFetchingNext && <p><CircularProgress /></p>}
+       <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
+        {isFetchingNext && <CircularProgress />}
       </div>
       
 
