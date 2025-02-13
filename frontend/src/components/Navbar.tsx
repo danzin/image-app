@@ -68,15 +68,24 @@ const Navbar = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  
  
 
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/results?q=${encodeURIComponent(searchTerm)}`);
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // Trim whitespaces and remove empty terms
+    const formattedQuery = searchTerm
+      .split(' ')
+      .map((q) => q.trim()) 
+      .filter((q) => q.length > 0) //removes empty terms
+      .join(',');
+    console.log(`formattedQuery: ${formattedQuery}`)
+    if (formattedQuery) {
+        navigate(`/results?q=${formattedQuery}`);
     }
+    setSearchTerm('')
   };
+  
 
   const toggleDrawer = (open: boolean) => () => {
     setIsDrawerOpen(open);
@@ -114,7 +123,7 @@ const Navbar = () => {
               <StyledInputBase
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search for anything"
+                placeholder="eg: user tag item"
                 inputProps={{ 'aria-label': 'search' }}
               />
             </Search>

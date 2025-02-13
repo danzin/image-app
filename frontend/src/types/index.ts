@@ -66,7 +66,22 @@ export interface GalleryProps {
   images: IImage[];
   fetchNextPage: () => void;
   hasNextPage?: boolean;
-  isFetchingNext: boolean;
+  isFetchingNext?: boolean;
+  isLoadingFiltered?: boolean;
+  isLoadingAll?: boolean;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  actionType: string;
+  actorId: {
+    id: string;
+    username: string;
+  };
+  targetId?: string;
+  timestamp: string;
+  isRead: boolean;
 }
 
 
