@@ -1,6 +1,17 @@
 import axiosClient from './axiosClient';
 import { IImage, ITag } from '../types';
 
+export const fetchPersonalizedFeed = async (pageParam: number): Promise<{ 
+  data: IImage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number
+}> => {
+  const { data } = await axiosClient.get(`/feed?page=${pageParam}`);
+  return data;
+};
+
 export const fetchImages = async (pageParam: number): Promise<{ 
   data: IImage[];
   total: number;
