@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress, Skeleton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
@@ -10,7 +10,9 @@ import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
 
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
-  const { user } = useAuth();
+  const navigate = useNavigate()
+  const { user, isLoggedIn } = useAuth();
+  
   const { id: profileId } = useParams<{ id: string }>();
   const { isProfileView } = useGallery();
   const [selectedImage, setSelectedImage] = useState<IImage | null>(null);
@@ -21,20 +23,37 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const isInOwnProfile = user?.id === profileId && isProfileView;
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries[0].isIntersecting && hasNextPage && !isFetchingNext) {
-        fetchNextPage(); 
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const firstEntry = entries[0];
+        console.log('Intersection observer triggered:', {
+          isIntersecting: firstEntry.isIntersecting,
+          hasNextPage,
+          isFetchingNext
+        });
+        
+        if (firstEntry.isIntersecting && hasNextPage && !isFetchingNext) {
+          console.log('Fetching next page...');
+          fetchNextPage();
+        }
+      },
+      { 
+        root: null,
+        rootMargin: '100px', 
+        threshold: 0.1
       }
-    }, { 
-      root: null,
-      rootMargin: '0px',
-      threshold: 0.1
-     });
+    );
 
-    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    const currentLoadMoreRef = loadMoreRef.current;
+    if (currentLoadMoreRef) {
+      console.log('observing load more element');
+      observer.observe(currentLoadMoreRef);
+    }
     
     return () => {
-      if (loadMoreRef.current) observer.unobserve(loadMoreRef.current);
+      if (currentLoadMoreRef) {
+        observer.unobserve(currentLoadMoreRef);
+      }
     };
   }, [hasNextPage, isFetchingNext, fetchNextPage]);
 
@@ -61,6 +80,9 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
 
   const handleLikeImage = () => {
+
+    // Only logged in users can like/dislike
+    if(!isLoggedIn) navigate('/login')
     if (!selectedImage) return;
     likeImage(selectedImage.id, {
       onSuccess: (updatedData: { likeCount: number; liked: boolean }) => {
@@ -72,6 +94,8 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
         console.error('Error liking image:', error);
       },
     });
+
+
   };
 
 

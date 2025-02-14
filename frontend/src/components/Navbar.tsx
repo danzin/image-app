@@ -19,7 +19,6 @@ import {Tags} from '../components/TagsContainer';
 import NotificationBell from './NotificationBell';
 import ProfileMenu from './ProfileMenu';
 
-console.log
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
   borderRadius: theme.shape.borderRadius,
@@ -158,26 +157,22 @@ const Navbar = () => {
       >
         <Box
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
             width: 250,
+            height: '100%',
             p: 2,
-            backgroundColor: 'background.default',
+            backgroundColor: 'background.secondary',
             color: 'text.secondary',
           }}
           role="presentation"
         >
-          <Typography variant="h6" sx={{ mb: 2 }} color="text.primary">
+          <Typography variant="h6" sx={{ mb: 2 }} color="text.secondary">
             Filter by Tags
           </Typography>
           <Tags />
-          <Button
-            variant="outlined"
-            color="secondary"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={toggleDrawer(false)}
-          >
-            Clear Filters
-          </Button>
         </Box>
       </Drawer>
     </>
