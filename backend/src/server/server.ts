@@ -10,6 +10,7 @@ import { SearchRoutes } from '../routes/search.routes';
 import { AdminUserRoutes } from '../routes/admin.routes';
 import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
 import { NotificationRoutes } from '../routes/notification.routes';
+import { FeedRoutes } from '../routes/feed.routes';
 @injectable()
 export class Server {
   private app: Application;
@@ -19,7 +20,8 @@ export class Server {
     @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
     @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
     @inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
-    @inject(NotificationRoutes) private readonly notificationRoutes: NotificationRoutes
+    @inject(NotificationRoutes) private readonly notificationRoutes: NotificationRoutes,
+    @inject(FeedRoutes) private readonly feedRoutes: FeedRoutes
   ) {
     this.app = express();
     this.initializeMiddlewares();
@@ -49,6 +51,7 @@ export class Server {
     this.app.use('/api/search', this.searchRoutes.getRouter());
     this.app.use('/api/admin', this.adminUserRoutes.getRouter());
     this.app.use('/api/notifications/', this.notificationRoutes.getRouter());
+    this.app.use('/api/feed', this.feedRoutes.getRouter())
     // this.app.use('/api/follows', this.followRouter.getRouters());
    
   }

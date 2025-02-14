@@ -22,6 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { useIsFollowing } from '../hooks/user/useUserAction';
 
 const DashboardLayout:React.FC  = () => {
+  const navigate = useNavigate();
   const { id } = useParams(); 
   const { data: userData, isLoading, error: getUserError } = useGetUser(id as string); //userData -> data of the user profile
   const {
@@ -31,7 +32,7 @@ const DashboardLayout:React.FC  = () => {
     isFetchingNextPage,
   } = useUserImages(userData?.id || '');
 
-  const { user } = useAuth(); 
+  const { user, isLoggedIn } = useAuth(); 
   const theme = useTheme();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -47,12 +48,18 @@ const DashboardLayout:React.FC  = () => {
 
   const { mutate: followUser, isPending: followPending } = useFollowUser();
   const handleFollowUser = (id: string) => {
-    followUser(id as string, {
-  
-      onError: (error) => {
-        console.error('Error following user:', error);
-      }
-    })
+    // Only logged in users can perform follow actions
+    if(isLoggedIn){
+      followUser(id as string, {
+    
+        onError: (error) => {
+          console.error('Error following user:', error);
+        }
+      })
+    }else {
+
+      navigate('/login');
+    }
   }
 
   const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(id as string);
