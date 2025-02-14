@@ -34,6 +34,11 @@ import { UserDTOService } from '../services/dto.service';
 import { AdminUserRoutes } from '../routes/admin.routes';
 import { AdminUserController } from '../controllers/admin.controller';
 import { NotificationRoutes } from '../routes/notification.routes';
+import { UserPreference } from '../models/userPreference.model';
+import { FeedService } from '../services/feed.service';
+import { FeedController } from '../controllers/feed.controller';
+import { FeedRoutes } from '../routes/feed.routes';
+import { UserPreferenceRepository } from '../repositories/userPreference.repository';
 
 
 export function setupContainer(): void {
@@ -46,6 +51,7 @@ export function setupContainer(): void {
   container.register('NotificationModel', { useValue: Notification});
   container.register('LikeModel', { useValue: Like});
   container.register('UserActionModel', { useValue: UserAction});
+  container.register('UserPreferenceModel', {useValue: UserPreference});
 
   // Register Repositories as singletons
   container.register("WebSocketServer", {
@@ -59,7 +65,7 @@ export function setupContainer(): void {
   container.registerSingleton('FollowRepository', FollowRepository);
   container.registerSingleton('NotificationRepository', NotificationRepository);
   container.registerSingleton('LikeRepository', LikeRepository);
-
+  container.registerSingleton('UserPreferenceRepository', UserPreferenceRepository);
   // Register Services as singletons
   container.registerSingleton('SearchService', SearchService);
   container.registerSingleton('CloudinaryService', CloudinaryService);
@@ -68,6 +74,7 @@ export function setupContainer(): void {
   container.registerSingleton('FollowService', FollowService);
   container.registerSingleton('NotificationService', NotificationService);
   container.registerSingleton('UserDTOService', UserDTOService);
+  container.registerSingleton('FeedService', FeedService);
 
   // Register Controllers as singletons
   container.registerSingleton('SearchController', SearchController);
@@ -75,6 +82,7 @@ export function setupContainer(): void {
   container.registerSingleton('ImageController', ImageController);
   container.registerSingleton('NotificationController', NotificationController);
   container.registerSingleton('AdminUserController', AdminUserController);
+  container.registerSingleton('FeedController', FeedController);
   
   // Register Routes as singletons
   container.registerSingleton('UserRoutes', UserRoutes);
@@ -82,6 +90,7 @@ export function setupContainer(): void {
   container.registerSingleton('SearchRoutes', SearchRoutes);
   container.registerSingleton('AdminUserRoutes', AdminUserRoutes);
   container.registerSingleton('NotificationRoutes', NotificationRoutes);
+  container.registerSingleton('FeedRoutes', FeedRoutes);
 
   // Register Server
   container.registerSingleton('WebSocketServer', WebSocketServer); 

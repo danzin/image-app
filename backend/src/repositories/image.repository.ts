@@ -203,4 +203,135 @@ export class ImageRepository extends BaseRepository<IImage> {
         throw createError('DatabaseError', error.message)
       }
     }
+    
+    async getFeedForUser(
+      followingIds: string[],
+      favoriteTags: string[],
+      limit: number = 30,
+      skip: number = 0
+    ): Promise<PaginationResult<IImage>> {
+      try{
+      const followingIdsObj = followingIds.map(id => new mongoose.Types.ObjectId(id));
+      
+      const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
+    
+      //Aggregation pipeline for custom user feeds
+      //When the customized content is over, it defaults back ot recency
+      const [results, total] = await Promise.all([
+        this.model.aggregate([
+          // Stage 1: $lookup for the tags
+          {
+            $lookup: {
+              from: 'tags',
+              localField: 'tags',
+              foreignField: '_id',
+              as: 'tagObjects'
+            }
+          },
+    
+          // Stage 2: Add tag name field to the operation
+          {
+            $addFields: {
+              tagNames: {
+                $map: {
+                  input: '$tagObjects',
+                  as: 'tag',
+                  in: '$$tag.tag'
+                }
+              }
+            }
+          },
+    
+          // Stage 3: Add a field to identify if content matches user preferences
+          {
+            $addFields: {
+              isPersonalized: hasPreferences ? {
+                $or: [
+                  { $in: ['$user', followingIdsObj] },
+                  { $gt: [{ $size: { $setIntersection: ['$tagNames', favoriteTags] } }, 0] }
+                ]
+              } : false
+            }
+          },
+    
+          // Stage 4: Sort by personalization and date
+        
+          {
+            $sort: {
+              isPersonalized: -1,  // Personalized content first
+              createdAt: -1       // Then by date
+            }
+          },
+    
+          // Stage 5: Skip and limit
+
+          { $skip: skip },
+          { $limit: limit },
+    
+          // Stage 6: Lookup user info
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'user',
+              foreignField: '_id',
+              as: 'userInfo'
+            }
+          },
+    
+          // Stage 7: Unwind user info
+          { $unwind: '$userInfo' },
+    
+          // Stage 8: Final projecton
+          {
+            $project: {
+              _id: 0,
+              id: '$_id',
+              url: 1,
+              publicId: 1,
+              createdAt: 1,
+              likes: 1,
+              tags: { // Transoform tags so they're returned the same way they are from findWithPagination
+                $map: {
+                  input: '$tagObjects',
+                  as: 'tagObj',
+                  in: {
+                    tag: '$$tagObj.tag',
+                    id: '$$tagObj._id'
+                  }
+                }
+              },
+              user: {
+                id: '$userInfo._id',
+                username: '$userInfo.username',
+                avatar: '$userInfo.avatar'
+              },
+              isPersonalized: 1  // This is for debugging if needed later
+            }
+          }
+        ]).exec(),
+    
+        // Count total available images (personalized and non-personaliezed)
+        this.model.countDocuments({})
+      ]);
+    
+      // Calculate total pages based on total document count
+      const totalPages = Math.ceil(total / limit);
+      const currentPage = Math.floor(skip / limit) + 1;
+    
+      // Return data in the format expected by the frontend
+      return {
+        data: results,
+        total,
+        page: currentPage,
+        limit,
+        totalPages
+      };
+    
+      } catch (error) {
+        console.error(error)
+        throw createError('DatabaseError', error.message)
+      }
+     
+    }
+    
 }
