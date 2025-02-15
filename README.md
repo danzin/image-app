@@ -10,13 +10,12 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - [Installation & Setup](#installation--setup)
 - [Future Improvements](#future-improvements)
 
-
 ## Overview
 **Image Sharing App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications.
 
 ## Features
 - **Modular Backend Architecture:**
-  - **Domain Models:** Models for images, tags, users, userActions, follows, and likes.
+  - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
   - **Repositories:** A base repository abstract class extended by model-specific repositories.
   - **Service Layer & Controllers:** Clean separation of business logic from API request handling.
   - **Routers** use authentication middleware implementing the Strategy pattern, extracting JWT from cookies and attaching a decodedUser object into Express' Request interface for controllers to work with. 
@@ -27,9 +26,9 @@ A full-stack React/Node image sharing application built with TypeScript, designe
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
   - **Personalized Feeds:** Customized content feeds based on user interactions.
 - **Modern Frontend:**
-  - Cookie-based authentication using JWT. 
   - Developed with React and TypeScript for a responsive and maintainable UI with MUI and TailwindCSS.
-  - ReactQuery and Routers for optimal performance and state management.
+  - ReactQuery and Routes for optimal performance and state management.
+  - Cookie-based authentication using JWT. 
   - E2E testing with Cypress
 - **Transaction Management:**
   - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
@@ -93,21 +92,29 @@ The project is built on solid architectural principles:
   Database transactions and the Unit of Work pattern maintain data integrity.
 - **Search Functionality:**  
   A universal search mechanism efficiently searches across users, images, and tags.
-- **Planned Enhancements:**  
-  Integration of Redis caching for improved performance.
-  Polishing the frontend, as so far the backend has been my primary focus.
-  Further integrating the E2E Cypress testt suite for full functionality testing.
-  Dockerization
-  Full monitoring suite
+- **Couldinary integration:**
+  Uploaded images are stored on Cloudinary, only relevant metadata is stored in MongoDB.
   
+## Future Improvements
+ - **Redis Caching:**
+   Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
+ - **Enhanced Security Features:**
+    Continued enhancements to authentication, authorization, and data protection.
+ - **Expanded Search Capabilities:**
+    Refining the universal search to support advanced queries and more refined result filtering.
+ - **Additional API Endpoints:** 
+    Further expansion of administrative, notification, and real-time features.
+ - **Dockerization**
+ - **Polishing the frontend**, as so far the backend has been my primary focus.
+ - **Full monitoring suite**
+   
 ## Installation & Setup
 
 ### Prerequisites
 - Node.js (v14+ recommended)
 - npm or yarn
 - A local or remote MongoDB instance
-- Redis (planned for future caching enhancements) 
-
+- Cloudinary account
 ### Setup
 
 1. **Clone the repository and intall dependencies in the root dirctory:**
