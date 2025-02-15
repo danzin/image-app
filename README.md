@@ -39,28 +39,28 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 ## API Endpoints
 
 ### Users
-- **POST** `/api/users/register` - Register a new user.
-- **POST** `/api/users/login` - Authenticate a user and start a session.
-- **POST** `/api/users/logout` - Log out the current user.
-- **GET** `/api/users/users` - Retrieve a list of users.
-- **GET** `/api/users/me` - Get the profile of the logged-in user.
-- **PUT** `/api/users/edit` - Update user profile information.
-- **POST** `/api/users/follow/:followeeId` - Follow another user.
-- **GET** `/api/users/follows/:followeeId` - Check if a follow relationship exists.
-- **POST** `/api/users/like/:imageId` - Like an image.
-- **PUT** `/api/users/avatar` - Update user avatar.
-- **PUT** `/api/users/cover` - Update user cover photo.
-- **DELETE** `/api/users/:id` - Delete a user.
 - **GET** `/api/users/:userId` - Retrieve user information by ID.
+- **GET** `/api/users/users` - Retrieve a list of users.
+- **GET** `/api/users/me` - Get the profile of the logged-in user. (requires authentication).
+- **GET** `/api/users/follows/:followeeId` - Check if a follow relationship exists. (requires authentication).
+- **POST** `/api/users/register` - Register a new user.
+- **POST** `/api/users/login` - Authenticate a user. 
+- **POST** `/api/users/logout` - Log out the current user. 
+- **POST** `/api/users/follow/:followeeId` - Follow another user. (requires authentication).
+- **POST** `/api/users/like/:imageId` - Like an image. (requires authentication).
+- **PUT** `/api/users/edit` - Update user profile information. (requires authentication).
+- **PUT** `/api/users/avatar` - Update user avatar. (requires authentication).
+- **PUT** `/api/users/cover` - Update user cover photo. (requires authentication).
+- **DELETE** `/api/users/:id` - Delete a user. (requires authentication).
 
 ### Images
 - **GET** `/api/images/` - Retrieve all images.
 - **GET** `/api/images/user/:id` - Get images uploaded by a specific user.
 - **GET** `/api/images/search/tags` - Search images by tags.
+- **GET** `/api/images/:id` - Retrieve image by ID.
 - **GET** `/api/images/tags` - Retrieve all available tags.
 - **POST** `/api/images/upload` - Upload a new image (requires authentication).
 - **DELETE** `/api/images/:id` - Delete an image (requires authentication).
-- **GET** `/api/images/:id` - Retrieve image details by ID.
 
 ### Search
 - **GET** `/api/search/` - Perform a universal search across users, images, and tags.
@@ -69,10 +69,10 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - **API paths under `/api/admin`** - Administrative actions and management tasks.
 
 ### Notifications
-- **API paths under `/api/notifications`** - Managing real-time notifications.
+- **API paths under `/api/notifications`** - Managing real-time notifications. (requires authentication).
 
 ### Feed
-- **GET** `/api/feed/` - Retrieve a personalized feed for the logged-in user.
+- **GET** `/api/feed/` - Retrieve a personalized feed for the logged-in user. (requires authentication, guest users get a generic feed sorted by recency).
 
 ### WebSockets
 - **Real-Time Communication:**  
