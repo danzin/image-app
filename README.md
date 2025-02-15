@@ -97,7 +97,7 @@ The project is built on solid architectural principles:
   
 ## Future Improvements
  - **Redis Caching:**
-   Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
+    Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
  - **Enhanced Security Features:**
     Continued enhancements to authentication, authorization, and data protection.
  - **Expanded Search Capabilities:**
@@ -105,7 +105,8 @@ The project is built on solid architectural principles:
  - **Additional API Endpoints:** 
     Further expansion of administrative, notification, and real-time features.
  - **Dockerization**
- - **Polishing the frontend**, as so far the backend has been my primary focus.
+ - **Polishing the frontend**:
+    So far the backend has been my primary focus and frontend has been falling behind.
  - **Full monitoring suite**
    
 ## Installation & Setup
