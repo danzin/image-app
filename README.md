@@ -7,8 +7,8 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - [Features](#features)
 - [API Endpoints](#api-endpoints)
 - [Architecture & Implementation](#architecture--implementation)
-- [Installation & Setup](#installation--setup)
 - [Future Improvements](#future-improvements)
+- [Installation & Setup](#installation--setup)
 
 ## Overview
 **Image Sharing App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications.
@@ -111,13 +111,13 @@ The project is built on solid architectural principles:
 ## Installation & Setup
 
 ### Prerequisites
-- Node.js (v14+ recommended)
-- npm or yarn
+- Node.js (v22.12.0+ recommended)
+- npm
 - A local or remote MongoDB instance
 - Cloudinary account
+  
 ### Setup
-
-1. **Clone the repository and intall dependencies in the root dirctory:**
+1. **Clone the repository and intall dependencies in the root directory:**
    ```
    git clone https://github.com/danzin/image-app.git
    cd image-app
