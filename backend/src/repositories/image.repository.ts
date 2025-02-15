@@ -258,7 +258,7 @@ export class ImageRepository extends BaseRepository<IImage> {
         
           {
             $sort: {
-              isPersonalized: -1,  // Personalized content first
+              isPersonalized: -1,  // Personalized content first if it exists
               createdAt: -1       // Then by date
             }
           },
