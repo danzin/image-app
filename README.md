@@ -1,6 +1,6 @@
-# Image Sharing App
+# Image App
 
-A full-stack React/Node image sharing application built with TypeScript, designed for scalability, performance, and maintainability. This project combines a clean, modular backend with a modern, responsive frontend—making it an outstanding solution for dynamic image sharing.
+A full-stack React/Node image sharing application built with TypeScript, designed for scalability, performance, and maintainability. This project combines a clean, modular backend with a modern, responsive frontend.
 
 ## Table of Contents
 - [Overview](#overview)
@@ -11,7 +11,7 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - [Installation & Setup](#installation--setup)
 
 ## Overview
-**Image Sharing App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications.
+**Image App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications.
 
 ## Features
 - **Modular Backend Architecture:**
