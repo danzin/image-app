@@ -18,6 +18,8 @@ export class FeedService {
     console.log(`Running getPersonalizedFeed for userId: ${userId} `)
     try {
 
+      //Using Promise.all to execute the operations concurrently and 
+      // get the result once they've resolved or rejected
       const [user, topTags] = await Promise.all([
         this.userRepository.findById(userId),
         this.userPreferenceRepository.getTopUserTags(userId)
