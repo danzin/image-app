@@ -46,8 +46,8 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - **POST** `/api/users/register` - Register a new user.
 - **POST** `/api/users/login` - Authenticate a user. 
 - **POST** `/api/users/logout` - Log out the current user. 
-- **POST** `/api/users/follow/:followeeId` - Follow another user. (requires authentication).
-- **POST** `/api/users/like/:imageId` - Like an image. (requires authentication).
+- **POST** `/api/users/follow/:followeeId` - Follow another user(if the follower already follows the followee, they unfollow them). (requires authentication).
+- **POST** `/api/users/like/:imageId` - Like an image(if the image is already liked, the user un-likes it). (requires authentication).
 - **PUT** `/api/users/edit` - Update user profile information. (requires authentication).
 - **PUT** `/api/users/avatar` - Update user avatar. (requires authentication).
 - **PUT** `/api/users/cover` - Update user cover photo. (requires authentication).
