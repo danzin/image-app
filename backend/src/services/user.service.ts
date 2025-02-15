@@ -14,6 +14,7 @@ import { convertToObjectId } from '../utils/helpers';
 import { NotificationService } from './notification.service';
 import { UserDTOService } from './dto.service';
 import { AdminUserDTO, PublicUserDTO } from '../types';
+import { FeedService } from './feed.service';
 
 /**
  * UserService handles all user-related operations, including authentication, profile updates, 
@@ -31,6 +32,7 @@ export class UserService {
     @inject('FollowRepository') private readonly followRepository: FollowRepository,
     @inject('UserActionRepository') private readonly userActionRepository: UserActionRepository,
     @inject('NotificationService') private readonly notificationService: NotificationService,
+    @inject('FeedService') private readonly feedService: FeedService,
     @inject('UserDTOService') private readonly dtoService: UserDTOService,
   ) {
     
@@ -280,21 +282,25 @@ export class UserService {
    * @throws TransactionError if the database transaction fails.
    */
   async likeAction(userId: string, imageId: string): Promise<void> {
-  try {
+    let isLikeAction = true; // Track if this is a like or unlike
+    let imageTags: string[] = []; // Stroe image tags for the feed service
 
+  try {
+    // Check if image exists before starting transaction
+    const existingImage = await this.imageRepository.findById(imageId);
+    console.log(`========existingImage: ${existingImage}`)
+    if (!existingImage) {
+      throw createError('PathError', `Image with id ${imageId} not found`);
+    }
+    imageTags = existingImage.tags.map(tags => tags.tag)
     await this.unitOfWork.executeInTransaction(async (session) => {
       console.log(`running in this.unitOfWork.executeInTransaction`);
-       // Check if image exists before starting transaction
-      const existingImage = await this.imageRepository.findById(imageId);
-      console.log(existingImage)
-      if (!existingImage) {
-        throw createError('PathError', `Image with id ${imageId} not found`);
-      }
-    
+
       const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
       
       if (existingLike) {
         // Unlike flow
+        isLikeAction = false;
         await this.likeRepository.deleteLike(userId, imageId, session);
         await this.imageRepository.findOneAndUpdate(
           { _id: imageId },
@@ -325,6 +331,17 @@ export class UserService {
           },
         );
       }
+    });
+
+    // Updating feed preference, not awaiting this to not block the response 
+    this.feedService.recordInteraction(
+      userId,
+      isLikeAction ? 'like' : 'unlike',
+      imageId,
+      imageTags
+    ).catch(error => {
+      // Log error but don't fail the request
+      console.error('Failed to record feed interaction:', error);
     });
   } catch (error) {
     if (error.name === 'PathError') {

@@ -1,6 +1,27 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById } from '../../api/imageApi';
-import { IImage, ITag } from '../../types';
+import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById, fetchPersonalizedFeed } from '../../api/imageApi';
+import { IImage, ITag, IUser } from '../../types';
+import { useAuth } from '../../context/AuthContext';
+
+export const usePersonalizedFeed = () => {
+  const { isLoggedIn } = useAuth();
+  
+  return useInfiniteQuery<{ 
+    data: IImage[], 
+    total: number, 
+    page: number, 
+    limit: number, 
+    totalPages: number 
+  }, Error>({
+    queryKey: ['personalizedFeed'],
+    queryFn: ({ pageParam = 1 }) => fetchPersonalizedFeed(pageParam as number),
+    getNextPageParam: (lastPage) => 
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    initialPageParam: 1,
+    enabled: isLoggedIn, // Only enable when user is logged in
+    staleTime: 0
+  });
+};
 
 export const useImages = () => {
 
@@ -32,18 +53,35 @@ export const useImageById = (id: string) => {
   });
 };
 
-export const useImagesByTag = (tags: string[], limit = 10) => {
-  return useInfiniteQuery<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, Error>({
+export const useImagesByTag = (
+  tags: string[], 
+  options?: { 
+    limit?: number;
+    enabled?: boolean;
+  }
+) => {
+  const limit = options?.limit ?? 10; // Default to 10 if not provided
+  const enabled = options?.enabled ?? tags.length > 0; // Default enabled 
+
+  return useInfiniteQuery<{ 
+    data: IImage[], 
+    total: number, 
+    page: number, 
+    limit: number, 
+    totalPages: number 
+  }, Error>({
     queryKey: ['imagesByTag', tags],
-    queryFn: ({ pageParam = 1 }) => fetchImagesByTag({ tags, page: pageParam as number, limit }),
-    getNextPageParam: (lastPage) => lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    queryFn: ({ pageParam = 1 }) => 
+      fetchImagesByTag({ tags, page: pageParam as number, limit }),
+    getNextPageParam: (lastPage) => 
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
     initialPageParam: 1,
-    enabled: tags.length > 0,
+    enabled,
     staleTime: 0,
     refetchOnMount: true,
+    ...options 
   });
 };
-
 export const useTags = () => {
   return useQuery<ITag[], Error>({
     queryKey: ['tags'],

@@ -1,19 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { searchQuery } from '../../api/searchApi';
-import { IImage, ITag, IUser } from '../../types';
 
 export const useSearch = (query: string) => {
-  return useQuery<{
-    status: string,
-    data: {
-      users: IUser[] | string,
-      images: IImage[] | string,
-      tags: ITag[] | string,
-    }
-  }>({
+  const queryClient = useQueryClient();
+
+  const searchResults = useQuery({
     queryKey: ['query', query],
-    queryFn: () => searchQuery(query),
+    queryFn: () => searchQuery(query), 
     staleTime: 0,
-    refetchOnMount: true,
+    enabled: !!query, // run when query exists
+    retry: 1,
   });
+
+  const invalidateSearch = () => {
+    queryClient.invalidateQueries({ 
+      queryKey: ['query', query],
+      exact: true
+    });
+  };
+
+  return { ...searchResults, invalidateSearch };
 };

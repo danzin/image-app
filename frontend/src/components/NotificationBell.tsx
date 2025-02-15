@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { IconButton, Badge, Menu, MenuItem } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
+import { Notification } from "../types";
 
 const NotificationBell = () => {
   const { notifications, markAsRead } = useNotifications();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const unreadNotifications = notifications.filter((n: Notification) => !n.isRead);
 
   const handleOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -23,7 +25,7 @@ const NotificationBell = () => {
   return (
     <>
       <IconButton size="large" color="inherit" onClick={handleOpen}>
-        <Badge badgeContent={notifications.filter((n) => !n.isRead).length} color="error">
+        <Badge badgeContent={notifications.filter((n: Notification) => !n.isRead).length} color="error">
           <NotificationsIcon />
         </Badge>
       </IconButton>
@@ -35,10 +37,11 @@ const NotificationBell = () => {
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
-        {notifications.length === 0 ? (
-          <MenuItem>No new notifications</MenuItem>
+        {unreadNotifications.length === 0 ? (
+          <MenuItem style={{ pointerEvents: 'none' }}>No new notifications</MenuItem>
         ) : (
-          notifications.map((notification) => (
+          unreadNotifications
+          .map((notification: Notification) =>(
             <MenuItem key={notification.id} onClick={() => handleNotificationClick(notification.id)}>
               {notification.actionType} by {notification.actorId.username}
             </MenuItem>

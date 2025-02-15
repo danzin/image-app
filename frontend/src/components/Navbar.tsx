@@ -19,7 +19,6 @@ import {Tags} from '../components/TagsContainer';
 import NotificationBell from './NotificationBell';
 import ProfileMenu from './ProfileMenu';
 
-console.log
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',
   borderRadius: theme.shape.borderRadius,
@@ -68,15 +67,24 @@ const Navbar = () => {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  
  
 
-  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (searchTerm.trim()) {
-      navigate(`/results?q=${encodeURIComponent(searchTerm)}`);
+  const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    // Trim whitespaces and remove empty terms
+    const formattedQuery = searchTerm
+      .split(' ')
+      .map((q) => q.trim()) 
+      .filter((q) => q.length > 0) //removes empty terms
+      .join(',');
+    console.log(`formattedQuery: ${formattedQuery}`)
+    if (formattedQuery) {
+        navigate(`/results?q=${formattedQuery}`);
     }
+    setSearchTerm('')
   };
+  
 
   const toggleDrawer = (open: boolean) => () => {
     setIsDrawerOpen(open);
@@ -114,7 +122,7 @@ const Navbar = () => {
               <StyledInputBase
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search for anything"
+                placeholder="eg: user tag item"
                 inputProps={{ 'aria-label': 'search' }}
               />
             </Search>
@@ -149,26 +157,22 @@ const Navbar = () => {
       >
         <Box
           sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
             width: 250,
+            height: '100%',
             p: 2,
-            backgroundColor: 'background.default',
+            backgroundColor: 'background.secondary',
             color: 'text.secondary',
           }}
           role="presentation"
         >
-          <Typography variant="h6" sx={{ mb: 2 }} color="text.primary">
+          <Typography variant="h6" sx={{ mb: 2 }} color="text.secondary">
             Filter by Tags
           </Typography>
           <Tags />
-          <Button
-            variant="outlined"
-            color="secondary"
-            fullWidth
-            sx={{ mt: 2 }}
-            onClick={toggleDrawer(false)}
-          >
-            Clear Filters
-          </Button>
         </Box>
       </Drawer>
     </>

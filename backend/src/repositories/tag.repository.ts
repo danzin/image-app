@@ -30,14 +30,20 @@ export class TagRepository extends BaseRepository<ITag> {
 
 
 
-  async searchTags(searchQuery: string, session?: ClientSession): Promise<ITag[]> {
+  async searchTags(searchQueries: string[], session?: ClientSession): Promise<ITag[]> {
     try {
-      const query = this.model.find({ tag: { $regex: searchQuery,  } });
-      if(session) query.session(session);
+      const query = this.model.find({
+        $or: searchQueries.map((term: string) => {
+          return { tag: { $regex: term, $options: 'i' } };
+        })
+      });
+  
+      if (session) query.session(session);
       return await query.exec();
     } catch (error: any) {
       throw createError('InternalServerError', error.message);
     }
   }
+  
 
 }
