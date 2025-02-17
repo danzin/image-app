@@ -14,7 +14,7 @@ export class FeedService {
     @inject('UserActionRepository') private userActionRepository: UserActionRepository,
   ) {}
 
-  public async getPersonalizedFeed(userId: string, page = 1, limit = 30): Promise<any> {
+  public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
     console.log(`Running getPersonalizedFeed for userId: ${userId} `)
     try {
 
@@ -70,7 +70,7 @@ export class FeedService {
   private getScoreIncrementForAction(actionType: string): number {
     const scoreMap = {
       'like': 2,
-      'unlike': -1
+      'unlike': -2
 
     };
     return scoreMap[actionType] || 0;
