@@ -207,8 +207,8 @@ export class ImageRepository extends BaseRepository<IImage> {
     async getFeedForUser(
       followingIds: string[],
       favoriteTags: string[],
-      limit: number = 30,
-      skip: number = 0
+      limit: number,
+      skip: number,
     ): Promise<PaginationResult<IImage>> {
       try{
       const followingIdsObj = followingIds.map(id => new mongoose.Types.ObjectId(id));

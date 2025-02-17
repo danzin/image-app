@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { followUser, likeImage } from '../../api/userActions';
 import { fetchIsFollowing } from '../../api/userApi';
+import { PaginatedResponse } from '../../types';
 
 // Hook to follow a user
 export const useFollowUser = () => {
@@ -24,19 +25,32 @@ export const useFollowUser = () => {
 // Hook to like an image
 export const useLikeImage = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
-    mutationFn: likeImage,
-    onSuccess: (_data, imageId) => {
-      // Invalidate image queries so the like count or status refreshes
-      queryClient.invalidateQueries({ queryKey: ['images'] });
-      
+    mutationFn: likeImage, // Calls API to like/unlike
+    onSuccess: (updatedImage) => {
+      queryClient.setQueryData(['personalizedFeed'], (oldData: PaginatedResponse | undefined) => {
+        if (!oldData) return oldData;
+
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            data: page.data.map((image) =>
+              image.id === updatedImage.id ? updatedImage : image 
+            ),
+          })),
+        };
+      });
     },
-    onError: (error: any) => {
-      console.error('Error liking image:', error.message || error);
+    onError: (error) => {
+      console.error('Error liking image:', error);
     },
   });
 };
+
+
+
 
 // Hook checking if current logged in user is following the profile they're visiting
 export const useIsFollowing = (followeeId: string) => {

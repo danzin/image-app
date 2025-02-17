@@ -82,21 +82,19 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const handleLikeImage = () => {
 
     // Only logged in users can like/dislike
-    if(!isLoggedIn) navigate('/login')
+    if (!isLoggedIn) return navigate('/login');
     if (!selectedImage) return;
+  
     likeImage(selectedImage.id, {
-      onSuccess: (updatedData: { likeCount: number; liked: boolean }) => {
-        setSelectedImage((prev) =>
-          prev ? { ...prev, likeCount: updatedData.likeCount, liked: updatedData.liked } : prev
-        );
+      onSuccess: (updatedImage) => {
+        setSelectedImage(updatedImage); 
       },
       onError: (error) => {
         console.error('Error liking image:', error);
       },
     });
-
-
   };
+  
 
 
  

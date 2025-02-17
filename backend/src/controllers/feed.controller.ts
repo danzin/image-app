@@ -12,7 +12,7 @@ export class FeedController {
 
    getFeed = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { page = 1, limit = 30 } = req.query;
+      const { page, limit  } = req.query;
       const feed = await this.feedService.getPersonalizedFeed(
         req.decodedUser.id,
         Number(page),
