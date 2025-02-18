@@ -94,10 +94,6 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
       },
     });
   };
-  
-
-
- 
 
   return (
     <Box sx={{
