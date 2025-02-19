@@ -1,4 +1,4 @@
-import { InfiniteData, useInfiniteQuery, UseInfiniteQueryResult, useMutation, UseMutationResult, useQuery, UseQueryResult } from "@tanstack/react-query";
+import { InfiniteData, UseInfiniteQueryResult, UseMutationResult, useQuery, UseQueryResult } from "@tanstack/react-query";
 
 export interface IUser {
   id: string;
@@ -13,6 +13,7 @@ export interface IUser {
 }
 
 export interface ITag {
+  _id: string;
   tag: string;
   count?: number; 
   modifiedAt?: Date; 
@@ -106,5 +107,5 @@ export interface AuthContextData {
 }
 export interface ImageCardProps {
   image: IImage;
-  onClick?: (image: IImage) => void;
+  onClick: (image: IImage) => void;
 }

@@ -77,6 +77,7 @@ export const useUpdateUserCover = () => {
 export const useEditUser = () => {
   const queryClient = useQueryClient(); 
 
+  // TODO: Improve type safety by adding proper types like UserResponse, UserUpdateData, and UserData
   return useMutation({
     mutationFn: editUserRequest,
     
@@ -87,7 +88,10 @@ export const useEditUser = () => {
         ...oldData,
         ...data, // Merge the updated data with the existing data
       }));
-      queryClient.invalidateQueries(['user', data.id]);
+      queryClient.invalidateQueries({
+        // Pass the specific type of filter object to invalidateQueries 
+        queryKey: ['user', data.id]
+    });
     },
     onError: (error) => {
       console.error('Userdate failed:', error.message);

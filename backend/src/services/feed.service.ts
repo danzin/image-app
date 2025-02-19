@@ -4,6 +4,7 @@ import { UserRepository } from '../repositories/user.repository';
 import { UserPreferenceRepository } from '../repositories/userPreference.repository';
 import { UserActionRepository } from '../repositories/userAction.repository';
 import { createError } from '../utils/errors';
+import { RedisService } from './redis.service';
 
 @injectable()
 export class FeedService {
@@ -12,11 +13,22 @@ export class FeedService {
     @inject('UserRepository') private userRepository: UserRepository,
     @inject('UserPreferenceRepository') private userPreferenceRepository: UserPreferenceRepository,
     @inject('UserActionRepository') private userActionRepository: UserActionRepository,
+    @inject('RedisService') private redisService: RedisService // Add this
   ) {}
 
   public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
     console.log(`Running getPersonalizedFeed for userId: ${userId} `)
+
+
     try {
+      const cacheKey = `feed:${userId}:${page}:${limit}`;
+  
+      // Check cache first
+      const cachedFeed = await this.redisService.get(cacheKey);
+      if (cachedFeed) {
+        console.log('Returning cached feed');
+        return cachedFeed;
+      }
 
       //Using Promise.all to execute the operations concurrently and 
       // get the result once they've resolved or rejected
@@ -41,6 +53,7 @@ export class FeedService {
         skip
       );
 
+      await this.redisService.set(cacheKey, feed, 1800); // Cache feed for 20 minutes
       return feed;
 
     } catch (error) {
@@ -65,6 +78,8 @@ export class FeedService {
         )
       );
     }
+    console.log('Removing cache')
+    await this.redisService.del(`feed:${userId}:*`);
   }
 
   private getScoreIncrementForAction(actionType: string): number {
