@@ -16,7 +16,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import AvatarEditor from '../components/AvatarEditor';
 import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
-import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserImages } from '../hooks/user/useUsers';
+import { useGetUser, useUpdateUserAvatar, useUserImages } from '../hooks/user/useUsers';
 import { useFollowUser } from '../hooks/user/useUserAction';
 import { useAuth } from '../context/AuthContext';
 import { useIsFollowing } from '../hooks/user/useUserAction';
@@ -24,7 +24,7 @@ import { useIsFollowing } from '../hooks/user/useUserAction';
 const DashboardLayout:React.FC  = () => {
   const navigate = useNavigate();
   const { id } = useParams(); 
-  const { data: userData, isLoading, error: getUserError } = useGetUser(id as string); //userData -> data of the user profile
+  const { data: userData, isLoading, error: _getUserError } = useGetUser(id as string); //userData -> data of the user profile
   const {
     data: imagesData,
     fetchNextPage,
@@ -46,7 +46,7 @@ const DashboardLayout:React.FC  = () => {
 
   const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
 
-  const { mutate: followUser, isPending: followPending } = useFollowUser();
+  const { mutate: followUser, isPending: _followPending } = useFollowUser();
   const handleFollowUser = (id: string) => {
     // Only logged in users can perform follow actions
     if(isLoggedIn){
@@ -62,9 +62,11 @@ const DashboardLayout:React.FC  = () => {
     }
   }
 
-  const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(id as string);
+  const { data: isFollowing, isLoading: _isCheckingFollow } = useIsFollowing(id as string);
 
-  const handleImageUpload = async (croppedImage: string) => {
+  const handleImageUpload = async (croppedImage: string | null) => {
+    if (!croppedImage) return; 
+    
     try {
       const blob = await fetch(croppedImage).then((res) => res.blob());
       const formData = new FormData();
@@ -74,7 +76,6 @@ const DashboardLayout:React.FC  = () => {
       console.error('Error uploading avatar:', error);
     }
   };
-
   if (isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>

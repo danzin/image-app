@@ -3,7 +3,7 @@
 import 'reflect-metadata';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: '../.env'});
 // Register global mongoose plugin before individual models
 mongoose.plugin((schema) => {
   schema.set('toJSON', {
@@ -43,7 +43,7 @@ async function bootstrap(): Promise<void> {
     webSocketServer.initialize(server);
     
     // Start the HTTP server last
-    const port = Number(process.env.PORT) || 3000;
+    const port = 3000;
     expressServer.start(server, port);
   } catch (error) {
     console.error('Startup failed', error);

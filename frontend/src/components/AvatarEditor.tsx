@@ -7,7 +7,7 @@ interface AvatarEditorProps {
 
 const AvatarEditor: React.FC<AvatarEditorProps> = ({ onImageUpload }) => {
   const [preview, setPreview] = useState<string | null>(null);
-  const [src, setSrc] = useState<string | null>(null);
+  const [src, _setSrc] = useState<string | undefined>(undefined);
 
   const onClose = () => {
     setPreview(null);
