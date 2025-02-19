@@ -1,5 +1,6 @@
 import { Readable } from 'stream';
 
+//deprecated, no longer using it
 //Convert buffer to readable stream
 export function bufferToStream(buffer: Buffer): Readable {
   const stream = new Readable();
