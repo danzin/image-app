@@ -64,7 +64,7 @@ export class ImageService {
           createdAt: new Date(),
           tags: tagIds, 
           likes: 0
-        } as IImage;
+        } as unknown as IImage;
   
         const img = await this.imageRepository.create(image as IImage, session);
        

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { IImage, ITag, IUser } from '../types';
 import { useSearch } from '../hooks/search/useSearch';
-import ImageCard from '../components/ImageCard';
 import { Box, Button, CircularProgress } from '@mui/material';
 import { useImagesByTag } from '../hooks/images/useImages';
 import Gallery from '../components/Gallery';
@@ -14,7 +13,7 @@ const SearchResults = () => {
   const queryClient = useQueryClient();
   const searchTerms = query.split(',').map((term) => term.trim()).filter((term) => term.length > 0);
   const [activeTab, setActiveTab] = useState<'users' | 'images' | 'tags'>('users');
-  const [results, setResults] = useState<{
+  const [_results, setResults] = useState<{
     users: IUser[] | null;
     images: IImage[] | null;
     tags: ITag[] | null;
@@ -32,7 +31,7 @@ const SearchResults = () => {
   }, [query, queryClient,location.search]);
 
   const {
-    data: imagePages,
+    data: _imagePages,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,

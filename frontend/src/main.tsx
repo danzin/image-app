@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import 'react-toastify/dist/ReactToastify.css';
 import theme from './components/Theme';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { GalleryProvider } from './context/GalleryContext.tsx';
 
 
 const queryClient = new QueryClient();
