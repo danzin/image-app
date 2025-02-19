@@ -22,18 +22,26 @@ A full-stack React/Node image sharing application built with TypeScript, designe
   - **Dependency Injection:** Using TSyringe for DI, ensuring loose coupling and testability.
   - **Custom Error Handling:** Implemented via a factory pattern for consistent error responses.
   - **Data Transfer Objects (DTOs):** Tailored data views for guests, authenticated users, and admins.
+    
 - **Real-Time Functionality:**
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
-  - **Personalized Feeds:** Customized content feeds based on user interactions.
+  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users.
+    
 - **Modern Frontend:**
   - Developed with React and TypeScript for a responsive and maintainable UI with MUI and TailwindCSS.
   - ReactQuery and Routes for optimal performance and state management.
   - Cookie-based authentication using JWT. 
   - E2E testing with Cypress
+    
 - **Transaction Management:**
   - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
+    
+- **Docker:**
+  - You can run the app in docker using `docker-compose up --build`
+    
 - **Planned Enhancements:**
-  - **Redis Caching:** Future integration to boost performance and scalability.
+  - **Redis Caching:** Future integration to boost performance and scalability. 
+      - The app now uses Redis for user feed caching. ✅
   - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
 
 ## API Endpoints
@@ -98,13 +106,15 @@ The project is built on solid architectural principles:
 ## Future Improvements
  - **Redis Caching:**
     Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
+      - User feed ✅
  - **Enhanced Security Features:**
     Continued enhancements to authentication, authorization, and data protection.
  - **Expanded Search Capabilities:**
     Refining the universal search to support advanced queries and more refined result filtering.
  - **Additional API Endpoints:** 
     Further expansion of administrative, notification, and real-time features.
- - **Dockerization**
+ - **Dockerization** - Done ✅
+     - TODO: Implement defaulting to local storage for images and local MongoDB instance so the app is self-contained and can be easily used with docker without 3rd party credentials. 
  - **Polishing the frontend**:
     So far the backend has been my primary focus and frontend has been falling behind.
  - **Full monitoring suite**
@@ -114,32 +124,72 @@ The project is built on solid architectural principles:
 ### Prerequisites
 - Node.js (v22.12.0+ recommended)
 - npm
-- A local or remote MongoDB instance
+- Redis instance running
+- Currently the app requires MongoDB Atlas cloud database
 - Cloudinary account
+- Example .env file: 
+    ```
+    //MongoDB Atlas connection string
+    MONGODB_URI=mongodb+srv://mongodbusername:dbpassword@cluster/databasename?more&options
+    
+    //JWT Secret
+    JWT_SECRET=xxxxxxxxxxxxxxxx
+    
+    //Cloudinary credentials
+    CLOUDINARY_CLOUD_NAME=xxxxxxxxxxxxx 
+    CLOUDINARY_API_KEY=xxxxxxxxxxxxx
+    CLOUDINARY_API_SECRET=xxxxxxxxxxxxx
+    
+    //Default port
+    PORT=3000
+    
+    //Backend port used in docker-compose.yml
+    BACKEND_PORT=3000
+    FRONTEND_URL=http://localhost:5173
+    
+    //Node environment, is overriden in docker-compose.yml
+    NODE_ENV=development
+    
+    VITE_API_URL=http://localhost:3000
+    ```
+
+### Docker 
+1. Running the app in docker requires .env file in the root directory
+2. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
+3. Run the app in Docker:
+    ```
+   git clone https://github.com/danzin/image-app.git
+   cd image-app
+   docker-compose up --build
+   ```
+    
   
 ### Setup
-1. **Clone the repository and intall dependencies in the root directory:**
+1. **Clone the repository and install dependencies in the root directory:**
    ```
    git clone https://github.com/danzin/image-app.git
    cd image-app
    npm install
    ```
+2. Create `.env` file with the required credentials
+
 #### Backend   
-2. **Navigate to the backend directory and install dependencies:**
+3. **Navigate to the backend directory and install dependencies:**
     ```
     cd backend
     npm install
       ```
-3. **Configure Environment Variables:**
-  Create a `.env` file with your Mongodb URI, JWT Secret, Cloudinary Cloud Name, Cloudinary API Key, Cloudinary API Secret, and PORT where the backend will run on
+4. **Have a Redis instance running:**
+    - Start a Redis instance in Docker `docker run --name redis-dev -p 6379:6379 -d redis:alpine` 
+    - To stop the running container `docker stop redis-dev` and delete it with `docker rm redis-dev`
 
 #### Frontend 
-4. **Navigate to the frontend directory and install dependencies:**
+5. **Navigate to the frontend directory and install dependencies:**
   ```
   cd frontend
   npm install
   ```
-5. To run the app navigate to the root directory in `image-app` and run `npm run dev`.
+6. To run the app navigate to the root directory in `image-app` and run `npm run dev`.
   `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" "` from the `package.json` file.
    
  
