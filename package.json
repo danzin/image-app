@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start-frontend": "cd frontend && npm run dev",
-    "start-backend": "cd backend && npm run start",
+    "start-backend": "cd backend && npm run start:dev",
     "test-backend": "cd backend && npm run jest",
     "dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" "
   },
@@ -12,20 +12,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "cloudinary": "^2.5.1",
     "concurrently": "^9.1.0",
-    "jsonwebtoken": "^9.0.2",
-    "mongo-sanitize": "^1.1.0",
-    "mongodb": "^6.12.0",
-    "nodemon": "^3.1.9",
-    "validator": "^13.12.0"
+    "nodemon": "^3.1.9"
   },
   "devDependencies": {
-    "@types/bcrypt": "^5.0.2",
-    "@types/jest": "^29.5.14",
-    "@types/jsonwebtoken": "^9.0.7",
-    "@types/mongo-sanitize": "^1.0.3",
-    "@types/validator": "^13.12.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }

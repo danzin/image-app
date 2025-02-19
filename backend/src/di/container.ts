@@ -39,6 +39,7 @@ import { FeedService } from '../services/feed.service';
 import { FeedController } from '../controllers/feed.controller';
 import { FeedRoutes } from '../routes/feed.routes';
 import { UserPreferenceRepository } from '../repositories/userPreference.repository';
+import { RedisService } from '../services/redis.service';
 
 
 export function setupContainer(): void {
@@ -66,6 +67,7 @@ export function setupContainer(): void {
   container.registerSingleton('NotificationRepository', NotificationRepository);
   container.registerSingleton('LikeRepository', LikeRepository);
   container.registerSingleton('UserPreferenceRepository', UserPreferenceRepository);
+
   // Register Services as singletons
   container.registerSingleton('SearchService', SearchService);
   container.registerSingleton('CloudinaryService', CloudinaryService);
@@ -75,6 +77,7 @@ export function setupContainer(): void {
   container.registerSingleton('NotificationService', NotificationService);
   container.registerSingleton('UserDTOService', UserDTOService);
   container.registerSingleton('FeedService', FeedService);
+  container.registerSingleton('RedisService', RedisService);
 
   // Register Controllers as singletons
   container.registerSingleton('SearchController', SearchController);

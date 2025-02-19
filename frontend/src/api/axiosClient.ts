@@ -1,7 +1,7 @@
 import axios from 'axios';
-
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 const axiosClient = axios.create({
-  baseURL: '/api', //relative URL
+  baseURL, 
   withCredentials: true,
 });
 

@@ -9,7 +9,7 @@ export const useFollowUser = () => {
   
   return useMutation({
     mutationFn: followUser,
-    onSuccess: (_data, followeeId) => {
+    onSuccess: (_data, _followeeId) => {
       // Invalidate query for isFollowing
       queryClient.invalidateQueries({ queryKey: ['isFollowing'] });
       // Invalidate query for the user's followers array update
