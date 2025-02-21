@@ -98,11 +98,12 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
-  //since I'm using useCallback, logout and checkAuthState return callback. 
+  //logout and checkAuthState are async and return a promise. 
   logout: () => Promise<void>;
   checkAuthState: () => Promise<void>;
-  
+
   login: (user: IUser) => void;
+  
   loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
