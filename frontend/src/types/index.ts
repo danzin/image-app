@@ -98,14 +98,24 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
-  checkAuthState: () => void; 
+  //logout and checkAuthState are async and return a promise. 
+  logout: () => Promise<void>;
+  checkAuthState: () => Promise<void>;
+
+  login: (user: IUser) => void;
+  
   loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
-  login: (user: IUser) => void;
-  logout: () => void;
+  error: string | null;
 }
 export interface ImageCardProps {
   image: IImage;
   onClick: (image: IImage) => void;
+}
+
+export interface ImageEditorProps {
+  onImageUpload: (croppedImage: string | null) => void;
+  type: 'avatar' | 'cover';
+  aspectRatio?: number;
 }

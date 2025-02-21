@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Menu, MenuItem, IconButton, Avatar, Modal, Box, Typography } from "@mui/material";
 import { ChevronDown, UploadIcon } from "lucide-react";
-import { useAuth } from "../context/AuthContext";
 import UploadForm from "./UploadForm";
+import { useAuth } from "../hooks/context/useAuth";
 
 
 const modalStyle = {

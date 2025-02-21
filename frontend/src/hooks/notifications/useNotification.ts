@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useSocket } from "../../context/SocketContext";
 import { fetchNotifications, markNotificationAsRead } from "../../api/notificationApi";
 import { Notification } from "../../types";
+import { useSocket } from "../context/useSocket";
 
 
 export const useNotifications = () => {

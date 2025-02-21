@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { useAuth } from "../../context/AuthContext";
 import { registerRequest } from "../../api/userApi";
+import { useAuth } from "../context/useAuth";
 
 export const useRegister = () => {
   const { checkAuthState } = useAuth();
