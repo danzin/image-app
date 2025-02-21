@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { styled, alpha } from '@mui/material/styles';
 import { useGallery } from '../context/GalleryContext';
 import { useMediaQuery, useTheme } from '@mui/material';
@@ -18,6 +17,7 @@ import { Menu as MenuIcon, Search as SearchIcon } from '@mui/icons-material';
 import {Tags} from '../components/TagsContainer';
 import NotificationBell from './NotificationBell';
 import ProfileMenu from './ProfileMenu';
+import { useAuth } from '../hooks/context/useAuth';
 
 const Search = styled('div')(({ theme }) => ({
   position: 'relative',

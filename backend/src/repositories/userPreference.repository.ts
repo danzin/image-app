@@ -10,7 +10,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
     super(model);
   }
 
-  async getTopUserTags(userId: string, limit = 15): Promise<IUserPreference[]> {
+  async getTopUserTags(userId: string, limit = 5): Promise<IUserPreference[]> {
     try {
       return this.model.find({ userId })
         .sort({ score: -1 })
@@ -23,7 +23,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
     }
   }
 
-  async incrementTagScore(userId: string, tag: string, increment = 1): Promise<IUserPreference> {
+  async incrementTagScore(userId: string, tag: string, increment: number): Promise<IUserPreference> {
     try {
       return this.model.findOneAndUpdate(
         { userId, tag },
@@ -39,7 +39,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
     }
   }
 
-  async decrementTagScore(userId: string, tag: string, decrement = 1): Promise<IUserPreference> {
+  async decrementTagScore(userId: string, tag: string, decrement: number): Promise<IUserPreference> {
     return this.model.findOneAndUpdate(
       { userId, tag },
       { 

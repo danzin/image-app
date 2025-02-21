@@ -1,6 +1,6 @@
-import mongoose, {Schema, model, Document, CallbackError} from 'mongoose';
+import mongoose, {Schema, model, CallbackError} from 'mongoose';
 import validator from 'validator';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs'
 import { IUser } from '../types';
 
 const userSchema = new Schema<IUser>({
@@ -66,8 +66,8 @@ userSchema.pre('save', async function (next){
   if(!this.isModified('password')) return next();
 
   try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    const salt = await bcryptjs.genSalt(10);
+    this.password = await bcryptjs.hash(this.password, salt);
     next();
   } catch (error) {
     next(error as CallbackError);
@@ -87,8 +87,8 @@ userSchema.pre('findOneAndUpdate', async function (next) {
     const password = update.password || update.$set?.password;
     if (password) {
       try {
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const salt = await bcryptjs.genSalt(10);
+        const hashedPassword = await bcryptjs.hash(password, salt);
 
         if (update.password) {
           update.password = hashedPassword;
@@ -124,7 +124,7 @@ userSchema.pre('findOneAndUpdate', async function (next) {
 
 
 userSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  return bcrypt.compare(candidatePassword, this.password);
+  return bcryptjs.compare(candidatePassword, this.password);
 };
 userSchema.index({ username: 'text' });
 

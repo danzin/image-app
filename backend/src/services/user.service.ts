@@ -1,6 +1,6 @@
 import { Model, ClientSession } from 'mongoose';
 import { UserRepository } from '../repositories/user.repository';
-import { IUser, PaginationOptions, PaginationResult } from '../types';
+import { IImage, IUser, PaginationOptions, PaginationResult } from '../types';
 import  {CloudinaryService}  from './cloudinary.service';
 import { ImageRepository } from '../repositories/image.repository';
 import { createError } from '../utils/errors';
@@ -281,79 +281,81 @@ export class UserService {
    * @throws PathError if the image is not found.
    * @throws TransactionError if the database transaction fails.
    */
-  async likeAction(userId: string, imageId: string): Promise<void> {
+  async likeAction(userId: string, imageId: string): Promise<IImage> { 
     let isLikeAction = true; // Track if this is a like or unlike
     let imageTags: string[] = []; // Stroe image tags for the feed service
 
-  try {
-    // Check if image exists before starting transaction
+    try {
+      // Check if image exists before starting transaction
     const existingImage = await this.imageRepository.findById(imageId);
-    console.log(`========existingImage: ${existingImage}`)
     if (!existingImage) {
-      throw createError('PathError', `Image with id ${imageId} not found`);
+        throw createError('PathError', `Image with id ${imageId} not found`);
     }
-    imageTags = existingImage.tags.map(tags => tags.tag)
+    imageTags = existingImage.tags.map(tag => tag.tag);
+
     await this.unitOfWork.executeInTransaction(async (session) => {
-      console.log(`running in this.unitOfWork.executeInTransaction`);
-
-      const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
-      
-      if (existingLike) {
-        // Unlike flow
-        isLikeAction = false;
-        await this.likeRepository.deleteLike(userId, imageId, session);
-        await this.imageRepository.findOneAndUpdate(
-          { _id: imageId },
-          { $inc: { likes: -1 } },
-          session
-        );
-        await this.userActionRepository.logAction(userId, "unlike", imageId, session);
-    
-      } else {
-        // Like flow
-        const userIdObject = convertToObjectId(userId);
-        const imageIdObject = convertToObjectId(imageId);
+        const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
         
-        await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
-        await this.imageRepository.findOneAndUpdate(
-          { _id: imageId },
-          { $inc: { likes: 1 } },
-          session
-        );
-        await this.userActionRepository.logAction(userId, "like", imageId, session);
-        await this.notificationService.createNotification(
-          {
-            receiverId: existingImage.user.id.toString(),
-            actionType: "like",
-            actorId: userId,
-            targetId: imageId,
-            session
-          },
-        );
-      }
+        if (existingLike) {
+            // Unlike flow
+            isLikeAction = false;
+            await this.likeRepository.deleteLike(userId, imageId, session);
+            await this.imageRepository.findOneAndUpdate(
+                { _id: imageId },
+                { $inc: { likes: -1 } },
+                session
+            );
+            await this.userActionRepository.logAction(userId, "unlike", imageId, session);
+        } else {
+          // Like flow
+          const userIdObject = convertToObjectId(userId);
+          const imageIdObject = convertToObjectId(imageId);
+
+          await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
+          await this.imageRepository.findOneAndUpdate(
+              { _id: imageId },
+              { $inc: { likes: 1 } },
+              session
+          );
+
+          await this.userActionRepository.logAction(userId, "like", imageId, session);
+          await this.notificationService.createNotification({
+              receiverId: existingImage.user.id.toString(),
+              actionType: "like",
+              actorId: userId,
+              targetId: imageId,
+              session
+          });
+        }
     });
 
-    // Updating feed preference, not awaiting this to not block the response 
-    this.feedService.recordInteraction(
-      userId,
-      isLikeAction ? 'like' : 'unlike',
-      imageId,
-      imageTags
-    ).catch(error => {
-      // Log error but don't fail the request
-      console.error('Failed to record feed interaction:', error);
-    });
-  } catch (error) {
-    if (error.name === 'PathError') {
-      throw error; 
+      // Updating feed preference, not awaiting this to not block the response 
+      this.feedService.recordInteraction(
+        userId,
+        isLikeAction ? 'like' : 'unlike',
+        imageId,
+        imageTags
+      ).catch(error => {
+        // Log error but don't fail the request
+        console.error('Failed to record feed interaction:', error);
+      });
+
+    //Return the updated image
+    return this.imageRepository.findById(imageId);
+
+    } catch (error) {
+      if (error.name === 'PathError') {
+        throw createError('PathError', error.message); 
+      }
+      throw createError('TransactionError', error.message, {
+        function: 'likeAction',
+        additionalInfo: 'Transaction failed',
+        originalError: error
+      });
+     
     }
-    throw createError('TransactionError', error.message, {
-      function: 'likeAction',
-      additionalInfo: 'Transaction failed',
-      originalError: error
-    });
-   }
-  }
+   
+}
 
   /**
    * Handles user "follow" or "unfollow" actions.

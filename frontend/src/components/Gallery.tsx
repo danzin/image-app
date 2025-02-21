@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress, Skeleton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
-import { useAuth } from '../context/AuthContext';
 import { useDeleteImage } from '../hooks/images/useImages';
 import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
+import { useAuth } from '../hooks/context/useAuth';
 
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const navigate = useNavigate()
@@ -82,24 +82,18 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const handleLikeImage = () => {
 
     // Only logged in users can like/dislike
-    if(!isLoggedIn) navigate('/login')
+    if (!isLoggedIn) return navigate('/login');
     if (!selectedImage) return;
+  
     likeImage(selectedImage.id, {
-      onSuccess: (updatedData: { likeCount: number; liked: boolean }) => {
-        setSelectedImage((prev) =>
-          prev ? { ...prev, likeCount: updatedData.likeCount, liked: updatedData.liked } : prev
-        );
+      onSuccess: (updatedImage) => {
+        setSelectedImage(updatedImage); 
       },
       onError: (error) => {
         console.error('Error liking image:', error);
       },
     });
-
-
   };
-
-
- 
 
   return (
     <Box sx={{
