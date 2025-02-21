@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchImages, fetchImageById, uploadImage, fetchTags, fetchImagesByTag, deleteImageById, fetchPersonalizedFeed } from '../../api/imageApi';
 import { IImage, ITag } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 
 export const usePersonalizedFeed = () => {
   const { isLoggedIn } = useAuth();

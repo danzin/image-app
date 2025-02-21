@@ -3,11 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress, Skeleton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
-import { useAuth } from '../context/AuthContext';
 import { useDeleteImage } from '../hooks/images/useImages';
 import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
+import { useAuth } from '../hooks/context/useAuth';
 
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const navigate = useNavigate()

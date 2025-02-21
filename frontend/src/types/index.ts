@@ -98,12 +98,15 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
-  checkAuthState: () => void; 
+  //since I'm using useCallback, logout and checkAuthState return callback. 
+  logout: () => Promise<void>;
+  checkAuthState: () => Promise<void>;
+  
+  login: (user: IUser) => void;
   loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
-  login: (user: IUser) => void;
-  logout: () => void;
+  error: string | null;
 }
 export interface ImageCardProps {
   image: IImage;

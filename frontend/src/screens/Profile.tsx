@@ -18,8 +18,8 @@ import Gallery from '../components/Gallery';
 import { EditProfile } from '../components/EditProfile';
 import { useGetUser, useUpdateUserAvatar, useUserImages } from '../hooks/user/useUsers';
 import { useFollowUser } from '../hooks/user/useUserAction';
-import { useAuth } from '../context/AuthContext';
 import { useIsFollowing } from '../hooks/user/useUserAction';
+import { useAuth } from '../hooks/context/useAuth';
 
 const DashboardLayout:React.FC  = () => {
   const navigate = useNavigate();
