@@ -11,7 +11,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { useGallery } from '../context/GalleryContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/context/useAuth';
 
 const Home: React.FC = () => {
   const theme = useTheme();

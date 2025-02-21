@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { LoadingSpinner } from './LoadingSpinner';
+import { useAuth } from '../hooks/context/useAuth';
 
 export const AdminRoute = ({ element }: { element: JSX.Element }) => {
   const { user, loading } = useAuth();
