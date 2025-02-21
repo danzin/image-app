@@ -114,3 +114,8 @@ export interface ImageCardProps {
   onClick: (image: IImage) => void;
 }
 
+export interface ImageEditorProps {
+  onImageUpload: (croppedImage: string | null) => void;
+  type: 'avatar' | 'cover';
+  aspectRatio?: number;
+}

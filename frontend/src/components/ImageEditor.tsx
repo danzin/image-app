@@ -2,12 +2,9 @@ import React, { useState, useRef, useCallback } from 'react';
 import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { toast } from 'react-toastify';
+import { ImageEditorProps } from '../types';
 
-interface ImageEditorProps {
-  onImageUpload: (croppedImage: string | null) => void;
-  type: 'avatar' | 'cover';
-  aspectRatio?: number;
-}
+
 
 const ImageEditor: React.FC<ImageEditorProps> = ({ 
   onImageUpload, 
