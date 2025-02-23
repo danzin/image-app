@@ -15,7 +15,7 @@ export const useNotifications = () => {
     queryFn:  async () => {
       const data = await fetchNotifications();
       return data.sort((a: Notification, b: Notification) =>  // Keeping notifications sorted by most recent
-        new Date(b.timestamp).getTime()  - new Date(a.timestamp).getTime() // Convert timestamps to date objects for the operation to work
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime() // Convert timestamps to date objects for the operation to work
       );
     },
     staleTime: 5 * 60 * 1000, 
@@ -41,21 +41,6 @@ export const useNotifications = () => {
       queryClient.setQueryData(['notifications'], context?.previous)
     }
   })
-  // const { mutate: markAsRead } = useMutation({
-  //   mutationFn: markNotificationAsRead,
-  //   onSuccess: (updatedNotification) => {
-
-  //     // Update cache without refetching
-  //     queryClient.setQueryData(['notifications'], (oldNotifications: Notification[] = []) =>
-  //       oldNotifications.map((notif) =>
-  //         notif.id === updatedNotification.id ? updatedNotification : notif
-  //       )
-  //     );
-  //   },
-  //   onError: (error: any) => {
-  //     console.error('Error marking notification as read:', error);
-  //   },
-  // });
 
   // Handle real-time notifications with WebSocket
   useEffect(() => {
