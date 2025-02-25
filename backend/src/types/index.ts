@@ -10,3 +10,4 @@ export * from './customUserAction/userAction.types';
 export * from './customUsers/user.types';
 export * from './customUsers/dto.types';
 export * from './customUserPreference/userPreference.types'
+export * from './customImageStorage/imageStorage.types'

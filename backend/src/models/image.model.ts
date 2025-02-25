@@ -134,7 +134,7 @@ imageSchema.pre('findOneAndDelete', async function (next) {
     }
 
     if (doc.user._id) {
-      console.log(`deleting image ${doc._id} from user ${doc.user.username} with user id ${doc.user._id}`)
+      console.log(`deleting image ${doc._id} from  user  id ${doc.user._id}`)
       await User.findByIdAndUpdate(
         doc.user._id,
         { $pull: { images: doc.url } },

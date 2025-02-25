@@ -11,6 +11,7 @@ import { AdminUserRoutes } from '../routes/admin.routes';
 import { detailedRequestLogging, logBehaviour } from '../middleware/logMiddleware';
 import { NotificationRoutes } from '../routes/notification.routes';
 import { FeedRoutes } from '../routes/feed.routes';
+import path from 'path';
 @injectable()
 export class Server {
   private app: Application;
@@ -51,7 +52,8 @@ export class Server {
     this.app.use('/api/search', this.searchRoutes.getRouter());
     this.app.use('/api/admin', this.adminUserRoutes.getRouter());
     this.app.use('/api/notifications/', this.notificationRoutes.getRouter());
-    this.app.use('/api/feed', this.feedRoutes.getRouter())
+    this.app.use('/api/feed', this.feedRoutes.getRouter());
+    this.app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
     // this.app.use('/api/follows', this.followRouter.getRouters());
    
   }

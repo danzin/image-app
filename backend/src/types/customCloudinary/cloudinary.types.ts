@@ -3,7 +3,7 @@ export interface CloudinaryResponse {
   message?: string;
 }
 
-export interface CloudinaryResult {
+export interface DeletionResult {
   result: 'ok' | 'error';
   message?: string;
 }
