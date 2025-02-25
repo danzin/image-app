@@ -26,6 +26,7 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - **Real-Time Functionality:**
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
   - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users.
+  - **Redis caching:** User feed is cached for a set period of time and served from Redis rather than querying the Database every time, enhancing performance and reducing server load. Cache is invalidated when changes occur on the feed(user uploads or removes an image, etc) 
     
 - **Modern Frontend:**
   - Developed with React and TypeScript for a responsive and maintainable UI with MUI and TailwindCSS.
@@ -37,11 +38,10 @@ A full-stack React/Node image sharing application built with TypeScript, designe
   - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
     
 - **Docker:**
-  - You can run the app in docker using `docker-compose up --build`
+  - You can run the app in docker using `docker-compose up --build` It defaults to using local storage in /backend/uploads for images if Cloudinary credentials are not set. When running in Docker it also uses [nginx](https://nginx.org/en/). 
     
 - **Planned Enhancements:**
-  - **Redis Caching:** Future integration to boost performance and scalability. 
-      - The app now uses Redis for user feed caching. ✅
+  - **Redis:** Expanding Redis coverage for the app. 
   - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
 
 ## API Endpoints
@@ -82,9 +82,6 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 ### Feed
 - **GET** `/api/feed/` - Retrieve a personalized feed for the logged-in user. (requires authentication, guest users get a generic feed sorted by recency).
 
-### WebSockets
-- **Real-Time Communication:**  
-  The WebSocket server uses advanced, token-based authentication with custom authentication middleware to secure connections. Clients join specific rooms (e.g., by user ID) to receive personalized notifications instantly.
 
 ## Architecture & Implementation
 The project is built on solid architectural principles:
@@ -94,19 +91,20 @@ The project is built on solid architectural principles:
   TSyringe is used to inject dependencies, promoting modularity and easier testing.
 - **Custom Error Handling & DTOs:**  
   Consistent error responses are achieved with custom error handlers, and DTOs tailor the data output based on user roles.
-- **Real-Time Communication:**  
-  Secure WebSocket connections (using Socket.io) provide instant notifications.
 - **Transaction Management:**  
   Database transactions and the Unit of Work pattern maintain data integrity.
 - **Search Functionality:**  
   A universal search mechanism efficiently searches across users, images, and tags.
 - **Couldinary integration:**
-  Uploaded images are stored on Cloudinary, only relevant metadata is stored in MongoDB.
+  - Uploaded images are stored on Cloudinary, only relevant metadata is stored in MongoDB.
+  - If Cloudinary is not set up, images are stored locally in /backend/uploads. 
+- **Real-Time Communication:**  
+  The WebSocket server uses advanced, token-based authentication with custom authentication middleware to secure connections. Clients join specific rooms (e.g., by user ID) to receive personalized notifications instantly.
   
 ## Future Improvements
  - **Redis Caching:**
     Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
-      - User feed ✅
+      - User feed - Done ✅
  - **Enhanced Security Features:**
     Continued enhancements to authentication, authorization, and data protection.
  - **Expanded Search Capabilities:**
@@ -114,7 +112,7 @@ The project is built on solid architectural principles:
  - **Additional API Endpoints:** 
     Further expansion of administrative, notification, and real-time features.
  - **Dockerization** - Done ✅
-     - TODO: Implement defaulting to local storage for images and local MongoDB instance so the app is self-contained and can be easily used with docker without 3rd party credentials. 
+   - The app uses local storage when Cloudinary credentials are not set in the .env file. 
  - **Polishing the frontend**:
     So far the backend has been my primary focus and frontend has been falling behind.
  - **Full monitoring suite**
@@ -124,9 +122,8 @@ The project is built on solid architectural principles:
 ### Prerequisites
 - Node.js (v22.12.0+ recommended)
 - npm
-- Redis instance running
+- Local Redis instance running
 - Currently the app requires MongoDB Atlas cloud database
-- Cloudinary account
 - Example .env file: 
     ```
     //MongoDB Atlas connection string
@@ -135,7 +132,7 @@ The project is built on solid architectural principles:
     //JWT Secret
     JWT_SECRET=xxxxxxxxxxxxxxxx
     
-    //Cloudinary credentials
+    //Cloudinary credentials, not required. The app defaults to local storage if Cloudinary is unavailable.
     CLOUDINARY_CLOUD_NAME=xxxxxxxxxxxxx 
     CLOUDINARY_API_KEY=xxxxxxxxxxxxx
     CLOUDINARY_API_SECRET=xxxxxxxxxxxxx
@@ -189,6 +186,7 @@ The project is built on solid architectural principles:
   cd frontend
   npm install
   ```
+  - Create .env file in frontend directory containing `VITE_API_URL='http://localhost:3000'` 
 6. To run the app navigate to the root directory in `image-app` and run `npm run dev`.
   `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" "` from the `package.json` file.
    
