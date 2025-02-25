@@ -1,7 +1,6 @@
-import { Model, ClientSession } from 'mongoose';
+import { Model } from 'mongoose';
 import { UserRepository } from '../repositories/user.repository';
-import { IImage, IUser, PaginationOptions, PaginationResult } from '../types';
-import  {CloudinaryService}  from './cloudinary.service';
+import { IImage, IImageStorageService, IUser, PaginationOptions, PaginationResult } from '../types';
 import { ImageRepository } from '../repositories/image.repository';
 import { createError } from '../utils/errors';
 import jwt from 'jsonwebtoken';
@@ -25,7 +24,7 @@ export class UserService {
   constructor(
     @inject('UserRepository') private readonly userRepository: UserRepository,
     @inject('ImageRepository') private readonly imageRepository: ImageRepository,
-    @inject('CloudinaryService') private readonly cloudinaryService: CloudinaryService,
+    @inject('ImageStorageService') private readonly imageStorageService: IImageStorageService, 
     @inject('UserModel') private readonly userModel: Model<IUser>,
     @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork,
     @inject('LikeRepository') private readonly likeRepository: LikeRepository,
@@ -156,12 +155,12 @@ export class UserService {
       }
 
       const oldAvatarUrl = user.avatar;
-      const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+      const cloudImage = await this.imageStorageService.uploadImage(file, user.username);
       
       await this.userRepository.updateAvatar(userId, cloudImage.url, session);
       
       if (oldAvatarUrl) {
-        await this.cloudinaryService.deleteAssetByUrl(userId, oldAvatarUrl);
+        await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
       }
     })
     } catch (error) {
@@ -183,12 +182,12 @@ export class UserService {
         }
 
         const oldCoverUrl = user.cover;
-        const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
+        const cloudImage = await this.imageStorageService.uploadImage(file, user.username);
         
         await this.userRepository.updateCover(userId, cloudImage.url, session);
 
         if (oldCoverUrl) {
-          await this.cloudinaryService.deleteAssetByUrl(userId, oldCoverUrl);
+          await this.imageStorageService.deleteAssetByUrl(userId, oldCoverUrl);
         }
     })
     } catch (error) {
@@ -210,7 +209,7 @@ export class UserService {
       }
 
       if(user.images.length > 0 ){
-        const cloudResult = await this.cloudinaryService.deleteMany(user.username);
+        const cloudResult = await this.imageStorageService.deleteMany(user.username);
         if (cloudResult.result !== 'ok' ) {
           throw createError('CloudinaryError', cloudResult.message || 'Error deleting cloudinary data');
         }

@@ -8,7 +8,7 @@ export class RedisService {
   constructor() {
     this.client = createClient({
       url: process.env.REDIS_URL || 
-           `redis://${process.env.NODE_ENV === "development" ? 'localhost:6379' : 'redis:6379'}`,
+        `redis://${process.env.NODE_ENV === "development" ? 'localhost:6379' : 'redis:6379'}`,
     });
     
 

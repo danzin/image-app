@@ -1,12 +1,13 @@
 import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from 'cloudinary';
 import { createError } from '../utils/errors';
-import { CloudinaryDeleteResponse, CloudinaryResponse, CloudinaryResult } from '../types';
+import { CloudinaryDeleteResponse, CloudinaryResponse, DeletionResult } from '../types';
 import { inject, injectable } from 'tsyringe';
+import { IImageStorageService } from '../types/customImageStorage/imageStorage.types';
 
 
 
 @injectable()
-export class CloudinaryService {
+export class CloudinaryService implements IImageStorageService {
   constructor() {
     cloudinary.config({
         cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -22,7 +23,7 @@ export class CloudinaryService {
   }
 
 
-  async uploadImage(file: Buffer, username: string) {
+  async uploadImage(file: Buffer, username: string): Promise<{url: string, publicId: string}> {
     try {
       const result = await cloudinary.uploader.upload(
         `data:image/png;base64,${file.toString('base64')}`, // Convert Buffer to base64
@@ -31,18 +32,46 @@ export class CloudinaryService {
   
       return {
         url: result.secure_url,
-        public_id: result.public_id,
+        publicId: result.public_id,
       };
     } catch (error) {
       throw createError(error.name, error.message);
 
     }
-    
-
+  }
+  
+  async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
+    const publicId = this.extractPublicId(url);
+    if (!publicId) {
+      throw new Error('Invalid URL format');
+    }
+  
+    try {
+      console.log("URL of image about to delete:", url);
+      const assetPath = `${username}/${publicId}`;
+      const result = await cloudinary.uploader.destroy(assetPath);
+      console.log(result);
+  
+      // Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
+      return { result: result.result }; // Only include the result field
+    } catch (error) {
+      console.error('Error deleting asset:', error);
+      throw createError('StorageError', error.message);
+    }
   }
 
+      //deletes image by public Id
+      async deleteImage(publicId: string): Promise<void> {
+        try {
+          cloudinary.uploader.destroy(publicId)
+        } catch (error) {
+          console.error(error);
+          throw createError(error.name, error.message);
+        };
+      };
+
   //deletes lots of images with username prefix
-  async deleteMany(username: string): Promise<CloudinaryResult> {
+  async deleteMany(username: string): Promise<DeletionResult> {
     try {
       const result = await cloudinary.api.delete_resources_by_prefix(username);
       return this.processDeleteResponse(result);
@@ -68,7 +97,7 @@ export class CloudinaryService {
      * and the condition is > 0 
      * That way there are no unnecessary errors from successful deletions
     */
-  private processDeleteResponse(response: CloudinaryDeleteResponse): CloudinaryResult {
+  private processDeleteResponse(response: CloudinaryDeleteResponse): DeletionResult {
 
   
     const hasSuccessfulDeletions = Object.values(response.deleted_counts).some(
@@ -85,35 +114,7 @@ export class CloudinaryService {
     };
   }
 
-  //deletes image by public Id
-  async deleteImage(publicId) {
-    cloudinary.uploader.destroy(publicId, (error, result) => {
-      if (error) {
-        console.error('Error deleting image:', error);
-      } else {
-        console.log('Image deleted successfully:', result);
-      }
-    });
-  };
 
-  async deleteAssetByUrl(id: string, url: string): Promise<{ result: string }> {
-    const publicId = this.extractPublicId(url);
-    if (!publicId) {
-      throw new Error('Invalid URL format');
-    }
-  
-    try {
-      console.log("URL of image about to delete:", url);
-      const assetPath = `${id}/${publicId}`;
-      const result = await cloudinary.uploader.destroy(assetPath);
-      console.log(result);
-  
-      // Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
-      return { result: result.result }; // Only include the result field
-    } catch (error) {
-      console.error('Error deleting asset:', error);
-      throw createError('CloudError', error.message);
-    }
-  }
 
+  
 }
