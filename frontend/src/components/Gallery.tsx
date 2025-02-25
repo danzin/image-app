@@ -9,6 +9,8 @@ import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
 import { useAuth } from '../hooks/context/useAuth';
 
+const BASE_URL = import.meta.env.VITE_API_URL;
+
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const navigate = useNavigate()
   const { user, isLoggedIn } = useAuth();
@@ -95,6 +97,9 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
     });
   };
 
+  const fullImageUrl = selectedImage?.url.startsWith('http') ? selectedImage.url : `${BASE_URL}${selectedImage?.url}`;
+
+
   return (
     <Box sx={{
       display: 'flex',
@@ -148,7 +153,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
           </DialogTitle>
             <Box
               component="img"
-              src={selectedImage.url}
+              src={fullImageUrl}
               alt={selectedImage.publicId}
               sx={{
                 

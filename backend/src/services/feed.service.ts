@@ -13,7 +13,7 @@ export class FeedService {
     @inject('UserRepository') private userRepository: UserRepository,
     @inject('UserPreferenceRepository') private userPreferenceRepository: UserPreferenceRepository,
     @inject('UserActionRepository') private userActionRepository: UserActionRepository,
-    @inject('RedisService') private redisService: RedisService // Add this
+    @inject('RedisService') private redisService: RedisService
   ) {}
 
   public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
@@ -53,7 +53,7 @@ export class FeedService {
         skip
       );
 
-      await this.redisService.set(cacheKey, feed, 1800); // Cache feed for 20 minutes
+      await this.redisService.set(cacheKey, feed, 120); // Cache feed for 2 minutes
       return feed;
 
     } catch (error) {

@@ -1,22 +1,23 @@
 import { ImageRepository } from '../repositories/image.repository';
 import { UserRepository } from '../repositories/user.repository';
-import { CloudinaryService } from './cloudinary.service';
 import { createError } from '../utils/errors';
-import { IImage, ITag, PaginationResult } from '../types';
-import mongoose, { Model, ObjectId } from 'mongoose';
+import { IImage, IImageStorageService, ITag, PaginationResult } from '../types';
 import { errorLogger } from '../utils/winston';
 import { TagRepository } from '../repositories/tag.repository';
 import { UnitOfWork } from '../database/UnitOfWork';
 import { inject, injectable } from 'tsyringe';
+import { RedisService } from './redis.service';
 
 @injectable()
 export class ImageService {
   constructor(
     @inject('UserRepository') private readonly userRepository: UserRepository,
     @inject('ImageRepository') private readonly imageRepository: ImageRepository,
-    @inject('CloudinaryService') private readonly cloudinaryService: CloudinaryService,
+    @inject('ImageStorageService') private readonly imageStorageService: IImageStorageService, 
     @inject('TagRepository') private readonly tagRepository: TagRepository,
-    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork
+    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork,
+    @inject('RedisService') private redisService: RedisService
+    
   ) {}
 
 
@@ -52,14 +53,14 @@ export class ImageService {
           })
         );
   
-        // Store public_id for cleanup if transaction fails
-        const cloudImage = await this.cloudinaryService.uploadImage(file, user.username);
-        cloudImagePublicId = cloudImage.public_id;
+        // Store publicId for cleanup if transaction fails
+        const cloudImage = await this.imageStorageService.uploadImage(file, user.username);
+        cloudImagePublicId = cloudImage.publicId;
   
         // Create image document with Cloudinary details
         const image = {
           url: cloudImage.url,
-          publicId: cloudImage.public_id,
+          publicId: cloudImage.publicId,
           user: user.id, 
           createdAt: new Date(),
           tags: tagIds, 
@@ -88,16 +89,17 @@ export class ImageService {
 
 
       });
-  
+      console.log('Removing cache')
+      await this.redisService.del(`feed:${userId}:*`); //invalidate user cache on new image uploads
       return result;
     } catch (error) {
       // Cleanup Cloudinary asset if transaction failed after upload
       if (cloudImagePublicId) {
         try {
-          await this.cloudinaryService.deleteImage(cloudImagePublicId);
+          await this.imageStorageService.deleteImage(cloudImagePublicId);
         } catch (error) {
           console.error('Failed to cleanup Cloudinary image:', error);
-          throw createError('CloudError', error.message, {
+          throw createError('StorageError', error.message, {
             function: 'uploadImage',
           })
         }
@@ -114,28 +116,37 @@ export class ImageService {
     try {
       const result = await this.unitOfWork.executeInTransaction(async (session) => {
         const image = await this.imageRepository.findById(imageId, session);
+        console.log(`Image to delete: ${image}`)
         if (!image) {
           throw createError('NotFoundError', 'Image not found');
         }
 
         // Delete from database
+        console.log('deleting from repository:')
         await this.imageRepository.delete(imageId, session );
 
-        // Delete from Cloudinary
-        const deletionResult = await this.cloudinaryService.deleteAssetByUrl(
+        // Delete from storage
+        const deletionResult = await this.imageStorageService.deleteAssetByUrl(
           image.user.username,
           image.url
         );
 
+        console.log(`result of await this.imageStorageService.deleteAssetByUrl: ${deletionResult}`)
+        
+
         if (deletionResult.result !== 'ok') {
-          throw createError('CloudError', 'Failed to delete from Cloudinary');
+          throw createError('StorageError', 'Failed to delete from Cloudinary');
         }
-      
+        console.log('Removing cache')
+        await this.redisService.del(`feed:${image.user.id}:*`); //invalidate cache
+  
         return { message: 'Image deleted successfully' };
 
       })
+      console.log(`result of transaction: ${result}`)
       return result;
     } catch (error) {
+      console.error(error)
       throw createError(error.name, error.message, {
         function: 'deleteImage',
         file: 'image.service.ts'
@@ -189,8 +200,6 @@ export class ImageService {
       throw createError('InternalServerError', error.message);
     }
   }
-
- 
 
   async getTags(): Promise<ITag[]> {
     try {
