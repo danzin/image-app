@@ -48,12 +48,6 @@ class InternalServerError extends AppError {
   }
 }
 
-class CloudError extends AppError {
-  constructor(message: string){
-    super('CloudError', message, 500)
-  }
-}
-
 class UnknownError extends AppError {
   constructor(message: string) {
     super('UnknownError', message, 500);
@@ -79,6 +73,12 @@ class UoWError extends AppError{
   }
 }
 
+class StorageError extends AppError{
+  constructor(message: string){
+    super('StorageError', message, 500)
+  }
+}
+
 const errorMap: { [key: string]: new (message: string) => AppError } = {
   ValidationError,
   UnauthorizedError,
@@ -86,11 +86,12 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
   PathError,
   DuplicateError,
   InternalServerError,
-  CloudError,
+  StorageError,
   UnknownError,
   TransactionError,
   UoWError,
   DatabaseError
+  
 };
 
 export function createError(type: string, message: string, context?: any): AppError {

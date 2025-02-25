@@ -2,7 +2,9 @@ import React from 'react';
 import { Card, CardMedia, Typography, Box } from '@mui/material';
 import { ImageCardProps } from '../types';
 
+const BASE_URL = import.meta.env.VITE_API_URL;
 const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
+  const fullImageUrl = image.url.startsWith('http') ? image.url : `${BASE_URL}${image.url}`;
   return (
     <Card
       onClick={() => onClick(image)}
@@ -18,7 +20,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
     >
       <CardMedia
         component="img"
-        image={image.url}
+        image={fullImageUrl}
         alt={`Gallery item ${image.id}`}
         sx={{
           width: '100%',

@@ -38,6 +38,7 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
       if (session) query.session(session); 
       return await query.exec();
     } catch (error) {
+
       throw createError('UoWError', error.message);
     }
   }
@@ -50,9 +51,10 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
    */
   async delete(id: string, session?: ClientSession): Promise<boolean> {
     try {
-      const query = this.model.findByIdAndDelete(id);
+      const query = this.model.findOneAndDelete({_id: id});
       if (session) query.session(session); 
       const result = await query.exec();
+      console.log(`result from execution of delete in imageRepository: ${result}`)
       return result !== null;
     } catch (error) {
       throw createError('UoWError', error.message)

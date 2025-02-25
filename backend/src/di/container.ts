@@ -40,9 +40,24 @@ import { FeedController } from '../controllers/feed.controller';
 import { FeedRoutes } from '../routes/feed.routes';
 import { UserPreferenceRepository } from '../repositories/userPreference.repository';
 import { RedisService } from '../services/redis.service';
+import { LocalStorageService } from '../services/localStorage.service';
+import { IImageStorageService } from '../types/index';
 
 
 export function setupContainer(): void {
+
+  // Check if Cloudinary is configured
+  const isCloudinaryConfigured =
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET;
+
+
+
+  const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
+  if(!isCloudinaryConfigured){
+    console.log('No Cloudinary credentials detected. \r\nDefaulting to local storage.')
+  }
 
   // Register Models
   container.register('UserModel', { useValue: User });
@@ -70,7 +85,6 @@ export function setupContainer(): void {
 
   // Register Services as singletons
   container.registerSingleton('SearchService', SearchService);
-  container.registerSingleton('CloudinaryService', CloudinaryService);
   container.registerSingleton('UserService', UserService);
   container.registerSingleton('ImageService', ImageService);
   container.registerSingleton('FollowService', FollowService);
@@ -78,7 +92,10 @@ export function setupContainer(): void {
   container.registerSingleton('UserDTOService', UserDTOService);
   container.registerSingleton('FeedService', FeedService);
   container.registerSingleton('RedisService', RedisService);
+  container.registerSingleton<IImageStorageService>('ImageStorageService', ImageStorageService); 
 
+  
+  
   // Register Controllers as singletons
   container.registerSingleton('SearchController', SearchController);
   container.registerSingleton('UserController', UserController);
