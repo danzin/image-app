@@ -9,7 +9,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!isLoggedIn || !user) return;
-    const newSocket = io('http://localhost:12000', {
+    const newSocket = io('http://localhost:3000', {
       withCredentials: true,
     });
 

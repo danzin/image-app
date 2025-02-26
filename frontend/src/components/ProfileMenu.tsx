@@ -5,6 +5,7 @@ import { ChevronDown, UploadIcon } from "lucide-react";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 
+const BASE_URL = import.meta.env.VITE_API_URL;
 
 const modalStyle = {
   position: 'absolute',
@@ -41,11 +42,12 @@ const ProfileMenu = () => {
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+  const fullAvatarUrl = user?.avatar.startsWith('http') ? user?.avatar : `${BASE_URL}${user?.avatar}`;
 
   return (
     <>
       <IconButton size="large" edge="end" onClick={handleMenuOpen} color="inherit">
-        <Avatar src={user?.avatar} sx={{ width: 32, height: 32 }} />
+        <Avatar src={fullAvatarUrl} sx={{ width: 32, height: 32 }} />
         <ChevronDown size={16} style={{ marginLeft: 8 }} />
       </IconButton>
 

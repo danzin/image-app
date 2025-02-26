@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
+import { Box, Paper, Typography, TextField, Button, Alert, Link as MUILink } from '@mui/material';
+
 interface AuthFormProps<T> {
   title: string;
   fields: { 
     name: keyof T;
     type: string;
-    placeholder: string,
-    required: boolean,
+    placeholder: string;
+    required: boolean;
   }[];
   onSubmit: (formData: T) => void;
   error?: string | null;
@@ -36,49 +38,48 @@ const AuthForm = <T extends { [key: string]: string }>({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
-    if(onSuccess){
+    if (onSuccess) {
       onSuccess();
     }
   };
 
   return (
-    <div className="hero h-auto bg-transparent">
-      <div className="hero-content flex-col">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold">{title}</h1>
-          <p className="py-6">{title}</p>
-        </div>
-        <div className="card sm:w-[30rem] shadow-2xl bg-base-100">
-          <form className="card-body" onSubmit={handleSubmit}>
-            {error && <div className="alert alert-error">{error}</div>}
+    <Box sx={{ height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+      <Typography variant="h4" component="h1">
+          {title}
+        </Typography>
+        <Paper elevation={3} sx={{ padding: 4, width: { xs: '100%', sm: '400px' } }}>
+          <form onSubmit={handleSubmit}>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             {fields.map((field) => (
-              <div className="form-control" key={field.name as string}>
-                <label className="label">
-                  <span className="label-text">{String(field.name)}</span>
-                </label>
-                <input
-                  type={field.type}
-                  name={field.name as string}
-                  placeholder={field.placeholder}
-                  className="input input-bordered"
-                  value={formData[field.name] || ''}
-                  onChange={handleChange}
-                  required={field.required}
-                />
-              </div>
+              <TextField
+                key={field.name as string}
+                label={String(field.name)}
+                type={field.type}
+                placeholder={field.placeholder}
+                required={field.required}
+                fullWidth
+                margin="normal"
+                name={field.name as string}
+                value={formData[field.name] || ''}
+                onChange={handleChange}
+              />
             ))}
-            <div className="form-control mt-6">
-              <button className="btn btn-primary" type="submit">
-                {submitButtonText}
-              </button>
-            </div>
-            <p>
-             <Link className="text-sky-600" to={linkTo as string}>{linkText}</Link>
-            </p>
+            <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 2 }}>
+              {submitButtonText}
+            </Button>
+            {linkText && linkTo && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <MUILink component={RouterLink} to={linkTo} variant="body2" underline="hover">
+                  {linkText}
+                </MUILink>
+              </Box>
+            )}
           </form>
-        </div>
-      </div>
-    </div>
+        </Paper>
+      </Box>
+    </Box>
   );
 };
 

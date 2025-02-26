@@ -21,6 +21,8 @@ import { useIsFollowing } from '../hooks/user/useUserAction';
 import { useAuth } from '../hooks/context/useAuth';
 import ImageEditor from '../components/ImageEditor';
 
+const BASE_URL = import.meta.env.VITE_API_URL;
+
 const DashboardLayout:React.FC  = () => {
   const navigate = useNavigate();
   const { id } = useParams(); 
@@ -31,6 +33,7 @@ const DashboardLayout:React.FC  = () => {
     hasNextPage,
     isFetchingNextPage,
   } = useUserImages(userData?.id || '');
+
 
   const { user, isLoggedIn } = useAuth(); 
   const theme = useTheme();
@@ -93,7 +96,8 @@ const handleImageUpload = async (croppedImage: string | null) => {
       </Box>
     );
   }
-
+  const fullAvatarUrl = userData?.avatar.startsWith('http') ? userData?.avatar : `${BASE_URL}${userData?.avatar}`;
+  
   return (
     <Box sx={{ height: '100%', overflow: 'auto', bgcolor: theme.palette.background.default }}>
       {/* Cover Photo */}
@@ -130,7 +134,7 @@ const handleImageUpload = async (croppedImage: string | null) => {
           {/* Profile Picture */}
           <Box sx={{ position: 'relative' }}>
           <Avatar
-            src={userData?.avatar}
+            src={fullAvatarUrl}
             sx={{
               width: { xs: 96, sm: 128 }, 
               height: { xs: 96, sm: 128 },
