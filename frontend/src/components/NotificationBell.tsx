@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { IconButton, Badge, Menu, MenuItem } from "@mui/material";
+import { IconButton, Badge, Menu, MenuItem, Typography } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
@@ -22,7 +22,6 @@ const NotificationBell = () => {
     markAsRead(notificationId); 
     handleClose();
   };
-
   return (
     <>
       <IconButton size="large" color="inherit" onClick={handleOpen}>
@@ -44,7 +43,7 @@ const NotificationBell = () => {
           unreadNotifications
           .map((notification: Notification) =>(
             <MenuItem key={notification.id} onClick={() => handleNotificationClick(notification.id)}>
-              {notification.actionType} by { <Link to={notification.actorId.username}/>  }
+              <Typography>{notification.actionType} by  <Link to={`/profile/${notification.actorId.id}`} style={{ color: 'lightslategray' }}> {notification.actorId.username} </Link>  </Typography> 
             </MenuItem>
           ))
         )}

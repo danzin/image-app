@@ -4,13 +4,14 @@ import { Box } from '@mui/material';
 import Navbar from './Navbar';
 
 const Layout: React.FC = () => {
+  
   return (
-    <Box sx={{ maxHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }} >
       <Navbar />
-      <Box
+      <Box className='background'
         sx={{
           flex: 1,
-          // overflowY: 'auto',
+          overflowY: 'auto', 
           display: 'flex',
           flexDirection: 'column',
           px: 3,

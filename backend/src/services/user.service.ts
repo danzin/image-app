@@ -147,25 +147,40 @@ export class UserService {
    * @param file - The new avatar image file.
    */
   async updateAvatar(userId: string, file: Buffer): Promise<void> {
+    let newAvatarUrl: string | null = null;
+    let username: string | null = null;
+    let oldAvatarUrl: string | null = null;
+  
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
-      const user = await this.userRepository.findById(userId, session);
-      if (!user) {
-        throw createError('NotFoundError', 'User not found');
-      }
-
-      const oldAvatarUrl = user.avatar;
-      const cloudImage = await this.imageStorageService.uploadImage(file, user.username);
-      
-      await this.userRepository.updateAvatar(userId, cloudImage.url, session);
-      
+        const user = await this.userRepository.findById(userId, session);
+        if (!user) {
+          throw createError('NotFoundError', 'User not found');
+        }
+        oldAvatarUrl = user.avatar;
+        const newAvatar = await this.imageStorageService.uploadImage(file, user.username);
+        newAvatarUrl = newAvatar.url;
+        username = user.username;
+        await this.userRepository.updateAvatar(userId, newAvatar.url, session);
+      });
+  
       if (oldAvatarUrl) {
-        await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
+        const deleteResult = await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
+        if (deleteResult.result !== 'ok') {
+          console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
+        }
       }
-    })
     } catch (error) {
+      // Clean up the only if the transaction or upload failed
+      if (newAvatarUrl && !username) { // username is set only if transaction succeeds
+        try {
+          await this.imageStorageService.deleteAssetByUrl(userId, newAvatarUrl);
+        } catch (deleteError) {
+          console.error('Failed to clean up new avatar:', deleteError);
+        }
+      }
       throw createError(error.name, error.message);
-    } 
+    }
   }
 
   /**

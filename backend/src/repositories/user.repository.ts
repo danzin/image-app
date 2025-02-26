@@ -200,6 +200,7 @@ export class UserRepository extends BaseRepository<IUser>{
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
+      console.error(error)
       throw createError('DatabaseError', error.message);
     }
   }

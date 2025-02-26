@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRegister } from '../hooks/user/useUserRegister';
 import AuthForm from '../components/AuthForm';
 import { ToastContainer, toast } from 'react-toastify';
+import { Box } from '@mui/material';
 
 const Login: React.FC = () => {
   const { mutateAsync: registerMutation } = useRegister();
@@ -16,7 +17,7 @@ const Login: React.FC = () => {
     try {
       await registerMutation({username: formData.username, email: formData.email, password: formData.password});
       notifySuccess()
-      setTimeout(() => navigate('/login'), 1500)
+      setTimeout(() => navigate('/'), 1500)
     } catch (error: any) {
       notifyError(error.message)
       console.error('Registration failed:', error.message);
@@ -24,7 +25,9 @@ const Login: React.FC = () => {
   };
   
   return (
-    <>
+
+    <Box sx={{overflow: 'hidden'}}>
+
       <AuthForm 
       title="Register"
       fields={[
@@ -39,7 +42,8 @@ const Login: React.FC = () => {
       />
       <ToastContainer />
 
-    </>
+      </Box>
+
   );
 };
 

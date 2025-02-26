@@ -15,18 +15,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
 }
 
-body {
-  min-height: 100vh;
-  background-image: 
-  radial-gradient(circle at center center,rgba(33,33,33,0),rgb(27,27,46)),
-  repeating-linear-gradient(135deg, rgb(27,27,46) 0px, rgb(27,27,46) 1px,transparent 1px, transparent 4px),
-  repeating-linear-gradient(45deg, rgb(56,56,56) 0px, rgb(56,56,56) 5px,transparent 5px, transparent 6px),
-  linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
+html, body {
+  height: 100%;
 
-
- 
   margin: 0;
   padding: 0;
   /* overflow: hidden; */
@@ -36,6 +30,15 @@ body {
   display: grid;
    place-items: center; 
     min-width: 320px;  */
+
+}
+
+.background {
+  background-image: 
+  radial-gradient(circle at center center,rgba(33,33,33,0),rgb(27,27,46)),
+  repeating-linear-gradient(135deg, rgb(27,27,46) 0px, rgb(27,27,46) 1px,transparent 1px, transparent 4px),
+  repeating-linear-gradient(45deg, rgb(56,56,56) 0px, rgb(56,56,56) 5px,transparent 5px, transparent 6px),
+  linear-gradient(90deg, rgb(27,27,46),rgb(27,27,46));
 }
 
 .gallery-image img {
@@ -55,16 +58,10 @@ body {
   background-color: rgba(0,0,0,0.4) !important;
 }
 
-/** heartbeat animation for likes */
-@keyframes heartbeat {
-  0%, 100% {
-    transform: scale(1.2);
-  }
-  50% {
-    transform: scale(1.4);
-  }
+.Toastify__toast-container {
+  position: fixed !important;
+  z-index: 9999;
 }
 
-.heartbeat {
-  animation: heartbeat 1s infinite;
-}
+
+
