@@ -75,6 +75,15 @@ export class UserRepository extends BaseRepository<IUser>{
   }
   
 
+  /**
+   * Retrieves a paginated list of users with optional search functionality.
+   * @param {Object} options - The filtering and pagination options.
+   * @param {string[]} [options.search] - An array of search terms for filtering users by username.
+   * @param {number} [options.page=1] - The page number for pagination (default: 1).
+   * @param {number} [options.limit=20] - The maximum number of users per page (default: 20).
+   * @returns {Promise<IUser[] | null>} - A promise that resolves to an array of users or null if no users match.
+   * @throws {Error} - Throws a 'DatabaseError' if the query fails.
+   */
   async getAll(options: {
     search?: string[];
     page?: number;
@@ -187,6 +196,15 @@ export class UserRepository extends BaseRepository<IUser>{
   }
 
   // Profile-specific updates
+
+  /**
+   * Updates the avatar URL of a user in the database.
+   * @param {string} userId - The unique identifier of the user.
+   * @param {string} avatarUrl - The new avatar URL to be set.
+   * @param {ClientSession} [session] - Optional Mongoose session for transaction support.
+   * @returns {Promise<void>} - Resolves when the update is complete.
+   * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
+   */
   async updateAvatar(
     userId: string, 
     avatarUrl: string, 
@@ -206,6 +224,14 @@ export class UserRepository extends BaseRepository<IUser>{
   }
 
 
+  /**
+   * Updates the cover image URL of a user in the database.
+   * @param {string} userId - The unique identifier of the user.
+   * @param {string} coverUrl - The new cover image URL to be set.
+   * @param {ClientSession} [session] - Optional Mongoose session for transaction support.
+   * @returns {Promise<void>} - Resolves when the update is complete.
+   * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
+   */
   async updateCover(
     userId: string, 
     coverUrl: string, 
