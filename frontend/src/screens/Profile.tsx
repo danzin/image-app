@@ -20,6 +20,7 @@ import { useFollowUser } from '../hooks/user/useUserAction';
 import { useIsFollowing } from '../hooks/user/useUserAction';
 import { useAuth } from '../hooks/context/useAuth';
 import ImageEditor from '../components/ImageEditor';
+import { FileX } from 'lucide-react';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -274,18 +275,26 @@ const handleImageUpload = async (croppedImage: string | null) => {
       {/* Edit Profile Modal */}
       <Modal open={isEditOpen} onClose={() => setIsEditOpen(false)}>
         <Box
+          onClick={(e) => e.stopPropagation()}
           sx={{
             position: 'absolute',
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            bgcolor: 'background.paper',
-            p: 4,
-            borderRadius: 2,
-            boxShadow: 24,
+            background: 'transparent',
+            maxWidth: '100%',
+            maxHeight: '100vh',
+            overflow: 'auto',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center'
           }}
         >
-          <EditProfile onComplete={() => setIsEditOpen(false)} notifySuccess={notifySuccess} notifyError={notifyError} />
+          <EditProfile 
+            onComplete={() => setIsEditOpen(false)} 
+            notifySuccess={notifySuccess} 
+            notifyError={notifyError} 
+          />
         </Box>
       </Modal>
 

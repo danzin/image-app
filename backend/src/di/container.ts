@@ -52,8 +52,7 @@ export function setupContainer(): void {
   process.env.CLOUDINARY_API_KEY &&
   process.env.CLOUDINARY_API_SECRET;
 
-
-
+  
   const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
   if(!isCloudinaryConfigured){
     console.log('No Cloudinary credentials detected. \r\nDefaulting to local storage.')
@@ -94,8 +93,6 @@ export function setupContainer(): void {
   container.registerSingleton('RedisService', RedisService);
   container.registerSingleton<IImageStorageService>('ImageStorageService', ImageStorageService); 
 
-  
-  
   // Register Controllers as singletons
   container.registerSingleton('SearchController', SearchController);
   container.registerSingleton('UserController', UserController);
