@@ -1,192 +1,103 @@
-import { ImageRepository } from '../../repositories/image.repository.old';
-import Image from '../../models/image.model';
-import { IImage, IUser } from '../../types';
+import 'reflect-metadata';
+
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
+import { ImageRepository } from '../../repositories/image.repository';
+import { Model, ClientSession } from 'mongoose';
+import { IImage, PaginationOptions, PaginationResult } from '../../types';
+import { createError } from '../../utils/errors';
+
+interface MockImageModel {
+  findById: jest.Mock;
+  find: jest.Mock;
+  countDocuments: jest.Mock;
+  deleteMany: jest.Mock;
+  aggregate: jest.Mock;
+}
+
+const mockModel: MockImageModel = {
+  findById: jest.fn(),
+  find: jest.fn(),
+  countDocuments: jest.fn(),
+  deleteMany: jest.fn(),
+  aggregate: jest.fn(),
+
+} 
 
 
-//mock the model
-jest.mock('../../models/image.model');
 
 describe('ImageRepository', () => {
   let repository: ImageRepository;
-  let mockImage: IImage;
+
   beforeEach(() => {
+    // Reset mocks to avoid test interference
     jest.clearAllMocks();
-    repository = new ImageRepository();
-    mockImage = {
-      _id: 'test-id',
-      url: 'http://test.com/image.jpg',
-      userId: 'user-id',
-      createdAt: new Date(),
-      tags: ['cat']
-    } as unknown as IImage;
-
+    // Fresh repository instance with the mocked model
+    repository = new ImageRepository(mockModel as any);
   });
 
-  describe('create', () => {
-    it('should create an image successfully', async () => {
-      const mockImage = {
-        _id: 'test-id',
-        userId: 'user-id',
-        url: 'test-url',
-        createdAt: new Date()
+  describe('findById', () => {
+    it('returns null for invalid ObjectId', async () => {
+      const invalidId = 'invalid-id';
+      const result = await repository.findById(invalidId);
+      expect(result).toBeNull();
+      expect(mockModel.findById).not.toHaveBeenCalled();
+    });
+
+    it('returns an image with populated fields for valid ID', async () => {
+      const validId = '60f6a6a3c9b3a40015f0a9b6';
+      const mockImage: Partial<IImage> = {
+        _id: validId,
+        url: 'test.jpg',
+        publicId: 'test-public-id',
+        user: { id: '1' as any, username: 'testuser' },
+        tags: [{ tag: 'art' }],
+        createdAt: new Date(),
+        likes: 0,
       };
-      
-      (Image.create as jest.Mock).mockResolvedValueOnce(mockImage);
-      
-      const result = await repository.create(mockImage);
-      
+
+      const mockQuery = {
+        populate: jest.fn().mockReturnThis(), // mockReturnThis() allows for chaining support
+        session: jest.fn().mockReturnThis(),
+        exec: jest.fn<() => Promise<Partial<IImage> | null>>().mockResolvedValue(mockImage),
+        };
+      mockModel.findById.mockReturnValue(mockQuery);
+
+      const result = await repository.findById(validId);
       expect(result).toEqual(mockImage);
-      expect(Image.create).toHaveBeenCalledWith(mockImage);
+      expect(mockModel.findById).toHaveBeenCalledWith(validId);
+      expect(mockQuery.populate).toHaveBeenCalledWith('user', 'username');
+      expect(mockQuery.populate).toHaveBeenCalledWith('tags', 'tag');
+      expect(mockQuery.exec).toHaveBeenCalled();
     });
 
-    it('should throw an error when creation fails', async () => {
-      const error = new Error('InternalServerError');
-      (Image.create as jest.Mock).mockRejectedValueOnce(error);
-      
-      await expect(repository.create({})).rejects.toThrow('InternalServerError');
-    });
-  });
+    it('uses session if provided', async () => {
+      const validId = '60f6a6a3c9b3a40015f0a9b6';
+      const mockSession = {} as ClientSession;
+      const mockImage = { _id: validId, url: 'test.jpg' } as IImage;
 
-  describe('findImages', () => {
-    it('should return paginated results with default options', async () => {
-      const mockImages = [{ _id: '1' }, { _id: '2' }];
-      const mockExec = jest.fn().mockResolvedValueOnce(mockImages);
-      const mockSort = jest.fn().mockReturnValue({ skip: jest.fn().mockReturnValue({ limit: jest.fn().mockReturnValue({ exec: mockExec }) }) });
-      const mockFind = jest.fn().mockReturnValue({ sort: mockSort });
-      
-      (Image.find as jest.Mock) = mockFind;
-      (Image.countDocuments as jest.Mock).mockResolvedValueOnce(2);
-      
-      const result = await repository.findImages();
-      
-      expect(result).toEqual({
-        data: mockImages,
-        total: 2,
-        page: 1,
-        limit: 20,
-        totalPages: 1
-      });
+      const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
+        session: jest.fn().mockReturnThis(),
+        exec: jest.fn<() => Promise<Partial<IImage> | null>>().mockResolvedValue(mockImage), 
+        };
+      mockModel.findById.mockReturnValue(mockQuery);
+
+      const result = await repository.findById(validId, mockSession);
+      expect(result).toEqual(mockImage);
+      expect(mockQuery.session).toHaveBeenCalledWith(mockSession);
     });
 
-    it('should handle custom pagination options', async () => {
-      const mockImages = [{ _id: '1' }];
-      const mockExec = jest.fn().mockResolvedValueOnce(mockImages);
-      const mockSort = jest.fn().mockReturnValue({ skip: jest.fn().mockReturnValue({ limit: jest.fn().mockReturnValue({ exec: mockExec }) }) });
-      const mockFind = jest.fn().mockReturnValue({ sort: mockSort });
-      
-      (Image.find as jest.Mock) = mockFind;
-      (Image.countDocuments as jest.Mock).mockResolvedValueOnce(1);
-      
-      const result = await repository.findImages({
-        page: 2,
-        limit: 10,
-        sortBy: 'url',
-        sortOrder: 'asc'
-      });
-      
-      expect(result.page).toBe(2);
-      expect(result.limit).toBe(10);
-      expect(mockSort).toHaveBeenCalledWith({ url: 'asc' });
-    });
-  });
-
-  describe('getByUserId', () => {
-    it('should return user-specific paginated results', async () => {
-      const userId = 'test-user';
-      const mockImages = [{ _id: '1', userId }];
-      const mockExec = jest.fn().mockResolvedValueOnce(mockImages);
-      const mockSort = jest.fn().mockReturnValue({ skip: jest.fn().mockReturnValue({ limit: jest.fn().mockReturnValue({ exec: mockExec }) }) });
-      const mockFind = jest.fn().mockReturnValue({ sort: mockSort });
-      
-      (Image.find as jest.Mock) = mockFind;
-      (Image.countDocuments as jest.Mock).mockResolvedValueOnce(1);
-      
-      const result = await repository.getByUserId(userId);
-      
-      expect(result.data).toEqual(mockImages);
-      expect(mockFind).toHaveBeenCalledWith({ userId });
-    });
-  });
-
-  describe('delete', () => {
-    it('should delete an image successfully', async () => {
-      const mockId = 'test-id';
-      (Image.findOneAndDelete as jest.Mock).mockResolvedValueOnce(mockImage);
-      
-      const result = await repository.delete(mockId);
-      
-      expect(result).toBe(mockImage);
-      expect(Image.findOneAndDelete).toHaveBeenCalledWith({_id: mockId});
-    });
-  });
-
-  describe('deleteMany', () => {
-    it('should delete multiple images by userId', async () => {
-      const userId = 'test-user';
-      (Image.deleteMany as jest.Mock).mockResolvedValueOnce({ acknowledged: true, deletedCount: 2 });
-      
-      const result = await repository.deleteMany(userId);
-      
-      expect(result).toBe(true);
-      expect(Image.deleteMany).toHaveBeenCalledWith({ userId });
-    });
-  });
-
-  describe('update', () => {
-    it('should update an image successfully', async () => {
-      const mockId = 'test-id';
-      const updateData = { url: 'new-url' };
-      const updatedImage = { _id: mockId, ...updateData };
-      
-      (Image.findByIdAndUpdate as jest.Mock).mockResolvedValueOnce(updatedImage);
-      
-      const result = await repository.update(mockId, updateData);
-      
-      expect(result).toEqual(updatedImage);
-      expect(Image.findByIdAndUpdate).toHaveBeenCalledWith(mockId, updateData, { new: true });
-    });
-  });
-
-  describe('searchByTags', () => {
-    it('should return images filtered by tags with pagination', async () => {
-      const mockTags = ['cat', 'cute'];
-      const mockPage = 1;
-      const mockLimit = 10;
-      const mockSkip = (mockPage - 1) * mockLimit;
-  
-      const mockImages = [
-        { _id: '1', tags: ['cat', 'cute'], url: 'image1.jpg' },
-        { _id: '2', tags: ['cat'], url: 'image2.jpg' },
-      ];
-  
-      const mockTotalCount = 2;
-  
-      //Mock query object with chaining
-      const mockFind = {
-        skip: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockReturnThis(),
-        exec: jest.fn().mockResolvedValueOnce(mockImages),
+    it('throws DatabaseError on failure', async () => {
+      const validId = '60f6a6a3c9b3a40015f0a9b6';
+      const mockQuery = {
+        populate: jest.fn().mockReturnThis(),
+        session: jest.fn().mockReturnThis(),
+        exec: jest.fn<() => Promise<Partial<IImage> | null>>().mockRejectedValue(new Error('DatabaseError')),
       };
-  
-      (Image.find as jest.Mock).mockReturnValueOnce(mockFind);
-      (Image.countDocuments as jest.Mock).mockResolvedValueOnce(mockTotalCount);
-  
-      const result = await repository.searchByTags(mockTags, mockPage, mockLimit);
-  
-      expect(Image.find).toHaveBeenCalledWith({ tags: { $in: mockTags } });
-      expect(mockFind.skip).toHaveBeenCalledWith(mockSkip);
-      expect(mockFind.limit).toHaveBeenCalledWith(mockLimit);
-      expect(Image.countDocuments).toHaveBeenCalledWith({ tags: { $in: mockTags } });
-  
-      expect(result).toEqual({
-        data: mockImages,
-        total: mockTotalCount,
-        page: mockPage,
-        limit: mockLimit,
-        totalPages: Math.ceil(mockTotalCount / mockLimit),
-      });
+      mockModel.findById.mockReturnValue(mockQuery);
+
+      await expect(repository.findById(validId)).rejects.toThrow('DatabaseError');
     });
   });
-  
-  
-});
+
+})
