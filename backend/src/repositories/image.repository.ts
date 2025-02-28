@@ -38,14 +38,14 @@ export class ImageRepository extends BaseRepository<IImage> {
   }
 
   /**
-   * Finds images with pagination support.
+   * Returns images with pagination support.
    * 
    * @param {PaginationOptions} options - Pagination options (page, limit, sort order).
    * @param {ClientSession} [session] - Optional MongoDB transaction session.
    * @returns {Promise<PaginationResult<IImage>>} - Paginated result of images.
    */
   async findWithPagination(
-    options: PaginationOptions, 
+    options: PaginationOptions,
     session?: ClientSession
   ): Promise<PaginationResult<IImage>> {
     try {
@@ -55,24 +55,30 @@ export class ImageRepository extends BaseRepository<IImage> {
         sortBy = 'createdAt',
         sortOrder = 'desc'
       } = options;
-
+  
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
-
-      const query = this.model.find();
-      if (session) query.session(session);
-
+  
+      // Separate find query
+      const findQuery = this.model.find();
+      if (session) findQuery.session(session);
+  
+      // Separate count query
+      const countQuery = this.model.countDocuments();
+      if (session) countQuery.session(session);
+  
+      // Execute both queries with Promise.all
       const [data, total] = await Promise.all([
-        query
+        findQuery
           .populate('user', 'username')
           .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments().session(session)
+        countQuery.exec(),
       ]);
-
+  
       return {
         data,
         total,
