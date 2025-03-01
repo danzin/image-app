@@ -20,7 +20,6 @@ import { useFollowUser } from '../hooks/user/useUserAction';
 import { useIsFollowing } from '../hooks/user/useUserAction';
 import { useAuth } from '../hooks/context/useAuth';
 import ImageEditor from '../components/ImageEditor';
-import { FileX } from 'lucide-react';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
