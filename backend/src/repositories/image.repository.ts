@@ -22,7 +22,7 @@ export class ImageRepository extends BaseRepository<IImage> {
   async findById(id: string, session?: ClientSession): Promise<IImage | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        return null; 
+        throw createError('ValidationError', 'Invalid image ID');
       }
       const query = this.model.findById(id)
         .populate('user', 'username')
@@ -33,19 +33,22 @@ export class ImageRepository extends BaseRepository<IImage> {
       console.log(result)
       return result
     } catch (error) {
+      if (error.name === 'ValidationError') {
+        throw error; 
+      }
       throw createError('DatabaseError', error.message);
     }
   }
 
   /**
-   * Finds images with pagination support.
+   * Returns images with pagination support.
    * 
    * @param {PaginationOptions} options - Pagination options (page, limit, sort order).
    * @param {ClientSession} [session] - Optional MongoDB transaction session.
    * @returns {Promise<PaginationResult<IImage>>} - Paginated result of images.
    */
   async findWithPagination(
-    options: PaginationOptions, 
+    options: PaginationOptions,
     session?: ClientSession
   ): Promise<PaginationResult<IImage>> {
     try {
@@ -55,24 +58,30 @@ export class ImageRepository extends BaseRepository<IImage> {
         sortBy = 'createdAt',
         sortOrder = 'desc'
       } = options;
-
+  
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
-
-      const query = this.model.find();
-      if (session) query.session(session);
-
+  
+      // Separate find query
+      const findQuery = this.model.find();
+      if (session) findQuery.session(session);
+  
+      // Separate count query
+      const countQuery = this.model.countDocuments();
+      if (session) countQuery.session(session);
+  
+      // Execute both queries with Promise.all
       const [data, total] = await Promise.all([
-        query
+        findQuery
           .populate('user', 'username')
           .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments().session(session)
+        countQuery.exec(),
       ]);
-
+  
       return {
         data,
         total,
@@ -107,16 +116,22 @@ export class ImageRepository extends BaseRepository<IImage> {
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
 
+      // Separate find query
+      const findQuery = this.model.find({ user: userId })
+      
+  
+      // Separate count query
+      const countQuery = this.model.countDocuments({ user: userId });
+
       const [data, total] = await Promise.all([
-        this.model
-          .find({ user: userId })
+        findQuery
           .populate('user', 'username')
           .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments({ user: userId })
+        countQuery.exec()
       ]);
 
       return {
