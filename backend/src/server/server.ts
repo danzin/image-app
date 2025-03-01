@@ -16,6 +16,15 @@ import path from 'path';
 export class Server {
   private app: Application;
 
+   /**
+   * Constructor for initializing the server with injected dependencies.
+   * @param {UserRoutes} userRoutes - Routes for user-related endpoints.
+   * @param {ImageRoutes} imageRoutes - Routes for image-related endpoints.
+   * @param {SearchRoutes} searchRoutes - Routes for search-related endpoints.
+   * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
+   * @param {NotificationRoutes} notificationRoutes - Routes for notifications.
+   * @param {FeedRoutes} feedRoutes - Routes for managing user feeds.
+   */
   constructor(
     @inject(UserRoutes) private readonly userRoutes: UserRoutes,
     @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
@@ -24,27 +33,30 @@ export class Server {
     @inject(NotificationRoutes) private readonly notificationRoutes: NotificationRoutes,
     @inject(FeedRoutes) private readonly feedRoutes: FeedRoutes
   ) {
-    this.app = express();
-    this.initializeMiddlewares();
-    this.initializeRoutes();
-    this.initializeErrorHandling();
+    this.app = express(); // Initialize Express application
+    this.initializeMiddlewares(); // Apply middleware configurations
+    this.initializeRoutes(); // Register API routes
+    this.initializeErrorHandling(); // Set up global error handling
   }
 
+  /**
+   * Initializes middleware for the Express app.
+   */
   private initializeMiddlewares(): void {
-    //use cookies
-    this.app.use(cookieParser());
-    //parse json
-    this.app.use(express.json());
-    //handle url-encoded payloads 
-    this.app.use(express.urlencoded({ extended: true }));
+    this.app.use(cookieParser()); // Parsing cookies
+    this.app.use(express.json()); // Parsing JSON request bodies
+    this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads
 
-    //loggers
+    // Loggers
     this.app.use(logBehaviour); // Logs basic request/response info
     this.app.use(detailedRequestLogging); // Logs detailed request info
     
   
   }
 
+  /**
+   * Registers API routes with the Express app.
+   */
   private initializeRoutes() {
     console.log('server initing routes')
     this.app.use('/api/users', this.userRoutes.getRouter());
@@ -53,21 +65,33 @@ export class Server {
     this.app.use('/api/admin', this.adminUserRoutes.getRouter());
     this.app.use('/api/notifications/', this.notificationRoutes.getRouter());
     this.app.use('/api/feed', this.feedRoutes.getRouter());
+
+    // Serves uploaded files from the "uploads" directory
     this.app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-    // this.app.use('/api/follows', this.followRouter.getRouters());
    
   }
 
+  /**
+   * Sets up global error handling middleware.
+   * Any unhandled errors will be caught and formatted using the ErrorHandler.
+   */
   private initializeErrorHandling() {
- 
     this.app.use(ErrorHandler.handleError);
   }
 
+   /**
+   * Provides access to the Express application instance.
+   * @returns {Application} - The Express app instance.
+   */
   public getExpressApp(): Application {
     return this.app;
   }
 
-  //setting the http server
+   /**
+   * Starts the HTTP server on the specified port.
+   * @param {http.Server} server - The HTTP server instance.
+   * @param {number} port - The port number to listen on.
+   */
   public start(server: http.Server, port: number): void {
     server.listen(port, () => {
       console.log(`Server running on port ${port}`);

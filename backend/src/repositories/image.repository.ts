@@ -22,7 +22,7 @@ export class ImageRepository extends BaseRepository<IImage> {
   async findById(id: string, session?: ClientSession): Promise<IImage | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        return null; 
+        throw createError('ValidationError', 'Invalid image ID');
       }
       const query = this.model.findById(id)
         .populate('user', 'username')
@@ -33,19 +33,22 @@ export class ImageRepository extends BaseRepository<IImage> {
       console.log(result)
       return result
     } catch (error) {
+      if (error.name === 'ValidationError') {
+        throw error; 
+      }
       throw createError('DatabaseError', error.message);
     }
   }
 
   /**
-   * Finds images with pagination support.
+   * Returns images with pagination support.
    * 
    * @param {PaginationOptions} options - Pagination options (page, limit, sort order).
    * @param {ClientSession} [session] - Optional MongoDB transaction session.
    * @returns {Promise<PaginationResult<IImage>>} - Paginated result of images.
    */
   async findWithPagination(
-    options: PaginationOptions, 
+    options: PaginationOptions,
     session?: ClientSession
   ): Promise<PaginationResult<IImage>> {
     try {
@@ -55,24 +58,30 @@ export class ImageRepository extends BaseRepository<IImage> {
         sortBy = 'createdAt',
         sortOrder = 'desc'
       } = options;
-
+  
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
-
-      const query = this.model.find();
-      if (session) query.session(session);
-
+  
+      // Separate find query
+      const findQuery = this.model.find();
+      if (session) findQuery.session(session);
+  
+      // Separate count query
+      const countQuery = this.model.countDocuments();
+      if (session) countQuery.session(session);
+  
+      // Execute both queries with Promise.all
       const [data, total] = await Promise.all([
-        query
+        findQuery
           .populate('user', 'username')
           .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments().session(session)
+        countQuery.exec(),
       ]);
-
+  
       return {
         data,
         total,
@@ -107,16 +116,22 @@ export class ImageRepository extends BaseRepository<IImage> {
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
 
+      // Separate find query
+      const findQuery = this.model.find({ user: userId })
+      
+  
+      // Separate count query
+      const countQuery = this.model.countDocuments({ user: userId });
+
       const [data, total] = await Promise.all([
-        this.model
-          .find({ user: userId })
+        findQuery
           .populate('user', 'username')
           .populate('tags', 'tag')
           .sort(sort)
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.model.countDocuments({ user: userId })
+        countQuery.exec()
       ]);
 
       return {
@@ -204,134 +219,144 @@ export class ImageRepository extends BaseRepository<IImage> {
       }
     }
     
+    /**
+     * Generates a personalized feed of images for a user based on their following list and favorite tags.
+     * Falls back to showing recent content if no personalized content is available.
+     *
+     * @param {string[]} followingIds - Array of user IDs that the current user follows.
+     * @param {string[]} favoriteTags - Array of tag names that the user has marked as favorites.
+     * @param {number} limit - The number of images to return per request (pagination).
+     * @param {number} skip - The number of images to skip (pagination offset).
+     * @returns {Promise<PaginationResult<IImage>>} - A promise resolving to a paginated result containing images.
+     * @throws {Error} - Throws a 'DatabaseError' if the aggregation query fails.
+     */
     async getFeedForUser(
       followingIds: string[],
       favoriteTags: string[],
       limit: number,
-      skip: number,
+      skip: number
     ): Promise<PaginationResult<IImage>> {
-      try{
-      const followingIdsObj = followingIds.map(id => new mongoose.Types.ObjectId(id));
-      
-      const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
-    
-      //Aggregation pipeline for custom user feeds
-      //When the customized content is over, it defaults back ot recency
-      const [results, total] = await Promise.all([
-        this.model.aggregate([
-          // Stage 1: $lookup for the tags
-          {
-            $lookup: {
-              from: 'tags',
-              localField: 'tags',
-              foreignField: '_id',
-              as: 'tagObjects'
-            }
-          },
-    
-          // Stage 2: Add tag name field to the operation
-          {
-            $addFields: {
-              tagNames: {
-                $map: {
-                  input: '$tagObjects',
-                  as: 'tag',
-                  in: '$$tag.tag'
-                }
-              }
-            }
-          },
-    
-          // Stage 3: Add a field to identify if content matches user preferences
-          {
-            $addFields: {
-              isPersonalized: hasPreferences ? {
-                $or: [
-                  { $in: ['$user', followingIdsObj] },
-                  { $gt: [{ $size: { $setIntersection: ['$tagNames', favoriteTags] } }, 0] }
-                ]
-              } : false
-            }
-          },
-    
-          // Stage 4: Sort by personalization and date
-        
-          {
-            $sort: {
-              isPersonalized: -1,  // Personalized content first if it exists
-              createdAt: -1       // Then by date
-            }
-          },
-    
-          // Stage 5: Skip and limit
+      try {
+        // Convert user IDs to MongoDB ObjectId format for querying
+        const followingIdsObj = followingIds.map(id => new mongoose.Types.ObjectId(id));
 
-          { $skip: skip },
-          { $limit: limit },
-    
-          // Stage 6: Lookup user info
-          {
-            $lookup: {
-              from: 'users',
-              localField: 'user',
-              foreignField: '_id',
-              as: 'userInfo'
-            }
-          },
-    
-          // Stage 7: Unwind user info
-          { $unwind: '$userInfo' },
-    
-          // Stage 8: Final projecton
-          {
-            $project: {
-              _id: 0,
-              id: '$_id',
-              url: 1,
-              publicId: 1,
-              createdAt: 1,
-              likes: 1,
-              tags: { // Transoform tags so they're returned the same way they are from findWithPagination
-                $map: {
-                  input: '$tagObjects',
-                  as: 'tagObj',
-                  in: {
-                    tag: '$$tagObj.tag',
-                    id: '$$tagObj._id'
+        // Determine if the user has any preferences (following users or favorite tags)
+        const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
+
+        // Aggregation pipeline for generating the user feed
+        // Personalized content is prioritized; when unavailable, it falls back to recent images
+        const [results, total] = await Promise.all([
+          this.model.aggregate([
+            // Stage 1: Lookup tags associated with each image
+            {
+              $lookup: {
+                from: 'tags', // Join with the 'tags' collection
+                localField: 'tags', // Image document's 'tags' field
+                foreignField: '_id', // Match with '_id' field in 'tags' collection
+                as: 'tagObjects' // Output array of matching tag documents
+              }
+            },
+
+            // Stage 2: Extract tag names into a separate field for easier filtering
+            {
+              $addFields: {
+                tagNames: {
+                  $map: {
+                    input: '$tagObjects',
+                    as: 'tag',
+                    in: '$$tag.tag' // Extract the 'tag' field from each tag document
                   }
                 }
-              },
-              user: {
-                id: '$userInfo._id',
-                username: '$userInfo.username',
-                avatar: '$userInfo.avatar'
-              },
-              isPersonalized: 1  // This is for debugging if needed later
+              }
+            },
+
+            // Stage 3: Determine whether an image matches the user's preferences
+            {
+              $addFields: {
+                isPersonalized: hasPreferences ? {
+                  $or: [
+                    { $in: ['$user', followingIdsObj] }, // Image posted by a followed user
+                    { $gt: [{ $size: { $setIntersection: ['$tagNames', favoriteTags] } }, 0] } // Image contains a favorite tag
+                  ]
+                } : false
+              }
+            },
+
+            // Stage 4: Sort images, prioritizing personalized content and then recency
+            {
+              $sort: {
+                isPersonalized: -1,  // Show personalized content first
+                createdAt: -1        // Sort by newest images when personalization is equal
+              }
+            },
+
+            // Stage 5: Pagination (skip and limit)
+            { $skip: skip },
+            { $limit: limit },
+
+            // Stage 6: Lookup user information for the image uploader
+            {
+              $lookup: {
+                from: 'users', // Join with the 'users' collection
+                localField: 'user', // Match the 'user' field from images
+                foreignField: '_id', // Match with '_id' field in 'users' collection
+                as: 'userInfo' // Output array of matching user documents
+              }
+            },
+
+            // Stage 7: Unwind the user info array (since lookup returns an array)
+            { $unwind: '$userInfo' },
+
+            // Stage 8: Project the final structure of the returned images
+            {
+              $project: {
+                _id: 0, // Exclude the default '_id' field
+                id: '$_id', // Rename '_id' to 'id' for consistency
+                url: 1, // Image URL
+                publicId: 1, // Public identifier
+                createdAt: 1, // Image creation timestamp
+                likes: 1, // Number of likes
+                tags: { // Transform tags to match the format returned by other endpoints
+                  $map: {
+                    input: '$tagObjects',
+                    as: 'tagObj',
+                    in: {
+                      tag: '$$tagObj.tag', // Extract tag name
+                      id: '$$tagObj._id' // Extract tag ID
+                    }
+                  }
+                },
+                user: { // Extract relevant user information
+                  id: '$userInfo._id',
+                  username: '$userInfo.username',
+                  avatar: '$userInfo.avatar'
+                },
+                isPersonalized: 1 // Keep for debugging (optional)
+              }
             }
-          }
-        ]).exec(),
-    
-        // Count total available images (personalized and non-personaliezed)
-        this.model.countDocuments({})
-      ]);
-    
-      // Calculate total pages based on total document count
-      const totalPages = Math.ceil(total / limit);
-      const currentPage = Math.floor(skip / limit) + 1;
-    
-      // Return data in the format expected by the frontend
-      return {
-        data: results,
-        total,
-        page: currentPage,
-        limit,
-        totalPages
-      };
-    
-      } catch (error) {
-        console.error(error)
-        throw createError('DatabaseError', error.message)
+          ]).exec(),
+
+          // Count total number of available images in the database
+          this.model.countDocuments({})
+        ]);
+
+        // Calculate pagination details
+        const totalPages = Math.ceil(total / limit);
+        const currentPage = Math.floor(skip / limit) + 1;
+
+        // Return the paginated feed data
+        return {
+          data: results,
+          total,
+          page: currentPage,
+          limit,
+          totalPages
+        };
+      } catch (error: any) {
+        console.error(error);
+        throw createError('DatabaseError', error.message);
       }
-     
     }
+
     
 }
