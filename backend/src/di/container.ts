@@ -42,6 +42,13 @@ import { UserPreferenceRepository } from '../repositories/userPreference.reposit
 import { RedisService } from '../services/redis.service';
 import { LocalStorageService } from '../services/localStorage.service';
 import { IImageStorageService } from '../types/index';
+import { CommandBus } from '../application/common/buses/command.bus';
+import { QueryBus } from '../application/common/buses/query.bus';
+import { RegisterUserCommandHandler } from '../application/commands/users/register/register.handler';
+import { RegisterUserCommand } from '../application/commands/users/register/register.command';
+import { GetMeQueryHandler } from '../application/queries/users/getMe/getMe.handler';
+import { GetMeQuery } from '../application/queries/users/getMe/getMe.query';
+
 
 
 export function setupContainer(): void {
@@ -57,6 +64,8 @@ export function setupContainer(): void {
   if(!isCloudinaryConfigured){
     console.log('No Cloudinary credentials detected. \r\nDefaulting to local storage.')
   }
+
+
 
   // Register Models
   container.register('UserModel', { useValue: User });
@@ -82,13 +91,43 @@ export function setupContainer(): void {
   container.registerSingleton('LikeRepository', LikeRepository);
   container.registerSingleton('UserPreferenceRepository', UserPreferenceRepository);
 
+  container.registerSingleton('UserDTOService', UserDTOService);
+
+
+   // Register CQRS components
+   container.registerSingleton('CommandBus', CommandBus);
+   container.registerSingleton('QueryBus',  QueryBus);
+   
+   // Register command handlers
+   container.register('RegisterUserCommandHandler', { useClass: RegisterUserCommandHandler });
+   // Register query handlers
+   container.register('GetMeQueryHandler', { useClass: GetMeQueryHandler });
+   
+   // Setup the buses (connect commands/queries to their handlers)
+   const commandBus = container.resolve<CommandBus>('CommandBus');
+   const queryBus = container.resolve<QueryBus>('QueryBus');
+   
+   // Register command handlers with command bus
+   commandBus.register(
+     RegisterUserCommand, 
+     container.resolve<RegisterUserCommandHandler>('RegisterUserCommandHandler')
+   );
+
+    // Register query handlers with query bus
+  queryBus.register(
+    GetMeQuery,
+    container.resolve<GetMeQueryHandler>('GetMeQueryHandler')
+  );
+
+ 
+
+
   // Register Services as singletons
   container.registerSingleton('SearchService', SearchService);
   container.registerSingleton('UserService', UserService);
   container.registerSingleton('ImageService', ImageService);
   container.registerSingleton('FollowService', FollowService);
   container.registerSingleton('NotificationService', NotificationService);
-  container.registerSingleton('UserDTOService', UserDTOService);
   container.registerSingleton('FeedService', FeedService);
   container.registerSingleton('RedisService', RedisService);
   container.registerSingleton<IImageStorageService>('ImageStorageService', ImageStorageService); 
