@@ -5,6 +5,12 @@ import { injectable, inject } from 'tsyringe';
 import { FollowService } from '../services/follow.service';
 import { IUser } from '../types';
 import { cookieOptions } from '../config/cookieConfig';
+import { CommandBus } from '../application/common/buses/command.bus';
+import { QueryBus } from '../application/common/buses/query.bus';
+import { RegisterUserCommand } from '../application/commands/users/register/register.command';
+import { RegisterUserResult } from '../application/commands/users/register/register.handler';
+import { GetMeQuery } from '../application/queries/users/getMe/getMe.query';
+import { GetMeResult } from '../application/queries/users/getMe/getMe.handler';
 
 /**  
  * When using Dependency Injection in Express, there's a common
@@ -23,20 +29,38 @@ import { cookieOptions } from '../config/cookieConfig';
 export class UserController {
   constructor(
     @inject('UserService') private readonly userService: UserService,
-    @inject('FollowService') private readonly followService: FollowService
+    @inject('FollowService') private readonly followService: FollowService,
+    @inject('CommandBus') private readonly commandBus: CommandBus,
+    @inject('QueryBus') private readonly queryBus: QueryBus
+
   ) {}
 
 
   //Register and login users 
   register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { user, token } = await this.userService.register(req.body);
+      const { username, email, password } = req.body;
+      const command = new RegisterUserCommand(username,email,password)
+      const { user, token } = await this.commandBus.dispatch<RegisterUserResult>(command)
       res.cookie('token', token, cookieOptions);
       res.status(201).json(user);
     } catch (error) {
       next(error);
     }
   }
+
+    // Refresh
+    getMe = async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { decodedUser } = req;
+        const query = new GetMeQuery(decodedUser.id);
+        const { user, token } = await this.queryBus.execute<GetMeResult>(query);
+        res.cookie('token', token, cookieOptions);
+        res.status(200).json(user);
+      } catch (error) {
+        next(error);
+      }
+    };
 
   login = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -58,18 +82,7 @@ export class UserController {
     }
   }
 
-  // Refresh
-  getMe = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      console.log(`decodedUser: ${decodedUser.id}`)
-      const { user, token } = await this.userService.getMe(decodedUser as any);
-      res.cookie('token', token, cookieOptions);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
-    }
-  };
+
 
   // Profile updates
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
