@@ -11,9 +11,16 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 - [Installation & Setup](#installation--setup)
 
 ## Overview
-**Image App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications.
+**Image App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications. 
+ * **In transition to CQRS, parts of the system are already using utilizing the CQRS pattern** 
 
 ## Features
+
+- **CQRS**: **Currently working on gradually switching from the classing modular architecture to CQRS.**
+  - Command and Query buses are implemented and fully functional.
+  - Some methods from the service layer are already obsolete and replaced by the corresponding commands and queries.
+  - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses. 
+
 - **Modular Backend Architecture:**
   - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
   - **Repositories:** A base repository abstract class extended by model-specific repositories.
@@ -122,11 +129,11 @@ The project is built on solid architectural principles:
 ### Prerequisites
 - Node.js (v22.12.0+ recommended)
 - npm
-- Local Redis instance running
-- Currently the app requires MongoDB Atlas cloud database
+- Local Redis instance 
+- Local MongoDB instance OR MongoDB Atlas connection string
 - Example .env file: 
     ```
-    //MongoDB Atlas connection string
+    //MongoDB Atlas connection string. If not provided, the app is looking for local mongodb connection at mongodb://127.0.0.1:27017
     MONGODB_URI=mongodb+srv://mongodbusername:dbpassword@cluster/databasename?more&options
     
     //JWT Secret
