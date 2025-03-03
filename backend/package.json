@@ -12,6 +12,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/redis": "^4.0.10",
     "bcryptjs": "^3.0.2",
     "cloudinary": "^2.5.1",
