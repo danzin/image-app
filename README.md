@@ -104,13 +104,14 @@ The project is built on solid architectural principles:
   A universal search mechanism efficiently searches across users, images, and tags.
 - **Couldinary integration:**
   - Uploaded images are stored on Cloudinary, only relevant metadata is stored in MongoDB.
+- **Local Storage integration:**
   - If Cloudinary is not set up, images are stored locally in /backend/uploads. 
 - **Real-Time Communication:**  
   The WebSocket server uses advanced, token-based authentication with custom authentication middleware to secure connections. Clients join specific rooms (e.g., by user ID) to receive personalized notifications instantly.
   
 ## Future Improvements
  - **Redis Caching:**
-    Planned integration to cache frequently accessed data, greatly enhancing performance and scalability.
+    Planned integration - cache frequently accessed data, greatly enhancing performance and scalability.
       - User feed - Done ✅
  - **Enhanced Security Features:**
     Continued enhancements to authentication, authorization, and data protection.
