@@ -69,9 +69,8 @@ export class NotificationService {
           targetId,
           isRead: false,
           timestamp: new Date(),
-        }  ,
-        data.session
-         // Pass session to ensure transaction safety
+        },
+        data.session   // Pass session to ensure transaction safety\
       );
 
       //Send instant notification to user via Socket.io
