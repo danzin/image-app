@@ -58,7 +58,6 @@ export class Server {
    * Registers API routes with the Express app.
    */
   private initializeRoutes() {
-    console.log('server initing routes')
     this.app.use('/api/users', this.userRoutes.getRouter());
     this.app.use('/api/images', this.imageRoutes.getRouter());
     this.app.use('/api/search', this.searchRoutes.getRouter());
