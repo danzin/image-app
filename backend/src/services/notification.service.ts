@@ -9,7 +9,6 @@ import { WebSocketServer } from "../server/socketServer";
 
 @injectable()
 export class NotificationService {
-  private io: SocketIOServer;
 
   constructor(
     @inject('WebSocketServer') private webSocketServer: WebSocketServer,
@@ -69,9 +68,8 @@ export class NotificationService {
           targetId,
           isRead: false,
           timestamp: new Date(),
-        }  ,
-        data.session
-         // Pass session to ensure transaction safety
+        },
+        data.session   // Pass session to ensure transaction safety\
       );
 
       //Send instant notification to user via Socket.io
@@ -79,6 +77,7 @@ export class NotificationService {
 
       return notification;
     } catch (error) {
+      console.error(`notificationRepository.create error: ${error}`)
       throw createError('InternalServerError', 'Failed to create notification');
     }
   }
