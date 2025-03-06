@@ -12,13 +12,14 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 
 ## Overview
 **Image App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications. 
- * **In transition to CQRS, parts of the system are already using utilizing the CQRS pattern** 
+ * **In transition to CQRS, parts of the system are already using utilizing the CQRS pattern**
 
 ## Features
 
-- **CQRS**: **Currently working on gradually switching from the classing modular architecture to CQRS.**
-  - Command and Query buses are implemented and fully functional.
-  - Some methods from the service layer are already obsolete and replaced by the corresponding commands and queries.
+- **CQRS**: **Currently working on gradually switching from the classic modular architecture to CQRS.**
+  - Command, Query and Event buses are implemented and fully functional.
+  - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
+  - Some methods from the service layer are already obsolete and replaced by their corresponding commands and queries.
   - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses. 
 
 - **Modular Backend Architecture:**
