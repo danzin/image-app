@@ -31,16 +31,16 @@ async function bootstrap(): Promise<void> {
     await dbConfig.connect();
     
     // Setup dependency injection
-    setupContainer(); 
+    setupContainer();
     
     // Create Express app and HTTP server
     const expressServer = container.resolve(Server);
     const app = expressServer.getExpressApp();
     const server = createServer(app);
     
-    // Initialize WebSocket server
-    const webSocketServer = container.resolve<WebSocketServer>('WebSocketServer');
-    webSocketServer.initialize(server);
+   // Resolve and initialize WebSocket server
+   const webSocketServer = container.resolve<WebSocketServer>('WebSocketServer');
+   webSocketServer.initialize(server);
     
     // Start the HTTP server last
     const port = 3000;

@@ -48,108 +48,139 @@ import { RegisterUserCommandHandler } from '../application/commands/users/regist
 import { RegisterUserCommand } from '../application/commands/users/register/register.command';
 import { GetMeQueryHandler } from '../application/queries/users/getMe/getMe.handler';
 import { GetMeQuery } from '../application/queries/users/getMe/getMe.query';
-
+import { EventBus } from '../application/common/buses/event.bus';
+import { FeedInteractionHandler } from '../application/events/feed/feed-interaction.handler';
+import { UserInteractedWithImageEvent } from '../application/events/user/user-interaction.event';
+import { LikeActionCommand } from '../application/commands/users/likeAction/likeAction.command';
+import { LikeActionCommandHandler } from '../application/commands/users/likeAction/likeAction.handler';
 
 
 export function setupContainer(): void {
 
-  // Check if Cloudinary is configured
-  const isCloudinaryConfigured =
-  process.env.CLOUDINARY_CLOUD_NAME &&
-  process.env.CLOUDINARY_API_KEY &&
-  process.env.CLOUDINARY_API_SECRET;
+  registerCoreComponents();
+  registerRepositories();
+  registerServices();
+  registerControllers();
+  registerRoutes();
+  registerCQRS();  
+  container.registerSingleton('Server', Server);
+}
 
-  
-  const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
-  if(!isCloudinaryConfigured){
-    console.log('No Cloudinary credentials detected. \r\nDefaulting to local storage.')
+  function registerCoreComponents(): void {
+
+    container.register('UserModel', { useValue: User });
+    container.register('ImageModel', { useValue: Image });
+    container.register('TagModel', { useValue: Tag });
+    container.register('FollowModel', { useValue: Follow});
+    container.register('NotificationModel', { useValue: Notification});
+    container.register('LikeModel', { useValue: Like});
+    container.register('UserActionModel', { useValue: UserAction});
+    container.register('UserPreferenceModel', {useValue: UserPreference});
+    container.registerSingleton('WebSocketServer', WebSocketServer);
   }
 
+  // Register Repositories
+  function registerRepositories(): void {
 
+    container.registerSingleton('UnitOfWork', UnitOfWork);
+    container.registerSingleton('UserRepository', UserRepository);
+    container.registerSingleton('ImageRepository', ImageRepository);
+    container.registerSingleton('UserActionRepository', UserActionRepository);
+    container.registerSingleton('TagRepository', TagRepository);
+    container.registerSingleton('FollowRepository', FollowRepository);
+    container.registerSingleton('NotificationRepository', NotificationRepository);
+    container.registerSingleton('LikeRepository', LikeRepository);
+    container.registerSingleton('UserPreferenceRepository', UserPreferenceRepository);
+  }
 
-  // Register Models
-  container.register('UserModel', { useValue: User });
-  container.register('ImageModel', { useValue: Image });
-  container.register('TagModel', { useValue: Tag });
-  container.register('FollowModel', { useValue: Follow});
-  container.register('NotificationModel', { useValue: Notification});
-  container.register('LikeModel', { useValue: Like});
-  container.register('UserActionModel', { useValue: UserAction});
-  container.register('UserPreferenceModel', {useValue: UserPreference});
+  // Register Services
+  function registerServices():void {
 
-  // Register Repositories as singletons
-  container.register("WebSocketServer", {
-    useClass: WebSocketServer
-  });
-  container.registerSingleton('UnitOfWork', UnitOfWork);
-  container.registerSingleton('UserRepository', UserRepository);
-  container.registerSingleton('ImageRepository', ImageRepository);
-  container.registerSingleton('UserActionRepository', UserActionRepository);
-  container.registerSingleton('TagRepository', TagRepository);
-  container.registerSingleton('FollowRepository', FollowRepository);
-  container.registerSingleton('NotificationRepository', NotificationRepository);
-  container.registerSingleton('LikeRepository', LikeRepository);
-  container.registerSingleton('UserPreferenceRepository', UserPreferenceRepository);
+    // Check if Cloudinary is configured
+    const isCloudinaryConfigured =
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET;  
 
-  container.registerSingleton('UserDTOService', UserDTOService);
-
-
-   // Register CQRS components
-   container.registerSingleton('CommandBus', CommandBus);
-   container.registerSingleton('QueryBus',  QueryBus);
-   
-   // Register command handlers
-   container.register('RegisterUserCommandHandler', { useClass: RegisterUserCommandHandler });
-   // Register query handlers
-   container.register('GetMeQueryHandler', { useClass: GetMeQueryHandler });
-   
-   // Setup the buses (connect commands/queries to their handlers)
-   const commandBus = container.resolve<CommandBus>('CommandBus');
-   const queryBus = container.resolve<QueryBus>('QueryBus');
-   
-   // Register command handlers with command bus
-   commandBus.register(
-     RegisterUserCommand, 
-     container.resolve<RegisterUserCommandHandler>('RegisterUserCommandHandler')
-   );
-
-    // Register query handlers with query bus
-  queryBus.register(
-    GetMeQuery,
-    container.resolve<GetMeQueryHandler>('GetMeQueryHandler')
-  );
-
+    const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
+    if(!isCloudinaryConfigured){
+      console.log('No Cloudinary credentials detected. \r\nDefaulting to local storage.')
+    }
  
-
-
-  // Register Services as singletons
-  container.registerSingleton('SearchService', SearchService);
-  container.registerSingleton('UserService', UserService);
-  container.registerSingleton('ImageService', ImageService);
-  container.registerSingleton('FollowService', FollowService);
-  container.registerSingleton('NotificationService', NotificationService);
-  container.registerSingleton('FeedService', FeedService);
-  container.registerSingleton('RedisService', RedisService);
-  container.registerSingleton<IImageStorageService>('ImageStorageService', ImageStorageService); 
-
+    container.registerSingleton('SearchService', SearchService);
+    container.registerSingleton('UserService', UserService);
+    container.registerSingleton('ImageService', ImageService);
+    container.registerSingleton('FollowService', FollowService);
+    container.registerSingleton('NotificationService', NotificationService);
+    container.registerSingleton<IImageStorageService>('ImageStorageService', ImageStorageService); 
+    container.registerSingleton('UserDTOService', UserDTOService);
+    container.registerSingleton('FeedService', FeedService);
+    container.registerSingleton('RedisService', RedisService);
+  }
+   
+  
   // Register Controllers as singletons
-  container.registerSingleton('SearchController', SearchController);
-  container.registerSingleton('UserController', UserController);
-  container.registerSingleton('ImageController', ImageController);
-  container.registerSingleton('NotificationController', NotificationController);
-  container.registerSingleton('AdminUserController', AdminUserController);
-  container.registerSingleton('FeedController', FeedController);
+  function registerControllers(): void {
+
+    container.registerSingleton('SearchController', SearchController);
+    container.registerSingleton('UserController', UserController);
+    container.registerSingleton('ImageController', ImageController);
+    container.registerSingleton('NotificationController', NotificationController);
+    container.registerSingleton('AdminUserController', AdminUserController);
+    container.registerSingleton('FeedController', FeedController);
+  }
   
   // Register Routes as singletons
-  container.registerSingleton('UserRoutes', UserRoutes);
-  container.registerSingleton('ImageRoutes', ImageRoutes);
-  container.registerSingleton('SearchRoutes', SearchRoutes);
-  container.registerSingleton('AdminUserRoutes', AdminUserRoutes);
-  container.registerSingleton('NotificationRoutes', NotificationRoutes);
-  container.registerSingleton('FeedRoutes', FeedRoutes);
+  function registerRoutes(): void {
 
-  // Register Server
-  container.registerSingleton('WebSocketServer', WebSocketServer); 
-  container.registerSingleton('Server', Server);
+    container.registerSingleton('UserRoutes', UserRoutes);
+    container.registerSingleton('ImageRoutes', ImageRoutes);
+    container.registerSingleton('SearchRoutes', SearchRoutes);
+    container.registerSingleton('AdminUserRoutes', AdminUserRoutes);
+    container.registerSingleton('NotificationRoutes', NotificationRoutes);
+    container.registerSingleton('FeedRoutes', FeedRoutes);
+  }
 
-}
+  // Register CQRS components
+  function registerCQRS(): void{
+    container.registerSingleton('CommandBus', CommandBus);
+    container.registerSingleton('QueryBus',  QueryBus);
+    container.registerSingleton('EventBus', EventBus);
+    
+    // Register command handlers
+    container.register('RegisterUserCommandHandler', { useClass: RegisterUserCommandHandler });
+    container.register('LikeActionCommandHandler', { useClass: LikeActionCommandHandler});
+    
+    // Register query handlers
+    container.register('GetMeQueryHandler', { useClass: GetMeQueryHandler });
+    
+    // Register interaction handlers
+    container.register('FeedInteractionHandler', { useClass: FeedInteractionHandler });
+    
+    // Setup the buses 
+    const commandBus = container.resolve<CommandBus>('CommandBus');
+    const queryBus = container.resolve<QueryBus>('QueryBus');
+    const eventBus = container.resolve<EventBus>('EventBus');
+    
+    // Subscribe handlers
+    eventBus.subscribe(
+      UserInteractedWithImageEvent,
+      container.resolve<FeedInteractionHandler>('FeedInteractionHandler')
+    );
+    
+    // Register command handlers with command bus
+    commandBus.register(
+      RegisterUserCommand, 
+      container.resolve<RegisterUserCommandHandler>('RegisterUserCommandHandler')
+    );
+    commandBus.register(
+      LikeActionCommand, 
+      container.resolve<LikeActionCommandHandler>('LikeActionCommandHandler')
+    );
+    
+    // Register query handlers with query bus
+    queryBus.register(
+      GetMeQuery,
+      container.resolve<GetMeQueryHandler>('GetMeQueryHandler')
+    );
+  }

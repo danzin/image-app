@@ -11,6 +11,7 @@ import { RegisterUserCommand } from '../application/commands/users/register/regi
 import { RegisterUserResult } from '../application/commands/users/register/register.handler';
 import { GetMeQuery } from '../application/queries/users/getMe/getMe.query';
 import { GetMeResult } from '../application/queries/users/getMe/getMe.handler';
+import { LikeActionCommand } from '../application/commands/users/likeAction/likeAction.command';
 
 /**  
  * When using Dependency Injection in Express, there's a common
@@ -31,8 +32,7 @@ export class UserController {
     @inject('UserService') private readonly userService: UserService,
     @inject('FollowService') private readonly followService: FollowService,
     @inject('CommandBus') private readonly commandBus: CommandBus,
-    @inject('QueryBus') private readonly queryBus: QueryBus
-
+    @inject('QueryBus') private readonly queryBus: QueryBus,
   ) {}
 
 
@@ -61,6 +61,8 @@ export class UserController {
         next(error);
       }
     };
+
+   
 
   login = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -152,20 +154,20 @@ export class UserController {
       next(error);
     }
   }
-
+  
   // User actions
   likeAction = async(req: Request, res: Response, next: NextFunction) => {
     try {
       const {decodedUser} = req;
-      const {imageId} = req.params;
+      const {imageId} = req.params; 
       console.log(imageId)
-      const result = await this.userService.likeAction(decodedUser.id, imageId)
+      const command = new LikeActionCommand(decodedUser.id, imageId)
+      const result = await this.commandBus.dispatch(command)
       res.status(200).json(result)
     } catch (error) {
       next(error)
     }
   }
-
   
   followAction = async(req: Request, res: Response, next: NextFunction) => {
     try {

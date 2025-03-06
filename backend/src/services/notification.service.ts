@@ -9,7 +9,6 @@ import { WebSocketServer } from "../server/socketServer";
 
 @injectable()
 export class NotificationService {
-  private io: SocketIOServer;
 
   constructor(
     @inject('WebSocketServer') private webSocketServer: WebSocketServer,
@@ -79,6 +78,7 @@ export class NotificationService {
 
       return notification;
     } catch (error) {
+      console.error(`notificationRepository.create error: ${error}`)
       throw createError('InternalServerError', 'Failed to create notification');
     }
   }
