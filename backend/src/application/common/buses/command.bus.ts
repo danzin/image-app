@@ -8,8 +8,14 @@ export class CommandBus {
   // Registering handlers in a map with command's name as key. 
   private handlers = new Map<string, ICommandHandler<ICommand, any>>(); 
 
-  // Can register any TCommand type that implements the ICommand interface. 
-  // TResult is the return type of the command handler
+  /**
+   * Registers a command handler for a specific command type.
+   * Can register any TCommand type that implements the ICommand interface. 
+   * TResult is the return type of the command handler
+   * @param commandType - The class constructor of the command type.
+   * @param handler - The handler responsible for processing the command.
+   */
+ 
   register<TCommand extends ICommand, TResult>(
     // commandType should be a class constructor that can create instances of TCommand
     // new(...args: []) is a constructor signature that takes an array of arguments. 
@@ -26,6 +32,12 @@ export class CommandBus {
     this.handlers.set(commandType.name, handler as ICommandHandler<ICommand, any>);
   }
 
+  /**
+   * Dispatches a command to its corresponding handler.
+   * @param command - The command instance to be processed.
+   * @returns The result of the command execution.
+   * @throws An error if no handler is found for the command.
+   */
   async dispatch<TResult>(command: ICommand): Promise<TResult>{
     //.constructor.name retrieves the name of the class that created the command 
     // It guarantees the correct handler is found based on the class name. 

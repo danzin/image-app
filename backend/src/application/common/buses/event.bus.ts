@@ -5,9 +5,15 @@ import { IEvent } from "../interfaces/event.interface";
 @injectable()
 export class EventBus {
   private subscriptions: Map<string, IEventHandler<IEvent>[]> = new Map();
+
+  // A queue to temporarily store events for transactional execution
   private transactionalQueue: Array<{event: IEvent, handler: IEventHandler<IEvent>}> = [];
 
-  // Subscribe to an event typr
+  /**
+   * Subscribes a handler to a specific event type.
+   * @param eventType - The class constructor of the event type.
+   * @param handler - The handler responsible for processing the event.
+   */
   subscribe<TEvent extends IEvent>(
     eventType: { new(...args: any[]): TEvent},
     handler: IEventHandler<TEvent>
@@ -18,14 +24,21 @@ export class EventBus {
     this.subscriptions.set(eventName, handlers);
   }
 
-  // Immediately publish
+  /**
+   * Publishes an event immediately, executing all subscribed handlers.
+   * @param event - The event instance to be published.
+   */
   async publish<TEvent extends IEvent>(event: TEvent): Promise<void>{
     const handlers = this.subscriptions.get(event.constructor.name) || [];
 
     await Promise.all(handlers.map(handler => handler.handle(event)))
   }
 
-  // For transactions
+  /**
+   * Queues an event for transactional execution. The event will be processed later.
+   * @param event - The event to be queued.
+   * @param handler - The handler responsible for processing the event.
+   */
   queueTransactional<TEvent extends IEvent>(event: TEvent, handler: IEventHandler<TEvent>): void {
     this.transactionalQueue.push({
       event, 
@@ -33,7 +46,10 @@ export class EventBus {
     });
   }
 
-  // Flush transactionalQueue after transaction commit 
+  /**
+   * Flushes the transactional queue, executing all queued events.
+   * If a handler fails, it logs the error but continues processing other events.
+   */
   async flushTransactionalQueue(): Promise<void> {
     await Promise.all(this.transactionalQueue.map(({event, handler}) => {
       handler.handle(event).catch(err => {
@@ -43,7 +59,9 @@ export class EventBus {
     this.transactionalQueue = [];
   }  
 
-  // Clear transaction queue
+  /**
+   * Clears all events from the transactional queue without executing them.
+  */
   clearTransactionalQueue() : void {
     this.transactionalQueue = [];
   }
