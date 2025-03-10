@@ -4,8 +4,6 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { toast } from 'react-toastify';
 import { ImageEditorProps } from '../types';
 
-
-
 const ImageEditor: React.FC<ImageEditorProps> = ({ 
   onImageUpload, 
   type,
