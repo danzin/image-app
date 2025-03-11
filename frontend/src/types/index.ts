@@ -49,15 +49,6 @@ export interface UseImagesResult {
   deleteImage: (id: string) => any;
 }
 
-// export interface UseImagesResult {
-//   imagesQuery: ReturnType<typeof useInfiniteQuery>;
-//   imageByIdQuery: (id: string) => ReturnType<typeof useQuery>;
-//   uploadImageMutation: ReturnType<typeof useMutation>;
-//   tagsQuery: ReturnType<typeof useQuery>;
-//   imagesByTagQuery: (tags: string[], page: number, limit: number) => ReturnType<typeof useInfiniteQuery>;
-//   deleteImage: (id: string) => any
-// }
-
 export interface TagsProps {
   selectedTags: string[];
   onSelectTags: (tags: ITag[]) => void;
