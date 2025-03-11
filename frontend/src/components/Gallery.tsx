@@ -162,9 +162,9 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
                       <p className="md:text-md sm:text-sm">Tags: {getImageTags(selectedImage)}</p>
                     </div>
 
-                    <div>
+                    <div className='flex gap-2'>
                       <button
-                        className="btn btn-secondary "
+                        className="btn btn-primary "
                         onClick={handleLikeImage}
                         disabled={isLiking}
                       >
