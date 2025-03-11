@@ -125,6 +125,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
        {!isLoadingAll &&
         !isLoadingFiltered &&
         images.map((img) => <ImageCard key={img.id} image={img} onClick={() => openModal(img)} />)}
+        {(!images || images.length === 0) && (<div className='text-black'> Nothing to show. Go ahead and upload something! </div>)}
 
       {/* Infinite Scroll Loader */}
       <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
