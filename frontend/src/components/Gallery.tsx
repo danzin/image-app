@@ -102,7 +102,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
     <div  className='flex flex-col content-center gap-7 w-[100%] max-w-[700px] m-auto p-2'>
       {/* Skeleton when loading images */}
       {(isLoadingAll || isLoadingFiltered) &&
-        Array.from({ length: 6 }).map((_, index) => (
+        Array.from({ length: 6 }).map((_) => (
           <div className="flex w-700 h-[500px] flex-col">
             <div className="skeleton h-[500px] w-full"></div>
           </div>
