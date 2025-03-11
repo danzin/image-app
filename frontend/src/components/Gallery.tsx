@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { Box, Typography, Button, Dialog, IconButton, DialogTitle, DialogContent, CircularProgress, Skeleton } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import { IImage, GalleryProps } from '../types';
 import { useDeleteImage } from '../hooks/images/useImages';
 import { useLikeImage } from '../hooks/user/useUserAction';
@@ -101,27 +99,15 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
 
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      gap: 2,
-      width: '100%',
-      maxWidth: '700px', 
-      margin: 'auto',
-      padding: 2,
-    }}>
+    <div  className='flex flex-col content-center gap-7 w-[100%] max-w-[700px] m-auto p-2'>
       {/* Skeleton when loading images */}
       {(isLoadingAll || isLoadingFiltered) &&
         Array.from({ length: 6 }).map((_, index) => (
-          <Skeleton
-            key={index}
-            variant="rectangular"
-            width={'100%'}
-            height={'40vh'}
-            sx={{ borderRadius: '8px' }}
-          />
-        ))}
+          <div className="flex w-700 h-[500px] flex-col">
+            <div className="skeleton h-[500px] w-full"></div>
+          </div>
+        ))
+        }
        {!isLoadingAll &&
         !isLoadingFiltered &&
         images.map((img) => <ImageCard key={img.id} image={img} onClick={() => openModal(img)} />)}
@@ -130,70 +116,76 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
       {/* Infinite Scroll Loader */}
       <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
         {isFetchingNext && (
-          <Skeleton variant="rectangular" width={'100%'} height={'40vh'} sx={{ borderRadius: '8px' }} />
+          <div className="flex w-700 flex-col gap-4">
+            <div className="skeleton h-7 w-full"></div>
+          </div>
         )}
       </div>
       
+      {isModalOpen && (
+        <>
+          <input
+            type="checkbox"
+            id="image-modal"
+            className="modal-toggle"
+            checked
+            onChange={closeModal}
+          />
+          <div className="modal" onClick={closeModal}>
+            <div
+              className="modal-box relative max-w-4xl "
+              style={{ height: "90vh" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <label
+                htmlFor="image-modal"
+                className="btn btn-sm btn-circle absolute right-2 top-2"
+                onClick={closeModal}
+              >
+                ✕
+              </label>
+              {selectedImage && (
+                <>
+                  <img
+                    src={fullImageUrl}
+                    alt={selectedImage.publicId}
+                    className="w-full max-h-[60vh] object-contain"
+                  />
+                  <div className="flex mt-2 justify-between text-left">
+                    <div>
+                      <p className="text-sm">
+                        Uploader:{" "}
+                        <Link to={`/profile/${selectedImage.user.id}`} className="text-blue-800">
+                          {selectedImage.user.username}
+                        </Link>
+                      </p>
+                      <p className="md:text-md sm:text-sm">Tags: {getImageTags(selectedImage)}</p>
+                    </div>
 
-      <Dialog
-        open={isModalOpen}
-        onClose={closeModal}
-        maxWidth="md"
-        
-      >
-        {selectedImage && (
-          
-          <DialogContent  sx={{ textAlign: 'center', overflow: 'hidden' }}>
-            <DialogTitle>
-          <IconButton
-            sx={{ position: 'absolute', top: 8, right: 8, color: 'white' }}
-            onClick={closeModal}
-          >
-            <CloseIcon />
-          </IconButton>
-          </DialogTitle>
-            <Box
-              component="img"
-              src={fullImageUrl}
-              alt={selectedImage.publicId}
-              sx={{
-                
-                width: '100%',
-                maxHeight: '60vh',
-                objectFit: 'inherit',
-              }}
-            />
-            <Box >
-            <Box sx={{ display: 'flex', flexDirection: 'column' , gap: 0,  textAlign:'start'}}>
+                    <div>
+                      <button
+                        className="btn btn-secondary "
+                        onClick={handleLikeImage}
+                        disabled={isLiking}
+                      >
+                        {isLiking ? <span className="loading loading-spinner loading-xl"></span> : "Like"}
+                      </button>
+                      {isInOwnProfile && (
+                        <button className="btn btn-secondary" onClick={handleDeleteImage}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                   
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
-              <Typography variant="body2">Uploader:<Link className='text-blue-800' to={`/profile/${selectedImage.user.id}`}> {selectedImage.user.username}</Link></Typography>
-              <Typography variant="body2">Tags: {getImageTags(selectedImage)}</Typography>
-              </Box>
-              <Box sx={{ m:'auto', display: 'flex', gap: 2, justifyContent: 'right' }}>
-                <Button 
-                  variant="contained" 
-                  color="secondary" 
-                  onClick={handleLikeImage}
-                  disabled={isLiking} 
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}>
-                  {isLiking ? <CircularProgress size={24} /> : 'Like'}
-                </Button>
-                {isInOwnProfile && (
-                  <Button variant="contained" color="secondary" onClick={handleDeleteImage}>
-                    Delete
-                  </Button>
-                )}
-              </Box>
-            </Box>
-          </DialogContent>
-        )}
-        
-      </Dialog>
-    </Box>
+    </div>
   );
 };
 
