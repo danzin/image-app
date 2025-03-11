@@ -1,180 +1,113 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { styled, alpha } from '@mui/material/styles';
-import { useGallery } from '../context/GalleryContext';
-import { useMediaQuery, useTheme } from '@mui/material';
-import {
-  AppBar,
-  Box,
-  Toolbar,
-  IconButton,
-  Typography,
-  InputBase,
-  Button,
-  Drawer
-} from '@mui/material';
-import { Menu as MenuIcon, Search as SearchIcon } from '@mui/icons-material';
-import {Tags} from '../components/TagsContainer';
-import NotificationBell from './NotificationBell';
-import ProfileMenu from './ProfileMenu';
-import { useAuth } from '../hooks/context/useAuth';
-
-const Search = styled('div')(({ theme }) => ({
-  position: 'relative',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: alpha(theme.palette.common.white, 0.15),
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.common.white, 0.25),
-  },
-  marginRight: theme.spacing(2),
-  marginLeft: 0,
-  width: '100%',
-  [theme.breakpoints.up('sm')]: {
-    marginLeft: theme.spacing(3),
-    width: 'auto',
-  },
-}));
-
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-  padding: theme.spacing(0, 2),
-  height: '100%',
-  position: 'absolute',
-  pointerEvents: 'none',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-}));
-
-const StyledInputBase = styled(InputBase)(({ theme }) => ({
-  color: 'inherit',
-  '& .MuiInputBase-input': {
-    padding: theme.spacing(1, 1, 1, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    transition: theme.transitions.create('width'),
-    width: '100%',
-    [theme.breakpoints.up('md')]: {
-      width: '20ch',
-    },
-  },
-}));
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useGallery } from "../context/GalleryContext";
+import { useAuth } from "../hooks/context/useAuth";
+import { Bars3Icon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { Tags } from "../components/TagsContainer";
+import NotificationBell from "./NotificationBell";
+import ProfileMenu from "./ProfileMenu";
 
 const Navbar = () => {
-  const theme = useTheme();
-  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
   const { isProfileView } = useGallery();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-
- 
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    // Trim whitespaces and remove empty terms
     const formattedQuery = searchTerm
-      .split(' ')
-      .map((q) => q.trim()) 
-      .filter((q) => q.length > 0) //removes empty terms
-      .join(',');
-    console.log(`formattedQuery: ${formattedQuery}`)
+      .split(" ")
+      .map((q) => q.trim())
+      .filter((q) => q.length > 0)
+      .join(",");
     if (formattedQuery) {
-        navigate(`/results?q=${formattedQuery}`);
+      navigate(`/results?q=${formattedQuery}`);
     }
-    setSearchTerm('')
-  };
-  
-
-  const toggleDrawer = (open: boolean) => () => {
-    setIsDrawerOpen(open);
+    setSearchTerm("");
   };
 
   return (
     <>
-      <AppBar position="sticky" sx={{ bgcolor: 'background.paper', color: 'text.primary' }}>
-        <Toolbar>
-          {isSmallScreen && !isProfileView && (
-            <IconButton
-              size="large"
-              edge="start"
-              color="inherit"
-              aria-label="menu"
-              onClick={toggleDrawer(true)}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-          )}
+      {/* Navbar */}
+      <div className="navbar bg-slate-800 shadow-md sticky top-0 z-50">
+        <div className="flex-1">
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            {!isProfileView && (
+              <button
+                className="btn btn-ghost btn-circle"
+                onClick={() => setIsDrawerOpen(true)}
+                aria-label="Open menu"
+              >
+                <Bars3Icon className="w-6 h-6 text-white" />
+              </button>
+            )}
+          </div>
 
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            <Link to="/" style={{ textDecoration: 'none', color: 'inherit' }}>
-              Peek
-            </Link>
-          </Typography>
+          {/* Logo */}
+          <Link to="/" className="text-xl font-bold text-white ml-4">
+            Peek
+          </Link>
+        </div>
 
-          {/** Search */}
-          <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center' }}>
-            <Search>
-              <SearchIconWrapper>
-                <SearchIcon />
-              </SearchIconWrapper>
-              <StyledInputBase
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="eg: user tag item"
-                inputProps={{ 'aria-label': 'search' }}
-              />
-            </Search>
-          </form>
+        {/* Search Bar */}
+        <form
+          onSubmit={handleSearchSubmit}
+          className="relative flex items-center border rounded-lg bg-gray-700 px-3 py-1 md:w-64"
+        >
+          <MagnifyingGlassIcon className="w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="eg: user tag item"
+            className="bg-transparent outline-none px-2 text-white w-full"
+            aria-label="Search"
+          />
+        </form>
 
-
+        {/* Auth & Profile */}
+        <div className="flex items-center gap-4 ml-4">
           {isLoggedIn ? (
             <>
-                <NotificationBell />
-                <ProfileMenu />
+              <NotificationBell />
+              <ProfileMenu />
             </>
           ) : (
             <>
-              <Button color="inherit" component={Link} to="/login">
+              <Link to="/login" className="btn btn-sm btn-outline text-white">
                 Log In
-              </Button>
-              <Button color="inherit" component={Link} to="/register">
+              </Link>
+              <Link to="/register" className="btn btn-sm btn-primary">
                 Register
-              </Button>
+              </Link>
             </>
           )}
-        </Toolbar>
-      </AppBar>
+        </div>
+      </div>
 
-      <Drawer
-        anchor="left"
-        open={isDrawerOpen}
-        onClose={toggleDrawer(false)}
-        PaperProps={{
-          sx: { backgroundColor: 'background.paper' },
-        }}
+      {/* Overlay */}
+      <div
+        className={`fixed inset-0 bg-black bg-opacity-50 z-50 transition-opacity ${
+          isDrawerOpen ? "opacity-100 visible" : "opacity-0 invisible"
+        }`}
+        onClick={() => setIsDrawerOpen(false)}
+      ></div>
+
+      {/* Drawer Sidebar */}
+      <aside
+        className={`fixed left-0 top-0 h-full w-64 bg-gray-800 shadow-lg transform transition-transform ${
+          isDrawerOpen ? "translate-x-0" : "-translate-x-full"
+        } z-50`}
+        onClick={(e) => e.stopPropagation()}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            width: 250,
-            height: '100%',
-            p: 2,
-            backgroundColor: 'background.secondary',
-            color: 'text.secondary',
-          }}
-          role="presentation"
-        >
-          <Typography variant="h6" sx={{ mb: 2 }} color="text.secondary">
-            Filter by Tags
-          </Typography>
+        <div className="p-4 text-white">
+        
+          <h2 className="text-lg font-semibold mt-4">Filter by Tags</h2>
           <Tags />
-        </Box>
-      </Drawer>
+        </div>
+      </aside>
     </>
   );
 };
