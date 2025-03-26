@@ -23,7 +23,7 @@ import { LikeActionCommand } from "../application/commands/users/likeAction/like
  *  1 - manually bind all methods that will be used as route handlers:
  *     - this.register = this.register.bind(this);
  *     - etc etc, for every single method
- *  2 - user arrow functions, which automatically bind `this` and it doesn't get lost.
+ *  2 - user arrow functions, which automatically bind `this` and it doesn't get lost because they don't have their own 'this' context.
  */
 
 @injectable()
