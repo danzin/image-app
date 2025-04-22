@@ -7,7 +7,10 @@ export class EventBus {
   private subscriptions: Map<string, IEventHandler<IEvent>[]> = new Map();
 
   // A queue to temporarily store events for transactional execution
-  private transactionalQueue: Array<{event: IEvent, handler: IEventHandler<IEvent>}> = [];
+  private transactionalQueue: Array<{
+    event: IEvent;
+    handler: IEventHandler<IEvent>;
+  }> = [];
 
   /**
    * Subscribes a handler to a specific event type.
@@ -15,7 +18,7 @@ export class EventBus {
    * @param handler - The handler responsible for processing the event.
    */
   subscribe<TEvent extends IEvent>(
-    eventType: { new(...args: any[]): TEvent},
+    eventType: { new (...args: any[]): TEvent },
     handler: IEventHandler<TEvent>
   ): void {
     const eventName = eventType.name;
@@ -28,10 +31,10 @@ export class EventBus {
    * Publishes an event immediately, executing all subscribed handlers.
    * @param event - The event instance to be published.
    */
-  async publish<TEvent extends IEvent>(event: TEvent): Promise<void>{
+  async publish<TEvent extends IEvent>(event: TEvent): Promise<void> {
     const handlers = this.subscriptions.get(event.constructor.name) || [];
 
-    await Promise.all(handlers.map(handler => handler.handle(event)))
+    await Promise.all(handlers.map((handler) => handler.handle(event)));
   }
 
   /**
@@ -39,10 +42,13 @@ export class EventBus {
    * @param event - The event to be queued.
    * @param handler - The handler responsible for processing the event.
    */
-  queueTransactional<TEvent extends IEvent>(event: TEvent, handler: IEventHandler<TEvent>): void {
+  queueTransactional<TEvent extends IEvent>(
+    event: TEvent,
+    handler: IEventHandler<TEvent>
+  ): void {
     this.transactionalQueue.push({
-      event, 
-      handler: handler as IEventHandler<TEvent>
+      event,
+      handler: handler as IEventHandler<TEvent>,
     });
   }
 
@@ -51,20 +57,20 @@ export class EventBus {
    * If a handler fails, it logs the error but continues processing other events.
    */
   async flushTransactionalQueue(): Promise<void> {
-    await Promise.all(this.transactionalQueue.map(({event, handler}) => {
-      handler.handle(event).catch(err => {
-        console.error(`Transactional event ffailed: ${err.message}`);
+    await Promise.all(
+      this.transactionalQueue.map(({ event, handler }) => {
+        handler.handle(event).catch((err) => {
+          console.error(`Transactional event ffailed: ${err.message}`);
+        });
       })
-    }));
-    this.transactionalQueue = [];
-  }  
-
-  /**
-   * Clears all events from the transactional queue without executing them.
-  */
-  clearTransactionalQueue() : void {
+    );
     this.transactionalQueue = [];
   }
 
-} 
-
+  /**
+   * Clears all events from the transactional queue without executing them.
+   */
+  clearTransactionalQueue(): void {
+    this.transactionalQueue = [];
+  }
+}
