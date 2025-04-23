@@ -25,7 +25,10 @@ Tech stack:
   - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
   - Some methods from the service layer are already obsolete and replaced by their corresponding commands and queries.
   - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses. 
-
+- **API Gateway:** **Serves as a dedicated layer within the internal network focused solely on managing API traffic before it hits the final backend service**
+  - **Rate Limiting:**  Applies rate limiting (express-rate-limit). This logic lives within the gateway service. This ensures requests are limited before they even reach the core backend logic.
+  - **Centralized Logging (API Focus):** It provides specific logging points (onProxyReq, onProxyRes, onError) focused on the API request lifecycle as it passes between the frontend proxy and the backend service.
+  - **Decoupling & Routing Hub (Future Microservices):** Crucially, this gateway is perfectly positioned for when I break down the monolith (backend service) into microservices.
 - **Modular Backend Architecture:**
   - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
   - **Repositories:** A base repository abstract class extended by model-specific repositories.
@@ -163,10 +166,10 @@ The project is built on solid architectural principles:
     VITE_API_URL=http://localhost:3000
     ```
 
-### Docker 
-1. Running the app in docker requires .env file in the root directory
+### Running the app in Docker 
+1. Requires .env file in the root directory
 2. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
-3. Run the app in Docker:
+3. 
     ```
    git clone https://github.com/danzin/image-app.git
    cd image-app
@@ -174,7 +177,7 @@ The project is built on solid architectural principles:
    ```
     
   
-### Setup
+### Dev Setup
 1. **Clone the repository and install dependencies in the root directory:**
    ```
    git clone https://github.com/danzin/image-app.git
@@ -199,9 +202,23 @@ The project is built on solid architectural principles:
   cd frontend
   npm install
   ```
-  - Create .env file in frontend directory containing `VITE_API_URL='http://localhost:3000'` 
-6. To run the app navigate to the root directory in `image-app` and run `npm run dev`.
-  `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" "` from the `package.json` file.
+  - Create .env file in frontend directory containing `VITE_API_URL='http://localhost:3000'`
+
+#### Api Gateway
+
+ 6. **Navigate to the API Gateway directory and install dependencies:**
+    ```
+    cd backend/src/api-gateway
+    npm install
+    ```
+  7. **Create .env file in the root of `api-gateway` directory**
+     ```
+     PORT=8000
+     BACKEND_MONOLITH_URL=http://localhost:3000
+     ```
+    
+##### To run the app navigate to the root directory in `image-app` and run `npm run dev`.
+  `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" \"npm run start-gateway\" "`.
    
  
    
