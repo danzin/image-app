@@ -1,4 +1,6 @@
-FROM node:22.12.0-alpine as builder
+# -- Build stage
+FROM node:23.11.0-alpine AS builder
+
 WORKDIR /src
 
 # Copy package and tsconfig
@@ -14,8 +16,8 @@ COPY . .
 # Build TypeScript files
 RUN npm run build
 
-
-FROM node:22.12.0-alpine
+# -- Production stage
+FROM node:23.11.0-alpine
 
 WORKDIR /src
 

@@ -11,6 +11,26 @@ services:
     networks:
       - app-network
 
+ # API Gateway Service (Runs internally, proxied by frontend Nginx)
+  api-gateway:
+    build:
+      context: ./backend/src/api-gateway
+      dockerfile: gateway.Dockerfile             
+    container_name: api-gateway
+    # No ports required, only accessed internally by frontend Nginx
+    env_file:
+      - .env 
+    environment:
+      - NODE_ENV=production
+      - PORT=8000 # Internal port for the API Gateway
+      # Use the backend service name and internal port
+      - BACKEND_MONOLITH_URL=http://backend:3000/
+    depends_on:
+      - backend # Ensure backend starts before gateway
+    networks:
+      - app-network
+
+ # Backend Service (Listens internally, proxied by gateway)
   backend:
     build:
       context: ./backend
@@ -26,6 +46,7 @@ services:
     networks:
       - app-network
 
+  # Frontend Service (Nginx - Main Entry Point)
   frontend:
     build:
       context: ./frontend
@@ -33,7 +54,7 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - api-gateway
     networks:
       - app-network
 
