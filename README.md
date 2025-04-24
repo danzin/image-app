@@ -24,11 +24,13 @@ Tech stack:
   - Command, Query and Event buses are implemented and fully functional.
   - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
   - Some methods from the service layer are already obsolete and replaced by their corresponding commands and queries.
-  - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses. 
+  - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses.
+    
 - **API Gateway:** **Serves as a dedicated layer within the internal network focused solely on managing API traffic before it hits the final backend service**
   - **Rate Limiting:**  Applies rate limiting (express-rate-limit). This logic lives within the gateway service. This ensures requests are limited before they even reach the core backend logic.
   - **Centralized Logging (API Focus):** It provides specific logging points (onProxyReq, onProxyRes, onError) focused on the API request lifecycle as it passes between the frontend proxy and the backend service.
   - **Decoupling & Routing Hub (Future Microservices):** Crucially, this gateway is perfectly positioned for when I break down the monolith (backend service) into microservices.
+    
 - **Modular Backend Architecture:**
   - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
   - **Repositories:** A base repository abstract class extended by model-specific repositories.
@@ -58,6 +60,7 @@ Tech stack:
 - **Planned Enhancements:**
   - **Redis:** Expanding Redis coverage for the app. 
   - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
+  - **Decoupling:** Planning on decoupling functionality from the monolith into microservices
 
 ## API Endpoints
 
