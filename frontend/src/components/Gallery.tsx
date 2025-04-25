@@ -6,6 +6,21 @@ import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
 import { useGallery } from '../context/GalleryContext';
 import { useAuth } from '../hooks/context/useAuth';
+import {
+  Box,
+  Modal,
+  Typography,
+  Button,
+  CircularProgress, 
+  Fade, 
+  Paper, 
+  IconButton,
+  Divider
+} from '@mui/material';
+
+import CloseIcon from '@mui/icons-material/Close'; 
+import FavoriteIcon from '@mui/icons-material/Favorite'; 
+import DeleteIcon from '@mui/icons-material/Delete'; 
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 

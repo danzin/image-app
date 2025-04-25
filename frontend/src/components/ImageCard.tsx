@@ -1,31 +1,68 @@
 import React from 'react';
-import { ImageCardProps } from '../types';
+import { IImage } from '../types'; 
+import {
+    Card,
+    CardMedia,
+    CardContent,
+    CardActions,
+    Typography,
+    Chip,
+    IconButton, 
+    Box
+} from '@mui/material';
+import FavoriteIcon from '@mui/icons-material/Favorite';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+interface ImageCardProps {
+  image: IImage;
+  onClick: (image: IImage) => void;
+}
+
+const BASE_URL = '/api'; 
+
 const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
-  const fullImageUrl = image.url.startsWith('http') ? image.url : `${BASE_URL}${image.url}`;
+  const fullImageUrl = image.url.startsWith('http')
+    ? image.url
+    : image.url.startsWith('/')
+    ? `${BASE_URL}${image.url}` 
+    : `${BASE_URL}/${image.url}`;
+
   return (
-    <>
-    <div className="card bg-base-100 w-[100%] max-h-[700px]
-                    rounded-lg overflow-hidden
-                    transition-transform duration-200
-                    ease-in-out cursor-pointer
-                    hover:scale-105 shadow-sm"
-                    onClick={() => onClick(image)}>
-      <figure>
-        <img className='max-h-[700px]'
-          src={fullImageUrl}
-          alt={image.id} />
-      </figure>
-      <div className="card-body p-3">
-          <div className="card-actions justify-between m-2">
-            <div className=''>{new Date(image.createdAt).toLocaleDateString()}</div>
-            <div className="badge badge-outline"> {image.likes} ❤️
-            </div>
-          </div>
-      </div>
-    </div>
-  </>
+    <Card
+      sx={{
+        width: '100%', 
+        maxWidth: '700px', 
+        cursor: 'pointer',
+        transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
+        '&:hover': {
+          transform: 'scale(1.03)', 
+          boxShadow: 6, 
+        },
+        bgcolor: 'background.paper',
+      }}
+      onClick={() => onClick(image)}
+    >
+      <CardMedia
+        component="img"
+       
+        // sx={{ height: { xs: 300, sm: 400, md: 500 }, objectFit: 'cover' }} 
+        sx={{ maxHeight: '700px', objectFit: 'contain', width: '100%' }} 
+        image={fullImageUrl}
+        alt={image.id}
+      />
+      {/* date/likes */}
+       <CardActions disableSpacing sx={{ justifyContent: 'space-between', px: 2, py:1 }}>
+         <Typography variant="caption" color="text.secondary">
+            {new Date(image.createdAt).toLocaleDateString()}
+         </Typography>
+         <Chip
+            icon={<FavoriteIcon fontSize="small" />}
+            label={image.likes}
+            size="small"
+            variant="outlined" 
+            sx={{ ml: 'auto' }}
+          />
+      </CardActions>
+    </Card>
   );
 };
 
