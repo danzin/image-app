@@ -1,23 +1,27 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { followUser, likeImage } from '../../api/userActions';
-import { fetchIsFollowing } from '../../api/userApi';
-import { PaginatedResponse } from '../../types';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  UseQueryOptions,
+} from "@tanstack/react-query";
+import { followUser, likeImage } from "../../api/userActions";
+import { fetchIsFollowing } from "../../api/userApi";
+import { PaginatedResponse } from "../../types";
 
 // Hook to follow a user
 export const useFollowUser = () => {
   const queryClient = useQueryClient();
-  
+
   return useMutation({
     mutationFn: followUser,
     onSuccess: (_data, _followeeId) => {
       // Invalidate query for isFollowing
-      queryClient.invalidateQueries({ queryKey: ['isFollowing'] });
+      queryClient.invalidateQueries({ queryKey: ["isFollowing"] });
       // Invalidate query for the user's followers array update
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
     onError: (error: any) => {
-      console.error('Error following user:', error.message || error);
+      console.error("Error following user:", error.message || error);
     },
   });
 };
@@ -29,36 +33,40 @@ export const useLikeImage = () => {
   return useMutation({
     mutationFn: likeImage, // Calls API to like/unlike
     onSuccess: (updatedImage) => {
-      queryClient.setQueryData(['personalizedFeed'], (oldData: PaginatedResponse | undefined) => {
-        if (!oldData) return oldData;
+      queryClient.setQueryData(
+        ["personalizedFeed"],
+        (oldData: PaginatedResponse | undefined) => {
+          if (!oldData) return oldData;
 
-        return {
-          ...oldData,
-          pages: oldData.pages.map((page) => ({
-            ...page,
-            data: page.data.map((image) =>
-              image.id === updatedImage.id ? updatedImage : image 
-            ),
-          })),
-        };
-      });
+          return {
+            ...oldData,
+            pages: oldData.pages.map((page) => ({
+              ...page,
+              data: page.data.map((image) =>
+                image.id === updatedImage.id ? updatedImage : image
+              ),
+            })),
+          };
+        }
+      );
     },
     onError: (error) => {
-      console.error('Error liking image:', error);
+      console.error("Error liking image:", error);
     },
   });
 };
 
-
-
-
 // Hook checking if current logged in user is following the profile they're visiting
-export const useIsFollowing = (followeeId: string) => {
+export const useIsFollowing = (
+  followeeId: string,
+  options?: Omit<UseQueryOptions<boolean, any, boolean>, "queryKey" | "queryFn">
+) => {
   return useQuery({
-    queryKey: ['isFollowing', followeeId],
+    queryKey: ["isFollowing", followeeId],
     queryFn: fetchIsFollowing,
-    staleTime: 1000*60,
+    staleTime: 1000 * 60,
     refetchOnMount: false,
-    refetchOnWindowFocus: false
-  })
+    refetchOnWindowFocus: false,
+    ...options,
+  });
 };

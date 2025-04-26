@@ -88,9 +88,7 @@ export interface Notification {
 
 export interface UserUserResult {
   useCurrentUser: () => ReturnType<any>;
-  useUserImages: (
-    userId: string
-  ) => UseInfiniteQueryResult<
+  useUserImages: (userId: string) => UseInfiniteQueryResult<
     InfiniteData<
       {
         data: IImage[];

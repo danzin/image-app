@@ -20,7 +20,6 @@ function App() {
   return (
   <BrowserRouter>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
         <AuthProvider>
           <SocketProvider>
             <GalleryProvider>
@@ -40,7 +39,6 @@ function App() {
           </SocketProvider>
           
         </AuthProvider>
-      </ThemeProvider>
     </QueryClientProvider>
   </BrowserRouter>
   );
