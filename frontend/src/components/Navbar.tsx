@@ -11,10 +11,6 @@ import {
   alpha,
   Box,
   Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   useTheme,
   useMediaQuery,
   Divider,
@@ -22,12 +18,9 @@ import {
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
-import AccountCircle from '@mui/icons-material/AccountCircle'; 
 import { Tags } from '../components/TagsContainer'; 
 import NotificationBell from './NotificationBell'; 
 import ProfileMenu from './ProfileMenu';
-
-
 
 
 const Navbar = () => {

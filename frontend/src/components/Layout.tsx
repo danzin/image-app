@@ -9,7 +9,7 @@ const Layout: React.FC = () => {
       height: '100vh',
       display: 'flex',
       flexDirection: 'column',
-      bgcolor: 'background.default', // Theme background color
+      bgcolor: 'background.default', 
     }}>
       <Navbar />
     
@@ -25,7 +25,7 @@ const Layout: React.FC = () => {
           // px: { xs: 1, sm: 2, md: 3 }, // Responsive horizontal padding
           width: '100%', 
         }}
-      >
+        >
         <Outlet />
       </Box>
     </Box>
