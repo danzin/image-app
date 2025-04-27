@@ -1,5 +1,5 @@
 import axiosClient from "./axiosClient";
-import { IImage, IUser } from "../types";
+import { IImage, ImagePageData, IUser } from "../types";
 
 export const loginRequest = async (credentials: any) => {
   const response = await axiosClient.post("/users/login", credentials);
@@ -40,25 +40,43 @@ export const fetchUserData = async ({
 export const fetchUserImages = async (
   pageParam: number,
   userId: string
-): Promise<{
-  data: IImage[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}> => {
-  const { data } = await axiosClient.get(
-    `/images/user/${userId}?page=${pageParam}`
+): Promise<ImagePageData> => {
+  try {
+    const { data } = await axiosClient.get(
+      `/images/user/${userId}?page=${pageParam}`
+    );
+    return data;
+  } catch (error) {
+    console.error("Error fetching user images:", error);
+    throw error;
+  }
+};
+
+export const updateUserAvatar = async (avatar: Blob): Promise<any> => {
+  const formData = new FormData();
+  formData.append(
+    "avatar",
+    avatar,
+    `cover.${avatar.type.split("/")[1] || "png"}`
   );
+
+  const { data } = await axiosClient.put("/users/avatar", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return data;
 };
 
-export const updateUserAvatar = async (avatar: FormData): Promise<any> => {
-  const { data } = await axiosClient.put("/users/avatar", avatar);
-  return data;
-};
+export const updateUserCover = async (cover: Blob): Promise<any> => {
+  // Expect Blob
+  const formData = new FormData();
 
-export const updateUserCover = async (cover: FormData): Promise<any> => {
-  const { data } = await axiosClient.put("/users/cover", cover);
+  formData.append("cover", cover, `cover.${cover.type.split("/")[1] || "png"}`);
+  const { data } = await axiosClient.put("/users/cover", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return data;
 };

@@ -1,89 +1,127 @@
-import React, { useState, useRef, useCallback } from 'react';
-import ReactCrop, { type Crop } from 'react-image-crop';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import ReactCrop, { type Crop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { toast } from 'react-toastify';
 import { ImageEditorProps } from '../types';
+import { Box, Button, Typography, Paper, Stack, Avatar } from '@mui/material';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload'; 
 
-const ImageEditor: React.FC<ImageEditorProps> = ({ 
-  onImageUpload, 
-  type,
-  aspectRatio 
+// Center the crop on load
+function centerAspectCrop(
+    mediaWidth: number,
+    mediaHeight: number,
+    aspect: number,
+): Crop {
+    return centerCrop(
+        makeAspectCrop(
+            {
+                unit: '%',
+                width: 90, // Start with 90% width crop
+            },
+            aspect,
+            mediaWidth,
+            mediaHeight,
+        ),
+        mediaWidth,
+        mediaHeight,
+    );
+}
+
+
+const ImageEditor: React.FC<ImageEditorProps> = ({
+    onImageUpload,
+    type,
+    aspectRatio,
+    onClose, 
 }) => {
-  const defaultAspectRatio = type === 'avatar' ? 1 : 2.7;
+  const defaultAspectRatio = type === 'avatar' ? 1 / 1 : 16 / 9; 
   const finalAspectRatio = aspectRatio || defaultAspectRatio;
-  
+
   const [src, setSrc] = useState<string | null>(null);
-  const [crop, setCrop] = useState<Crop>({
-    unit: '%',
-    width: type === 'avatar' ? 90 : 100,
-    height: type === 'avatar' ? 90 : Math.round(100 / finalAspectRatio),
-    x: type === 'avatar' ? 5 : 0,
-    y: type === 'avatar' ? 5 : 30
-  });
+  const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null); 
 
   const onSelectFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
+      setCrop(undefined); 
       const reader = new FileReader();
-      reader.addEventListener('load', () => setSrc(reader.result as string));
+      reader.addEventListener('load', () => setSrc(reader.result?.toString() || null));
       reader.readAsDataURL(e.target.files[0]);
+    } else {
+        setSrc(null); 
     }
+      e.target.value = ''; 
   };
 
-  const onImageLoad = useCallback((img: HTMLImageElement) => {
-    imgRef.current = img;
-    
-    // Set initial crop based on type and aspect ratio
-    if (type === 'avatar') {
-      setCrop({
-        unit: '%',
-        width: 90,
-        height: 90,
-        x: 5,
-        y: 5
-      });
-    } else {
-      const height = Math.round(100 / finalAspectRatio);
-      setCrop({
-        unit: '%',
-        width: 100,
-        height,
-        x: 0,
-        y: (100 - height) / 2 // Center vertically
-      });
-    }
-  }, [type, finalAspectRatio]);
+  const onImageLoad = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const { width, height } = e.currentTarget;
+    setCrop(centerAspectCrop(width, height, finalAspectRatio));
+    imgRef.current = e.currentTarget; 
+  }, [finalAspectRatio]);
 
-  const generateCroppedImage = useCallback(() => {
+
+  useEffect(() => {
+    if (
+        !completedCrop ||
+        !previewCanvasRef.current ||
+        !imgRef.current
+    ) {
+        return;
+    }
+
+    const image = imgRef.current;
+    const canvas = previewCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const scaleX = image.naturalWidth / image.width;
+    const scaleY = image.naturalHeight / image.height;
+    const pixelRatio = window.devicePixelRatio || 1; // For higher resolution displays
+
+    canvas.width = Math.floor(completedCrop.width * scaleX * pixelRatio);
+    canvas.height = Math.floor(completedCrop.height * scaleY * pixelRatio);
+
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.imageSmoothingQuality = 'high';
+
+    const cropX = completedCrop.x * scaleX;
+    const cropY = completedCrop.y * scaleY;
+    const cropWidth = completedCrop.width * scaleX;
+    const cropHeight = completedCrop.height * scaleY;
+
+    ctx.drawImage(
+      image,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      completedCrop.width * scaleX, // Draw at original crop size on canvas
+      completedCrop.height * scaleY,
+    );
+
+}, [completedCrop]);
+
+const generateCroppedImageBlob = useCallback(async (): Promise<Blob | null> => {
     if (!completedCrop || !imgRef.current) return null;
 
     const image = imgRef.current;
-    const canvas = document.createElement('canvas');
+    const canvas = document.createElement('canvas'); // Use canvas for blob generation
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
 
-    // Calculate scales
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
 
-    if (type === 'avatar') {
-      // For avatar - make it square and circular
-      const size = Math.min(completedCrop.width, completedCrop.height);
-      canvas.width = size;
-      canvas.height = size;
+    // Set canvas size to the desired output size
+    canvas.width = completedCrop.width * scaleX;
+    canvas.height = completedCrop.height * scaleY;
 
-      // Draw circular mask for avatar
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-      ctx.clip();
-    } else {
-      // For cover - use actual dimensions
-      canvas.width = completedCrop.width;
-      canvas.height = completedCrop.height;
-    }
+    ctx.imageSmoothingQuality = 'high';
 
-    // Draw image
     ctx.drawImage(
       image,
       completedCrop.x * scaleX,
@@ -92,93 +130,128 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
       completedCrop.height * scaleY,
       0,
       0,
-      canvas.width,
+      canvas.width, // Draw filling the canvas
       canvas.height
     );
 
-    return canvas.toDataURL('image/png');
-  }, [completedCrop, type]);
+    // Return a promise that resolves with the blob
+    return new Promise((resolve) => {
+      canvas.toBlob(
+        (blob) => {
+            resolve(blob);
+        },
+        'image/png',
+        0.9 
+      );
+    });
+  }, [completedCrop]);
 
-  const handleSave = () => {
-    const croppedImage = generateCroppedImage();
-    if (croppedImage) {
-      onImageUpload(croppedImage);
+  const handleSave = async () => {
+    const imageBlob = await generateCroppedImageBlob();
+    if (imageBlob) {
+      onImageUpload(imageBlob); 
       toast.success('Image processed!');
+      if (onClose) onClose(); // Close the modal on successful save
     } else {
-      toast.error('Please crop the image first');
+      toast.error('Could not crop image. Please select an image and define a crop area.');
     }
   };
 
+  const handleCancel = () => {
+    setSrc(null);
+    setCrop(undefined);
+    setCompletedCrop(null);
+    if (onClose) onClose(); 
+  }
+
   return (
-    <div className="flex flex-col gap-4 max-w-2xl">
-      {!src && (
-        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-lg">
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={onSelectFile}
-            className="cursor-pointer"
-          />
-          <p className="mt-2 text-sm text-gray-500">
-            Upload {type === 'avatar' ? 'a profile picture' : 'a cover photo'}
-          </p>
-        </div>
-      )}
-      
+    <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 'md', width: '100%' }}>
+      <Typography variant="h6" gutterBottom>
+        Edit {type === 'avatar' ? 'Avatar' : 'Cover Photo'}
+      </Typography>
+
+      {/* File Input - Styled */}
+      <Button
+        component="label" 
+        variant="outlined"
+        startIcon={<CloudUploadIcon />}
+        fullWidth
+      >
+        {src ? 'Change Image' : 'Upload Image'}
+        <input
+          type="file"
+          accept="image/*"
+          hidden 
+          onChange={onSelectFile}
+        />
+      </Button>
+
       {src && (
-        <div className="flex flex-col gap-4">
-          <ReactCrop
-            crop={crop}
-            onChange={(_, percentCrop) => setCrop(percentCrop)}
-            onComplete={(c) => setCompletedCrop(c)}
-            aspect={finalAspectRatio}
-            circularCrop={type === 'avatar'}
-            className="max-w-full"
-          >
-            <img 
-              src={src} 
-              onLoad={(e) => onImageLoad(e.currentTarget)}
-              className="max-w-full h-auto"
-            />
-          </ReactCrop>
+        <Stack spacing={2} alignItems="center">
+          <Typography variant="body2" color="text.secondary">Crop your image:</Typography>
+          <Box sx={{ width: '100%', maxWidth: '500px', maxHeight: '50vh', overflow: 'auto', border: '1px solid', borderColor: 'divider', mb: 2 }}>
+            <ReactCrop
+              crop={crop}
+              onChange={(_, percentCrop) => setCrop(percentCrop)}
+              onComplete={(c) => setCompletedCrop(c)}
+              aspect={finalAspectRatio}
+              circularCrop={type === 'avatar'} // Apply circular crop
+            >
+              <img
+                src={src}
+                alt="Image to crop"
+                onLoad={onImageLoad}
+                style={{ display: 'block', maxWidth: '100%', maxHeight: '45vh' }} // display size
+              />
+            </ReactCrop>
+          </Box>
 
-          {completedCrop && (
-            <div className="flex flex-col items-center gap-2">
-              <h4 className="text-lg font-medium">Preview</h4>
-              <div 
-                className={`
-                  ${type === 'avatar' ? 'w-32 h-32 rounded-full' : 'w-full max-w-md'} 
-                  overflow-hidden
-                `}
-                style={type === 'cover' ? { aspectRatio: finalAspectRatio } : undefined}
-              >
-                <img 
-                  src={generateCroppedImage() || ''} 
-                  alt="Cropped Preview"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
+          {/* Preview Area */}
+          {!!completedCrop && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+            <Typography variant="subtitle2">Preview</Typography>
+            {/* Canvas for high-quality preview */}
+            {type === 'avatar' ? (
+              <Avatar sx={{ width: 100, height: 100, bgcolor: 'action.disabledBackground' }}>
+                <canvas
+                  ref={previewCanvasRef}
+                  style={{
+                    objectFit: 'contain',
+                    width: completedCrop.width,
+                    height: completedCrop.height,
+                    borderRadius: '50%', 
+                    display: completedCrop ? 'block' : 'none' // Hide if no crop
+                  }}/>
+              </Avatar>
+            ) : (
+                <Box sx={{ border: '1px solid', borderColor: 'divider', width: '100%', maxWidth: 300, aspectRatio: `${finalAspectRatio}` }}>
+                  <canvas
+                    ref={previewCanvasRef}
+                    style={{
+                      display: completedCrop ? 'block' : 'none', 
+                      objectFit: 'contain',
+                      width: '100%', 
+                      height: '100%', 
+                    }}/>
+                </Box>
+            )}
+          </Box>
           )}
-
-          <div className="flex justify-center gap-4">
-            <button 
-              onClick={() => setSrc(null)} 
-              className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
-            >
+          <Stack direction="row" spacing={2} justifyContent="center" sx={{ width: '100%', mt: 2 }}>
+            <Button variant="outlined" onClick={handleCancel}>
               Cancel
-            </button>
-            <button 
-              onClick={handleSave} 
-              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSave}
+              disabled={!completedCrop} 
             >
-              Save
-            </button>
-          </div>
-        </div>
+              Save {type === 'avatar' ? 'Avatar' : 'Cover'}
+            </Button>
+          </Stack>
+      </Stack>
       )}
-      
-    </div>
+    </Paper>
   );
 };
 

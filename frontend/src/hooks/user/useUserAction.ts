@@ -64,7 +64,7 @@ export const useIsFollowing = (
   return useQuery({
     queryKey: ["isFollowing", followeeId],
     queryFn: fetchIsFollowing,
-    staleTime: 1000 * 60,
+    staleTime: 6000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     ...options,

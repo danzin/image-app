@@ -10,12 +10,14 @@ export interface IUser {
   id: string;
   username: string;
   avatar: string;
+  bio: string;
   cover: string;
   email: string;
   isAdmin: boolean;
   images: string[];
   followers: string[];
   following: string[];
+  createdAt: Date;
 }
 
 export interface ITag {
@@ -37,6 +39,17 @@ export interface IImage {
   likes: number;
   createdAt: Date;
 }
+
+export type PageParam = number;
+
+export type ImagePageData = {
+  data: IImage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export interface PaginatedResponse {
   pages: {
     data: IImage[];
@@ -126,7 +139,8 @@ export interface ImageCardProps {
 }
 
 export interface ImageEditorProps {
-  onImageUpload: (croppedImage: string | null) => void;
+  onImageUpload: (croppedImage: string | null | Blob) => void;
   type: "avatar" | "cover";
   aspectRatio?: number;
+  onClose: () => void;
 }

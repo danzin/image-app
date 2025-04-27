@@ -6,6 +6,7 @@ export interface BaseUserDTO {
   images?: string[];
   followers?: string[];
   following?: string[];
+  createdAt: Date;
 }
 
 export interface AdminUserDTO extends BaseUserDTO {
@@ -16,4 +17,3 @@ export interface AdminUserDTO extends BaseUserDTO {
 }
 
 export interface PublicUserDTO extends BaseUserDTO {}
-

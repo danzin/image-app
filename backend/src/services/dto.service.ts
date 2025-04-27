@@ -2,7 +2,7 @@ import { injectable } from "tsyringe";
 import { AdminUserDTO, PublicUserDTO } from "../types";
 import { IUser } from "../types";
 
-injectable()
+injectable();
 export class UserDTOService {
   toPublicDTO(user: IUser): PublicUserDTO {
     return {
@@ -12,7 +12,8 @@ export class UserDTOService {
       cover: user.cover,
       images: user.images,
       followers: user.followers,
-      following: user.following
+      following: user.following,
+      createdAt: user.createdAt,
     };
   }
 
@@ -22,7 +23,7 @@ export class UserDTOService {
       email: user.email,
       isAdmin: user.isAdmin,
       createdAt: user.createdAt,
-      updatedAt: user.updatedAt
+      updatedAt: user.updatedAt,
     };
   }
 }
