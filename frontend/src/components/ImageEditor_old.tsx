@@ -50,7 +50,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
         width: 100,
         height,
         x: 0,
-        y: (100 - height) / 2 // Center vertically
+        y: (100 - height) / 2 // Center vertically aaaaaaaaaaaaaaaaaaaa
       });
     }
   }, [type, finalAspectRatio]);
@@ -68,7 +68,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
     const scaleY = image.naturalHeight / image.height;
 
     if (type === 'avatar') {
-      // For avatar - make it square and circular
+      // For avatar - make it square and circular [doesn't work]
       const size = Math.min(completedCrop.width, completedCrop.height);
       canvas.width = size;
       canvas.height = size;
@@ -78,7 +78,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
       ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
       ctx.clip();
     } else {
-      // For cover - use actual dimensions
       canvas.width = completedCrop.width;
       canvas.height = completedCrop.height;
     }

@@ -20,9 +20,7 @@ const Layout: React.FC = () => {
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          // Consistent padding using theme spacing
-          // py: 3, // Vertical padding
-          // px: { xs: 1, sm: 2, md: 3 }, // Responsive horizontal padding
+
           width: '100%', 
         }}
         >
