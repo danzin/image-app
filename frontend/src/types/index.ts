@@ -139,7 +139,7 @@ export interface ImageCardProps {
 }
 
 export interface ImageEditorProps {
-  onImageUpload: (croppedImage: string | Blob | null) => void;
+  onImageUpload: (croppedImage: Blob | null) => void;
   type: "avatar" | "cover";
   aspectRatio?: number;
   onClose: () => void;
