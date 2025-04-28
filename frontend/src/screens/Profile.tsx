@@ -108,12 +108,15 @@ const Profile:React.FC  = () => {
   }, []);
 
 // Handler for Avatar upload (receives dataURL)
-const handleAvatarUpload = useCallback((imageDataURL: string | null) => {
-  if (!imageDataURL) return;
+const handleAvatarUpload = useCallback((croppedImage: Blob | null) => {
+  if (!croppedImage) {
+    notifyError('Image processing failed.'); // Optional: notify if null
+    setIsAvatarModalOpen(false);
+    return;
+}
   
   try {
-    const blob = dataURLtoBlob(imageDataURL);
-    avatarMutation.mutate(blob, {
+    avatarMutation.mutate(croppedImage, {
       onSuccess: () => notifySuccess('Avatar updated successfully!'),
       onError: (error: any) => notifyError(`Avatar upload failed: ${error?.message || 'Error'}`),
       onSettled: () => setIsAvatarModalOpen(false)
@@ -125,12 +128,14 @@ const handleAvatarUpload = useCallback((imageDataURL: string | null) => {
 }, [avatarMutation, dataURLtoBlob, notifyError, notifySuccess]);
 
 // Handler for Cover upload (receives dataURL)
-const handleCoverUpload = useCallback((imageDataURL: string | null) => {
-  if (!imageDataURL) return;
-  
+const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
+  if (!croppedImage) {
+    notifyError('Image processing failed.'); // Optional: notify if null
+    setIsAvatarModalOpen(false);
+    return;
+}  
   try {
-    const blob = dataURLtoBlob(imageDataURL);
-    coverMutation.mutate(blob, {
+    coverMutation.mutate(croppedImage, {
       onSuccess: () => notifySuccess('Cover photo updated successfully!'),
       onError: (error: any) => notifyError(`Cover upload failed: ${error?.message || 'Error'}`),
       onSettled: () => setIsCoverModalOpen(false)
