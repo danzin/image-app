@@ -35,7 +35,7 @@ import { ImagePageData } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
-const ProfileUpdated:React.FC  = () => {
+const Profile:React.FC  = () => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>(); 
   const { user, isLoggedIn } = useAuth(); 
@@ -545,4 +545,4 @@ const handleCoverUpload = useCallback((imageDataURL: string | null) => {
   );
 };
 
-export default ProfileUpdated;
+export default Profile;
