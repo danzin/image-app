@@ -9,8 +9,6 @@ import {
   useTheme,
   useMediaQuery,
   Drawer,
-  CircularProgress,
-  Paper, 
   Divider, 
 } from '@mui/material';
 
