@@ -94,23 +94,12 @@ const Profile:React.FC  = () => {
       }
     });
   };
-  // dataURL to Blob for API upload
-  const dataURLtoBlob = useCallback((dataURL: string): Blob => {
-    const arr = dataURL.split(',');
-    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
-    }
-    return new Blob([u8arr], { type: mime });
-  }, []);
 
-// Handler for Avatar upload (receives dataURL)
+
+// Handler for Avatar upload (receives Blob)
 const handleAvatarUpload = useCallback((croppedImage: Blob | null) => {
   if (!croppedImage) {
-    notifyError('Image processing failed.'); // Optional: notify if null
+    notifyError('Image processing failed.'); 
     setIsAvatarModalOpen(false);
     return;
 }
@@ -125,12 +114,12 @@ const handleAvatarUpload = useCallback((croppedImage: Blob | null) => {
     notifyError('Error processing image');
     console.error('Error converting dataURL to Blob:', error);
   }
-}, [avatarMutation, dataURLtoBlob, notifyError, notifySuccess]);
+}, [avatarMutation, notifyError, notifySuccess]);
 
-// Handler for Cover upload (receives dataURL)
+// Handler for Cover upload (receives Blob)
 const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
   if (!croppedImage) {
-    notifyError('Image processing failed.'); // Optional: notify if null
+    notifyError('Image processing failed.'); 
     setIsAvatarModalOpen(false);
     return;
 }  
@@ -144,7 +133,7 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
     notifyError('Error processing image');
     console.error('Error converting dataURL to Blob:', error);
   }
-}, [coverMutation, dataURLtoBlob, notifyError, notifySuccess]);
+}, [coverMutation, notifyError, notifySuccess]);
 
     // Loading state
     if (isLoadingProfile) {
