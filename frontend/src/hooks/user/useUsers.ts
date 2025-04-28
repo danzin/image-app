@@ -62,10 +62,10 @@ export const useUpdateUserAvatar = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: updateUserAvatarApi,
-    onSuccess: (data, variables, context) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
 
-      queryClient.invalidateQueries({ queryKey: ["userImages"] }); // Invalidate images if avatar shown there
+      queryClient.invalidateQueries({ queryKey: ["userImages"] });
     },
     onError(error) {
       console.error("Avatar update failed:", error);
@@ -76,8 +76,8 @@ export const useUpdateUserAvatar = () => {
 export const useUpdateUserCover = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: updateUserCoverApi, // Use the specific API function
-    onSuccess: (data, variables, context) => {
+    mutationFn: updateUserCoverApi,
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["user"] });
     },
     onError: (error) => {
