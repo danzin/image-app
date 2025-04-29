@@ -1,5 +1,5 @@
 import axiosClient from "./axiosClient";
-import { IImage, ImagePageData, IUser } from "../types";
+import { ImagePageData, IUser } from "../types";
 
 export const loginRequest = async (credentials: any) => {
   const response = await axiosClient.post("/users/login", credentials);
