@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
 
 interface GalleryContextType {
   selectedTags: string[];
@@ -7,7 +6,6 @@ interface GalleryContextType {
   isTagDrawerOpen: boolean;
   setIsTagDrawerOpen: (isOpen: boolean) => void;
   clearTags: () => void;
-  isProfileView: boolean;
 }
 
 const GalleryContext = createContext<GalleryContextType>({
@@ -16,15 +14,11 @@ const GalleryContext = createContext<GalleryContextType>({
   isTagDrawerOpen: false,
   setIsTagDrawerOpen: () => {},
   clearTags: () => {},
-  isProfileView: false
 });
 
 export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isTagDrawerOpen, setIsTagDrawerOpen] = useState(false);
-  const location = useLocation();
-  
-  const isProfileView = location.pathname.includes('profile');
 
   const clearTags = () => setSelectedTags([]);
 
@@ -34,7 +28,6 @@ export const GalleryProvider: React.FC<{ children: ReactNode }> = ({ children })
     isTagDrawerOpen,
     setIsTagDrawerOpen,
     clearTags,
-    isProfileView
   };
 
   return (

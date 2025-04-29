@@ -1,28 +1,29 @@
-import { Model, ClientSession } from 'mongoose';
-import { IUser, PaginationOptions, PaginationResult } from '../types';
-import { createError } from '../utils/errors';
-import { injectable, inject } from 'tsyringe';
-import { BaseRepository } from './base.repository';
+import { Model, ClientSession } from "mongoose";
+import { IUser, PaginationOptions, PaginationResult } from "../types";
+import { createError } from "../utils/errors";
+import { injectable, inject } from "tsyringe";
+import { BaseRepository } from "./base.repository";
 
 /**
  * UserRepository provides database access for user-related operations.
  * It extends BaseRepository and includes custom methods for user management.
  */
 @injectable()
-export class UserRepository extends BaseRepository<IUser>{
-  constructor(
-    @inject('UserModel') model: Model<IUser>
-  ) {
-    super(model)
+export class UserRepository extends BaseRepository<IUser> {
+  constructor(@inject("UserModel") model: Model<IUser>) {
+    super(model);
   }
-  
+
   /**
    * Creates a new user in the database, handling duplicate key errors.
    * @param userData - Partial user data to create a new user.
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The created user object.
    */
-  async create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser> {
+  async create(
+    userData: Partial<IUser>,
+    session?: ClientSession
+  ): Promise<IUser> {
     try {
       const doc = new this.model(userData);
       if (session) doc.$session(session);
@@ -31,15 +32,14 @@ export class UserRepository extends BaseRepository<IUser>{
     } catch (error) {
       if (error.code === 11000) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError('DuplicateError', `${field} already exists`, { 
-          function: 'create',
-          context: 'userRepository'
+        throw createError("DuplicateError", `${field} already exists`, {
+          function: "create",
+          context: "userRepository",
         });
       }
-      throw createError('DatabaseError', error.message);
+      throw createError("DatabaseError", error.message);
     }
   }
-  
 
   /**
    * Updates a user's data based on a given user ID.
@@ -51,29 +51,33 @@ export class UserRepository extends BaseRepository<IUser>{
    */
   async update(
     id: string,
-    updateData: any,  
+    updateData: any,
     session?: ClientSession
   ): Promise<IUser | null> {
     try {
-      const query = this.model.findByIdAndUpdate(
-        id,
-        updateData,  
-        { new: true }
-      )
+      console.log("updateData in user repo:", updateData);
+      const query = this.model.findOneAndUpdate(
+        { _id: id },
+        { $set: updateData },
+        {
+          new: true,
+        }
+      );
       if (session) query.session(session);
-      return await query.exec();
+      const result = await query.exec();
+      console.log("[UserRepository.update] Result:", result);
+      return result;
     } catch (error) {
       if (error.code === 11000) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError('DuplicateError', `${field} already exists`, { 
-          function: 'create',
-          context: 'userRepository'
+        throw createError("DuplicateError", `${field} already exists`, {
+          function: "create",
+          context: "userRepository",
         });
       }
-      throw createError('DatabaseError', error.message);
+      throw createError("DatabaseError", error.message);
     }
   }
-  
 
   /**
    * Retrieves a paginated list of users with optional search functionality.
@@ -90,37 +94,34 @@ export class UserRepository extends BaseRepository<IUser>{
     limit?: number;
   }): Promise<IUser[] | null> {
     try {
-      
       const query: any = {};
 
-    
       if (options.search && options.search.length > 0) {
         query.$or = options.search.map((term: string) => {
-          return { username: { $regex: term, $options: 'i' } }; 
+          return { username: { $regex: term, $options: "i" } };
         });
       }
 
-    const page = options?.page || 1;
-    const limit = options?.limit || 20;
-    const skip = (page - 1) * limit;
+      const page = options?.page || 1;
+      const limit = options?.limit || 20;
+      const skip = (page - 1) * limit;
 
-    const result = await this.model.find(query)
-      .skip(skip)
-      .limit(limit)
-      .exec();
-      if(!result || result.length === 0 ){
-        return null
+      const result = await this.model
+        .find(query)
+        .skip(skip)
+        .limit(limit)
+        .exec();
+      if (!result || result.length === 0) {
+        return null;
       }
-
 
       return result;
     } catch (error) {
-      createError('DatabaseError', error.message, {
-        function: 'getAll',
-        options: options
-      })
+      createError("DatabaseError", error.message, {
+        function: "getAll",
+        options: options,
+      });
     }
-    
   }
 
   /**
@@ -129,30 +130,35 @@ export class UserRepository extends BaseRepository<IUser>{
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The user object or null if not found.
    */
-  async findByUsername(username: string, session?: ClientSession): Promise<IUser | null> {
+  async findByUsername(
+    username: string,
+    session?: ClientSession
+  ): Promise<IUser | null> {
     try {
-      const query = this.model.findOne({ username }).select('+password');
+      const query = this.model.findOne({ username }).select("+password");
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError('DatabaseError', error.message);
-
+      throw createError("DatabaseError", error.message);
     }
   }
-  
+
   /**
    * Finds a user by email.
    * @param email - The email to search for.
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The user object or null if not found.
    */
-  async findByEmail(email: string, session?: ClientSession): Promise<IUser | null> {
+  async findByEmail(
+    email: string,
+    session?: ClientSession
+  ): Promise<IUser | null> {
     try {
-      const query = this.model.findOne({ email }).select('+password');
+      const query = this.model.findOne({ email }).select("+password");
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError('DatabaseError', error.message);
+      throw createError("DatabaseError", error.message);
     }
   }
 
@@ -160,27 +166,24 @@ export class UserRepository extends BaseRepository<IUser>{
    * Retrieves paginated users from the database.
    * @param options - Pagination options (page, limit, sorting).
    * @returns A paginated result containing users.
-   */  
-  async findWithPagination(options: PaginationOptions): Promise<PaginationResult<IUser>> {
+   */
+  async findWithPagination(
+    options: PaginationOptions
+  ): Promise<PaginationResult<IUser>> {
     try {
       const {
         page = 1,
         limit = 20,
-        sortBy = 'createdAt',
-        sortOrder = 'desc'
+        sortBy = "createdAt",
+        sortOrder = "desc",
       } = options;
 
       const skip = (page - 1) * limit;
       const sort = { [sortBy]: sortOrder };
 
       const [data, total] = await Promise.all([
-        this.model
-          .find()
-          .sort(sort)
-          .skip(skip)
-          .limit(limit)
-          .exec(),
-        this.model.countDocuments()
+        this.model.find().sort(sort).skip(skip).limit(limit).exec(),
+        this.model.countDocuments(),
       ]);
 
       return {
@@ -188,10 +191,10 @@ export class UserRepository extends BaseRepository<IUser>{
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
-      throw createError('DatabaseError', error.message);
+      throw createError("DatabaseError", error.message);
     }
   }
 
@@ -206,23 +209,21 @@ export class UserRepository extends BaseRepository<IUser>{
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
   async updateAvatar(
-    userId: string, 
-    avatarUrl: string, 
+    userId: string,
+    avatarUrl: string,
     session?: ClientSession
   ): Promise<void> {
     try {
-      const query = this.model.findByIdAndUpdate(
-        userId,
-        { $set: { avatar: avatarUrl } }
-      );
+      const query = this.model.findByIdAndUpdate(userId, {
+        $set: { avatar: avatarUrl },
+      });
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
-      console.error(error)
-      throw createError('DatabaseError', error.message);
+      console.error(error);
+      throw createError("DatabaseError", error.message);
     }
   }
-
 
   /**
    * Updates the cover image URL of a user in the database.
@@ -233,22 +234,18 @@ export class UserRepository extends BaseRepository<IUser>{
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
   async updateCover(
-    userId: string, 
-    coverUrl: string, 
+    userId: string,
+    coverUrl: string,
     session?: ClientSession
   ): Promise<void> {
     try {
-      const query = this.model.findByIdAndUpdate(
-        userId,
-        { $set: { cover: coverUrl } }
-      );
+      const query = this.model.findByIdAndUpdate(userId, {
+        $set: { cover: coverUrl },
+      });
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
-      throw createError('DatabaseError', error.message);
+      throw createError("DatabaseError", error.message);
     }
   }
-
-
 }
-

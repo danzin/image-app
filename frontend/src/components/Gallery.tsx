@@ -1,11 +1,28 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { IImage, GalleryProps } from '../types';
 import { useDeleteImage } from '../hooks/images/useImages';
 import { useLikeImage } from '../hooks/user/useUserAction';
 import ImageCard from './ImageCard';
-import { useGallery } from '../context/GalleryContext';
 import { useAuth } from '../hooks/context/useAuth';
+import {
+  Box,
+  Modal,
+  Typography,
+  Button,
+  CircularProgress, 
+  Fade, 
+  Paper, 
+  IconButton,
+  Divider,
+  Card,
+  Skeleton,
+  CardActions
+} from '@mui/material';
+
+import CloseIcon from '@mui/icons-material/Close'; 
+import FavoriteIcon from '@mui/icons-material/Favorite'; 
+import DeleteIcon from '@mui/icons-material/Delete'; 
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -14,13 +31,12 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   const { user, isLoggedIn } = useAuth();
   
   const { id: profileId } = useParams<{ id: string }>();
-  const { isProfileView } = useGallery();
+
   const [selectedImage, setSelectedImage] = useState<IImage | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const deleteMutation  = useDeleteImage();
 
-  const isInOwnProfile = user?.id === profileId && isProfileView;
+  const isProfileOwner = isLoggedIn && user?.id === profileId;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -59,18 +75,19 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
   const openModal = useCallback((image: IImage) => {
     setSelectedImage(image);
-    setIsModalOpen(true);
   }, []);
 
   const closeModal = () => {
     setSelectedImage(null);
-    setIsModalOpen(false);
+
   };
 
   const handleDeleteImage = () => {
-    if (selectedImage) {
-      deleteMutation.mutate(selectedImage.id);
-      closeModal();
+    if (selectedImage && isProfileOwner) { 
+      deleteMutation.mutate(selectedImage.id, {
+        onSuccess: () => closeModal(), 
+        onError: (err) => console.error("Delete failed", err) 
+      });
     }
   };
 
@@ -97,95 +114,146 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
   const fullImageUrl = selectedImage?.url.startsWith('http') ? selectedImage.url : `${BASE_URL}${selectedImage?.url}`;
 
+  const isLoading = isLoadingAll || isLoadingFiltered;
 
   return (
-    <div  className='flex flex-col content-center gap-7 w-[100%] max-w-[700px] m-auto p-2'>
-      {/* Skeleton when loading images */}
-      {(isLoadingAll || isLoadingFiltered) &&
-        Array.from({ length: 6 }).map((_) => (
-          <div className="flex w-700 h-[500px] flex-col">
-            <div className="skeleton h-[500px] w-full"></div>
-          </div>
-        ))
-        }
-       {!isLoadingAll &&
-        !isLoadingFiltered &&
-        images.map((img) => <ImageCard key={img.id} image={img} onClick={() => openModal(img)} />)}
-        {(!images || images.length === 0) && (<div className='text-black'> Nothing to show. Go ahead and upload something! </div>)}
+  <Box sx={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center', 
+    gap: { xs: 2, sm: 3, md: 4 },
+    width: '100%',
+    maxWidth: '700px', // Max width for gallery
+    margin: '0 auto', // Center the gallery 
+    p: { xs: 1, sm: 2 } 
+  }}>
+  
+    {/* Loading Skeletons */}
+    {isLoading && !images?.length && 
+      Array.from({ length: 3 }).map((_, index) => (
+        <Card key={`skeleton-${index}`} sx={{ width: '100%', maxWidth: '700px' }}>
+            <Skeleton variant="rectangular" height={400} />
+            <CardActions>
+                <Skeleton variant="text" width="30%" />
+                <Skeleton variant="circular" width={40} height={40} sx={{ml: 'auto'}} />
+            </CardActions>
+        </Card>
+      ))}
 
-      {/* Infinite Scroll Loader */}
-      <div ref={loadMoreRef} style={{ padding: '20px', textAlign: 'center' }}>
-        {isFetchingNext && (
-          <div className="flex w-700 flex-col gap-4">
-            <div className="skeleton h-7 w-full"></div>
-          </div>
+     {/* Image Cards */}
+     {!isLoading && images.map((img) => (
+          <ImageCard key={img.id} image={img} onClick={openModal} />
+      ))}
+
+      {/* Empty State */}
+      {!isLoading && (!images || images.length === 0) && (
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 4 }}>
+          Nothing to show yet.
+          {isProfileOwner && " Why not upload something?"}
+        </Typography>
         )}
-      </div>
-      
-      {isModalOpen && (
-        <>
-          <input
-            type="checkbox"
-            id="image-modal"
-            className="modal-toggle"
-            checked
-            onChange={closeModal}
-          />
-          <div className="modal" onClick={closeModal}>
-            <div
-              className="modal-box relative max-w-4xl "
-              style={{ height: "90vh" }}
-              onClick={(e) => e.stopPropagation()}
+
+      {/* Infinite Scroll Loader Trigger */}
+      <Box ref={loadMoreRef} sx={{ height: '50px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        {isFetchingNext && <CircularProgress size={24} />}
+      </Box>
+
+      <Modal
+        open={!!selectedImage} 
+        onClose={closeModal}
+        closeAfterTransition
+        aria-labelledby="image-modal-title"
+        aria-describedby="image-modal-description"
+        sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center'}} // Center the modal
+      >
+        <Fade in={!!selectedImage}>
+         
+          <Paper sx={{
+            position: 'relative', 
+            bgcolor: 'background.paper',
+            boxShadow: 24,
+            p: {xs: 2, sm: 3, md: 4}, 
+            borderRadius: 2,
+            maxWidth: '90vw', 
+            maxHeight: '90vh', 
+            overflowY: 'auto', 
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            <IconButton
+              aria-label="close"
+              onClick={closeModal}
+              sx={{
+                position: 'absolute',
+                right: 8,
+                top: 8,
+                color: (theme) => theme.palette.grey[500],
+              }}
             >
-              <label
-                htmlFor="image-modal"
-                className="btn btn-sm btn-circle absolute right-2 top-2"
-                onClick={closeModal}
-              >
-                ✕
-              </label>
-              {selectedImage && (
-                <>
+              <CloseIcon />
+            </IconButton>
+
+            {selectedImage && (
+              <>
+                <Box sx={{ flexShrink: 0, mb: 2, display: 'flex', justifyContent: 'center' }}>
                   <img
                     src={fullImageUrl}
                     alt={selectedImage.publicId}
-                    className="w-full max-h-[60vh] object-contain"
+                    style={{
+                        maxWidth: '100%',
+                        maxHeight: '65vh', 
+                        objectFit: 'contain',
+                        display: 'block' 
+                    }}
                   />
-                  <div className="flex mt-2 justify-between text-left">
-                    <div>
-                      <p className="text-sm">
+                </Box>
+
+                <Divider sx={{ my: 2 }}/>
+
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary" id="image-modal-description">
                         Uploader:{" "}
-                        <Link to={`/profile/${selectedImage.user.id}`} className="text-blue-800">
+                        <Typography component={RouterLink} to={`/profile/${selectedImage.user.id}`} sx={{ color: 'primary.main', textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}>
                           {selectedImage.user.username}
-                        </Link>
-                      </p>
-                      <p className="md:text-md sm:text-sm">Tags: {getImageTags(selectedImage)}</p>
-                    </div>
+                        </Typography>
+                      </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                            Tags: {getImageTags(selectedImage)}
+                        </Typography>
+                    </Box>
 
-                    <div className='flex gap-2'>
-                      <button
-                        className="btn btn-primary "
+                    <Box sx={{ display: 'flex', gap: 1, mt: {xs: 1, sm: 0} }}>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<FavoriteIcon />}
                         onClick={handleLikeImage}
-                        disabled={isLiking}
+                        disabled={isLiking || !isLoggedIn} 
                       >
-                        {isLiking ? <span className="loading loading-spinner loading-xl"></span> : "Like"}
-                      </button>
-                      {isInOwnProfile && (
-                        <button className="btn btn-secondary" onClick={handleDeleteImage}>
-                          Delete
-                        </button>
+                        {selectedImage.likes} {isLiking ? 'Liking...' : 'Like'}
+                      </Button>
+                      {isProfileOwner && ( 
+                        <Button
+                            variant="outlined"
+                            color="error"
+                            size="small"
+                            startIcon={<DeleteIcon />}
+                            onClick={handleDeleteImage}
+                            disabled={deleteMutation.isPending}
+                        >
+                          {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+                        </Button>
                       )}
-                    </div>
-                   
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+                    </Box>
+                </Box>
+              </>
+            )}
+          </Paper>
+        </Fade>
+      </Modal>
+  </Box>
 
-    </div>
   );
 };
 

@@ -6,14 +6,14 @@ export interface BaseUserDTO {
   images?: string[];
   followers?: string[];
   following?: string[];
+  createdAt: Date;
+  bio?: string;
 }
 
 export interface AdminUserDTO extends BaseUserDTO {
   email: string;
   isAdmin: boolean;
-  createdAt: Date;
   updatedAt: Date;
 }
 
 export interface PublicUserDTO extends BaseUserDTO {}
-

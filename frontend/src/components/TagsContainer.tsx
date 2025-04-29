@@ -1,4 +1,4 @@
-import { Skeleton } from "@mui/material";
+import { Box, Chip, Skeleton, Typography } from "@mui/material";
 import { useGallery } from "../context/GalleryContext";
 import { useTags } from "../hooks/images/useImages";
 
@@ -15,27 +15,47 @@ export const Tags = () => {
     }
   };
 
+  if (isPending) {
   
+    return (
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+        {Array.from({ length: 10 }).map((_, index) => (
+          <Skeleton key={index} variant="rounded" width={80} height={32} />
+        ))}
+      </Box>
+    );
+  }
+  
+  if (!tags || tags.length === 0) {
+    return <Typography variant="body2" color="text.secondary">No tags found.</Typography>;
+  }
+
   console.log(tags)
 
   return (
-    <>
-    {isPending && <Skeleton variant="rounded" width={210} height={60} />}
-    <div className="tags-container h-1/2 overflow-y-auto p-4 rounded-lg">
-      {tags?.map((tag, index) => (
-        <span
-        key={index}
-        className={`tag ${
-          selectedTags.includes(tag.tag)
-          ? 'bg-blue-500 text-white'
-          : 'bg-gray-200 text-gray-700'
-        } rounded-full p-1 py-1 m-1 inline-block cursor-pointer transition-colors`}
-        onClick={() => handleTagClick(tag.tag)}
-        >
-          {tag.tag}
-        </span>
-      ))}
-    </div>
-      </>
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+    {tags.map((tag) => {
+      const isSelected = selectedTags.includes(tag.tag);
+      return (
+        <Chip
+          key={tag._id} 
+          label={tag.tag}
+          onClick={() => handleTagClick(tag.tag)}
+          variant={isSelected ? "filled" : "outlined"}
+          color={isSelected ? "primary" : "default"}
+          clickable 
+          size="small" 
+           sx={{
+             
+             borderColor: 'divider', 
+             '&:hover': {
+               borderColor: isSelected ? 'primary.main' : 'text.secondary', 
+               bgcolor: isSelected ? 'primary.dark' : 'action.hover'
+             }
+          }}
+        />
+      );
+    })}
+  </Box>
   );
 };

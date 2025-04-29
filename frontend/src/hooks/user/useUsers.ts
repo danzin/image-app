@@ -1,100 +1,111 @@
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchCurrentUser, fetchUserData, fetchUserImages, updateUserAvatar, updateUserCover } from '../../api/userApi';
-import { IImage, IUser } from '../../types';
-import { editUserRequest } from '../../api/editUser';
+import {
+  useQuery,
+  useInfiniteQuery,
+  UseInfiniteQueryOptions,
+  InfiniteData,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
+import {
+  fetchCurrentUser,
+  fetchUserData,
+  fetchUserImages,
+  updateUserAvatar as updateUserAvatarApi,
+  updateUserCover as updateUserCoverApi,
+} from "../../api/userApi";
+import { ImagePageData, IUser } from "../../types";
+import { editUserRequest } from "../../api/userApi";
 
-  export const useCurrentUser = () => {
-    return useQuery<IUser>({
-      queryKey: ['user'],
-      queryFn: fetchCurrentUser,
-      staleTime: 0,
-      refetchOnMount: true,
-      refetchOnWindowFocus: true,
-    });
-  };
-  
-  export const useGetUser = (id: string) => {
-    return useQuery({
-      queryKey: ['user', id],
-      queryFn: fetchUserData, 
-      staleTime: 0,
-      refetchOnMount: true,
-      refetchOnWindowFocus: true,
-    });
-  };
+type UseUserImagesOptions = Omit<
+  UseInfiniteQueryOptions<
+    ImagePageData,
+    Error,
+    InfiniteData<ImagePageData, number>
+  >,
+  "queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
+>;
 
-export const useUserImages = (userId: string) => {
-  console.log('useUserImages called with userId:', userId); 
-  
-  return useInfiniteQuery<{ data: IImage[]; total: number; page: number; limit: number; totalPages: number },Error>(
-    {
-    queryKey: ['userImages', userId],
-    queryFn: ({ pageParam = 1 }) => {
-      console.log('Fetching images for userId:', userId, 'page:', pageParam); 
-      return fetchUserImages(pageParam as number, userId);
-    },
-    getNextPageParam: (lastPage) => {
-      console.log('Getting next page param:', lastPage); 
-      if (lastPage.page < lastPage.totalPages) {
-        return lastPage.page + 1
-      }
-      return undefined;
-    },
-    initialPageParam: 1,
-    enabled: !!userId && userId !== '', 
+export const useCurrentUser = () => {
+  return useQuery<IUser>({
+    queryKey: ["currentUser"],
+    queryFn: fetchCurrentUser,
+    staleTime: 6000,
   });
 };
-  
-//THE CORRECT WAY TO WRITE MUTATIONS! ALWAYS REFER HERE WHEN WTFING LATER!!!!!!!!!
+
+export const useGetUser = (id: string | undefined) => {
+  return useQuery<IUser>({
+    queryKey: ["user", id],
+    queryFn: () => fetchUserData({ queryKey: ["user", id!] }),
+    enabled: !!id,
+    staleTime: 60000,
+  });
+};
+
+export const useUserImages = (
+  userId: string,
+  options?: UseUserImagesOptions
+) => {
+  return useInfiniteQuery({
+    queryKey: ["userImages", userId] as const,
+    queryFn: ({ pageParam = 1 }) =>
+      fetchUserImages(pageParam as number, userId),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) =>
+      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
+    ...options,
+  });
+};
+
 export const useUpdateUserAvatar = () => {
   const queryClient = useQueryClient();
-  
   return useMutation({
-    mutationFn: (avatar: FormData) => updateUserAvatar(avatar),
+    mutationFn: updateUserAvatarApi,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      queryClient.invalidateQueries({ queryKey: ["user"] });
+
+      queryClient.invalidateQueries({ queryKey: ["userImages"] });
     },
-    onError: (error: Error) => {
-      console.error('Error updating avatar: ', error);
-    }
+    onError(error) {
+      console.error("Avatar update failed:", error);
+    },
   });
 };
 
 export const useUpdateUserCover = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: (cover: FormData) => updateUserCover(cover),
+    mutationFn: updateUserCoverApi,
     onSuccess: () => {
-      queryClient.invalidateQueries({queryKey: ['user']});
+      queryClient.invalidateQueries({ queryKey: ["user"] });
     },
-    onError: (error: Error) => {
-      console.error('Error updating cover: ', error)
-    }
-  })
-}
+    onError: (error) => {
+      console.error("Cover update failed:", error);
+    },
+  });
+};
 
 export const useEditUser = () => {
-  const queryClient = useQueryClient(); 
+  const queryClient = useQueryClient();
 
   // TODO: Improve type safety by adding proper types like UserResponse, UserUpdateData, and UserData
   return useMutation({
     mutationFn: editUserRequest,
-    
+
     onSuccess: (data) => {
-      console.log('User updated successfully:', data);
-      
-      queryClient.setQueryData(['user'], (oldData: {}) => ({
+      console.log("User updated successfully:", data);
+
+      queryClient.setQueryData(["user"], (oldData: {}) => ({
         ...oldData,
         ...data, // Merge the updated data with the existing data
       }));
       queryClient.invalidateQueries({
-        // Pass the specific type of filter object to invalidateQueries 
-        queryKey: ['user', data.id]
-    });
+        // Pass the specific type of filter object to invalidateQueries
+        queryKey: ["user", data.id],
+      });
     },
     onError: (error) => {
-      console.error('Userdate failed:', error.message);
+      console.error("Userdate failed:", error.message);
     },
   });
 };

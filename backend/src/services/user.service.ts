@@ -1,41 +1,50 @@
-import { Model } from 'mongoose';
-import { UserRepository } from '../repositories/user.repository';
-import { IImage, IImageStorageService, IUser, PaginationOptions, PaginationResult } from '../types';
-import { ImageRepository } from '../repositories/image.repository';
-import { createError } from '../utils/errors';
-import jwt from 'jsonwebtoken';
-import { injectable, inject } from 'tsyringe';
-import { UnitOfWork } from '../database/UnitOfWork';
-import { LikeRepository } from '../repositories/like.repository';
-import { FollowRepository } from '../repositories/follow.repository';
-import { UserActionRepository } from '../repositories/userAction.repository';
-import { convertToObjectId } from '../utils/helpers';
-import { NotificationService } from './notification.service';
-import { UserDTOService } from './dto.service';
-import { AdminUserDTO, PublicUserDTO } from '../types';
-import { FeedService } from './feed.service';
+import { Model } from "mongoose";
+import { UserRepository } from "../repositories/user.repository";
+import {
+  IImage,
+  IImageStorageService,
+  IUser,
+  PaginationOptions,
+  PaginationResult,
+} from "../types";
+import { ImageRepository } from "../repositories/image.repository";
+import { createError } from "../utils/errors";
+import jwt from "jsonwebtoken";
+import { injectable, inject } from "tsyringe";
+import { UnitOfWork } from "../database/UnitOfWork";
+import { LikeRepository } from "../repositories/like.repository";
+import { FollowRepository } from "../repositories/follow.repository";
+import { UserActionRepository } from "../repositories/userAction.repository";
+import { convertToObjectId } from "../utils/helpers";
+import { NotificationService } from "./notification.service";
+import { UserDTOService } from "./dto.service";
+import { AdminUserDTO, PublicUserDTO } from "../types";
+import { FeedService } from "./feed.service";
 
 /**
- * UserService handles all user-related operations, including authentication, profile updates, 
+ * UserService handles all user-related operations, including authentication, profile updates,
  * and interactions such as following and liking images.
  */
 @injectable()
 export class UserService {
   constructor(
-    @inject('UserRepository') private readonly userRepository: UserRepository,
-    @inject('ImageRepository') private readonly imageRepository: ImageRepository,
-    @inject('ImageStorageService') private readonly imageStorageService: IImageStorageService, 
-    @inject('UserModel') private readonly userModel: Model<IUser>,
-    @inject('UnitOfWork') private readonly unitOfWork: UnitOfWork,
-    @inject('LikeRepository') private readonly likeRepository: LikeRepository,
-    @inject('FollowRepository') private readonly followRepository: FollowRepository,
-    @inject('UserActionRepository') private readonly userActionRepository: UserActionRepository,
-    @inject('NotificationService') private readonly notificationService: NotificationService,
-    @inject('FeedService') private readonly feedService: FeedService,
-    @inject('UserDTOService') private readonly dtoService: UserDTOService,
-  ) {
-    
-  }
+    @inject("UserRepository") private readonly userRepository: UserRepository,
+    @inject("ImageRepository")
+    private readonly imageRepository: ImageRepository,
+    @inject("ImageStorageService")
+    private readonly imageStorageService: IImageStorageService,
+    @inject("UserModel") private readonly userModel: Model<IUser>,
+    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+    @inject("LikeRepository") private readonly likeRepository: LikeRepository,
+    @inject("FollowRepository")
+    private readonly followRepository: FollowRepository,
+    @inject("UserActionRepository")
+    private readonly userActionRepository: UserActionRepository,
+    @inject("NotificationService")
+    private readonly notificationService: NotificationService,
+    @inject("FeedService") private readonly feedService: FeedService,
+    @inject("UserDTOService") private readonly dtoService: UserDTOService
+  ) {}
 
   /**
    * Generates a JWT token for a user.
@@ -43,11 +52,17 @@ export class UserService {
    * @returns A signed JWT token
    */
   private generateToken(user: IUser): string {
-    const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
+    const payload = {
+      id: user._id,
+      email: user.email,
+      username: user.username,
+      isAdmin: user.isAdmin,
+    };
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw createError('ConfigError', 'JWT secret is not configured');
-    
-    return jwt.sign(payload, secret, { expiresIn: '12h' });
+    if (!secret)
+      throw createError("ConfigError", "JWT secret is not configured");
+
+    return jwt.sign(payload, secret, { expiresIn: "12h" });
   }
 
   /**
@@ -55,38 +70,42 @@ export class UserService {
    * @param userData - Partial user data
    * @returns The created user and authentication token
    */
-  async register(userData: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
+  async register(
+    userData: Partial<IUser>
+  ): Promise<{ user: PublicUserDTO; token: string }> {
     try {
       const user = await this.userRepository.create(userData);
       const token = this.generateToken(user);
-      
+
       // New users always get public DTO
       const userDTO = this.dtoService.toPublicDTO(user);
-      
+
       return { user: userDTO, token };
     } catch (error) {
       throw createError(error.name, error.message);
     }
   }
 
-
-   /**
+  /**
    * Authenticates a user and returns their data along with a token.
    * @param email - User's email
    * @param password - User's password
    * @returns The authenticated user and token
    */
-  async login(email: string, password: string): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
+  async login(
+    email: string,
+    password: string
+  ): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
     try {
       const user = await this.userRepository.findByEmail(email);
       if (!user || !(await user.comparePassword?.(password))) {
-        throw createError('AuthenticationError', 'Invalid email or password');
+        throw createError("AuthenticationError", "Invalid email or password");
       }
 
       const token = this.generateToken(user);
-      
+
       // Assign appropriate DTO
-      const userDTO = user.isAdmin 
+      const userDTO = user.isAdmin
         ? this.dtoService.toAdminDTO(user)
         : this.dtoService.toPublicDTO(user);
 
@@ -101,11 +120,13 @@ export class UserService {
    * @param user - The user object (partial).
    * @returns The user's updated profile (DTO) and a refreshed token.
    */
-  async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
+  async getMe(
+    user: Partial<IUser>
+  ): Promise<{ user: PublicUserDTO; token: string }> {
     try {
       const freshUser = await this.userRepository.findById(user.id as string);
       if (!freshUser) {
-        throw createError('PathError', 'User not found');
+        throw createError("PathError", "User not found");
       }
 
       const token = this.generateToken(freshUser);
@@ -122,21 +143,31 @@ export class UserService {
    * @param requestingUser - The user making the request.
    * @returns The updated user (DTO).
    */
-  async updateProfile(id: string, userData: Partial<IUser>, requestingUser: IUser): Promise<PublicUserDTO | AdminUserDTO> {
+  //TODO: Maybe add separate method for passowrd update
+  async updateProfile(
+    id: string,
+    userData: Partial<IUser>,
+    requestingUser: IUser
+  ): Promise<PublicUserDTO | AdminUserDTO> {
     try {
       let updatedUser: IUser = null;
+      console.log("Updating user:", id, userData);
       await this.unitOfWork.executeInTransaction(async (session) => {
         updatedUser = await this.userRepository.update(id, userData);
-        if (!updatedUser) {
-          throw createError('NotFoundError', 'User not found');
-        }
-        await this.userActionRepository.logAction(id, 'User data update', id, session);
+
+        await this.userActionRepository.logAction(
+          id,
+          "User data update",
+          id,
+          session
+        );
       });
-  
-      return requestingUser.isAdmin 
-        ? this.dtoService.toAdminDTO(updatedUser) 
+
+      return requestingUser.isAdmin
+        ? this.dtoService.toAdminDTO(updatedUser)
         : this.dtoService.toPublicDTO(updatedUser);
     } catch (error) {
+      console.error(error.name, error.message);
       throw createError(error.name, error.message);
     }
   }
@@ -150,33 +181,42 @@ export class UserService {
     let newAvatarUrl: string | null = null;
     let username: string | null = null;
     let oldAvatarUrl: string | null = null;
-  
+
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
         const user = await this.userRepository.findById(userId, session);
         if (!user) {
-          throw createError('NotFoundError', 'User not found');
+          throw createError("NotFoundError", "User not found");
         }
         oldAvatarUrl = user.avatar;
-        const newAvatar = await this.imageStorageService.uploadImage(file, user.username);
+        const newAvatar = await this.imageStorageService.uploadImage(
+          file,
+          user.username
+        );
         newAvatarUrl = newAvatar.url;
         username = user.username;
         await this.userRepository.updateAvatar(userId, newAvatar.url, session);
       });
-  
+
       if (oldAvatarUrl) {
-        const deleteResult = await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
-        if (deleteResult.result !== 'ok') {
-          console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
+        const deleteResult = await this.imageStorageService.deleteAssetByUrl(
+          userId,
+          oldAvatarUrl
+        );
+        if (deleteResult.result !== "ok") {
+          console.log(
+            `Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`
+          );
         }
       }
     } catch (error) {
       // Clean up the only if the transaction or upload failed
-      if (newAvatarUrl && !username) { // username is set only if transaction succeeds
+      if (newAvatarUrl && !username) {
+        // username is set only if transaction succeeds
         try {
           await this.imageStorageService.deleteAssetByUrl(userId, newAvatarUrl);
         } catch (deleteError) {
-          console.error('Failed to clean up new avatar:', deleteError);
+          console.error("Failed to clean up new avatar:", deleteError);
         }
       }
       throw createError(error.name, error.message);
@@ -193,21 +233,24 @@ export class UserService {
       await this.unitOfWork.executeInTransaction(async (session) => {
         const user = await this.userRepository.findById(userId, session);
         if (!user) {
-          throw createError('NotFoundError', 'User not found');
+          throw createError("NotFoundError", "User not found");
         }
 
         const oldCoverUrl = user.cover;
-        const cloudImage = await this.imageStorageService.uploadImage(file, user.username);
-        
+        const cloudImage = await this.imageStorageService.uploadImage(
+          file,
+          user.username
+        );
+
         await this.userRepository.updateCover(userId, cloudImage.url, session);
 
         if (oldCoverUrl) {
           await this.imageStorageService.deleteAssetByUrl(userId, oldCoverUrl);
         }
-    })
+      });
     } catch (error) {
       throw createError(error.name, error.message);
-    } 
+    }
   }
 
   /**
@@ -217,28 +260,30 @@ export class UserService {
    */
   async deleteUser(id: string): Promise<void> {
     try {
-      await this.unitOfWork.executeInTransaction(async (session) => {   
-      const user = await this.userRepository.findById(id, session);
-      if (!user) {
-        throw createError('NotFoundError', 'User not found');
-      }
-
-      if(user.images.length > 0 ){
-        const cloudResult = await this.imageStorageService.deleteMany(user.username);
-        if (cloudResult.result !== 'ok' ) {
-          throw createError('CloudinaryError', cloudResult.message || 'Error deleting cloudinary data');
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        const user = await this.userRepository.findById(id, session);
+        if (!user) {
+          throw createError("NotFoundError", "User not found");
         }
-      }
-     
 
-      await this.imageRepository.deleteMany(id, session);
-      await this.userRepository.delete(id, session);
-    })
+        if (user.images.length > 0) {
+          const cloudResult = await this.imageStorageService.deleteMany(
+            user.username
+          );
+          if (cloudResult.result !== "ok") {
+            throw createError(
+              "CloudinaryError",
+              cloudResult.message || "Error deleting cloudinary data"
+            );
+          }
+        }
+
+        await this.imageRepository.deleteMany(id, session);
+        await this.userRepository.delete(id, session);
+      });
     } catch (error) {
-    
       throw createError(error.name, error.message);
-    } 
-  
+    }
   }
 
   /**
@@ -249,21 +294,23 @@ export class UserService {
    * @returns The user's data in either admin or public DTO format.
    * @throws NotFoundError if the user is not found.
    */
-  async getUserById(id: string, requestingUser?: IUser): Promise<PublicUserDTO | AdminUserDTO> {
+  async getUserById(
+    id: string,
+    requestingUser?: IUser
+  ): Promise<PublicUserDTO | AdminUserDTO> {
     try {
       const user = await this.userRepository.findById(id);
       if (!user) {
-        throw createError('NotFoundError', 'User not found');
+        throw createError("NotFoundError", "User not found");
       }
-  
+
       // Return admin DTO if requesting user is admin
-      if(requestingUser?.isAdmin) {
+      if (requestingUser?.isAdmin) {
         return this.dtoService.toAdminDTO(user);
       }
       return this.dtoService.toPublicDTO(user);
-      
     } catch (error) {
-      throw createError(error.name, error.message)
+      throw createError(error.name, error.message);
     }
   }
 
@@ -273,18 +320,19 @@ export class UserService {
    * @param options - Pagination options (page number, limit, sorting).
    * @returns A paginated result containing users in public DTO format.
    */
-  async getUsers(options: PaginationOptions): Promise<PaginationResult<PublicUserDTO>> {
+  async getUsers(
+    options: PaginationOptions
+  ): Promise<PaginationResult<PublicUserDTO>> {
     const result = await this.userRepository.findWithPagination(options);
-    
+
     return {
-      data: result.data.map(user => this.dtoService.toPublicDTO(user)),
+      data: result.data.map((user) => this.dtoService.toPublicDTO(user)),
       total: result.total,
       page: result.page,
       limit: result.limit,
-      totalPages: result.totalPages
+      totalPages: result.totalPages,
     };
   }
-
 
   /**
    * Handles user "like" or "unlike" actions on an image.
@@ -295,81 +343,97 @@ export class UserService {
    * @throws PathError if the image is not found.
    * @throws TransactionError if the database transaction fails.
    */
-  async likeAction(userId: string, imageId: string): Promise<IImage> { 
+  async likeAction(userId: string, imageId: string): Promise<IImage> {
     let isLikeAction = true; // Track if this is a like or unlike
     let imageTags: string[] = []; // Stroe image tags for the feed service
 
     try {
       // Check if image exists before starting transaction
-    const existingImage = await this.imageRepository.findById(imageId);
-    if (!existingImage) {
-        throw createError('PathError', `Image with id ${imageId} not found`);
-    }
-    imageTags = existingImage.tags.map(tag => tag.tag);
+      const existingImage = await this.imageRepository.findById(imageId);
+      if (!existingImage) {
+        throw createError("PathError", `Image with id ${imageId} not found`);
+      }
+      imageTags = existingImage.tags.map((tag) => tag.tag);
 
-    await this.unitOfWork.executeInTransaction(async (session) => {
-        const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
-        
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        const existingLike = await this.likeRepository.findByUserAndImage(
+          userId,
+          imageId,
+          session
+        );
+
         if (existingLike) {
-            // Unlike flow
-            isLikeAction = false;
-            await this.likeRepository.deleteLike(userId, imageId, session);
-            await this.imageRepository.findOneAndUpdate(
-                { _id: imageId },
-                { $inc: { likes: -1 } },
-                session
-            );
-            await this.userActionRepository.logAction(userId, "unlike", imageId, session);
+          // Unlike flow
+          isLikeAction = false;
+          await this.likeRepository.deleteLike(userId, imageId, session);
+          await this.imageRepository.findOneAndUpdate(
+            { _id: imageId },
+            { $inc: { likes: -1 } },
+            session
+          );
+          await this.userActionRepository.logAction(
+            userId,
+            "unlike",
+            imageId,
+            session
+          );
         } else {
           // Like flow
           const userIdObject = convertToObjectId(userId);
           const imageIdObject = convertToObjectId(imageId);
 
-          await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
+          await this.likeRepository.create(
+            { userId: userIdObject, imageId: imageIdObject },
+            session
+          );
           await this.imageRepository.findOneAndUpdate(
-              { _id: imageId },
-              { $inc: { likes: 1 } },
-              session
+            { _id: imageId },
+            { $inc: { likes: 1 } },
+            session
           );
 
-          await this.userActionRepository.logAction(userId, "like", imageId, session);
+          await this.userActionRepository.logAction(
+            userId,
+            "like",
+            imageId,
+            session
+          );
           await this.notificationService.createNotification({
-              receiverId: existingImage.user.id.toString(),
-              actionType: "like",
-              actorId: userId,
-              targetId: imageId,
-              session
+            receiverId: existingImage.user.id.toString(),
+            actionType: "like",
+            actorId: userId,
+            targetId: imageId,
+            session,
           });
         }
-    });
-
-      // Updating feed preference, not awaiting this to not block the response 
-      this.feedService.recordInteraction(
-        userId,
-        isLikeAction ? 'like' : 'unlike',
-        imageId,
-        imageTags
-      ).catch(error => {
-        // Log error but don't fail the request
-        console.error('Failed to record feed interaction:', error);
       });
 
-    //Return the updated image
-    return this.imageRepository.findById(imageId);
+      // Updating feed preference, not awaiting this to not block the response
+      this.feedService
+        .recordInteraction(
+          userId,
+          isLikeAction ? "like" : "unlike",
+          imageId,
+          imageTags
+        )
+        .catch((error) => {
+          // Log error but don't fail the request
+          console.error("Failed to record feed interaction:", error);
+        });
 
+      //Return the updated image
+      return this.imageRepository.findById(imageId);
     } catch (error) {
-      if (error.name === 'PathError') {
-        throw createError('PathError', error.message); 
+      if (error.name === "PathError") {
+        throw createError("PathError", error.message);
       }
-      throw createError('TransactionError', error.message, {
-        function: 'likeAction',
-        additionalInfo: 'Transaction failed',
-        originalError: error
+      throw createError("TransactionError", error.message, {
+        function: "likeAction",
+        additionalInfo: "Transaction failed",
+        originalError: error,
       });
-     
     }
-   
-}
+  }
 
   /**
    * Handles user "follow" or "unfollow" actions.
@@ -382,60 +446,93 @@ export class UserService {
   async followAction(followerId: string, followeeId: string): Promise<void> {
     try {
       await this.unitOfWork.executeInTransaction(async (session) => {
-        const isFollowing = await this.followRepository.isFollowing(followerId, followeeId);
-    
+        const isFollowing = await this.followRepository.isFollowing(
+          followerId,
+          followeeId
+        );
+
         if (isFollowing) {
           // Unfollow logic
-          await this.followRepository.removeFollow(followerId, followeeId, session);
-          await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
-          await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
-          await this.userActionRepository.logAction(followerId, "unfollow", followeeId, session);
+          await this.followRepository.removeFollow(
+            followerId,
+            followeeId,
+            session
+          );
+          await this.userRepository.update(
+            followerId,
+            { $pull: { following: followeeId } },
+            session
+          );
+          await this.userRepository.update(
+            followeeId,
+            { $pull: { followers: followerId } },
+            session
+          );
+          await this.userActionRepository.logAction(
+            followerId,
+            "unfollow",
+            followeeId,
+            session
+          );
         } else {
           // Follow logic
-          await this.followRepository.addFollow(followerId, followeeId, session);
-          await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
-          await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
-          await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
-    
-          // for now I'll emit the websocket event inside the transaction
-          await this.notificationService.createNotification(
-            {
-              receiverId: followeeId,
-              actionType: "follow",
-              actorId: followerId,
-              session
-            },
+          await this.followRepository.addFollow(
+            followerId,
+            followeeId,
+            session
           );
-          
+          await this.userRepository.update(
+            followerId,
+            { $addToSet: { following: followeeId } },
+            session
+          );
+          await this.userRepository.update(
+            followeeId,
+            { $addToSet: { followers: followerId } },
+            session
+          );
+          await this.userActionRepository.logAction(
+            followerId,
+            "follow",
+            followeeId,
+            session
+          );
+
+          // for now I'll emit the websocket event inside the transaction
+          await this.notificationService.createNotification({
+            receiverId: followeeId,
+            actionType: "follow",
+            actorId: followerId,
+            session,
+          });
         }
       });
     } catch (error) {
-      throw createError('TransactionError', error.message, {
-        function: 'likeAction',
-        additionalInfo: 'Transaction failed',
-        originalError: error
+      throw createError("TransactionError", error.message, {
+        function: "likeAction",
+        additionalInfo: "Transaction failed",
+        originalError: error,
       });
     }
-    
   }
 
   /**
- * Retrieves a paginated list of all users, including admin details.
- * Converts user data into admin DTO format before returning.
- * @param options - Pagination options (page number, limit, sorting).
- * @returns A paginated result containing users in admin DTO format.
- */
-  async getAllUsersAdmin(options: PaginationOptions): Promise<PaginationResult<AdminUserDTO>> {
+   * Retrieves a paginated list of all users, including admin details.
+   * Converts user data into admin DTO format before returning.
+   * @param options - Pagination options (page number, limit, sorting).
+   * @returns A paginated result containing users in admin DTO format.
+   */
+  async getAllUsersAdmin(
+    options: PaginationOptions
+  ): Promise<PaginationResult<AdminUserDTO>> {
     const result = await this.userRepository.findWithPagination(options);
-    
+
     return {
-      data: result.data.map(user => this.dtoService.toAdminDTO(user)),
+      data: result.data.map((user) => this.dtoService.toAdminDTO(user)),
       total: result.total,
       page: result.page,
       limit: result.limit,
-      totalPages: result.totalPages
+      totalPages: result.totalPages,
     };
   }
-
-  
 }

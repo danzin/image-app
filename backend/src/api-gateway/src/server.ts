@@ -35,7 +35,7 @@ app.use((req, res, next) => {
 // Rate Limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit IPs to 100 requests per `windowMs`
+  max: 1500, // Limit IPs to 100 requests per `windowMs`
   message: "You're making too many requests, please try again after 15 minutes",
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
