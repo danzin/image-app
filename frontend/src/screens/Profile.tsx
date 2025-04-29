@@ -79,7 +79,8 @@ const Profile:React.FC  = () => {
   const flattenedImages = imagesData?.pages?.flatMap((page: any) => page.data) || [];
 
   // Proper check for data in imagesData. totalPages can't be accessed because it's a property of each page object within pages array, 
-  // not a direct property of imagesData. This was causing the TS error.
+  // not a direct property of imagesData. This was causing the TS error, `imagesData` is of type `InfiniteData<ImagePageData, number> | undefined`
+  // so I needed to check if it exists and then if it has any pages
   const isLoadingAll = isLoadingImages || (imagesData?.pages.length === 0); 
 
   const handleFollowUser = () => {
