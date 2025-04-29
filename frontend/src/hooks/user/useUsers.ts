@@ -48,9 +48,8 @@ export const useUserImages = (
 ) => {
   return useInfiniteQuery({
     queryKey: ["userImages", userId] as const,
-    queryFn: (
-      { pageParam = 1 } // ← your fetcher
-    ) => fetchUserImages(pageParam as number, userId),
+    queryFn: ({ pageParam = 1 }) =>
+      fetchUserImages(pageParam as number, userId),
     initialPageParam: 1,
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
