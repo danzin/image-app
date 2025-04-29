@@ -3,12 +3,9 @@ import { IImage } from '../types';
 import {
     Card,
     CardMedia,
-    CardContent,
     CardActions,
     Typography,
-    Chip,
-    IconButton, 
-    Box
+    Chip
 } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 
