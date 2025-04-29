@@ -86,7 +86,6 @@ export class UserController {
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { decodedUser } = req;
-      console.log(decodedUser);
       const updatedUser = await this.userService.updateProfile(
         decodedUser.id,
         req.body,

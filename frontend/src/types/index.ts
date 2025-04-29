@@ -1,22 +1,31 @@
-import { InfiniteData, UseInfiniteQueryResult, UseMutationResult, useQuery, UseQueryResult } from "@tanstack/react-query";
+import {
+  InfiniteData,
+  UseInfiniteQueryResult,
+  UseMutationResult,
+  useQuery,
+  UseQueryResult,
+} from "@tanstack/react-query";
+import { Id } from "react-toastify";
 
 export interface IUser {
   id: string;
   username: string;
   avatar: string;
+  bio: string;
   cover: string;
   email: string;
   isAdmin: boolean;
   images: string[];
   followers: string[];
   following: string[];
+  createdAt: Date;
 }
 
 export interface ITag {
   _id: string;
   tag: string;
-  count?: number; 
-  modifiedAt?: Date; 
+  count?: number;
+  modifiedAt?: Date;
 }
 
 export interface IImage {
@@ -25,12 +34,23 @@ export interface IImage {
   publicId: string;
   tags: ITag[];
   user: {
-    id: String,
-    username: string
+    id: String;
+    username: string;
   };
   likes: number;
   createdAt: Date;
 }
+
+export type PageParam = number;
+
+export type ImagePageData = {
+  data: IImage[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
 export interface PaginatedResponse {
   pages: {
     data: IImage[];
@@ -45,7 +65,11 @@ export interface UseImagesResult {
   imageByIdQuery: (id: string) => UseInfiniteQueryResult<IImage, Error>;
   uploadImageMutation: UseMutationResult<unknown, Error, unknown, unknown>;
   tagsQuery: UseQueryResult<string[], Error>;
-  imagesByTagQuery: (tags: string[], page: number, limit: number) => UseInfiniteQueryResult<PaginatedResponse, Error>;
+  imagesByTagQuery: (
+    tags: string[],
+    page: number,
+    limit: number
+  ) => UseInfiniteQueryResult<PaginatedResponse, Error>;
   deleteImage: (id: string) => any;
 }
 
@@ -76,25 +100,35 @@ export interface Notification {
   isRead: boolean;
 }
 
-
 export interface UserUserResult {
   useCurrentUser: () => ReturnType<any>;
-  useUserImages: (userId: string) => UseInfiniteQueryResult<InfiniteData<{ data: IImage[], total: number, page: number, limit: number, totalPages: number }, unknown>, Error>;
+  useUserImages: (userId: string) => UseInfiniteQueryResult<
+    InfiniteData<
+      {
+        data: IImage[];
+        total: number;
+        page: number;
+        limit: number;
+        totalPages: number;
+      },
+      unknown
+    >,
+    Error
+  >;
   userQuery: ReturnType<typeof useQuery>;
 }
-
 
 export interface UploadFormProps {
   onClose: () => void;
 }
 
 export interface AuthContextData {
-  //logout and checkAuthState are async and return a promise. 
+  //logout and checkAuthState are async and return a promise.
   logout: () => Promise<void>;
   checkAuthState: () => Promise<void>;
 
   login: (user: IUser) => void;
-  
+
   loading: boolean;
   isLoggedIn: boolean;
   user: IUser | null;
@@ -106,7 +140,15 @@ export interface ImageCardProps {
 }
 
 export interface ImageEditorProps {
-  onImageUpload: (croppedImage: string | null) => void;
-  type: 'avatar' | 'cover';
+  onImageUpload: (croppedImage: Blob | null) => void;
+  type: "avatar" | "cover";
   aspectRatio?: number;
+  onClose: () => void;
+}
+
+export interface EditProfileProps {
+  onComplete: () => void;
+  notifySuccess: (message: string) => Id;
+  notifyError: (message: string) => Id;
+  initialData?: IUser | null;
 }
