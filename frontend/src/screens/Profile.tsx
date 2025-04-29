@@ -31,7 +31,6 @@ import { useFollowUser, useIsFollowing } from '../hooks/user/useUserAction';
 import { useAuth } from '../hooks/context/useAuth';
 import ImageEditor from '../components/ImageEditor';
 import { useQueryClient } from '@tanstack/react-query';
-import { ImagePageData } from '../types';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -78,6 +77,8 @@ const Profile:React.FC  = () => {
   const notifyError = (message: string) => toast.error(message);
 
   const flattenedImages = imagesData?.pages?.flatMap((page: any) => page.data) || [];
+  const isLoadingAll = isLoadingImages || (imagesData?.pages.length === 0); // Loading state for Gallery 
+
 
   const handleFollowUser = () => {
     if (!isLoggedIn) return navigate('/login');
@@ -381,7 +382,7 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
                 fetchNextPage={fetchNextPage}
                 hasNextPage={!!hasNextPage}
                 isFetchingNext={isFetchingNextPage}
-                isLoadingAll={isLoadingImages && !imagesData?.totalPages?.length}
+                isLoadingAll={isLoadingAll}
               />
             )}
           </Paper>
