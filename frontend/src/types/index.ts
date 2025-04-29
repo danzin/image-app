@@ -5,6 +5,7 @@ import {
   useQuery,
   UseQueryResult,
 } from "@tanstack/react-query";
+import { Id } from "react-toastify";
 
 export interface IUser {
   id: string;
@@ -143,4 +144,11 @@ export interface ImageEditorProps {
   type: "avatar" | "cover";
   aspectRatio?: number;
   onClose: () => void;
+}
+
+export interface EditProfileProps {
+  onComplete: () => void;
+  notifySuccess: (message: string) => Id;
+  notifyError: (message: string) => Id;
+  initialData?: IUser | null;
 }

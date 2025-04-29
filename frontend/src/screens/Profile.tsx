@@ -533,7 +533,7 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
           onComplete={() => setIsEditProfileOpen(false)}
           notifySuccess={notifySuccess}
           notifyError={notifyError}
-          // initialData={profileData}
+          initialData={profileData}
         />
       </Paper>
     </Modal>

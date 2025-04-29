@@ -7,12 +7,12 @@ export interface BaseUserDTO {
   followers?: string[];
   following?: string[];
   createdAt: Date;
+  bio?: string;
 }
 
 export interface AdminUserDTO extends BaseUserDTO {
   email: string;
   isAdmin: boolean;
-  createdAt: Date;
   updatedAt: Date;
 }
 

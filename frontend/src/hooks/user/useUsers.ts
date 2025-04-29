@@ -14,7 +14,7 @@ import {
   updateUserCover as updateUserCoverApi,
 } from "../../api/userApi";
 import { ImagePageData, IUser } from "../../types";
-import { editUserRequest } from "../../api/editUser";
+import { editUserRequest } from "../../api/userApi";
 
 type UseUserImagesOptions = Omit<
   UseInfiniteQueryOptions<

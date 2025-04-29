@@ -80,3 +80,10 @@ export const updateUserCover = async (cover: Blob): Promise<any> => {
   });
   return data;
 };
+
+export const editUserRequest = async (
+  updateData: Partial<IUser>
+): Promise<IUser> => {
+  const response = await axiosClient.put("/users/edit", updateData);
+  return response.data;
+};

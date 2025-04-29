@@ -14,6 +14,7 @@ export class UserDTOService {
       followers: user.followers,
       following: user.following,
       createdAt: user.createdAt,
+      bio: user.bio,
     };
   }
 
@@ -22,7 +23,6 @@ export class UserDTOService {
       ...this.toPublicDTO(user),
       email: user.email,
       isAdmin: user.isAdmin,
-      createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
   }
