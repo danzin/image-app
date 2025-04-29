@@ -77,8 +77,10 @@ const Profile:React.FC  = () => {
   const notifyError = (message: string) => toast.error(message);
 
   const flattenedImages = imagesData?.pages?.flatMap((page: any) => page.data) || [];
-  const isLoadingAll = isLoadingImages || (imagesData?.pages.length === 0); // Loading state for Gallery 
 
+  // Proper check for data in imagesData. totalPages can't be accessed because it's a property of each page object within pages array, 
+  // not a direct property of imagesData. This was causing the TS error.
+  const isLoadingAll = isLoadingImages || (imagesData?.pages.length === 0); 
 
   const handleFollowUser = () => {
     if (!isLoggedIn) return navigate('/login');
