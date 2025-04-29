@@ -8,12 +8,12 @@ const darkPalette = {
     main: '#f48fb1', // Lighter pink for dark mode
   },
   background: {
-    default: '#121212', // Standard dark background
-    paper: '#1e1e1e',   // Slightly lighter background for surfaces like cards, drawers
+    default: '#121212', 
+    paper: '#1e1e1e',   
   },
   text: {
-    primary: '#ffffff', // White text
-    secondary: '#b0bec5', // Lighter gray for secondary text
+    primary: '#ffffff', 
+    secondary: '#b0bec5', 
   },
   divider: 'rgba(255, 255, 255, 0.12)', // Subtle white divider
   error: {
@@ -29,23 +29,7 @@ const darkPalette = {
     main: '#66bb6a', // Standard success green
   },
 };
-const lightPalette = {
- 
-    primary: {
-      main: '#1976d2', // Primary color (blue)
-    },
-    secondary: {
-      main: '#ff4081', // Secondary color (pink)
-    },
-    background: {
-      default: '#FCFFFC', // Background color (dark)
-      paper: '#8eb0ff', // Drawer or Paper background
-    },
-    text: {
-      primary: '#ffffff', // Text color
-      secondary: '#3a506b', // Secondary text color
-    },
-}
+
 
 
 const theme = createTheme({
