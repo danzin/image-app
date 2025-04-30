@@ -35,6 +35,7 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       setError(null); 
+      
       //TODO: Use zod
       if (!currentPassword || !newPassword || !confirmPassword) {
         setError("All fields are required.");
