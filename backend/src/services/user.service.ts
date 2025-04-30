@@ -143,18 +143,35 @@ export class UserService {
    * @param requestingUser - The user making the request.
    * @returns The updated user (DTO).
    */
-  //TODO: Maybe add separate method for passowrd update
+
   async updateProfile(
     id: string,
-    userData: Partial<IUser>,
+    userData: { username?: string; bio?: string }, //Might extend
     requestingUser: IUser
   ): Promise<PublicUserDTO | AdminUserDTO> {
     try {
       let updatedUser: IUser = null;
-      console.log("Updating user:", id, userData);
-      await this.unitOfWork.executeInTransaction(async (session) => {
-        updatedUser = await this.userRepository.update(id, userData);
+      const allowedUpdates: Partial<IUser> = {};
+      if (userData.username !== undefined) {
+        allowedUpdates.username = userData.username.trim();
+      }
 
+      if (userData.bio !== undefined) {
+        allowedUpdates.bio = userData.bio.trim();
+      }
+
+      if (Object.keys(allowedUpdates).length === 0) {
+        throw createError(
+          "ValidationError",
+          "No valid fields provided for update."
+        );
+      }
+
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        updatedUser = await this.userRepository.update(id, allowedUpdates);
+        if (!updatedUser) {
+          throw createError("NotFoundError", "User not found during update.");
+        }
         await this.userActionRepository.logAction(
           id,
           "User data update",
@@ -163,12 +180,97 @@ export class UserService {
         );
       });
 
-      return requestingUser.isAdmin
+      if (!updatedUser) {
+        throw createError(
+          "InternalServerError",
+          "Profile update failed unexpectedly."
+        );
+      }
+
+      return requestingUser?.isAdmin
         ? this.dtoService.toAdminDTO(updatedUser)
         : this.dtoService.toPublicDTO(updatedUser);
     } catch (error) {
       console.error(error.name, error.message);
-      throw createError(error.name, error.message);
+      throw error instanceof Error
+        ? error
+        : createError("InternalServerError", "Failed to update profile.");
+    }
+  }
+
+  /**
+   * Changes a user's password after verifying the current one.
+   * @param userId - The ID of the user being updated.
+   * @param currentPassword - The current password.
+   * @param newPassword - The new password.
+   * @returns Promise<void>.
+   */
+  //TODO: Remember to refactor. This is sloppy
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<void> {
+    // Doesn't need to return user data typically
+    if (!currentPassword || !newPassword) {
+      throw createError(
+        "ValidationError",
+        "Current and new passwords are required."
+      );
+    }
+    if (newPassword.length < 8) {
+      throw createError(
+        "ValidationError",
+        "New password must be at least 8 characters long."
+      );
+    }
+    if (currentPassword === newPassword) {
+      throw createError(
+        "ValidationError",
+        "New password cannot be the same as the current password."
+      );
+    }
+
+    try {
+      await this.unitOfWork.executeInTransaction(async (session) => {
+        const user = await this.userRepository.findById(userId, session, {
+          selectPassword: true,
+        });
+
+        if (!user) {
+          throw createError("NotFoundError", "User not found.");
+        }
+        if (!user.comparePassword) {
+          throw createError(
+            "InternalServerError",
+            "Password comparison method not available."
+          );
+        }
+
+        // Verify current password
+        const isMatch = await user.comparePassword(currentPassword);
+        if (!isMatch) {
+          throw createError("AuthenticationError", "Incorrect password.");
+        }
+
+        user.password = newPassword;
+        await user.save({ session }); // Use Mongoose save() which triggers hooks
+
+        await this.userActionRepository.logAction(
+          userId,
+          "Password changed",
+          userId,
+          session
+        );
+      });
+
+      console.log(`Password changed successfully for user ${userId}`);
+    } catch (error) {
+      console.error("[changePassword] Error:", error.name, error.message);
+
+      throw error instanceof Error
+        ? error
+        : createError("InternalServerError", "Failed to change password.");
     }
   }
 

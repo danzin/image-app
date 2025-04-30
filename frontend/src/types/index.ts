@@ -152,3 +152,9 @@ export interface EditProfileProps {
   notifyError: (message: string) => Id;
   initialData?: IUser | null;
 }
+
+export interface ChangePasswordProps {
+  onComplete: () => void;
+  notifySuccess: (message: string) => Id;
+  notifyError: (message: string) => Id;
+}
