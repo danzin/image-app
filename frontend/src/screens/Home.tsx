@@ -14,7 +14,7 @@ import {
 
 import { useGallery } from '../context/GalleryContext';
 import { useAuth } from '../hooks/context/useAuth';
-const SIDEBAR_WIDTH = 280; // Define sidebar width
+const SIDEBAR_WIDTH = 280;
 
 const Home: React.FC = () => {
   const theme = useTheme();
