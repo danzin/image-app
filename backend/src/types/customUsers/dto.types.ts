@@ -1,4 +1,4 @@
-export interface BaseUserDTO {
+interface BaseUserDTO {
   id: string;
   username: string;
   avatar?: string;
