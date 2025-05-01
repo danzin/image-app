@@ -1,32 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRegister } from '../hooks/user/useUserRegister';
 import AuthForm from '../components/AuthForm';
-import { ToastContainer, toast } from 'react-toastify';
+import { ToastContainer } from 'react-toastify';
 import { Box, Container } from '@mui/material';
 import { RegisterForm } from '../types';
 
-
-
 const Register: React.FC = () => {
-  const { mutate: registerMutation, isPending } = useRegister(); 
+  const { mutate: registerMutation, isPending, isSuccess } = useRegister(); 
   const navigate = useNavigate();
 
-  const notifySuccess = () => toast.success("Registration successful! Redirecting...");
-  const notifyError = (message: string) => toast.error(`Registration failed: ${message}`);
-
+  useEffect(() => {
+    if (isSuccess) {
+      console.log("Login success detected in component, navigating...");
+      const timer = setTimeout(() => navigate('/'), 1000);
+      return () => clearTimeout(timer); 
+    }
+  }, [isSuccess, navigate]); 
 
   const handleRegister = async (formData: { username: string; email: string; password: string }) => {
-    registerMutation({ username: formData.username, email: formData.email, password: formData.password }, {
-      onSuccess: () => {
-        notifySuccess();
-        setTimeout(() => navigate('/login'), 1500); 
-      },
-      onError: (error: any) => {
-        notifyError(error?.message || 'An unknown error occurred');
-        console.error('Registration failed:', error);
-      }
-    });
+   registerMutation(formData)
   };
 
   return (

@@ -7,19 +7,26 @@ import {
 } from "@tanstack/react-query";
 import { Id } from "react-toastify";
 
-export interface IUser {
+interface BaseUserDTO {
   id: string;
   username: string;
-  avatar: string;
-  bio: string;
-  cover: string;
+  avatar?: string;
+  cover?: string;
+  images?: string[];
+  followers?: string[];
+  following?: string[];
+  createdAt: Date;
+  bio?: string;
+}
+
+export interface AdminUserDTO extends BaseUserDTO {
   email: string;
   isAdmin: boolean;
-  images: string[];
-  followers: string[];
-  following: string[];
-  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface PublicUserDTO extends BaseUserDTO {}
+export type IUser = PublicUserDTO | AdminUserDTO;
 
 export interface ITag {
   _id: string;
