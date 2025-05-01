@@ -158,3 +158,30 @@ export interface ChangePasswordProps {
   notifySuccess: (message: string) => Id;
   notifyError: (message: string) => Id;
 }
+
+export type RegisterForm = {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
+interface AuthFormField<T> {
+  name: keyof T;
+  label: string;
+  type: string;
+  autoComplete?: string;
+  required: boolean;
+}
+
+export interface AuthFormProps<T> {
+  title: string;
+  fields: AuthFormField<T>[];
+  onSubmit: (formData: T) => void;
+  isSubmitting?: boolean;
+  error?: string | null;
+  submitButtonText: string;
+  linkText?: string;
+  linkTo?: string;
+  initialValues?: Partial<T>;
+}
