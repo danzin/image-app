@@ -10,13 +10,13 @@ import { Id } from "react-toastify";
 interface BaseUserDTO {
   id: string;
   username: string;
-  avatar?: string;
-  cover?: string;
+  avatar: string;
+  cover: string;
   images?: string[];
   followers?: string[];
   following?: string[];
   createdAt: Date;
-  bio?: string;
+  bio: string;
 }
 
 export interface AdminUserDTO extends BaseUserDTO {
