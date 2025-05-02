@@ -87,3 +87,10 @@ export const editUserRequest = async (
   const response = await axiosClient.put("/users/edit", updateData);
   return response.data;
 };
+
+export const changePasswordRequest = async (passwords: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> => {
+  await axiosClient.put("/users/change-password", passwords);
+};

@@ -31,6 +31,7 @@ import { useFollowUser, useIsFollowing } from '../hooks/user/useUserAction';
 import { useAuth } from '../hooks/context/useAuth';
 import ImageEditor from '../components/ImageEditor';
 import { useQueryClient } from '@tanstack/react-query';
+import { ChangePassword } from '../components/ChangePassword';
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -63,6 +64,7 @@ const Profile:React.FC  = () => {
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isCoverModalOpen, setIsCoverModalOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   //check if user is the owner of the profile
   const isProfileOwner = isLoggedIn && profileUserId === user?.id;
@@ -214,6 +216,7 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
             '&:hover': {
               bgcolor: theme.palette.background.paper,
             },
+            zIndex: 10,
             boxShadow: theme.shadows[2],
           }}
           aria-label="Edit cover photo"
@@ -297,15 +300,27 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
                 width: { xs: '100%', sm: 'auto' }
               }}>
                 {isProfileOwner ? (
-                  <Button
+                  <>
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => setIsEditProfileOpen(true)}
+                      startIcon={<EditIcon />}
+                      fullWidth={isMobile}
+                    >
+                      Edit Profile
+                    </Button>
+                    <Button
                     variant="outlined"
-                    color="primary"
-                    onClick={() => setIsEditProfileOpen(true)}
+                    color="secondary" 
+                    onClick={() => setIsChangePasswordOpen(true)}
                     startIcon={<EditIcon />}
                     fullWidth={isMobile}
-                  >
-                    Edit Profile
+                    >
+                    Change Password
                   </Button>
+                  </>
+       
                 ) : isLoggedIn ? (
                   <Button
                     variant={isFollowing ? "outlined" : "contained"}
@@ -534,6 +549,30 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
           notifySuccess={notifySuccess}
           notifyError={notifyError}
           initialData={profileData}
+        />
+      </Paper>
+    </Modal>
+
+    {/* Change Password Modal */}
+    <Modal
+      open={isChangePasswordOpen}
+      onClose={() => setIsChangePasswordOpen(false)}
+      aria-labelledby="change-password-modal"
+      sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}
+    >
+      <Paper elevation={24} sx={{ 
+          p: 3, 
+          borderRadius: 2, 
+          maxWidth: '90vw', 
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          width: { xs: '100%', sm: 600 }
+        }} >
+        {/* Maybe add a Title and Divider */}
+        <ChangePassword
+          onComplete={() => setIsChangePasswordOpen(false)}
+          notifySuccess={notifySuccess}
+          notifyError={notifyError}
         />
       </Paper>
     </Modal>

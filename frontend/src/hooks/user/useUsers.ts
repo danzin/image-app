@@ -14,7 +14,7 @@ import {
   updateUserCover as updateUserCoverApi,
 } from "../../api/userApi";
 import { ImagePageData, IUser } from "../../types";
-import { editUserRequest } from "../../api/userApi";
+import { editUserRequest, changePasswordRequest } from "../../api/userApi";
 
 type UseUserImagesOptions = Omit<
   UseInfiniteQueryOptions<
@@ -106,6 +106,21 @@ export const useEditUser = () => {
     },
     onError: (error) => {
       console.error("Userdate failed:", error.message);
+    },
+  });
+};
+
+export const useChangePassword = () => {
+  return useMutation<
+    void,
+    Error,
+    { currentPassword: string; newPassword: string }
+  >({
+    mutationFn: changePasswordRequest,
+
+    onError: (error) => {
+      console.error("Change password failed:", error);
+      // Error handled via notifyError and local state in the form
     },
   });
 };

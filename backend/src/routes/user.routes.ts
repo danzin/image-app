@@ -1,10 +1,13 @@
-import express from 'express';
-import { UserController } from '../controllers/user.controller';
-import { AuthFactory } from '../middleware/authentication.middleware';
-import { ValidationMiddleware } from '../middleware/validation.middleware';
-import upload from '../config/multer';
-import { UserSchemas, UserValidationSchemas } from '../utils/schemals/user.schemas';
-import { inject, injectable } from 'tsyringe';
+import express from "express";
+import { UserController } from "../controllers/user.controller";
+import { AuthFactory } from "../middleware/authentication.middleware";
+import { ValidationMiddleware } from "../middleware/validation.middleware";
+import upload from "../config/multer";
+import {
+  UserSchemas,
+  UserValidationSchemas,
+} from "../utils/schemals/user.schemas";
+import { inject, injectable } from "tsyringe";
 
 @injectable()
 export class UserRoutes {
@@ -12,54 +15,72 @@ export class UserRoutes {
   private auth = AuthFactory.bearerToken().handle();
 
   constructor(
-      @inject('UserController') private readonly userController: UserController
+    @inject("UserController") private readonly userController: UserController
   ) {
-      this.router = express.Router();
-      this.initializeRoutes();
+    this.router = express.Router();
+    this.initializeRoutes();
   }
 
   private initializeRoutes(): void {
-    
     this.router.post(
-      '/register',
+      "/register",
       new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
       this.userController.register
     );
 
     this.router.post(
-      '/login',
+      "/login",
       new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
       this.userController.login
     );
 
-    this.router.post('/logout', this.userController.logout);
-    
-    this.router.get('/users', this.userController.getUsers);
+    this.router.post("/logout", this.userController.logout);
 
-    this.router.get('/me', this.auth, this.userController.getMe);
-    this.router.put('/edit', this.auth, this.userController.updateProfile);
-    this.router.post('/follow/:followeeId', this.auth, this.userController.followAction);
-    this.router.get('/follows/:followeeId', this.auth, this.userController.followExists);
-    this.router.post('/like/:imageId', this.auth, this.userController.likeAction);
-    this.router.put(
-      '/avatar',
+    this.router.get("/users", this.userController.getUsers);
+
+    this.router.get("/me", this.auth, this.userController.getMe);
+    this.router.put("/edit", this.auth, this.userController.updateProfile);
+    this.router.post(
+      "/follow/:followeeId",
       this.auth,
-      upload.single('avatar'),
+      this.userController.followAction
+    );
+    this.router.get(
+      "/follows/:followeeId",
+      this.auth,
+      this.userController.followExists
+    );
+    this.router.post(
+      "/like/:imageId",
+      this.auth,
+      this.userController.likeAction
+    );
+    this.router.put(
+      "/avatar",
+      this.auth,
+      upload.single("avatar"),
       this.userController.updateAvatar
     );
     this.router.put(
-      '/cover',
+      "/cover",
       this.auth,
-      upload.single('cover'),
+      upload.single("cover"),
       this.userController.updateCover
     );
+    this.router.put(
+      "/change-password",
+      this.auth,
+      // TODO: Add validation middleware for currentPassword, newPassword
+      // new ValidationMiddleware({ body: UserSchemas.changePassword() }).validate(),
+      this.userController.changePassword
+    );
 
-    this.router.delete('/:id', this.auth, this.userController.deleteUser);
+    this.router.delete("/:id", this.auth, this.userController.deleteUser);
 
-    this.router.get('/:userId', this.userController.getUserById);
+    this.router.get("/:userId", this.userController.getUserById);
   }
 
   public getRouter(): express.Router {
-      return this.router;
+    return this.router;
   }
 }

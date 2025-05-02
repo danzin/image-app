@@ -8,7 +8,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { EditProfileProps, IUser } from '../types';
 import { useEditUser } from '../hooks/user/useUsers';
 
-//TODO: Password update functionality. Maybe a different component? 
 export const EditProfile: React.FC<EditProfileProps> = ({
     onComplete,
     notifySuccess,

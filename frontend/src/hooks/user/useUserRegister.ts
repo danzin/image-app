@@ -1,15 +1,27 @@
 import { useMutation } from "@tanstack/react-query";
 import { registerRequest } from "../../api/userApi";
-import { useAuth } from "../context/useAuth";
+import { PublicUserDTO } from "../../types";
+import { toast } from "react-toastify";
+
+type RegisterSuccessData = { user: PublicUserDTO; token: string };
 
 export const useRegister = () => {
-  const { checkAuthState } = useAuth();
-
-  return useMutation({
+  return useMutation<
+    RegisterSuccessData,
+    Error,
+    { username: string; email: string; password: string }
+  >({
     mutationFn: registerRequest,
-    onSuccess: async () => {
-      // After registration, check auth state automatically
-      await checkAuthState();
+
+    onSuccess: (_data) => {
+      toast.success("Registration successful! Please log in.");
+    },
+
+    onError: (error) => {
+      toast.error(
+        `Registration failed: ${error.message || "Could not create account"}`
+      );
+      console.error("Registration mutation failed:", error);
     },
   });
 };

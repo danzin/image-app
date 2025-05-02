@@ -87,7 +87,8 @@ userSchema.pre("save", async function (next) {
   }
 });
 
-// Hash password when user changes it
+// Hash password when user changes it.
+// This might be redundant now
 userSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
 
