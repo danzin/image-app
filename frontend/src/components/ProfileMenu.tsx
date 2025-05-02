@@ -4,6 +4,7 @@ import { Menu, MenuItem, IconButton, Avatar, Modal, Box, Typography } from "@mui
 import { ChevronDown, UploadIcon } from "lucide-react";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
+import { toast } from "react-toastify";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -42,6 +43,9 @@ const ProfileMenu = () => {
 
   const openModal = () => setIsModalOpen(true);
   const closeModal = () => setIsModalOpen(false);
+  if(!user) return (
+    toast.error("Unable to gather user data.")
+  );
   const fullAvatarUrl = user?.avatar.startsWith('http') ? user?.avatar : `${BASE_URL}${user?.avatar}`;
 
   return (

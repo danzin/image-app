@@ -7,19 +7,26 @@ import {
 } from "@tanstack/react-query";
 import { Id } from "react-toastify";
 
-export interface IUser {
+interface BaseUserDTO {
   id: string;
   username: string;
   avatar: string;
-  bio: string;
   cover: string;
+  images?: string[];
+  followers?: string[];
+  following?: string[];
+  createdAt: Date;
+  bio: string;
+}
+
+export interface AdminUserDTO extends BaseUserDTO {
   email: string;
   isAdmin: boolean;
-  images: string[];
-  followers: string[];
-  following: string[];
-  createdAt: Date;
+  updatedAt: Date;
 }
+
+export interface PublicUserDTO extends BaseUserDTO {}
+export type IUser = PublicUserDTO | AdminUserDTO;
 
 export interface ITag {
   _id: string;
@@ -151,4 +158,37 @@ export interface EditProfileProps {
   notifySuccess: (message: string) => Id;
   notifyError: (message: string) => Id;
   initialData?: IUser | null;
+}
+
+export interface ChangePasswordProps {
+  onComplete: () => void;
+  notifySuccess: (message: string) => Id;
+  notifyError: (message: string) => Id;
+}
+
+export type RegisterForm = {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
+
+interface AuthFormField<T> {
+  name: keyof T;
+  label: string;
+  type: string;
+  autoComplete?: string;
+  required: boolean;
+}
+
+export interface AuthFormProps<T> {
+  title: string;
+  fields: AuthFormField<T>[];
+  onSubmit: (formData: T) => void;
+  isSubmitting?: boolean;
+  error?: string | null;
+  submitButtonText: string;
+  linkText?: string;
+  linkTo?: string;
+  initialValues?: Partial<T>;
 }

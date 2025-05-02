@@ -86,12 +86,50 @@ export class UserController {
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { decodedUser } = req;
+      const userData = req.body;
+      if (
+        userData.password ||
+        userData.email ||
+        userData.isAdmin ||
+        userData.avatar ||
+        userData.cover
+      ) {
+        return next(createError("ValidationError", "You can not do that."));
+      }
       const updatedUser = await this.userService.updateProfile(
         decodedUser.id,
-        req.body,
+        userData,
         decodedUser as IUser
       );
       res.status(200).json(updatedUser);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  changePassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { decodedUser } = req;
+      const { currentPassword, newPassword } = req.body;
+
+      if (!currentPassword || !newPassword) {
+        return next(
+          createError(
+            "ValidationError",
+            "Current password and new password are required."
+          )
+        );
+      }
+
+      await this.userService.changePassword(
+        decodedUser.id,
+        currentPassword,
+        newPassword
+      );
+
+      // res.clearCookie('token'); // Might clear cookies on password change to force re-login
+
+      res.status(200).json({ message: "Password changed successfully." });
     } catch (error) {
       next(error);
     }

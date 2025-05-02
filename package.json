@@ -5,7 +5,7 @@
   "scripts": {
     "start-frontend": "cd frontend && npm run dev",
     "start-backend": "cd backend && npm run start:dev",
-    "start-gateway": "cd backend/src/api-gateway && npm run dev", 
+    "start-gateway": "cd backend/src/api-gateway && npm run dev",
     "test-backend": "cd backend && npm run jest",
     "dev": "concurrently \"npm run start-backend\" \"npm run start-gateway\" \"npm run start-frontend\"  "
   },
