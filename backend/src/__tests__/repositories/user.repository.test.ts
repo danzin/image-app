@@ -8,6 +8,7 @@ import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types } from "mongoose";
 import { UserRepository } from "../../repositories/user.repository";
 import { IUser, PaginationOptions, PaginationResult } from "../../types";
+import { createError } from "../../utils/errors";
 
 chai.use(chaiAsPromised);
 
@@ -295,6 +296,67 @@ describe("UserRepository", () => {
 
       await expect(repository.update(userId, updateData))
         .to.be.rejectedWith(dbError.message)
+        .and.eventually.satisfy((err: any) => {
+          expect(err.name).to.equal("DatabaseError");
+          return true;
+        });
+    });
+  });
+
+  describe("getAll", () => {
+    const mockUsers = [
+      { _id: new Types.ObjectId(), username: "user1" },
+      { _id: new Types.ObjectId(), username: "user2" },
+    ] as IUser[];
+
+    it("should get all users with default pagination", async () => {
+      mockQuery.exec.resolves(mockUsers);
+      const options = {};
+      const result = await repository.getAll(options);
+
+      expect(mockModel.find.calledOnceWith({})).to.be.true;
+      expect(mockQuery.skip.calledOnceWith(0)).to.be.true;
+      expect(mockQuery.limit.calledOnceWith(20)).to.be.true;
+      expect(mockQuery.exec.calledOnce).to.be.true;
+      expect(result).to.deep.equal(mockUsers);
+    });
+
+    it("should apply search terms and custom pagination to getAll", async () => {
+      const options = { search: ["test", "user"], page: 2, limit: 5 };
+      const expectedMongoQuery = {
+        $or: [
+          { username: { $regex: "test", $options: "i" } },
+          { username: { $regex: "user", $options: "i" } },
+        ],
+      };
+      const expectedSkip = (options.page - 1) * options.limit; // 5
+
+      mockQuery.exec.resolves(mockUsers);
+      await repository.getAll(options);
+
+      expect(mockModel.find.calledOnceWith(sinon.match(expectedMongoQuery))).to
+        .be.true;
+      expect(mockQuery.skip.calledOnceWith(expectedSkip)).to.be.true;
+      expect(mockQuery.limit.calledOnceWith(options.limit)).to.be.true;
+      expect(mockQuery.exec.calledOnce).to.be.true;
+    });
+
+    it("should return null if no users found by getAll", async () => {
+      mockQuery.exec.resolves([]); // No users found
+      const result = await repository.getAll({
+        search: [""],
+        page: 1,
+        limit: 20,
+      });
+      expect(result).to.be.null;
+    });
+
+    it("should throw DatabaseError on getAll failure", async () => {
+      const dbError = new Error("DatabaseError");
+      mockQuery.exec.rejects(dbError);
+
+      await expect(repository.getAll({}))
+        .to.be.rejectedWith("DatabaseError")
         .and.eventually.satisfy((err: any) => {
           expect(err.name).to.equal("DatabaseError");
           return true;
