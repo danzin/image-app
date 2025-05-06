@@ -8,7 +8,6 @@ import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types } from "mongoose";
 import { UserRepository } from "../../repositories/user.repository";
 import { IUser, PaginationOptions, PaginationResult } from "../../types";
-import { createError } from "../../utils/errors";
 
 chai.use(chaiAsPromised);
 
@@ -187,7 +186,71 @@ describe("UserRepository", () => {
       expect(
         mockModel.findOneAndUpdate.calledOnceWith(
           { _id: userId },
-          { $set: updateData }, // UserRepository's update explicitly uses $set
+          { $set: updateData }, // UserRepository's update uses $set
+          { new: true }
+        )
+      ).to.be.true;
+      expect(mockQuery.session.called).to.be.false;
+      expect(mockQuery.exec.calledOnce).to.be.true;
+      expect(result).to.deep.equal(updatedUserDoc);
+    });
+
+    it("should use session when updating", async () => {
+      mockQuery.exec.resolves(updatedUserDoc);
+
+      await repository.update(userId, updateData, mockSession);
+
+      expect(mockModel.findOneAndUpdate.calledOnce).to.be.true;
+      expect(mockQuery.session.calledOnceWith(mockSession)).to.be.true;
+      expect(mockQuery.exec.calledOnce).to.be.true;
+    });
+
+    it("should return null if user to update is not found", async () => {
+      mockQuery.exec.resolves(null);
+      const result = await repository.update(userId, updateData);
+      expect(result).to.be.null;
+    });
+
+    it("should throw DuplicateError on update if it encounters a duplicate key error (e.g., unique username)", async () => {
+      const duplicateError: any = new Error("Duplicate key error on update");
+      duplicateError.code = 11000;
+      duplicateError.keyValue = { username: "existingUser" };
+      mockQuery.exec.rejects(duplicateError);
+
+      await expect(repository.update(userId, { username: "existingUser" }))
+        .to.be.rejectedWith("username already exists")
+        .and.eventually.satisfy((err: any) => {
+          expect(err.name).to.equal("DuplicateError");
+          return true;
+        });
+    });
+
+    it("should throw DatabaseError for other update failures", async () => {
+      const dbError = new Error("Update failed");
+      mockQuery.exec.rejects(dbError);
+
+      await expect(repository.update(userId, updateData))
+        .to.be.rejectedWith(dbError.message)
+        .and.eventually.satisfy((err: any) => {
+          expect(err.name).to.equal("DatabaseError");
+          return true;
+        });
+    });
+  });
+  describe("update", () => {
+    const userId = new Types.ObjectId().toString();
+    const updateData = { username: "updatedUser" };
+    const updatedUserDoc = { _id: userId, ...updateData } as IUser;
+
+    it("should update a user successfully", async () => {
+      mockQuery.exec.resolves(updatedUserDoc);
+
+      const result = await repository.update(userId, updateData);
+
+      expect(
+        mockModel.findOneAndUpdate.calledOnceWith(
+          { _id: userId },
+          { $set: updateData }, // UserRepository's update uses $set
           { new: true }
         )
       ).to.be.true;
