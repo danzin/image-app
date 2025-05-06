@@ -1,5 +1,3 @@
-// import "reflect-metadata";
-
 import { describe, beforeEach, afterEach, it } from "mocha";
 import * as chai from "chai";
 import { expect } from "chai";
@@ -8,7 +6,6 @@ import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types } from "mongoose";
 import { UserRepository } from "../../repositories/user.repository";
 import { IUser, PaginationOptions, PaginationResult } from "../../types";
-import { createError } from "../../utils/errors";
 
 chai.use(chaiAsPromised);
 
@@ -60,14 +57,34 @@ describe("UserRepository", () => {
       exec: sinon.stub(),
     };
 
+    /* 
+    
+     createStubInstance(User) only stubs the instance methods of the User model(.save, .comparePassword etc), 
+     not the static methods(findOne, countDocuments etc). 
+     It doesn't stub the constructor either, so I can't use it to call `new User(data)`
+      because the stub instance of User is just an object and there's no constructor to call. This is because Mongoose models
+      have a specific two part nature: 
+       - the model as a constructor: when calling `new UserModel(data)` UserModel acts as a constructor function to create a new doc instance.
+       - the model with static methods: UserModel also has static methods like `find`, `findOne` etc 
+
+      sinon.createStubInstance() creates a stubbed instance of the User class, providing an object that looks like a User document but lacks 
+       a callable constructor and static methods. It iterates over the prototype methods of `User`(save, validate, comparePassword etc - 
+       methods on a document instance) 
+
+     By manually stubbing mockModel = sinon.stub() and then assigning the methods and mockModel.callsFake((data) => createMockUserDocInstance(data));
+     the stub becomes a callable constructor (new mockModel(data)) and a holder of the static methods I need.
+     
+     */
     mockModel = sinon.stub() as MockUserModelFunc;
+    // mockModel = sinon.createStubInstance(User); // This won't work
     mockModel.findOneAndUpdate = sinon.stub().returns(mockQuery);
     mockModel.findOne = sinon.stub().returns(mockQuery);
     mockModel.findByIdAndUpdate = sinon.stub().returns(mockQuery);
     mockModel.find = sinon.stub().returns(mockQuery);
     mockModel.countDocuments = sinon.stub().returns(mockQuery); // Oor .resolves(value)
 
-    mockModel.callsFake((data) => createMockUserDocInstance(data)); // Default constructor behavior
+    //This defines what constructor-like behavior the mockModel function has: it returns the pre-fabricated document instances.
+    mockModel.callsFake((data) => createMockUserDocInstance(data));
 
     mockSession = {} as ClientSession;
     repository = new UserRepository(mockModel as any as Model<IUser>);
