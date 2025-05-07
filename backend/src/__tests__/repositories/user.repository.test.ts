@@ -72,7 +72,8 @@ describe("UserRepository", () => {
        methods on a document instance) 
 
      By manually stubbing mockModel = sinon.stub() and then assigning the methods and mockModel.callsFake((data) => createMockUserDocInstance(data));
-     the stub becomes a callable constructor (new mockModel(data)) and a holder of the static methods I need.
+     the stub becomes a callable constructor (new mockModel(data)) and a holder of the static methods I need. 
+     All because the userRepository interacts with the model as both a constructor and as a holder of static methods. 
      
      */
     mockModel = sinon.stub() as MockUserModelFunc;
