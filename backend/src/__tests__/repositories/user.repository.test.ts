@@ -143,16 +143,15 @@ describe("UserRepository", () => {
       const expectedDocInstance = createMockUserDocInstance(userData);
       mockModel.withArgs(userData).returns(expectedDocInstance);
       expectedDocInstance.save.rejects(duplicateError);
-
-      await expect(repository.create(userData))
-        .to.be.rejectedWith("username already exists")
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DuplicateError");
-          return true;
-        });
-
-      expect(mockModel.calledOnceWith(userData)).to.be.true;
-      expect(expectedDocInstance.save.calledOnce).to.be.true;
+      try {
+        await repository.create(userData);
+        throw new Error("Expected create() to throw"); // force test failure
+      } catch (err) {
+        expect(err.message).to.equal("username already exists");
+        expect(err.name).to.equal("DuplicateError");
+        expect(mockModel.calledOnceWith(userData)).to.be.true;
+        expect(expectedDocInstance.save.calledOnce).to.be.true;
+      }
     });
 
     it("should throw DuplicateError for duplicate email (error code 11000)", async () => {
@@ -164,14 +163,15 @@ describe("UserRepository", () => {
       mockModel.withArgs(userData).returns(expectedDocInstance);
       expectedDocInstance.save.rejects(duplicateError);
 
-      await expect(repository.create(userData))
-        .to.be.rejectedWith("email already exists")
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DuplicateError");
-          return true;
-        });
-      expect(mockModel.calledOnceWith(userData)).to.be.true;
-      expect(expectedDocInstance.save.calledOnce).to.be.true;
+      try {
+        await repository.create(userData);
+        throw new Error("Expect create() to throw");
+      } catch (err) {
+        expect(err.message).to.equal("email already exists");
+        expect(err.name).to.equal("DuplicateError");
+        expect(mockModel.calledOnceWith(userData)).to.be.true;
+        expect(expectedDocInstance.save.calledOnce).to.be.true;
+      }
     });
 
     it("should throw DatabaseError for other save failures", async () => {
@@ -180,15 +180,14 @@ describe("UserRepository", () => {
       const expectedDocInstance = createMockUserDocInstance(userData);
       mockModel.withArgs(userData).returns(expectedDocInstance);
       expectedDocInstance.save.rejects(genericDbError);
-
-      await expect(repository.create(userData))
-        .to.be.rejectedWith(genericDbError.message)
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DatabaseError");
-          return true;
-        });
-      expect(mockModel.calledOnceWith(userData)).to.be.true;
-      expect(expectedDocInstance.save.calledOnce).to.be.true;
+      try {
+        await repository.create(userData);
+        throw new Error("Expect create() to throw");
+      } catch (err) {
+        expect(err.name).to.equal("DatabaseError");
+        expect(mockModel.calledOnceWith(userData)).to.be.true;
+        expect(expectedDocInstance.save.calledOnce).to.be.true;
+      }
     });
   });
 
