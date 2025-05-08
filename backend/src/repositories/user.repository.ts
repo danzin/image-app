@@ -117,7 +117,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      createError("DatabaseError", error.message, {
+      throw createError("DatabaseError", error.message, {
         function: "getAll",
         options: options,
       });
