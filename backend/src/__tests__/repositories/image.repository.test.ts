@@ -103,10 +103,14 @@ describe("ImageRepository", () => {
     it("should throw ValidationError for invalid ObjectId", async () => {
       const invalidId = "invalid-id";
 
-      await expect(repository.findById(invalidId)).to.be.rejectedWith(
-        "Invalid image ID"
-      );
-      expect(mockModel.findById.called).to.be.false;
+      try {
+        await repository.findById(invalidId);
+        throw new Error("Excpect findById to throw");
+      } catch (err) {
+        expect(err.name).to.equal("ValidationError");
+        expect(err.message).to.equal("Invalid image ID");
+        expect(mockModel.findById.called).to.be.false;
+      }
     });
 
     it("should throw DatabaseError on underlying model failure", async () => {
