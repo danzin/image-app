@@ -7,7 +7,7 @@ import { ClientSession, Model, Types } from "mongoose";
 import { UserRepository } from "../../repositories/user.repository";
 import { IUser, PaginationOptions, PaginationResult } from "../../types";
 
-chai.use(chaiAsPromised);
+// chai.use(chaiAsPromised);
 
 interface MockUserDoc extends IUser {
   save: SinonStub;
@@ -300,24 +300,27 @@ describe("UserRepository", () => {
       duplicateError.keyValue = { username: "existingUser" };
       mockQuery.exec.rejects(duplicateError);
 
-      await expect(repository.update(userId, { username: "existingUser" }))
-        .to.be.rejectedWith("username already exists")
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DuplicateError");
-          return true;
-        });
+      try {
+        await repository.update(userId, { username: "existingUser" });
+        throw new Error("Expected update() to throw"); // force test failure
+      } catch (err: any) {
+        expect(err).to.be.instanceOf(Error);
+        expect(err.message).to.equal("username already exists");
+        expect(err.name).to.equal("DuplicateError");
+      }
     });
 
     it("should throw DatabaseError for other update failures", async () => {
       const dbError = new Error("Update failed");
       mockQuery.exec.rejects(dbError);
 
-      await expect(repository.update(userId, updateData))
-        .to.be.rejectedWith(dbError.message)
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DatabaseError");
-          return true;
-        });
+      try {
+        await repository.update(userId, { username: "existingUser" });
+        throw new Error("Expected update() to throw"); // force test failure
+      } catch (err: any) {
+        expect(err).to.be.instanceOf(Error);
+        expect(err.name).to.equal("DatabaseError");
+      }
     });
   });
 
@@ -372,13 +375,13 @@ describe("UserRepository", () => {
     it("should throw DatabaseError on getAll failure", async () => {
       const dbError = new Error("DatabaseError");
       mockQuery.exec.rejects(dbError);
-
-      await expect(repository.getAll({}))
-        .to.be.rejectedWith("DatabaseError")
-        .and.eventually.satisfy((err: any) => {
-          expect(err.name).to.equal("DatabaseError");
-          return true;
-        });
+      try {
+        await repository.getAll({});
+        throw new Error("Expected getAll() to throw");
+      } catch (err) {
+        expect(err).to.be.instanceOf(Error);
+        expect(err.name).to.equal("DatabaseError");
+      }
     });
   });
 });
