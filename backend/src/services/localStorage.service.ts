@@ -1,22 +1,28 @@
-import { v4 as uuidv4 } from 'uuid';
-import * as fs from 'fs';
-import * as path from 'path';
-import { IImageStorageService } from '../types';
-import { injectable } from 'tsyringe';
-import { createError } from '../utils/errors';
+import { v4 as uuidv4 } from "uuid";
+import * as fs from "fs";
+import * as path from "path";
+import { IImageStorageService } from "../types";
+import { injectable } from "tsyringe";
+import { createError } from "../utils/errors";
 
 @injectable()
 export class LocalStorageService implements IImageStorageService {
   private uploadsDir: string;
 
   constructor() {
-    this.uploadsDir = path.join(process.cwd(), 'uploads');
+    this.uploadsDir = path.join(process.cwd(), "../uploads");
     if (!fs.existsSync(this.uploadsDir)) {
       fs.mkdirSync(this.uploadsDir, { recursive: true });
     }
+    console.log("Uploads directory initialized at:", this.uploadsDir);
   }
 
-  async uploadImage(file: Buffer, username: string): Promise<{ url: string; publicId: string }> {
+  //TODO: FIX Local Uploads
+
+  async uploadImage(
+    file: Buffer,
+    username: string
+  ): Promise<{ url: string; publicId: string }> {
     try {
       const filename = `${uuidv4()}.png`;
       const userDir = path.join(this.uploadsDir, username);
@@ -48,40 +54,50 @@ export class LocalStorageService implements IImageStorageService {
     }
   }
 
-  async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
-
+  async deleteAssetByUrl(
+    username: string,
+    url: string
+  ): Promise<{ result: string }> {
     // Check if the URL is local or cloudinary
     if (!this.isLocalUrl(url)) {
       console.log(`Skipping deletion of non-local URL: ${url}`);
-      return { result: 'skipped' };
+      return { result: "skipped" };
     }
 
     try {
-      console.log('URL of image about to delete:', url);
+      console.log("URL of image about to delete:", url);
       const publicId = this.extractPublicId(url);
       if (!publicId) {
-        throw createError('StorageError', 'Could not extract publicId from URL');
+        throw createError(
+          "StorageError",
+          "Could not extract publicId from URL"
+        );
       }
 
       const assetPath = path.join(this.uploadsDir, username, publicId);
       await fs.promises.unlink(assetPath);
-      return { result: 'ok' };
+      return { result: "ok" };
     } catch (error) {
-      console.error('Error deleting asset:', error);
-      throw createError('StorageError', error.message);
+      console.error("Error deleting asset:", error);
+      throw createError("StorageError", error.message);
     }
   }
 
-  async deleteMany(username: string): Promise<{ result: 'ok' | 'error'; message?: string }> {
+  async deleteMany(
+    username: string
+  ): Promise<{ result: "ok" | "error"; message?: string }> {
     try {
       const userDir = path.join(this.uploadsDir, username);
       if (!fs.existsSync(userDir)) {
-        return { result: 'ok', message: 'User folder does not exist, nothing to delete.' };
+        return {
+          result: "ok",
+          message: "User folder does not exist, nothing to delete.",
+        };
       }
 
       const files = await fs.promises.readdir(userDir);
       if (files.length === 0) {
-        return { result: 'ok', message: 'User folder is already empty.' };
+        return { result: "ok", message: "User folder is already empty." };
       }
 
       await Promise.all(
@@ -92,12 +108,15 @@ export class LocalStorageService implements IImageStorageService {
       );
 
       await fs.promises.rmdir(userDir);
-      return { result: 'ok', message: `Successfully deleted all images for user: ${username}` };
-    } catch (error) {
-      console.error('Error deleting multiple assets:', error);
       return {
-        result: 'error',
-        message: error.message || 'Error deleting local storage resources',
+        result: "ok",
+        message: `Successfully deleted all images for user: ${username}`,
+      };
+    } catch (error) {
+      console.error("Error deleting multiple assets:", error);
+      return {
+        result: "error",
+        message: error.message || "Error deleting local storage resources",
       };
     }
   }
@@ -109,6 +128,9 @@ export class LocalStorageService implements IImageStorageService {
   }
 
   private isLocalUrl(url: string): boolean {
-    return url.startsWith('http://localhost:3000/uploads/') || url.startsWith('/uploads/');
+    return (
+      url.startsWith("http://localhost:3000/uploads/") ||
+      url.startsWith("../uploads/")
+    );
   }
 }

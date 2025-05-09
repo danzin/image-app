@@ -14,6 +14,8 @@ interface ExtendedProxyOptions
   logProvider?: (provider: any) => any;
 }
 
+//TODO: FIX Local Uploads
+
 const app = express();
 
 // Allow reqs from the frontend

@@ -24,7 +24,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import FavoriteIcon from '@mui/icons-material/Favorite'; 
 import DeleteIcon from '@mui/icons-material/Delete'; 
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = process.env.VITE_API_URL //TODO FIX local uploads
 
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const navigate = useNavigate()
@@ -113,7 +113,8 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
   };
 
   const fullImageUrl = selectedImage?.url.startsWith('http') ? selectedImage.url : `${BASE_URL}${selectedImage?.url}`;
-
+  console.log(fullImageUrl)
+  console.log('Selected image:', selectedImage);
   const isLoading = isLoadingAll || isLoadingFiltered;
 
   return (
