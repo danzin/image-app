@@ -11,10 +11,20 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [react()],
     esbuild: false,
+
     server: {
+      port: 5173,
       proxy: {
+        // forward /api/* → API Gateway on :8000
         "/api": {
-          target: env.VITE_API_URL || "http://localhost:3000",
+          target: "http://localhost:8000",
+          changeOrigin: true,
+          secure: false,
+          ws: true, // proxy websockets for socket.io
+        },
+        // forward /uploads/* → Gateway
+        "/uploads": {
+          target: "http://localhost:8000",
           changeOrigin: true,
           secure: false,
         },

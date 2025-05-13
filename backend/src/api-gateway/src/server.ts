@@ -14,11 +14,9 @@ interface ExtendedProxyOptions
   logProvider?: (provider: any) => any;
 }
 
-//TODO: FIX Local Uploads
-
 const app = express();
 
-// Allow reqs from the frontend
+// Allow requests from frontend
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -26,105 +24,84 @@ app.use(
   })
 );
 
-// Log
+// Global incoming log
 app.use((req, res, next) => {
-  console.log(
-    `[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from ${req.ip}`
-  );
+  console.log(`[Gateway] Incoming: ${req.method} ${req.originalUrl}`);
   next();
 });
 
 // Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1500, // Limit IPs to 100 requests per `windowMs`
-  message: "You're making too many requests, please try again after 15 minutes",
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  windowMs: 15 * 60 * 10000,
+  max: 15000,
+  message: "Too many requests, please try again after 15 minutes",
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
-app.use((req, res, next) => {
-  console.log(`[Gateway] Incoming Request: ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// --- Proxy Setup ---
-
+// Shared proxy options
 const proxyOptions: ExtendedProxyOptions = {
   target: config.backendUrl,
   changeOrigin: true,
   ws: true,
   logLevel: "debug",
-  onProxyReq: (proxyReq: any, req: Request, res: Response) => {
+  onProxyReq: (proxyReq, req) => {
+    // Log the actual path forwarded
+    console.log(
+      `[Gateway] Proxying ${req.method} ${req.originalUrl} -> ${config.backendUrl}${proxyReq.path}`
+    );
     proxyReq.setHeader("X-Forwarded-By", "api-gateway");
-    console.log(
-      `[Gateway] Proxying to target: ${config.backendUrl}${proxyReq.path}`
-    );
-    console.log(
-      `[Gateway] >> Request Headers:`,
-      JSON.stringify(proxyReq.getHeaders(), null, 2)
-    );
   },
-  onProxyRes: (proxyRes, req, res) => {
+  onProxyRes: (proxyRes, req) => {
     console.log(
-      `[Gateway] << Response Status: ${proxyRes.statusCode} for ${req.originalUrl}`
-    );
-    console.log(
-      `[Gateway] << Response Headers:`,
-      JSON.stringify(proxyRes.headers, null, 2)
+      `[Gateway] Response ${proxyRes.statusCode} for ${req.originalUrl}`
     );
   },
   onError: (err, req, res) => {
     console.error("[Gateway] Proxy error:", err.message, {
       url: req.originalUrl,
-      method: req.method,
-      target: config.backendUrl,
     });
-    if (res && !res.headersSent) {
-      if (typeof (res as any).status === "function") {
-        (res as Response).status(502).send("Bad Gateway");
-      } else {
-        res.writeHead(502);
-        res.end("Bad Gateway");
-      }
-    } else if (res && !res.writableEnded) {
+    if (!res.headersSent) {
+      res.status(502).send("Bad Gateway");
+    } else if (!res.writableEnded) {
       res.end();
     }
   },
 };
 
-// --- Route-Specific Proxying ---
-console.log(`[Gateway] Setting up proxy for /api to ${config.backendUrl}`);
+// Proxy /api
+console.log(`[Gateway] Proxy /api -> ${config.backendUrl}`);
 app.use("/api", createProxyMiddleware(proxyOptions));
 
-console.log(`[Gateway] Setting up proxy for /uploads to ${config.backendUrl}`);
+// Proxy /uploads with pathRewrite to preserve the prefix
+console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}`);
 app.use(
   "/uploads",
   createProxyMiddleware({
     ...proxyOptions,
     pathRewrite: {
-      "^/uploads": "/uploads",
+      // match the entire url and rewrite to include /uploads
+      "^/": "/uploads/",
     },
   })
 );
 
-app.get("/", (req, res) => {
-  res.send("API Gateway is running");
-});
+// Health check
+app.get("/", (_req, res) => res.send("API Gateway is running"));
 
-// --- Error Handling Middleware (Gateway Level) ---
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  console.error("[Gateway] Internal Error:", err.stack);
+// Global error handler
+app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
+  console.error("[Gateway] Internal error:", err.stack);
   if (!res.headersSent) {
     res.status(500).send("Internal Server Error");
   } else {
-    next(err); // Delegate if headers already sent
+    next(err);
   }
 });
 
-// --- Start Server ---
+// Start
 app.listen(config.port, () => {
-  console.log(`API Gateway listening on port ${config.port}`);
-  console.log(`Proxying requests to: ${config.backendUrl}`);
+  console.log(`Gateway listening on port ${config.port}`);
+  console.log(`Forwarding to backend at ${config.backendUrl}`);
 });

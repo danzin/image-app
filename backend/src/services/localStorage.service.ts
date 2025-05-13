@@ -10,11 +10,14 @@ export class LocalStorageService implements IImageStorageService {
   private uploadsDir: string;
 
   constructor() {
-    this.uploadsDir = path.join(process.cwd(), "../uploads");
+    this.uploadsDir = path.join(process.cwd(), "uploads");
     if (!fs.existsSync(this.uploadsDir)) {
       fs.mkdirSync(this.uploadsDir, { recursive: true });
     }
-    console.log("Uploads directory initialized at:", this.uploadsDir);
+    console.log(
+      "LocalStorageService: Uploads directory path inside container:",
+      this.uploadsDir
+    );
   }
 
   //TODO: FIX Local Uploads
@@ -130,7 +133,7 @@ export class LocalStorageService implements IImageStorageService {
   private isLocalUrl(url: string): boolean {
     return (
       url.startsWith("http://localhost:3000/uploads/") ||
-      url.startsWith("../uploads/")
+      url.startsWith("/uploads/")
     );
   }
 }
