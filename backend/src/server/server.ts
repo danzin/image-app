@@ -64,18 +64,16 @@ export class Server {
    * Registers API routes with the Express app.
    */
   private initializeRoutes() {
+    const uploadsPath = path.join(process.cwd(), "uploads");
+    console.log("Serving static uploads from:", uploadsPath);
+    this.app.use("/uploads", express.static(uploadsPath));
+
     this.app.use("/users", this.userRoutes.getRouter());
     this.app.use("/images", this.imageRoutes.getRouter());
     this.app.use("/search", this.searchRoutes.getRouter());
     this.app.use("/admin", this.adminUserRoutes.getRouter());
     this.app.use("/notifications/", this.notificationRoutes.getRouter());
     this.app.use("/feed", this.feedRoutes.getRouter());
-
-    // Serves uploaded files from the "uploads" directory
-    this.app.use(
-      "/uploads",
-      express.static(path.join(process.cwd(), "uploads"))
-    );
   }
 
   /**

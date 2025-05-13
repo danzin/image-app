@@ -8,7 +8,7 @@ import { createError } from "../utils/errors";
 
 @injectable()
 export class WebSocketServer {
-  private io: SocketIOServer | null = null; // Stores the socket.io server instance 
+  private io: SocketIOServer | null = null; // Stores the socket.io server instance
 
   /**
    * Initializes the WebSocket server with authentication and event handling.
@@ -17,14 +17,15 @@ export class WebSocketServer {
   initialize(server: HttpServer): void {
     this.io = new SocketIOServer(server, {
       cors: {
-        origin: "http://localhost:5173",
+        origin: ["http://localhost:5173", "http://localhost"],
+
         credentials: true, // Allows credentials (cookies etc...)
       },
 
       transports: ["websocket", "polling"],
     });
-   
-     /**
+
+    /**
      * Middleware to parse cookies from incoming socket requests.
      * This allows authentication tokens stored in cookies to be accessed in socket requests.
      */
@@ -46,21 +47,23 @@ export class WebSocketServer {
         AuthFactory.bearerToken().handle()(req, {} as any, (error?: any) => {
           if (error) {
             console.error("Auth error:", error);
-            return next(createError('AuthenticationError', error.message));
+            return next(createError("AuthenticationError", error.message));
           }
-          
+
           if (!req.decodedUser) {
             console.error("Missing decoded user after authentication");
-            return next(createError('UnauthorizedError', 'Unauthorized'));
+            return next(createError("UnauthorizedError", "Unauthorized"));
           }
-          
+
           // Store user data in socket
           socket.data.user = req.decodedUser;
           next();
         });
       } catch (error) {
         console.error("WebSocket auth error:", error);
-        next(createError('AuthenticationError', 'Socket authentication failed'));
+        next(
+          createError("AuthenticationError", "Socket authentication failed")
+        );
       }
     });
 
@@ -69,40 +72,40 @@ export class WebSocketServer {
      */
     this.io.on("connection", (socket) => {
       console.log("New client connected:", socket.id);
-      
+
       // Join the user to their own private room
 
       const userId = socket.data.user?.id;
       if (userId) {
         socket.join(userId);
         console.log(`User ${userId} joined their room automatically`);
-        
+
         // Send confirmation to client
         socket.emit("join_response", {
           success: true,
           userId: userId,
-          message: "Automatically joined user room"
+          message: "Automatically joined user room",
         });
       } else {
         console.warn("Socket connected without user data:", socket.id);
       }
 
-       /**
+      /**
        * Event listener for users manually joining a room.
        * This ensures the user is authenticated before joining.
        */
       socket.on("join", (userId: string) => {
         if (!socket.data.user) {
           console.warn("Unauthorized join attempt. Disconnecting socket.");
-          return socket.disconnect(); // Disconnect unauthjorized users 
+          return socket.disconnect(); // Disconnect unauthjorized users
         }
-        
+
         const trimmedUserId = userId.trim();
         console.log(`Received a join event with data: ${trimmedUserId}`);
         socket.join(trimmedUserId);
         console.log(`User ${trimmedUserId} joined their room`);
         console.log(`Socket rooms:`, Array.from(socket.rooms));
-        
+
         // Emit success message
         socket.emit("join_response", {
           success: true,
@@ -114,7 +117,7 @@ export class WebSocketServer {
         console.log("Client disconnected:", socket.id);
       });
     });
-    
+
     console.log("WebSocket server initialized.");
   }
 
