@@ -10,3 +10,4 @@ backend/src/NOTES.txt
 backend/errors.log
 backend/uploads
 frontend/.env
+/uploads

@@ -1,4 +1,5 @@
 version: '3.8'
+ # TODO: FIX Local Uploads
 
 services:
   redis:
@@ -40,12 +41,13 @@ services:
     env_file:
       - .env
     environment:
-    - NODE_ENV=production
+       - NODE_ENV=production
     depends_on:
       - redis
     networks:
       - app-network
-
+    volumes:
+       - ./backend/uploads:/usr/src/app/uploads
   # Frontend Service (Nginx - Main Entry Point)
   frontend:
     build:
