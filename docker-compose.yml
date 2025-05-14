@@ -1,7 +1,24 @@
 version: '3.8'
- # TODO: FIX Local Uploads
-
+# TODO: Fix replica set initialization
 services:
+  mongo:
+    image: mongo:6.0
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      # Persist MongoDB data across container restarts
+      - mongo_data:/data/db
+      # initialization script for single-node replica set
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: rootuser
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    networks:
+      - app-network
+
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--auth"]
+   
   redis:
     image: redis:alpine
     container_name: redis
@@ -11,27 +28,22 @@ services:
       - redis_data:/data
     networks:
       - app-network
-
- # API Gateway Service (Runs internally, proxied by frontend Nginx)
   api-gateway:
     build:
       context: ./backend/src/api-gateway
-      dockerfile: gateway.Dockerfile             
+      dockerfile: gateway.Dockerfile
     container_name: api-gateway
-    # No ports required, only accessed internally by frontend Nginx
     env_file:
-      - .env 
+      - .env
     environment:
       - NODE_ENV=production
-      - PORT=8000 # Internal port for the API Gateway
-      # Use the backend service name and internal port
+      - PORT=8000
       - BACKEND_MONOLITH_URL=http://backend:3000/
     depends_on:
-      - backend # Ensure backend starts before gateway
+      - backend
+      - mongo
     networks:
       - app-network
-
- # Backend Service (Listens internally, proxied by gateway)
   backend:
     build:
       context: ./backend
@@ -41,14 +53,15 @@ services:
     env_file:
       - .env
     environment:
-       - NODE_ENV=production
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://rootuser:rootpassword@mongo:27017/image-app?authSource=admin&replicaSet=rs0
     depends_on:
       - redis
+      - mongo
     networks:
       - app-network
     volumes:
-       - ./backend/uploads:/usr/src/app/uploads
-  # Frontend Service (Nginx - Main Entry Point)
+      - ./backend/uploads:/usr/src/app/uploads
   frontend:
     build:
       context: ./frontend
@@ -59,10 +72,9 @@ services:
       - api-gateway
     networks:
       - app-network
-
 networks:
   app-network:
     driver: bridge
-
 volumes:
   redis_data:
+  mongo_data:

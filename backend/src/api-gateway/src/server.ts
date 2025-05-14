@@ -15,18 +15,25 @@ interface ExtendedProxyOptions
 }
 
 const app = express();
+app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 // Allow requests from frontend
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:80",
+      "http://localhost",
+    ],
     credentials: true,
   })
 );
 
 // Global incoming log
 app.use((req, res, next) => {
-  console.log(`[Gateway] Incoming: ${req.method} ${req.originalUrl}`);
+  console.log(
+    `[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from IP: ${req.ip}`
+  );
   next();
 });
 
@@ -69,6 +76,15 @@ const proxyOptions: ExtendedProxyOptions = {
     }
   },
 };
+app.use((req, res, next) => {
+  console.log(`[Gateway] Incoming: ${req.method} ${req.originalUrl}`);
+  console.log(`[Gateway] req.ip: ${req.ip}`); // what Express resolves as client IP
+  console.log(
+    `[Gateway] X-Forwarded-For Header: ${req.headers["x-forwarded-for"]}`
+  );
+  console.log(`[Gateway] trust proxy setting: ${app.get("trust proxy")}`); // verify the setting
+  next();
+});
 
 // Proxy /api
 console.log(`[Gateway] Proxy /api -> ${config.backendUrl}`);
