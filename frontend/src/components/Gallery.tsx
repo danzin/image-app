@@ -25,7 +25,7 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 
-// TODO: Fix modal preview of locally uploaded images in prod. Use base url of /api and determine full url based on http or / 
+// TODO: Fix the modal preview of images. It works with cloudniary but fails in docker with local uploads.
 const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, isFetchingNext, isLoadingFiltered, isLoadingAll }) => {
   const navigate = useNavigate();
   const { user, isLoggedIn } = useAuth();
