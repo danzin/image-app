@@ -19,7 +19,7 @@ services:
 
   # Main MongoDB service
   mongo:
-    image: mongo:6
+    image: mongo:6 # Currently could only make it work with version 6 of MongoDB
     container_name: mongo
     restart: always
     ports:
