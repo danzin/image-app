@@ -29,7 +29,7 @@ services:
     volumes:
       - mongo_data:/data/db
       - mongo_keyfile:/opt/keyfile:ro
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro # Mount replica set init script to run on startup 
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
