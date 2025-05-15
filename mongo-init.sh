@@ -1,21 +1,22 @@
 #!/bin/bash
-set -e
+set -e # Script stops if any command fails
 
-# Wait for MongoDB to be ready
+# Wait for MongoDB to be ready before configuring replica set
 until mongosh --eval "db.adminCommand('ping')" --quiet -u root -p secret; do
   echo "Waiting for MongoDB to be ready..."
-  sleep 2
+  sleep 3 # Wait for 3 secs before retrying 
 done
 
 echo "MongoDB started, checking replica set status..."
 
 # hostname that should be used in the replica set config
-# use the container name as the hostname for other services to connect
+# using the container name as the hostname
 HOSTNAME="mongo"
 
 # Check if replica set is already initialized
 RS_STATUS=$(mongosh admin --eval "try { rs.status() } catch(err) { quit(1) }" --quiet -u root -p secret || echo "NOT_INITIALIZED")
 
+# Initialize replica set if it isn't alreadyu 
 if [[ $RS_STATUS == "NOT_INITIALIZED" ]]; then
   echo "Initializing replica set with hostname: $HOSTNAME"
   mongosh admin --eval "rs.initiate({_id: 'rs0', members: [{_id: 0, host: '$HOSTNAME:27017'}]})" --quiet -u root -p secret
