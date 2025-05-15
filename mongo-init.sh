@@ -9,8 +9,8 @@ done
 
 echo "MongoDB started, checking replica set status..."
 
-# Get the hostname that should be used in the replica set config
-# Use the container name as the hostname for other services to connect
+# hostname that should be used in the replica set config
+# use the container name as the hostname for other services to connect
 HOSTNAME="mongo"
 
 # Check if replica set is already initialized
