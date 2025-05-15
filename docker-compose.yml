@@ -1,31 +1,48 @@
-version: '3.8'
-# TODO: Fix replica set initialization
 services:
+  # First stage container to generate the keyfile
+  mongo-setup:
+    image: mongo:6
+    container_name: mongo-setup
+    command: >
+      bash -c "
+        echo 'Creating keyfile for MongoDB replica set...' &&
+        openssl rand -base64 756 > /tmp/mongodb-keyfile &&
+        chmod 400 /tmp/mongodb-keyfile &&
+        cp /tmp/mongodb-keyfile /data/mongodb-keyfile &&
+        chown 999:999 /data/mongodb-keyfile &&
+        echo 'Keyfile created successfully!'
+      "
+    volumes:
+      - mongo_keyfile:/data
+    networks:
+      - app-network
+
+  # Main MongoDB service
   mongo:
-  image: mongo:6
-  container_name: mongo
-  restart: always
-  ports:
-    - "27017:27017"
-  environment:
-    MONGO_INITDB_ROOT_USERNAME: root
-    MONGO_INITDB_ROOT_PASSWORD: secret
-  healthcheck:
-    test: mongosh --eval "db.adminCommand('ping')"
-    interval: 10s
-    timeout: 30s
-    retries: 5
-  volumes:
-    - mongo_data:/data/db
-    - ./keyfile:/keyfile
-    - ./setup_mongo.sh:/docker-entrypoint-initdb.d/setup_mongo.sh
-  networks:
-    - app-network
-  command: >
-    bash -c "
-    chmod 400 /keyfile && 
-    exec mongod --bind_ip_all --replSet rs0 --keyFile /keyfile --auth
-    "
+    image: mongo:6
+    container_name: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - app-network
+    volumes:
+      - mongo_data:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    command: >
+      mongod --bind_ip_all --replSet rs0 --keyFile /opt/keyfile/mongodb-keyfile --auth
+    depends_on:
+      - mongo-setup
+    healthcheck:
+      test: ["CMD", "bash", "-c", "mongosh admin --eval \"try { rs.status().ok } catch(err) { rs.initiate({_id:'rs0', members: [{_id:0, host:'mongo:27017'}]}).ok }\" --quiet -u root -p secret | grep -q 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   redis:
     image: redis:alpine
@@ -36,6 +53,7 @@ services:
       - redis_data:/data
     networks:
       - app-network
+
   api-gateway:
     build:
       context: ./backend/src/api-gateway
@@ -51,6 +69,7 @@ services:
       - backend
     networks:
       - app-network
+
   backend:
     build:
       context: ./backend
@@ -63,12 +82,15 @@ services:
       - NODE_ENV=production
       - MONGODB_URI=mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
     depends_on:
-      - redis
-      - mongo
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - app-network
     volumes:
       - ./backend/uploads:/usr/src/app/uploads
+
   frontend:
     build:
       context: ./frontend
@@ -79,9 +101,12 @@ services:
       - api-gateway
     networks:
       - app-network
+
 networks:
   app-network:
     driver: bridge
+
 volumes:
   redis_data:
   mongo_data:
+  mongo_keyfile:
