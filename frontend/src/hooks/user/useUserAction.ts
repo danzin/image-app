@@ -33,6 +33,9 @@ export const useLikeImage = () => {
   return useMutation({
     mutationFn: likeImage, // Calls API to like/unlike
     onSuccess: (updatedImage) => {
+      queryClient.invalidateQueries({
+        queryKey: ["image", updatedImage.id],
+      });
       queryClient.setQueryData(
         ["personalizedFeed"],
         (oldData: PaginatedResponse | undefined) => {
@@ -50,6 +53,7 @@ export const useLikeImage = () => {
         }
       );
     },
+
     onError: (error) => {
       console.error("Error liking image:", error);
     },

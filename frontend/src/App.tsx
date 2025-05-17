@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import SearchResults from './screens/SearchResults';
 import { SocketProvider } from './context/Socket/SocketProvider';
 import AuthProvider from './context/Auth/AuthProvider';
+import ImageView from './screens/ImageView';
 
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
                   <Route path="register" element={<Register />} />
                   <Route path="profile/:id" element={<Profile/>} />
                   <Route path="/results" element={<SearchResults />} />
+                  <Route path="images/:id" element={<ImageView />} />
                 </Route>
               </Routes>
             <ReactQueryDevtools initialIsOpen={false} />

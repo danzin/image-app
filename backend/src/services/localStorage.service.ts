@@ -20,8 +20,6 @@ export class LocalStorageService implements IImageStorageService {
     );
   }
 
-  //TODO: FIX Local Uploads
-
   async uploadImage(
     file: Buffer,
     username: string

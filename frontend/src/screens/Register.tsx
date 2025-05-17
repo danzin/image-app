@@ -13,7 +13,7 @@ const Register: React.FC = () => {
   useEffect(() => {
     if (isSuccess) {
       console.log("Login success detected in component, navigating...");
-      const timer = setTimeout(() => navigate('/'), 1000);
+      const timer = setTimeout(() => navigate('/login'), 1000);
       return () => clearTimeout(timer); 
     }
   }, [isSuccess, navigate]); 
