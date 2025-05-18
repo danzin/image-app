@@ -76,7 +76,9 @@ services:
       - MONGODB_URI=mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
       - VITE_API_URL=http://localhost:3000
       - FRONTEND_URL=http://localhost:5173 
-      - JWT_SECRET=JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y
+      # Including a sample JWT_SECRET here because it's required in order to run the container without an .env file
+      # Terrible practice to include secrets in the codebase, but for the sake of simplicity, it's included here
+      - JWT_SECRET=JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y32qweds
     depends_on:
       mongo:
         condition: service_started
