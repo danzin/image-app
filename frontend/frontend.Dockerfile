@@ -1,9 +1,9 @@
 # -- Build stage
-FROM node:23.11.0-alpine AS builder
+FROM node:23.11.1-alpine AS builder
 WORKDIR /app
 
 # Install deps
-COPY package*.json ./
+COPY package*.json tsconfig.json ./
 RUN npm ci
 
 # Copy & build

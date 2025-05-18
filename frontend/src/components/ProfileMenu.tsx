@@ -6,7 +6,7 @@ import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 import { toast } from "react-toastify";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = '/api';
 
 const modalStyle = {
   position: 'absolute',
@@ -46,7 +46,12 @@ const ProfileMenu = () => {
   if(!user) return (
     toast.error("Unable to gather user data.")
   );
-  const fullAvatarUrl = user?.avatar.startsWith('http') ? user?.avatar : `${BASE_URL}${user?.avatar}`;
+  const fullAvatarUrl = user?.avatar.startsWith('http')
+    ? user?.avatar
+    : user?.avatar.startsWith('/')
+    ? `${BASE_URL}${user?.avatar}` 
+    : `${BASE_URL}/${user?.avatar}`;
+  
 
   return (
     <>
