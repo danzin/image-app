@@ -3,6 +3,9 @@ services:
   mongo-setup:
     image: mongo:6
     container_name: mongo-setup
+    
+    # Generate the keyfile, give it proper permissions - chmod 400(only owner can read, no write, no execute, no access for groups and others),
+    # copy it to /data dir, set proper permissions  - chown 999:999 (the typical mongodb user ID in the official image), copy it to the /data dir 
     command: > # '>' YAML syntax to allow for multi line string
       bash -c "
         echo 'Creating keyfile for MongoDB replica set...' &&
@@ -13,36 +16,41 @@ services:
         echo 'Keyfile created successfully!'
       "
     volumes:
-      - mongo_keyfile:/data
+    # Sstore the keyfile in a persistent, named shared volume 
+      - mongo_keyfile:/data # Map the mongo keyfile volume to the /data dir inside the mongo-setup container
     networks:
       - app-network
 
   # Main MongoDB service
   mongo:
-    image: mongo:6
-    container_name: mongo
-    restart: always
+    image: mongo:6 # Currently could only make it work with version 6 of MongoDB
+    container_name: mongo # Other services will refer to the MongoDB container by this hostname 
+    restart: always # Restart the container if it stops for any reason
     ports:
       - "27017:27017"
     networks:
       - app-network
     volumes:
-      - mongo_data:/data/db
-      - mongo_keyfile:/opt/keyfile:ro
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
+      - mongo_data:/data/db # Map the named volume to the database files dir for persistence 
+      - mongo_keyfile:/opt/keyfile:ro # Map the volume where keyfile is stored to /opt/keyfile with reado only access
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro # Mount replica set init script to run on startup with read only access
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
     command: >
       mongod --bind_ip_all --replSet rs0 --keyFile /opt/keyfile/mongodb-keyfile --auth
     depends_on:
-      - mongo-setup
+      - mongo-setup # ensures the keyfile is ready before mongo attempts to use it.
     healthcheck:
+      # Connects to the admin database of the MongoDB instance using the root credentials.
+      # Tries to get the replica set status. If it throws an error it tries to initialize the replica set. 
+      # The hostname 'mongo' refers to the MongoDB container. 
+      # '| grep -q 1' checks if the output contains 1 which means the replica set is initialized and healthy. If it isn't, grep exists with non-0 status code(fail)
       test: ["CMD", "bash", "-c", "mongosh admin --eval \"try { rs.status().ok } catch(err) { rs.initiate({_id:'rs0', members: [{_id:0, host:'mongo:27017'}]}).ok }\" --quiet -u root -p secret | grep -q 1"]
       interval: 50s 
-      timeout: 10s
+      timeout: 10s # Sometimes healthcheck takes more than 5 seconds
       retries: 15 
-      start_period: 60s
+      start_period: 60s # Give the container a minute to strart before running healthchecks
 
   redis:
     image: redis:alpine
@@ -54,12 +62,15 @@ services:
     networks:
       - app-network
 
+
   backend:
     build:
       context: ./backend
       dockerfile: backend.Dockerfile
     ports:
       - 3000:3000
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - MONGODB_URI=mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
@@ -89,8 +100,7 @@ services:
       - backend
     networks:
       - app-network
-
-
+  
   frontend:
     build:
       context: ./frontend
@@ -104,9 +114,9 @@ services:
 
 networks:
   app-network:
-    driver: bridge
+    driver: bridge # Bult-in bridge driver allows containers to communicate by their service names 
 
 volumes:
-  redis_data:
-  mongo_data:
-  mongo_keyfile:
+  redis_data: # Persist redis data 
+  mongo_data: # Persist mongo data
+  mongo_keyfile: # Store keyfile for replica set 
