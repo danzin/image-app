@@ -28,6 +28,9 @@ Tech stack:
       - *Backend service* - The whole backend of the app(decoupling into microservices is in progress)
       - *Api-Gateway service* - An extra layer providing CORS enforcement, rate limiting(very lax as of now), reverse proxy and global request logging.
       - *Frontend service* - The react frontend of the app. It utilizes Nginx together with the Api-Gateway.
+    - Routing Architecture:
+![image](https://github.com/user-attachments/assets/be1da114-3c9e-4eb1-b5d6-433338267a9b)
+
         
 - **CQRS**: **Currently working on gradually switching from the classic modular architecture to CQRS.**
   - Command, Query and Event buses are implemented and fully functional.
