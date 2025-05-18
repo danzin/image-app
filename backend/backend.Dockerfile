@@ -1,37 +1,25 @@
 # -- Build stage
-FROM node:23.11.0-alpine AS builder
-
+FROM node:23.11.1-alpine AS builder
 WORKDIR /src
 
-# Copy package and tsconfig
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY package*.json tsconfig.json ./
+RUN npm ci --no-audit 
 
-# Install dependencies including dev dependencies for build
-RUN npm ci
-
-# Copy source files
 COPY . .
+WORKDIR /src/src/api-gateway
 
-# Build TypeScript files
+RUN if [ -f package.json ]; then npm ci; fi
+
+WORKDIR /src
 RUN npm run build
 
 # -- Production stage
-FROM node:23.11.0-alpine
-
+FROM node:23.11.1-alpine
 WORKDIR /src
-
-# Copy only production dependencies definition
+# Install only prod deps (faster, smaller)
 COPY package*.json ./
-
-# Install PRODUCTION dependencies first
 RUN npm ci --omit=dev --ignore-scripts
-
-# Copy built files from builder
+# Copy compiled output
 COPY --from=builder /src/dist ./dist
-
-# Use port 3000
 EXPOSE 3000
-
-# Start the backend
 CMD ["node", "dist/main.js"]

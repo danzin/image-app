@@ -293,10 +293,10 @@ export class UserService {
         oldAvatarUrl = user.avatar;
         const newAvatar = await this.imageStorageService.uploadImage(
           file,
-          user.username
+          user.id
         );
         newAvatarUrl = newAvatar.url;
-        username = user.username;
+        userId = user.id;
         await this.userRepository.updateAvatar(userId, newAvatar.url, session);
       });
 
@@ -313,7 +313,7 @@ export class UserService {
       }
     } catch (error) {
       // Clean up the only if the transaction or upload failed
-      if (newAvatarUrl && !username) {
+      if (newAvatarUrl && !userId) {
         // username is set only if transaction succeeds
         try {
           await this.imageStorageService.deleteAssetByUrl(userId, newAvatarUrl);
@@ -341,7 +341,7 @@ export class UserService {
         const oldCoverUrl = user.cover;
         const cloudImage = await this.imageStorageService.uploadImage(
           file,
-          user.username
+          user.id
         );
 
         await this.userRepository.updateCover(userId, cloudImage.url, session);

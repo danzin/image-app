@@ -1,25 +1,19 @@
-FROM node:23.11.0-alpine AS builder
-
+# -- Build stage
+FROM node:23.11.1-alpine AS builder
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
+# Install deps
+COPY package*.json tsconfig.json ./
 RUN npm ci
 
-# Copy frontend source files
+# Copy & build
 COPY . .
-
-# Build the frontend
 RUN npm run build
 
-# Use Nginx
+# -- Serve stage
 FROM nginx:alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
-# Start frontend with nginx
 CMD ["nginx", "-g", "daemon off;"]

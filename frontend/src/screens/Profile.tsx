@@ -33,7 +33,7 @@ import ImageEditor from '../components/ImageEditor';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChangePassword } from '../components/ChangePassword';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = '/api'
 
 const Profile:React.FC  = () => {
   const navigate = useNavigate();
@@ -172,10 +172,17 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
       </Container>
     );
   }
+
   const getFullUrl = (urlPath: string | undefined): string | undefined => {
     if (!urlPath) return undefined;
-    return urlPath.startsWith('http') ? urlPath : urlPath.startsWith('/') ? `${BASE_URL}${urlPath}` : `${BASE_URL}/${urlPath}`;
+    const imageUrl =  urlPath.startsWith('http')
+    ? urlPath
+    : urlPath.startsWith('/')
+    ? `${BASE_URL}${urlPath}` 
+    : `${BASE_URL}/${urlPath}`;
+    return imageUrl
   };
+  
   const fullAvatarUrl = getFullUrl(profileData?.avatar);
   const fullCoverUrl = getFullUrl(profileData?.cover);
 

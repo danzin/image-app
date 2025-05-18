@@ -138,6 +138,7 @@ export class UserController {
   updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { decodedUser } = req;
+      console.log("decodedUser in updateAvatar", decodedUser);
       const file = req.file?.buffer;
       if (!file) throw createError("ValidationError", "No file provided");
       await this.userService.updateAvatar(decodedUser.id, file);
@@ -150,6 +151,8 @@ export class UserController {
   updateCover = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { decodedUser } = req;
+      console.log("decodedUser in updateAvatar", decodedUser);
+
       const file = req.file?.buffer;
       if (!file) throw createError("ValidationError", "No file provided");
       await this.userService.updateCover(decodedUser.id, file);
