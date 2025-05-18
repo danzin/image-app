@@ -20,15 +20,14 @@ export class LocalStorageService implements IImageStorageService {
     );
   }
 
-  //TODO: FIX Local Uploads
-
   async uploadImage(
     file: Buffer,
-    username: string
+    userId: string
   ): Promise<{ url: string; publicId: string }> {
     try {
       const filename = `${uuidv4()}.png`;
-      const userDir = path.join(this.uploadsDir, username);
+      console.log("UserID in local storage service:", userId);
+      const userDir = path.join(this.uploadsDir, userId);
       const filepath = path.join(userDir, filename);
 
       if (!fs.existsSync(userDir)) {
@@ -36,7 +35,7 @@ export class LocalStorageService implements IImageStorageService {
       }
 
       await fs.promises.writeFile(filepath, file);
-      const url = `/uploads/${username}/${filename}`;
+      const url = `/uploads/${userId}/${filename}`;
 
       return { url, publicId: filename };
     } catch (error) {

@@ -12,7 +12,7 @@ const SearchResults = () => {
   const query = new URLSearchParams(location.search).get('q') || '';
   const queryClient = useQueryClient();
   const searchTerms = query.split(',').map((term) => term.trim()).filter((term) => term.length > 0);
-  const [activeTab, setActiveTab] = useState<'users' | 'images' | 'tags'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'images' | 'tags'>('images');
   const [_results, setResults] = useState<{
     users: IUser[] | null;
     images: IImage[] | null;
@@ -56,7 +56,7 @@ const SearchResults = () => {
     <Box sx={{ maxWidth: '800px', margin: 'auto', p: 3 }}>
       {/* Tabs */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        {(['users', 'images', 'tags'] as const).map((tab) => (
+        {(['images', 'users' , 'tags'] as const).map((tab) => (
           <Button
             key={tab}
             variant={activeTab === tab ? 'contained' : 'outlined'}
@@ -70,18 +70,6 @@ const SearchResults = () => {
           ? (<CircularProgress/>)
           : (
             <>
-            {/* Users tab */}
-              {activeTab === 'users' &&
-                (data?.data.users === null ? (
-                  <p>No users found {query}.</p>
-                ) : (
-                  data?.data.users?.map((user) => (
-                    <Box key={user.id} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
-                      <Link to={`/profile/${user.id}`} className='text-cyan-200'>{user.username}</Link>
-                    </Box>
-                  ))
-                ))
-              }
 
             {/* Images Tab */}
               {activeTab === 'images' &&
@@ -91,6 +79,18 @@ const SearchResults = () => {
                   <Gallery images={data?.data.images || []} fetchNextPage={fetchNextPage} isFetchingNext={isFetchingNextPage} hasNextPage={hasNextPage} />
                 ))
               }
+              {/* Users tab */}
+                {activeTab === 'users' &&
+                  (data?.data.users === null ? (
+                    <p>No users found {query}.</p>
+                  ) : (
+                    data?.data.users?.map((user) => (
+                      <Box key={user.id} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
+                        <Link to={`/profile/${user.id}`} className='text-cyan-200'>{user.username}</Link>
+                      </Box>
+                    ))
+                  ))
+                }
 
               {/* Tags Tab */}
                 {activeTab === 'tags' &&

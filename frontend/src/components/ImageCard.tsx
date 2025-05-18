@@ -8,21 +8,27 @@ import {
     Chip
 } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import { useNavigate } from 'react-router-dom';
 
 interface ImageCardProps {
   image: IImage;
-  onClick: (image: IImage) => void;
 }
+
+
 
 const BASE_URL = '/api'; 
 
-const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
+const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')
     ? `${BASE_URL}${image.url}` 
     : `${BASE_URL}/${image.url}`;
+ const navigate = useNavigate();
 
+    const handleClick = () => {
+      navigate(`/images/${image.id}`);
+  };
   return (
     <Card
       sx={{
@@ -36,7 +42,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image, onClick }) => {
         },
         bgcolor: 'background.paper',
       }}
-      onClick={() => onClick(image)}
+      onClick={handleClick}
     >
       <CardMedia
         component="img"

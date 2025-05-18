@@ -28,7 +28,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
       if (error.code === 403) {
         setUser(null);
       } else {
-        setError('An unexpected error occurred. Please try again later.');
+        // setError('An unexpected error occurred. Please try again later.');
         setUser(null);
       }
     } finally {
