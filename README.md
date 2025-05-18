@@ -4,7 +4,7 @@ A full-stack React/Node image sharing application built with TypeScript, designe
 
 Tech stack:
 
-![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white) ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101) ![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white) ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)  ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)
+![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white) ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101) ![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white) ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)  ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
 ## Table of Contents
 - [Overview](#overview)
@@ -20,6 +20,15 @@ Tech stack:
 
 ## Features
 
+- **Dockerization**
+   - The docker setup includes multiple services and a few extra caveats in order to run hassle-free
+      - *Mongo-setup service* - A helper service handling the keyfile for the single-node replica set auth
+      - *MongoDB service* - Mongo database running as a single-node replica set with persistent storage volume
+      - *Redis service* - Caching solution with persistent storage volume 
+      - *Backend service* - The whole backend of the app(decoupling into microservices is in progress)
+      - *Api-Gateway service* - An extra layer providing CORS enforcement, rate limiting(very lax as of now), reverse proxy and global request logging.
+      - *Frontend service* - The react frontend of the app. It utilizes Nginx together with the Api-Gateway.
+        
 - **CQRS**: **Currently working on gradually switching from the classic modular architecture to CQRS.**
   - Command, Query and Event buses are implemented and fully functional.
   - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
@@ -130,8 +139,6 @@ The project is built on solid architectural principles:
     Refining the universal search to support advanced queries and more refined result filtering.
  - **Additional API Endpoints:** 
     Further expansion of administrative, notification, and real-time features.
- - **Dockerization** - Done ✅
-   - The app uses local storage when Cloudinary credentials are not set in the .env file. 
  - **Polishing the frontend**:
     So far the backend has been my primary focus and frontend has been falling behind.
  - **Full monitoring suite**
@@ -170,9 +177,8 @@ The project is built on solid architectural principles:
     ```
 
 ### Running the app in Docker 
-1. Requires .env file in the root directory
-2. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
-3. 
+1. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
+2. 
     ```
    git clone https://github.com/danzin/image-app.git
    cd image-app
