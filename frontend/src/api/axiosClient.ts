@@ -1,50 +1,23 @@
-import axios from 'axios';
-const baseURL = '/api';
+import axios from "axios";
+
 const axiosClient = axios.create({
-  baseURL, 
-  withCredentials: true,
+	baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000",
+	withCredentials: true,
+	headers: {
+		"Content-Type": "application/json",
+	},
 });
 
-
-// Interceptors for better logging of requests/responses
+// Add request interceptor for auth token
 axiosClient.interceptors.request.use(
-  (config) => {
-    console.log('Request:', {
-      method: config.method,
-      url: config.url,
-      data: config.data,
-      params: config.params,
-      headers: config.headers,
-    });
-    return config;
-  },
-  (error) => {
-    console.error('Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-axiosClient.interceptors.response.use(
-  (response) => {
-    console.log('Response:', {
-      status: response.status,
-      data: response.data,
-      headers: response.headers,
-    });
-    return response;
-  },
-  (error) => {
-    if (error.response) {
-      console.error('Response Error:', {
-        status: error.response.status,
-        data: error.response.data,
-        headers: error.response.headers,
-      });
-      return Promise.reject(error.response.data);
-    }
-    console.error('Response Error without response:', error);
-    return Promise.reject(error);
-  }
+	(config) => {
+		const token = localStorage.getItem("token");
+		if (token) {
+			config.headers.Authorization = `Bearer ${token}`;
+		}
+		return config;
+	},
+	(error) => Promise.reject(error)
 );
 
 export default axiosClient;
