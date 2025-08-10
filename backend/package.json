@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "mocha -r ts-node/register \"src/__tests__/**/*.test.ts\"",
+    "test": "mocha -r ts-node/register -r src/__tests__/setup.ts \"src/__tests__/**/*.test.ts\"",
     "start:dev": "nodemon ./src/main.ts",
     "start": "node ./dist/main.js",
     "build": "tsc"

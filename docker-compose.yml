@@ -1,57 +1,47 @@
 services:
-  # First stage container to generate the keyfile
   mongo-setup:
     image: mongo:6
     container_name: mongo-setup
-    
-    # Generate the keyfile, give it proper permissions - chmod 400(only owner can read, no write, no execute, no access for groups and others),
-    # copy it to /data dir, set proper permissions  - chown 999:999 (the typical mongodb user ID in the official image), copy it to the /data dir 
-    command: > # '>' YAML syntax to allow for multi line string
+    command: >
       bash -c "
         echo 'Creating keyfile for MongoDB replica set...' &&
-        openssl rand -base64 756 > /tmp/mongodb-keyfile && 
+        openssl rand -base64 756 > /tmp/mongodb-keyfile &&
         chmod 400 /tmp/mongodb-keyfile &&
         cp /tmp/mongodb-keyfile /data/mongodb-keyfile &&
         chown 999:999 /data/mongodb-keyfile &&
         echo 'Keyfile created successfully!'
       "
     volumes:
-    # Sstore the keyfile in a persistent, named shared volume 
-      - mongo_keyfile:/data # Map the mongo keyfile volume to the /data dir inside the mongo-setup container
+      - mongo_keyfile:/data
     networks:
       - app-network
 
-  # Main MongoDB service
   mongo:
-    image: mongo:6 # Currently could only make it work with version 6 of MongoDB
-    container_name: mongo # Other services will refer to the MongoDB container by this hostname 
-    restart: always # Restart the container if it stops for any reason
+    image: mongo:6
+    container_name: mongo
+    restart: always
     ports:
       - "27017:27017"
     networks:
       - app-network
     volumes:
-      - mongo_data:/data/db # Map the named volume to the database files dir for persistence 
-      - mongo_keyfile:/opt/keyfile:ro # Map the volume where keyfile is stored to /opt/keyfile with reado only access
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro # Mount replica set init script to run on startup with read only access
+      - mongo_data:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
     command: >
       mongod --bind_ip_all --replSet rs0 --keyFile /opt/keyfile/mongodb-keyfile --auth
+    # FIX #1: Corrected YAML syntax
     depends_on:
-      mongo-setup:
-        condition: service_completed_successfully
+      - mongo-setup
     healthcheck:
-      # Connects to the admin database of the MongoDB instance using the root credentials.
-      # Tries to get the replica set status. If it throws an error it tries to initialize the replica set. 
-      # The hostname 'mongo' refers to the MongoDB container. 
-      # '| grep -q 1' checks if the output contains 1 which means the replica set is initialized and healthy. If it isn't, grep exists with non-0 status code(fail)
-      test: ["CMD", "bash", "-c", "mongosh admin --eval \"try { rs.status().ok } catch(err) { rs.initiate({_id:'rs0', members: [{_id:0, host:'mongo:27017'}]}).ok }\" --quiet -u root -p secret | grep -q 1"]
-      interval: 30s 
-      timeout: 15s # Sometimes healthcheck takes more than 5 seconds
-      retries: 10 
-      start_period: 90s # Give the container more time to start before running healthchecks
+      test: ["CMD", "mongosh", "--eval", "try { rs.status().ok } catch(err) { rs.initiate({_id:'rs0', members: [{_id:0, host:'mongo:27017'}]}).ok }", "-u", "root", "-p", "secret", "--authenticationDatabase", "admin", "--quiet"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   redis:
     image: redis:alpine
@@ -62,48 +52,63 @@ services:
       - redis_data:/data
     networks:
       - app-network
-
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: backend.Dockerfile
     ports:
-      - 3000:3000
-    env_file:
-      - .env
+      - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
-      - VITE_API_URL=http://localhost:3000
-      - FRONTEND_URL=http://localhost:5173 
-      # Including a sample JWT_SECRET here because it's required in order to run the container without an .env file
-      # Terrible practice to include secrets in the codebase, but for the sake of simplicity, it's included here
-      - JWT_SECRET=JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y32qweds
+      NODE_ENV: production
+      MONGODB_URI: mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
+      VITE_API_URL: http://localhost:3000
+      FRONTEND_URL: http://localhost:5173
+      JWT_SECRET: JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y
     depends_on:
       mongo:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app-network
     volumes:
       - ./backend/uploads:/usr/src/app/uploads
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   api-gateway:
     build:
       context: ./backend/src/api-gateway
       dockerfile: gateway.Dockerfile
     container_name: api-gateway
+    ports:
+      - "8000:8000"
     environment:
-      - NODE_ENV=production
-      - PORT=8000
-      - BACKEND_MONOLITH_URL=http://backend:3000/
+      NODE_ENV: production
+      PORT: 8000
+      BACKEND_MONOLITH_URL: http://backend:3000/
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - app-network
-  
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   frontend:
     build:
       context: ./frontend
@@ -111,15 +116,16 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
     networks:
       - app-network
 
 networks:
   app-network:
-    driver: bridge # Bult-in bridge driver allows containers to communicate by their service names 
+    driver: bridge
 
 volumes:
-  redis_data: # Persist redis data 
-  mongo_data: # Persist mongo data
-  mongo_keyfile: # Store keyfile for replica set 
+  redis_data:
+  mongo_data:
+  mongo_keyfile:
