@@ -47,8 +47,12 @@ export const EditProfile: React.FC<EditProfileProps> = ({
           notifySuccess('Profile updated successfully!');
           onComplete(); 
         },
-        onError: (error: any) => {
-          notifyError(`Update failed: ${error?.message || 'Unknown error'}`);
+        onError: (error: unknown) => {
+          let errorMessage = 'Unknown error';
+          if (error && typeof error === 'object' && 'message' in error) {
+            errorMessage = (error as { message?: string }).message || errorMessage;
+          }
+          notifyError(`Update failed: ${errorMessage}`);
         }
       });
     };

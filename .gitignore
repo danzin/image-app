@@ -11,3 +11,4 @@ backend/errors.log
 backend/uploads
 frontend/.env
 /uploads
+dist

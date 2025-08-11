@@ -21,7 +21,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   const checkAuthState = useCallback(async () => {
     try {
       setError(null);
-      const { data } = await axiosClient.get<IUser>('/users/me');
+      const { data } = await axiosClient.get<IUser>('/api/users/me');
       setUser(data);
     } catch (error: any) {
       console.log(error);
@@ -54,8 +54,8 @@ export default function AuthProvider({ children }: AuthProviderProps) {
   const logout = useCallback(async () => {
     try {
       setError(null);
-      await axiosClient.post('/users/logout');
-    } catch (error) {
+      await axiosClient.post('/api/users/logout');
+  } catch (error: any) {
       setError('Logout failed. Please try again.');
     } finally {
       setUser(null);

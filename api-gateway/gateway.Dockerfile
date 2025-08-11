@@ -10,19 +10,18 @@ COPY backend/package*.json ./backend/
 COPY api-gateway/package*.json ./api-gateway/
 COPY frontend/package*.json ./frontend/
 
-# Install all dependencies (including workspaces)
+# Install all dependencies
 RUN npm ci --no-audit
 
 # Copy workspace tsconfig files
 COPY backend/tsconfig.json ./backend/
 COPY api-gateway/tsconfig.json ./api-gateway/
 
-# Copy source code for all workspaces (needed for workspace deps)
-COPY backend/src ./backend/src
+# Copy source code
 COPY api-gateway/src ./api-gateway/src
 
-# Build backend specifically
-RUN npm run build --workspace=backend
+# Build api-gateway specifically  
+RUN npm run build --workspace=api-gateway
 
 # -- Production stage
 FROM node:23.11.1-alpine
@@ -30,16 +29,17 @@ WORKDIR /app
 
 # Copy root package files
 COPY package*.json ./
-COPY backend/package*.json ./backend/
+COPY api-gateway/package*.json ./api-gateway/
 
 # Install only production dependencies
 RUN npm ci --omit=dev --ignore-scripts
 
-# Copy compiled backend output
-COPY --from=builder /app/backend/dist ./backend/dist
+# Copy compiled api-gateway output
+COPY --from=builder /app/api-gateway/dist ./api-gateway/dist
 
-# Set working directory to backend for runtime
-WORKDIR /app/backend
+# Set working directory to api-gateway for runtime
+WORKDIR /app/api-gateway
 
-EXPOSE 3000
-CMD ["node", "dist/main.js"]
+ENV PORT=8000
+EXPOSE 8000
+CMD ["node", "dist/server.js"]

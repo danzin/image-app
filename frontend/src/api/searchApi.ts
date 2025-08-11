@@ -11,7 +11,7 @@ export const searchQuery = async (
 		tags: ITag[] | null;
 	};
 }> => {
-	const { data } = await axiosClient.get(`/search?q=${query}`);
+	const { data } = await axiosClient.get(`/api/search?q=${query}`);
 	console.log(`Search Data: ${data.toString()}`);
 	return data;
 };
