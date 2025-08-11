@@ -23,7 +23,10 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 			// if(session) doc.$session(session);
 			return await doc.save({ session });
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
+			}
+			throw createError("UnknownError", String(error));
 		}
 	}
 
@@ -56,7 +59,10 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 				totalPages: Math.ceil(total / limit),
 			};
 		} catch (error) {
-			throw createError("DatabaseError", error.message);
+			if (error instanceof Error) {
+				throw createError("DatabaseError", error.message);
+			}
+			throw createError("DatabaseError", String(error));
 		}
 	}
 }

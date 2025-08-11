@@ -5,26 +5,25 @@ import { inject, injectable } from "tsyringe";
 
 @injectable()
 export class SearchController {
+	constructor(@inject("SearchService") private readonly searchService: SearchService) {}
 
-  constructor(
-    @inject('SearchService') private readonly searchService: SearchService
-  ) {}
+	searchAll = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { q } = req.query;
 
-  searchAll = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { q } = req.query; 
+			if (!q) {
+				throw createError("ValidationError", 'Query parameter "q" is required');
+			}
 
-      if (!q) {
-        throw createError('ValidationError', 'Query parameter "q" is required');
-      }
+			const searchTerms = (q as string).split(",").map((term) => term.trim());
 
-      const searchTerms = (q as string).split(',').map((term) => term.trim());
-     
-      const result = await this.searchService.searchAll(searchTerms);
+			const result = await this.searchService.searchAll(searchTerms);
 
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(createError(error.name, error.message));
-    }
-  }
+			res.status(200).json({ success: true, data: result });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			const name = error instanceof Error ? error.name : "Error";
+			next(createError(name, message));
+		}
+	};
 }

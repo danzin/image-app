@@ -73,7 +73,14 @@ export class UserService {
 
 			return { user: userDTO, token };
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -97,7 +104,14 @@ export class UserService {
 
 			return { user: userDTO, token };
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -116,7 +130,14 @@ export class UserService {
 			const token = this.generateToken(freshUser);
 			return { user: this.dtoService.toPublicDTO(freshUser), token };
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -134,7 +155,7 @@ export class UserService {
 		requestingUser: IUser
 	): Promise<PublicUserDTO | AdminUserDTO> {
 		try {
-			let updatedUser: IUser = null;
+			let updatedUser: IUser | null = null;
 			const allowedUpdates: Partial<IUser> = {};
 			if (userData.username !== undefined) {
 				allowedUpdates.username = userData.username.trim();
@@ -164,7 +185,14 @@ export class UserService {
 				? this.dtoService.toAdminDTO(updatedUser)
 				: this.dtoService.toPublicDTO(updatedUser);
 		} catch (error) {
-			console.error(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				console.error(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				console.error("Unknown error", error);
+			}
 			throw error instanceof Error ? error : createError("InternalServerError", "Failed to update profile.");
 		}
 	}
@@ -216,7 +244,11 @@ export class UserService {
 
 			console.log(`Password changed successfully for user ${userId}`);
 		} catch (error) {
-			console.error("[changePassword] Error:", error.name, error.message);
+			if (error instanceof Error) {
+				console.error("[changePassword] Error:", error.name, error.message);
+			} else {
+				console.error("[changePassword] Error:", error);
+			}
 
 			throw error instanceof Error ? error : createError("InternalServerError", "Failed to change password.");
 		}
@@ -261,7 +293,14 @@ export class UserService {
 					console.error("Failed to clean up new avatar:", deleteError);
 				}
 			}
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -288,7 +327,14 @@ export class UserService {
 				}
 			});
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -316,7 +362,14 @@ export class UserService {
 				await this.userRepository.delete(id, session);
 			});
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -341,7 +394,14 @@ export class UserService {
 			}
 			return this.dtoService.toPublicDTO(user);
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			} else {
+				throw createError("InternalServerError", "An unknown error occurred.");
+			}
 		}
 	}
 
@@ -372,7 +432,7 @@ export class UserService {
 	 * @throws PathError if the image is not found.
 	 * @throws TransactionError if the database transaction fails.
 	 */
-	async likeAction(userId: string, imageId: string): Promise<IImage> {
+	async likeAction(userId: string, imageId: string): Promise<IImage | null> {
 		let isLikeAction = true; // Track if this is a like or unlike
 		let imageTags: string[] = []; // Stroe image tags for the feed service
 
@@ -423,14 +483,18 @@ export class UserService {
 			//Return the updated image
 			return this.imageRepository.findById(imageId);
 		} catch (error) {
-			if (error.name === "PathError") {
-				throw createError("PathError", error.message);
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				if (error.name === "PathError") {
+					throw createError("PathError", String(error.message));
+				}
+				throw createError("TransactionError", String(error.message), {
+					function: "likeAction",
+					additionalInfo: "Transaction failed",
+					originalError: error,
+				});
 			}
-			throw createError("TransactionError", error.message, {
-				function: "likeAction",
-				additionalInfo: "Transaction failed",
-				originalError: error,
-			});
+			// If error is not handled above, return null to satisfy return type
+			return null;
 		}
 	}
 
@@ -470,7 +534,8 @@ export class UserService {
 				}
 			});
 		} catch (error) {
-			throw createError("TransactionError", error.message, {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("TransactionError", errorMessage, {
 				function: "likeAction",
 				additionalInfo: "Transaction failed",
 				originalError: error,
@@ -547,6 +612,10 @@ export class UserService {
 			bannedBy: adminId,
 		});
 
+		if (!updatedUser) {
+			throw createError("InternalServerError", "Failed to update user during ban.");
+		}
+
 		return this.dtoService.toAdminDTO(updatedUser);
 	}
 
@@ -565,6 +634,10 @@ export class UserService {
 			bannedReason: null,
 			bannedBy: null,
 		});
+
+		if (!updatedUser) {
+			throw createError("InternalServerError", "Failed to update user during unban.");
+		}
 
 		return this.dtoService.toAdminDTO(updatedUser);
 	}
@@ -629,7 +702,9 @@ export class UserService {
 		const updatedUser = await this.userRepository.update(userId, {
 			isAdmin: true,
 		});
-
+		if (!updatedUser) {
+			throw createError("InternalServerError", "Failed to update user during promotion.");
+		}
 		return this.dtoService.toAdminDTO(updatedUser);
 	}
 
@@ -649,7 +724,9 @@ export class UserService {
 		const updatedUser = await this.userRepository.update(userId, {
 			isAdmin: false,
 		});
-
+		if (!updatedUser) {
+			throw createError("InternalServerError", "Failed to update user during demotion.");
+		}
 		return this.dtoService.toAdminDTO(updatedUser);
 	}
 }

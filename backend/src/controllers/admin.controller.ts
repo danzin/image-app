@@ -64,6 +64,10 @@ export class AdminUserController {
 				throw createError("ValidationError", "Ban reason is required");
 			}
 
+			if (!decodedUser || !decodedUser.id) {
+				throw createError("ValidationError", "User ID is required");
+			}
+
 			const result = await this.userService.banUser(id, decodedUser.id, reason);
 			res.status(200).json(result);
 		} catch (error) {
