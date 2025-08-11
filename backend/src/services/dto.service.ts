@@ -6,7 +6,7 @@ injectable();
 export class UserDTOService {
 	toPublicDTO(user: IUser): PublicUserDTO {
 		return {
-			id: user._id.toString(),
+			id: String(user._id),
 			username: user.username,
 			avatar: user.avatar,
 			cover: user.cover,

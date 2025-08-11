@@ -89,15 +89,23 @@ export class ImageService {
 					await this.imageStorageService.deleteImage(cloudImagePublicId);
 				} catch (error) {
 					console.error("Failed to cleanup Cloudinary image:", error);
-					throw createError("StorageError", error.message, {
+					const errorMessage = error instanceof Error ? error.message : String(error);
+					throw createError("StorageError", errorMessage, {
 						function: "uploadImage",
 					});
 				}
 			}
-			throw createError(error.name, error.message, {
-				function: "uploadImage",
-				additionalInfo: "Transaction failed after Cloudinary upload",
-			});
+			if (error instanceof Error) {
+				throw createError(error.name, error.message, {
+					function: "uploadImage",
+					additionalInfo: "Transaction failed after Cloudinary upload",
+				});
+			} else {
+				throw createError("UnknownError", String(error), {
+					function: "uploadImage",
+					additionalInfo: "Transaction failed after Cloudinary upload",
+				});
+			}
 		}
 	}
 
@@ -131,10 +139,17 @@ export class ImageService {
 			return result;
 		} catch (error) {
 			console.error(error);
-			throw createError(error.name, error.message, {
-				function: "deleteImage",
-				file: "image.service.ts",
-			});
+			if (error instanceof Error) {
+				throw createError(error.name, error.message, {
+					function: "deleteImage",
+					file: "image.service.ts",
+				});
+			} else {
+				throw createError("UnknownError", String(error), {
+					function: "deleteImage",
+					file: "image.service.ts",
+				});
+			}
 		}
 	}
 
@@ -142,7 +157,24 @@ export class ImageService {
 		try {
 			return await this.imageRepository.findWithPagination({ page, limit });
 		} catch (error) {
-			throw createError("InternalServerError", error.message);
+			if (error instanceof Error) {
+				if (error instanceof Error) {
+					throw createError(error.name, error.message, {
+						function: "getImages",
+						file: "image.service.ts",
+					});
+				} else {
+					throw createError("UnknownError", String(error), {
+						function: "getImages",
+						file: "image.service.ts",
+					});
+				}
+			} else {
+				throw createError("UnknownError", String(error), {
+					function: "getImages",
+					file: "image.service.ts",
+				});
+			}
 		}
 	}
 
@@ -150,7 +182,17 @@ export class ImageService {
 		try {
 			return await this.imageRepository.findByUserId(userId, { page, limit });
 		} catch (error) {
-			throw createError("InternalServerError", error.message);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message, {
+					function: "getUserImages",
+					file: "image.service.ts",
+				});
+			} else {
+				throw createError("UnknownError", String(error), {
+					function: "getUserImages",
+					file: "image.service.ts",
+				});
+			}
 		}
 	}
 
@@ -171,7 +213,11 @@ export class ImageService {
 				limit,
 			});
 		} catch (error) {
-			throw createError(error.name, error.message);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
+			} else {
+				throw createError("UnknownError", String(error));
+			}
 		}
 	}
 
@@ -183,15 +229,17 @@ export class ImageService {
 			}
 			return image;
 		} catch (error) {
-			throw createError("InternalServerError", error.message);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
 		}
 	}
 
 	async getTags(): Promise<ITag[]> {
 		try {
-			return await this.tagRepository.getAll();
+			return (await this.tagRepository.getAll()) ?? [];
 		} catch (error) {
-			throw createError("InternalServerError", error.message);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
 		}
 	}
 
@@ -214,7 +262,8 @@ export class ImageService {
 
 			return await this.imageRepository.findWithPagination(paginationOptions);
 		} catch (error) {
-			throw createError("InternalServerError", error.message);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
 		}
 	}
 }

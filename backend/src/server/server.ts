@@ -48,7 +48,7 @@ export class Server {
 			console.log(`[Backend] ${req.method} ${req.originalUrl}`);
 			next();
 		});
-		this.app.use(cookieParser()); // Parsing cookies
+		this.app.use(cookieParser() as any); // Parsing cookies
 		this.app.use(express.json()); // Parsing JSON request bodies
 		this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads
 
