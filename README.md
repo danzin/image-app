@@ -191,45 +191,16 @@ The project is built on solid architectural principles:
   
 ### Dev Setup
 1. **Clone the repository and install dependencies in the root directory:**
-   ```
+```
    git clone https://github.com/danzin/image-app.git
    cd image-app
-   npm install
-   ```
-2. Create `.env` file with the required credentials
+```
+2. **`npm install` installs all the dependencies for all workspaces from the monorepo**
+   - It requires an active redis server running on the default `6379` port, as well as a configured local mongodb instance
 
-#### Backend   
-3. **Navigate to the backend directory and install dependencies:**
-    ```
-    cd backend
-    npm install
-      ```
-4. **Have a Redis instance running:**
-    - Start a Redis instance in Docker `docker run --name redis-dev -p 6379:6379 -d redis:alpine` 
-    - To stop the running container `docker stop redis-dev` and delete it with `docker rm redis-dev`
-
-#### Frontend 
-5. **Navigate to the frontend directory and install dependencies:**
-  ```
-  cd frontend
-  npm install
-  ```
-  - Create .env file in frontend directory containing `VITE_API_URL='http://localhost:3000'`
-
-#### Api Gateway
-
- 6. **Navigate to the API Gateway directory and install dependencies:**
-    ```
-    cd backend/src/api-gateway
-    npm install
-    ```
-  7. **Create .env file in the root of `api-gateway` directory**
-     ```
-     PORT=8000
-     BACKEND_MONOLITH_URL=http://localhost:3000
-     ```
     
-##### To run the app navigate to the root directory in `image-app` and run `npm run dev`.
+#####
+To run the app navigate to the root directory in `image-app` and run `npm run dev`.
   `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" \"npm run start-gateway\" "`.
    
  
