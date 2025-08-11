@@ -11,6 +11,7 @@ import {
     IconButton
 } from '@mui/material';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import CommentIcon from '@mui/icons-material/Comment';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { useNavigate } from 'react-router-dom';
 
@@ -124,6 +125,17 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
               border: '1px solid rgba(236, 72, 153, 0.3)',
               color: '#ec4899',
               '& .MuiChip-icon': { color: '#ec4899' }
+            }}
+          />
+          <Chip
+            icon={<CommentIcon fontSize="small" />}
+            label={image.commentsCount || 0}
+            size="small"
+            sx={{
+              background: 'linear-gradient(45deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2))',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              color: '#3b82f6',
+              '& .MuiChip-icon': { color: '#3b82f6' }
             }}
           />
           <IconButton 

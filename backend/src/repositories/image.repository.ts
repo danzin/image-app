@@ -329,4 +329,16 @@ export class ImageRepository extends BaseRepository<IImage> {
 			throw createError("DatabaseError", error.message);
 		}
 	}
+
+	/**
+	 * Increment or decrement comment count for an image
+	 */
+	async updateCommentCount(imageId: string, increment: number, session?: ClientSession): Promise<void> {
+		try {
+			const query = this.model.findByIdAndUpdate(imageId, { $inc: { commentsCount: increment } }, { session });
+			await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
 }

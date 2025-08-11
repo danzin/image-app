@@ -3,9 +3,9 @@
 
 set -e
 
-echo "Starting replica set initialization"
+echo "Starting replica set initialization "
 
-# Note: We don't need user/password here because this script is run by the
+# Note: No need user/password here because this script is run by the
 # entrypoint *before* auth is turned on.
 mongosh <<EOF
   var cfg = {

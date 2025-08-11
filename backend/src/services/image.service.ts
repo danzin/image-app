@@ -1,5 +1,6 @@
 import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
+import { CommentRepository } from "../repositories/comment.repository";
 import { createError } from "../utils/errors";
 import { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
 import { errorLogger } from "../utils/winston";
@@ -17,6 +18,7 @@ export class ImageService {
 		@inject("ImageStorageService")
 		private readonly imageStorageService: IImageStorageService,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
+		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("RedisService") private redisService: RedisService
 	) {}
@@ -117,6 +119,10 @@ export class ImageService {
 				if (!image) {
 					throw createError("NotFoundError", "Image not found");
 				}
+
+				// Delete all comments associated with this image first
+				console.log("Deleting comments for image:", imageId);
+				await this.commentRepository.deleteCommentsByImageId(imageId, session);
 
 				// Delete from database
 				console.log("deleting from repository:");

@@ -9,6 +9,7 @@ const imageSchema = new mongoose.Schema<IImage>({
 	createdAt: { type: Date, default: Date.now },
 	tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }], // Reference to Tag schema
 	likes: { type: Number, default: 0, required: true },
+	commentsCount: { type: Number, default: 0, required: true }, // Track comment count for performance
 });
 
 const tagSchema = new Schema<ITag>({

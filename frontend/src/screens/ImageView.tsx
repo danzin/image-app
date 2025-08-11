@@ -20,7 +20,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import DeleteIcon from '@mui/icons-material/Delete';
-// import CommentSection from '../components/CommentSection'; 
+import CommentSection from '../components/comments/CommentSection'; 
 
 const BASE_URL = '/api';
 
@@ -162,14 +162,7 @@ const ImageView = () => {
         
         {/* Comment section */}
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Comments
-          </Typography>
-          {/* Placeholder */}
-          <Typography variant="body2" color="text.secondary">
-            Comment functionality coming soon...
-          </Typography>
-          {/* <CommentSection imageId={image.id} /> */}
+          <CommentSection imageId={image.id} commentsCount={image.commentsCount} />
         </Box>
       </Paper>
     </Container>
