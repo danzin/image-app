@@ -33,7 +33,6 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: secret
     command: >
       mongod --bind_ip_all --replSet rs0 --keyFile /opt/keyfile/mongodb-keyfile --auth
-    # FIX #1: Corrected YAML syntax
     depends_on:
       - mongo-setup
     healthcheck:
@@ -60,8 +59,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: backend.Dockerfile
+      context: .
+      dockerfile: backend/backend.Dockerfile
     ports:
       - "3000:3000"
     environment:
@@ -78,7 +77,7 @@ services:
     networks:
       - app-network
     volumes:
-      - ./backend/uploads:/usr/src/app/uploads
+      - ./backend/uploads:/app/backend/uploads
     healthcheck:
       test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
       interval: 30s
@@ -88,8 +87,8 @@ services:
 
   api-gateway:
     build:
-      context: ./backend/src/api-gateway
-      dockerfile: gateway.Dockerfile
+      context: .
+      dockerfile: api-gateway/gateway.Dockerfile
     container_name: api-gateway
     ports:
       - "8000:8000"
@@ -111,8 +110,10 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: frontend.Dockerfile
+      context: .
+      dockerfile: frontend/frontend.Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
     ports:
       - "80:80"
     depends_on:

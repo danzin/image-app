@@ -16,7 +16,7 @@ function isAdminUser(user: IUser | null): user is AdminUserDTO {
     
     Basically, this makes sure that the user isn't nullish and the flag exists and is the right type(boolean)
    */
-  return !!user && typeof (user as any).isAdmin === 'boolean'; 
+  return !!user && 'isAdmin' in user && typeof user.isAdmin === 'boolean';
 }
 
 

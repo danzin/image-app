@@ -21,7 +21,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			if (session) doc.$session(session);
 			return await doc.save();
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 
@@ -38,7 +39,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			if (session) query.session(session);
 			return await query.exec();
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 
@@ -56,7 +58,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			console.log(`result from execution of delete in imageRepository: ${result}`);
 			return result !== null;
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 
@@ -75,7 +78,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			}
 			return await query.exec();
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 
@@ -95,7 +99,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			if (session) query.session(session);
 			return await query.exec();
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 
@@ -111,7 +116,8 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			if (session) query.session(session);
 			return await query.exec();
 		} catch (error) {
-			throw createError("UoWError", error.message);
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("UoWError", message);
 		}
 	}
 }

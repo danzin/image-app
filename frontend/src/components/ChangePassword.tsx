@@ -59,9 +59,12 @@ export const ChangePassword: React.FC<ChangePasswordProps> = ({
           notifySuccess("Password changed successfully!");
           onComplete();
         },
-        onError: (err: any) => {
+        onError: (err: unknown) => {
           // Use error from backend if available, otherwise generic
-          const backendError = err?.message || 'Failed to change password. Please try again.';
+          const backendError =
+            typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: string }).message === 'string'
+              ? (err as { message: string }).message
+              : 'Failed to change password. Please try again.';
           setError(backendError); // Show error in the form
           notifyError(backendError); // Also show toast
         }
