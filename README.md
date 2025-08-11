@@ -197,11 +197,5 @@ The project is built on solid architectural principles:
 ```
 2. **`npm install` installs all the dependencies for all workspaces from the monorepo**
    - It requires an active redis server running on the default `6379` port, as well as a configured local mongodb instance
-
-    
-#####
-To run the app navigate to the root directory in `image-app` and run `npm run dev`.
-  `npm run dev` executes `"dev": "concurrently \"npm run start-backend\" \"npm run start-frontend\" \"npm run start-gateway\" "`.
-   
- 
+3. **`npm run dev`** starts the local dev environment. 
    
