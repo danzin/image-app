@@ -1,10 +1,26 @@
 import mongoose, { Schema } from "mongoose";
 import { IImage, ITag } from "../types";
 import User from "./user.model";
+import { v4 as uuidv4 } from "uuid";
 
 const imageSchema = new mongoose.Schema<IImage>({
 	url: { type: String, required: true },
-	publicId: { type: String, required: true },
+	publicId: {
+		type: String,
+		required: true,
+		unique: true,
+		default: uuidv4(),
+		immutable: true,
+	},
+	slug: {
+		type: String,
+		required: true,
+		index: true,
+	},
+	originalName: {
+		type: String,
+		required: true,
+	},
 	user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Reference to User schema
 	createdAt: { type: Date, default: Date.now },
 	tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }], // Reference to Tag schema
@@ -16,6 +32,20 @@ const tagSchema = new Schema<ITag>({
 	tag: { type: String, required: true, unique: true },
 	count: { type: Number, default: 0 },
 	modifiedAt: { type: Date, default: Date.now },
+});
+
+// Pre-save middleware to generate slug
+imageSchema.pre("save", function (next) {
+	if (this.isNew && this.originalName) {
+		this.slug =
+			this.originalName
+				.toLowerCase()
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/(^-|-$)/g, "") +
+			"-" +
+			Date.now();
+	}
+	next();
 });
 
 //Update tags every time an image is uploaded
@@ -72,12 +102,6 @@ imageSchema.set("toJSON", {
 		if (ret._id) {
 			ret.id = ret._id.toString(); // Rename _id to id
 			delete ret._id; // Delete the original _id
-		}
-
-		// Transform the nested user object
-		if (ret.user && (ret.user as any)._id) {
-			ret.user.id = (ret.user as any)._id.toString();
-			delete (ret.user as any)._id;
 		}
 
 		// Remove redundant fields on the top level

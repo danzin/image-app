@@ -115,7 +115,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		// Send a notification to the image owner about the like action
 		await this.notificationService.createNotification({
-			receiverId: image.user.id.toString(),
+			receiverId: image.user.publicId.toString(),
 			actionType: "like",
 			actorId: command.userId,
 			targetId: command.imageId,

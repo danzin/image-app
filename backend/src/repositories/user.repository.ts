@@ -109,6 +109,11 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
+	// Find user by public id
+	async findByPublicId(publicId: string): Promise<IUser | null> {
+		return this.model.findOne({ publicId }).exec();
+	}
+
 	/**
 	 * Finds a user by username.
 	 * @param username - The username to search for.

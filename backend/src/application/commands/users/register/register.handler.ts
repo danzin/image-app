@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import { createError } from "../../../../utils/errors";
 import { ICommandHandler } from "../../../../application/common/interfaces/command-handler.interface";
 import { IUser } from "../../../../types/index";
-import { UserDTOService } from "../../../../services/dto.service";
+import { DTOService } from "../../../../services/dto.service";
 
 export interface RegisterUserResult {
 	user: any;
@@ -16,7 +16,7 @@ export interface RegisterUserResult {
 export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserCommand, RegisterUserResult> {
 	constructor(
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("UserDTOService") private readonly dtoService: UserDTOService
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 	// Trying and keeping the logic from my current userservice method, see how it goes
 

@@ -3,84 +3,130 @@ import { UserController } from "../controllers/user.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
-import {
-  UserSchemas,
-  UserValidationSchemas,
-} from "../utils/schemals/user.schemas";
+import { UserSchemas, UserValidationSchemas } from "../utils/schemals/user.schemas";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
 export class UserRoutes {
-  private router: express.Router;
-  private auth = AuthFactory.bearerToken().handle();
+	private router: express.Router;
+	private auth = AuthFactory.bearerToken().handle();
 
-  constructor(
-    @inject("UserController") private readonly userController: UserController
-  ) {
-    this.router = express.Router();
-    this.initializeRoutes();
-  }
+	constructor(@inject("UserController") private readonly userController: UserController) {
+		this.router = express.Router();
+		this.initializeRoutes();
+	}
 
-  private initializeRoutes(): void {
-    this.router.post(
-      "/register",
-      new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
-      this.userController.register
-    );
+	private initializeRoutes(): void {
+		// === Public Routes (no authentication required) ===
 
-    this.router.post(
-      "/login",
-      new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
-      this.userController.login
-    );
+		// Authentication endpoints
+		this.router.post(
+			"/register",
+			new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
+			this.userController.register
+		);
 
-    this.router.post("/logout", this.userController.logout);
+		this.router.post(
+			"/login",
+			new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
+			this.userController.login
+		);
 
-    this.router.get("/users", this.userController.getUsers);
+		this.router.post("/logout", this.userController.logout);
 
-    this.router.get("/me", this.auth, this.userController.getMe);
-    this.router.put("/edit", this.auth, this.userController.updateProfile);
-    this.router.post(
-      "/follow/:followeeId",
-      this.auth,
-      this.userController.followAction
-    );
-    this.router.get(
-      "/follows/:followeeId",
-      this.auth,
-      this.userController.followExists
-    );
-    this.router.post(
-      "/like/:imageId",
-      this.auth,
-      this.userController.likeAction
-    );
-    this.router.put(
-      "/avatar",
-      this.auth,
-      upload.single("avatar"),
-      this.userController.updateAvatar
-    );
-    this.router.put(
-      "/cover",
-      this.auth,
-      upload.single("cover"),
-      this.userController.updateCover
-    );
-    this.router.put(
-      "/change-password",
-      this.auth,
-      // TODO: Add validation middleware for currentPassword, newPassword
-      // new ValidationMiddleware({ body: UserSchemas.changePassword() }).validate(),
-      this.userController.changePassword
-    );
+		// Public user data endpoints
+		this.router.get("/users", this.userController.getUsers);
 
-    this.router.delete("/:id", this.auth, this.userController.deleteUser);
+		// Get user profile by username (SEO-friendly, public)
+		this.router.get(
+			"/profile/:username",
+			new ValidationMiddleware({ params: UserSchemas.usernameParams() }).validate(),
+			this.userController.getUserByUsername
+		);
 
-    this.router.get("/:userId", this.userController.getUserById);
-  }
+		// Get user by public ID (for API integrations)
+		this.router.get(
+			"/public/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.getUserByPublicId
+		);
 
-  public getRouter(): express.Router {
-    return this.router;
-  }
+		// === Protected Routes (authentication required) ===
+		this.router.use(this.auth); // All routes below require authentication
+
+		// Current user operations
+		this.router.get("/me", this.userController.getMe);
+		this.router.put(
+			"/me/edit",
+			new ValidationMiddleware({ body: UserSchemas.updateProfile() }).validate(),
+			this.userController.updateProfile
+		);
+		this.router.put("/me/avatar", upload.single("avatar"), this.userController.updateAvatar);
+		this.router.put("/me/cover", upload.single("cover"), this.userController.updateCover);
+		this.router.put(
+			"/me/change-password",
+			new ValidationMiddleware({ body: UserSchemas.changePassword() }).validate(),
+			this.userController.changePassword
+		);
+
+		// Social actions (using public IDs for security)
+		this.router.post(
+			"/follow/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.followUserByPublicId
+		);
+
+		this.router.delete(
+			"/unfollow/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.unfollowUserByPublicId
+		);
+
+		this.router.get(
+			"/follows/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.checkFollowStatus
+		);
+
+		// Image interactions (using public IDs)
+		this.router.post(
+			"/like/image/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.likeImageByPublicId
+		);
+
+		this.router.delete(
+			"/unlike/image/:publicId",
+			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			this.userController.unlikeImageByPublicId
+		);
+
+		// Account deletion (self-deletion only, admins use separate endpoints)
+		this.router.delete("/me", this.userController.deleteMyAccount);
+
+		// === Deprecated Routes (mark for removal after frontend migration) ===
+		/**
+		 * @deprecated Use /profile/:username instead
+		 */
+		this.router.get("/:userId", this.userController.getUserById);
+
+		/**
+		 * @deprecated Use /follow/:publicId instead
+		 */
+		this.router.post("/follow/:followeeId", this.userController.followAction);
+
+		/**
+		 * @deprecated Use /like/image/:publicId instead
+		 */
+		this.router.post("/like/:imageId", this.userController.likeAction);
+
+		/**
+		 * @deprecated Admin operations moved to admin routes
+		 */
+		this.router.delete("/:id", this.userController.deleteUser);
+	}
+
+	public getRouter(): express.Router {
+		return this.router;
+	}
 }

@@ -4,11 +4,16 @@ export interface IImage extends Document {
 	url: string;
 	publicId: string;
 	user: {
-		id: mongoose.Schema.Types.ObjectId;
+		publicId: string;
 		username: string;
+		avatar: string;
 	};
+	title?: string;
+	slug: string;
+	originalName: string;
 	createdAt: Date;
 	tags: { tag: string }[];
 	likes: number;
 	commentsCount: number;
+	likedBy: string[];
 }

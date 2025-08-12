@@ -1,6 +1,7 @@
 import { Document, Types } from "mongoose";
 
 export interface IUser extends Document {
+	publicId: string;
 	username: string;
 	email: string;
 	avatar: string;

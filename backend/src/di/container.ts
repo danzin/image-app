@@ -35,7 +35,7 @@ import UserAction from "../models/userAction.model";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { WebSocketServer } from "../server/socketServer";
-import { UserDTOService } from "../services/dto.service";
+import { DTOService } from "../services/dto.service";
 import { AdminUserRoutes } from "../routes/admin.routes";
 import { AdminUserController } from "../controllers/admin.controller";
 import { NotificationRoutes } from "../routes/notification.routes";
@@ -114,7 +114,7 @@ function registerServices(): void {
 	container.registerSingleton("FollowService", FollowService);
 	container.registerSingleton("NotificationService", NotificationService);
 	container.registerSingleton<IImageStorageService>("ImageStorageService", ImageStorageService);
-	container.registerSingleton("UserDTOService", UserDTOService);
+	container.registerSingleton("DTOService", DTOService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 }

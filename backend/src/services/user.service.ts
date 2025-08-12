@@ -11,8 +11,7 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { convertToObjectId } from "../utils/helpers";
 import { NotificationService } from "./notification.service";
-import { UserDTOService } from "./dto.service";
-import { AdminUserDTO, PublicUserDTO } from "../types";
+import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
 import { FeedService } from "./feed.service";
 
 /**
@@ -37,7 +36,7 @@ export class UserService {
 		@inject("NotificationService")
 		private readonly notificationService: NotificationService,
 		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("UserDTOService") private readonly dtoService: UserDTOService
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	/**
@@ -138,6 +137,38 @@ export class UserService {
 			} else {
 				throw createError("InternalServerError", "An unknown error occurred.");
 			}
+		}
+	}
+
+	/**
+	 * Gets user profile by public ID
+	 */
+	async getUserByPublicId(publicId: string): Promise<IUser> {
+		try {
+			const user = await this.userRepository.findByPublicId(publicId);
+			if (!user) {
+				throw createError("NotFoundError", "User not found");
+			}
+			return user;
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Gets user profile by username (for SEO-friendly profile URLs)
+	 */
+	async getUserByUsername(username: string): Promise<IUser> {
+		try {
+			const user = await this.userRepository.findByUsername(username);
+			if (!user) {
+				throw createError("NotFoundError", "User not found");
+			}
+			return user;
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
 		}
 	}
 
@@ -463,7 +494,7 @@ export class UserService {
 
 					await this.userActionRepository.logAction(userId, "like", imageId, session);
 					await this.notificationService.createNotification({
-						receiverId: existingImage.user.id.toString(),
+						receiverId: existingImage.user.publicId.toString(),
 						actionType: "like",
 						actorId: userId,
 						targetId: imageId,
@@ -728,5 +759,108 @@ export class UserService {
 			throw createError("InternalServerError", "Failed to update user during demotion.");
 		}
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	// === SECURE PUBLIC ID METHODS ===
+
+	/**
+	 * Follows a user by their public ID
+	 */
+	async followUserByPublicId(followerId: string, targetPublicId: string): Promise<void> {
+		try {
+			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
+			if (!targetUser) {
+				throw createError("NotFoundError", "User not found");
+			}
+
+			await this.followAction(followerId, (targetUser._id as string).toString());
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Unfollows a user by their public ID
+	 */
+	async unfollowUserByPublicId(followerId: string, targetPublicId: string): Promise<void> {
+		try {
+			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
+			if (!targetUser) {
+				throw createError("NotFoundError", "User not found");
+			}
+
+			// Since followAction handles both follow/unfollow, we can reuse it
+			await this.followAction(followerId, (targetUser._id as string).toString());
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Checks if current user is following another user by public ID
+	 */
+	async checkFollowStatusByPublicId(followerId: string, targetPublicId: string): Promise<{ isFollowing: boolean }> {
+		try {
+			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
+			if (!targetUser) {
+				throw createError("NotFoundError", "User not found");
+			}
+
+			const isFollowing = await this.followRepository.isFollowing(followerId, (targetUser._id as string).toString());
+			return { isFollowing };
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Likes an image by its public ID
+	 */
+	async likeImageByPublicId(userId: string, imagePublicId: string): Promise<IImage | null> {
+		try {
+			const image = await this.imageRepository.findByPublicId(imagePublicId);
+			if (!image) {
+				throw createError("NotFoundError", "Image not found");
+			}
+
+			return await this.likeAction(userId, (image._id as string).toString());
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Unlikes an image by its public ID
+	 */
+	async unlikeImageByPublicId(userId: string, imagePublicId: string): Promise<IImage | null> {
+		try {
+			const image = await this.imageRepository.findByPublicId(imagePublicId);
+			if (!image) {
+				throw createError("NotFoundError", "Image not found");
+			}
+
+			// Since likeAction handles both like/unlike, we can reuse it
+			return await this.likeAction(userId, (image._id as string).toString());
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Deletes the current user's account
+	 */
+	async deleteMyAccount(userId: string): Promise<void> {
+		try {
+			// Use the existing deleteUser method
+			await this.deleteUser(userId);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
 	}
 }
