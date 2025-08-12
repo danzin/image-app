@@ -3,7 +3,7 @@ import { UserController } from "../controllers/user.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
-import { UserSchemas, UserValidationSchemas } from "../utils/schemals/user.schemas";
+import { UserSchemas } from "../utils/schemals/user.schemas";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
