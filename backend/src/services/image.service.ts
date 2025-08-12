@@ -23,6 +23,8 @@ export class ImageService {
 		@inject("RedisService") private redisService: RedisService
 	) {}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
 		let cloudImagePublicId: string | null = null;
 

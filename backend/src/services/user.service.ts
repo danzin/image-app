@@ -14,6 +14,8 @@ import { NotificationService } from "./notification.service";
 import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
 import { FeedService } from "./feed.service";
 
+// TODO: REFACTOR AND REMOVE OLD METHODS
+
 /**
  * UserService handles all user-related operations, including authentication, profile updates,
  * and interactions such as following and liking images.
