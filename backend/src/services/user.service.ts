@@ -623,31 +623,28 @@ export class UserService {
 		};
 	}
 
-	/**
-	 * Bans a user with a reason
-	 */
-	async banUser(userId: string, adminId: string, reason: string) {
-		const user = await this.userRepository.findById(userId);
+	async deleteUserByPublicId(publicId: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+		await this.userRepository.delete(String(user._id).toString());
+	}
+
+	async banUserByPublicId(publicId: string, adminId: string, reason: string): Promise<any> {
+		const user = await this.userRepository.findByPublicId(publicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		if (user.isAdmin) {
-			throw createError("ValidationError", "Cannot ban admin users");
-		}
-
-		const updatedUser = await this.userRepository.update(userId, {
+		const updatedUser = await this.userRepository.update(String(user._id), {
 			isBanned: true,
 			bannedAt: new Date(),
 			bannedReason: reason,
 			bannedBy: adminId,
 		});
 
-		if (!updatedUser) {
-			throw createError("InternalServerError", "Failed to update user during ban.");
-		}
-
-		return this.dtoService.toAdminDTO(updatedUser);
+		return { message: "User banned successfully", user: this.dtoService.toAdminDTO(updatedUser!) };
 	}
 
 	/**
