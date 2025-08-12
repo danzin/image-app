@@ -14,6 +14,16 @@ export class AdminUserController {
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
+	getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const options = { ...req.query } as any;
+			const result = await this.userService.getAllUsersAdmin(options);
+			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	getUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
