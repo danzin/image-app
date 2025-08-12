@@ -14,6 +14,8 @@ export class UserRepository extends BaseRepository<IUser> {
 		super(model);
 	}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Creates a new user in the database, handling duplicate key errors.
 	 * @param userData - Partial user data to create a new user.

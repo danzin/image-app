@@ -10,6 +10,8 @@ export class ImageRepository extends BaseRepository<IImage> {
 		super(model);
 	}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Finds an image by its public ID and populates related fields.
 	 *

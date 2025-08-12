@@ -26,6 +26,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
 	) {}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Handles the execution of the LikeActionCommand.
 	 * Determines whether the action is a like or an unlike and processes it accordingly.
