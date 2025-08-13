@@ -25,10 +25,16 @@ export class ImageRepository extends BaseRepository<IImage> {
 				throw createError("ValidationError", "Invalid public ID");
 			}
 
-			const query = this.model
-				.findOne({ publicId })
-				.populate("user", "username avatar publicId")
-				.populate("tags", "tag");
+			// Allow flexible matching:
+			// - If the provided publicId includes a dot or slash, assume it's exact (e.g., cloud publicId 'user/abc123' or local 'uuid.png')
+			// - Otherwise, match either the exact ID or the ID with a common image extension (local storage uses 'uuid.png')
+			const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			const hasDotOrSlash = publicId.includes(".") || publicId.includes("/");
+			const filter = hasDotOrSlash
+				? { publicId }
+				: { publicId: { $regex: new RegExp(`^${escapeRegex(publicId)}(?:\\.(?:png|jpe?g|webp|gif))?$`, "i") } };
+
+			const query = this.model.findOne(filter).populate("user", "username avatar publicId").populate("tags", "tag");
 
 			if (session) query.session(session);
 			const result = await query.exec();

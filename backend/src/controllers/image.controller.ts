@@ -111,32 +111,36 @@ export class ImageController {
 		}
 	};
 
-	async getImageBySlug(req: Request, res: Response): Promise<void> {
+	getImageBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { slug } = req.params;
-			const image = await this.imageService.getImageBySlug(slug);
-
-			// Convert to DTO before sending
+			// Sanitize slug: remove optional file extension if present (e.g., ".png", ".jpg")
+			const sanitizedSlug = slug.replace(/\.[a-z0-9]{2,5}$/i, "");
+			// If the slug looks like a UUID (publicId), fetch by publicId instead
+			const looksLikeUUIDv4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedSlug);
+			const image = looksLikeUUIDv4
+				? await this.imageService.getImageByPublicId(sanitizedSlug)
+				: await this.imageService.getImageBySlug(sanitizedSlug);
 			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
-
 			res.status(200).json(imageDTO);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			res.status(500).json({ error: errorMessage });
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", String(error)));
+			}
 		}
-	}
+	};
 
-	async getUserImagesByUsername(req: Request, res: Response): Promise<void> {
+	getUserImagesByUsername = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { username } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 
-			// First get user by username to get their publicId
 			const user = await this.userService.getUserByUsername(username);
 			const images = await this.imageService.getUserImagesByPublicId(user.publicId, page, limit);
 
-			// Convert to DTOs
 			const imagesDTOs = {
 				...images,
 				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.id)),
@@ -144,10 +148,28 @@ export class ImageController {
 
 			res.status(200).json(imagesDTOs);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			res.status(500).json({ error: errorMessage });
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", String(error)));
+			}
 		}
-	}
+	};
+
+	getImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const image = await this.imageService.getImageByPublicId(publicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
+			res.status(200).json(imageDTO);
+		} catch (error) {
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", String(error)));
+			}
+		}
+	};
 
 	searchByTags = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {

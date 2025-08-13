@@ -38,7 +38,7 @@ export const fetchImageByPublicId = async (publicId: string) => {
 // Get image by slug (SEO-friendly)
 export const fetchImageBySlug = async (slug: string) => {
 	console.log("Fetching image by slug:", slug);
-	const { data } = await axiosClient.get(`/api/image/slug/${slug}`);
+	const { data } = await axiosClient.get(`/api/images/image/${slug}`);
 	return data;
 };
 

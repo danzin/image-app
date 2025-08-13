@@ -27,6 +27,13 @@ export class ImageRoutes {
 			this.controller.getImageBySlug
 		);
 
+		// Public: get image by publicId
+		this.router.get(
+			"/image/:publicId",
+			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
+			this.controller.getImageByPublicId
+		);
+
 		// Use username for profile image galleries (public endpoint)
 		this.router.get(
 			"/user/:username/images",

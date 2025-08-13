@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
-
+import Joi from "joi";
 import { createError } from "../utils/errors";
 import { ValidationSchema } from "../utils/schemals/user.schemas";
 
@@ -10,21 +10,21 @@ export class ValidationMiddleware {
 		return (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				if (this.schemas.body) {
-					req.body = this.schemas.body.validate(req.body, {
-						abortEarly: false,
-					}).value;
+					const { error, value } = (this.schemas.body as Joi.Schema).validate(req.body, { abortEarly: false });
+					if (error) throw error;
+					req.body = value;
 				}
 
 				if (this.schemas.params) {
-					req.params = this.schemas.params.validate(req.params, {
-						abortEarly: false,
-					}).value;
+					const { error, value } = (this.schemas.params as Joi.Schema).validate(req.params, { abortEarly: false });
+					if (error) throw error;
+					req.params = value as any;
 				}
 
 				if (this.schemas.query) {
-					req.query = this.schemas.query.validate(req.query, {
-						abortEarly: false,
-					}).value;
+					const { error, value } = (this.schemas.query as Joi.Schema).validate(req.query, { abortEarly: false });
+					if (error) throw error;
+					req.query = value as any;
 				}
 
 				next();

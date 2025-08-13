@@ -85,7 +85,8 @@ export class ImageSchemas {
 	static slugParams(): Joi.ObjectSchema {
 		return Joi.object({
 			slug: Joi.string()
-				.pattern(/^[a-z0-9-]+$/)
+				// allow standard slug plus an optional file extension (e.g., .png, .jpg)
+				.pattern(/^[a-z0-9-]+(?:\.[a-z0-9]{2,5})?$/i)
 				.min(1)
 				.max(100)
 				.required()
