@@ -14,6 +14,8 @@ export class UserRepository extends BaseRepository<IUser> {
 		super(model);
 	}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Creates a new user in the database, handling duplicate key errors.
 	 * @param userData - Partial user data to create a new user.
@@ -107,6 +109,11 @@ export class UserRepository extends BaseRepository<IUser> {
 				options: options,
 			});
 		}
+	}
+
+	// Find user by public id
+	async findByPublicId(publicId: string): Promise<IUser | null> {
+		return this.model.findOne({ publicId }).exec();
 	}
 
 	/**

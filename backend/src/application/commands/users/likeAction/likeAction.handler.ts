@@ -26,6 +26,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
 	) {}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Handles the execution of the LikeActionCommand.
 	 * Determines whether the action is a like or an unlike and processes it accordingly.
@@ -115,7 +117,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		// Send a notification to the image owner about the like action
 		await this.notificationService.createNotification({
-			receiverId: image.user.id.toString(),
+			receiverId: image.user.publicId.toString(),
 			actionType: "like",
 			actorId: command.userId,
 			targetId: command.imageId,

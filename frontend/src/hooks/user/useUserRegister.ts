@@ -3,25 +3,23 @@ import { registerRequest } from "../../api/userApi";
 import { PublicUserDTO } from "../../types";
 import { toast } from "react-toastify";
 
-type RegisterSuccessData = { user: PublicUserDTO; token: string };
+type RegisterResponse = { user: PublicUserDTO; token: string };
 
 export const useRegister = () => {
-  return useMutation<
-    RegisterSuccessData,
-    Error,
-    { username: string; email: string; password: string }
-  >({
-    mutationFn: registerRequest,
+	return useMutation<RegisterResponse, Error, { username: string; email: string; password: string }>({
+		mutationFn: registerRequest,
 
-    onSuccess: (_data) => {
-      toast.success("Registration successful! Please log in.");
-    },
+		onSuccess: (data) => {
+			// Store the token in localStorage after successful registration
+			localStorage.setItem("token", data.token);
 
-    onError: (error) => {
-      toast.error(
-        `Registration failed: ${error.message || "Could not create account"}`
-      );
-      console.error("Registration mutation failed:", error);
-    },
-  });
+			// Registration successful - user is automatically logged in
+			toast.success("Registration successful! You are now logged in.");
+		},
+
+		onError: (error) => {
+			toast.error(`Registration failed: ${error.message || "Could not create account"}`);
+			console.error("Registration mutation failed:", error);
+		},
+	});
 };

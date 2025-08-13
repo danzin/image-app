@@ -20,7 +20,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
 
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  const isProfileOwner = isLoggedIn && user?.id === profileId;
+  const isProfileOwner = isLoggedIn && user?.publicId === profileId;
   const isLoading = isLoadingAll || isLoadingFiltered;
 
   useEffect(() => {
@@ -81,7 +81,7 @@ const Gallery: React.FC<GalleryProps> = ({ images, fetchNextPage, hasNextPage, i
       {/* Image Cards with motion */}
       {!isLoading && images.map((img, index) => (
         <motion.div
-          key={img.id}
+          key={img.publicId}
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: index * 0.1 }}

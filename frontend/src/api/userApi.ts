@@ -1,37 +1,56 @@
 import axiosClient from "./axiosClient";
-import { ImagePageData, IUser } from "../types";
+import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../types";
 
-export const loginRequest = async (credentials: any) => {
+// Login returns user and token
+export const loginRequest = async (credentials: {
+	email: string;
+	password: string;
+}): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> => {
 	const response = await axiosClient.post("/api/users/login", credentials);
 	return response.data;
 };
 
-export const registerRequest = async (credentials: any) => {
+// Register returns the full response with user and token
+export const registerRequest = async (credentials: {
+	username: string;
+	email: string;
+	password: string;
+}): Promise<{ user: PublicUserDTO; token: string }> => {
 	const response = await axiosClient.post("/api/users/register", credentials);
-	return response.data;
+	return response.data; // { user: PublicUserDTO, token: string }
 };
 
-export const fetchIsFollowing = async ({ queryKey }: { queryKey: any }): Promise<any> => {
-	const [, followeeId] = queryKey;
-	const { data } = await axiosClient.get(`/api/users/follows/${followeeId}`);
+// Check if following using public ID
+export const fetchIsFollowing = async ({ queryKey }: { queryKey: [string, string] }): Promise<boolean> => {
+	const [, publicId] = queryKey;
+	const { data } = await axiosClient.get(`/api/users/follows/${publicId}`);
 	return data.isFollowing;
 };
 
-export const fetchCurrentUser = async (): Promise<IUser> => {
+// Get current user (me endpoint)
+export const fetchCurrentUser = async (): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	const { data } = await axiosClient.get("/api/users/me");
 	return data;
 };
 
-export const fetchUserData = async ({ queryKey }: { queryKey: any }): Promise<any> => {
-	const [, id] = queryKey;
-	const response = await axiosClient.get(`/api/users/${id}`);
-	console.log("response from fetchUserData:", response.data);
+// Get user by public ID
+export const fetchUserByPublicId = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
+	const [, publicId] = queryKey;
+	const response = await axiosClient.get(`/api/users/public/${publicId}`);
 	return response.data;
 };
 
-export const fetchUserImages = async (pageParam: number, userId: string): Promise<ImagePageData> => {
+// Get user by username (for profile pages)
+export const fetchUserByUsername = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
+	const [, username] = queryKey;
+	const response = await axiosClient.get(`/api/users/profile/${username}`);
+	return response.data;
+};
+
+// Get user images by user public ID
+export const fetchUserImages = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
 	try {
-		const { data } = await axiosClient.get(`/api/images/user/${userId}?page=${pageParam}`);
+		const { data } = await axiosClient.get(`/api/images/user/public/${userPublicId}?page=${pageParam}`);
 		return data;
 	} catch (error) {
 		console.error("Error fetching user images:", error);
@@ -39,11 +58,12 @@ export const fetchUserImages = async (pageParam: number, userId: string): Promis
 	}
 };
 
-export const updateUserAvatar = async (avatar: Blob): Promise<any> => {
+// Update user avatar
+export const updateUserAvatar = async (avatar: Blob): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	const formData = new FormData();
-	formData.append("avatar", avatar, `cover.${avatar.type.split("/")[1] || "png"}`);
+	formData.append("avatar", avatar, `avatar.${avatar.type.split("/")[1] || "png"}`);
 
-	const { data } = await axiosClient.put("/api/users/avatar", formData, {
+	const { data } = await axiosClient.put("/api/users/me/avatar", formData, {
 		headers: {
 			"Content-Type": "multipart/form-data",
 		},
@@ -51,12 +71,12 @@ export const updateUserAvatar = async (avatar: Blob): Promise<any> => {
 	return data;
 };
 
-export const updateUserCover = async (cover: Blob): Promise<any> => {
-	// Expect Blob
+// Update user cover
+export const updateUserCover = async (cover: Blob): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	const formData = new FormData();
-
 	formData.append("cover", cover, `cover.${cover.type.split("/")[1] || "png"}`);
-	const { data } = await axiosClient.put("/api/users/cover", formData, {
+
+	const { data } = await axiosClient.put("/api/users/me/cover", formData, {
 		headers: {
 			"Content-Type": "multipart/form-data",
 		},
@@ -64,14 +84,19 @@ export const updateUserCover = async (cover: Blob): Promise<any> => {
 	return data;
 };
 
-export const editUserRequest = async (updateData: Partial<IUser>): Promise<IUser> => {
-	const response = await axiosClient.put("/api/users/edit", updateData);
+// Update user profile
+export const editUserRequest = async (updateData: {
+	username?: string;
+	bio?: string;
+}): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
+	const response = await axiosClient.put("/api/users/me/edit", updateData);
 	return response.data;
 };
 
+// Change password
 export const changePasswordRequest = async (passwords: {
 	currentPassword: string;
 	newPassword: string;
 }): Promise<void> => {
-	await axiosClient.put("/api/users/change-password", passwords);
+	await axiosClient.put("/api/users/me/change-password", passwords);
 };

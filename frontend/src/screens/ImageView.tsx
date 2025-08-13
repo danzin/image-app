@@ -20,7 +20,7 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import DeleteIcon from '@mui/icons-material/Delete';
-// import CommentSection from '../components/CommentSection'; 
+import CommentSection from '../components/comments/CommentSection'; 
 
 const BASE_URL = '/api';
 
@@ -59,7 +59,7 @@ const ImageView = () => {
     );
   }
 
-  const isOwner = isLoggedIn && user?.id === image.user.id;
+  const isOwner = isLoggedIn && user?.publicId === image.user.publicId;
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')
@@ -68,12 +68,12 @@ const ImageView = () => {
 
   const handleLikeImage = () => {
     if (!isLoggedIn) return navigate('/login');
-    likeImage(image.id);
+    likeImage(image.publicId); // Use publicId instead of id
   };
 
   const handleDeleteImage = () => {
     if (isOwner) {
-      deleteMutation.mutate(image.id, {
+      deleteMutation.mutate(image.publicId, { // Use publicId instead of id
         onSuccess: () => navigate(-1),
         onError: (err) => console.error('Delete failed', err),
       });
@@ -106,7 +106,7 @@ const ImageView = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Typography variant="body2" color="text.secondary">
                   Uploaded {new Date(image.createdAt).toLocaleDateString()} by{' '}
-                  <Typography component={RouterLink} to={`/profile/${image.user.id}`} sx={{ color: 'primary.main', textDecoration: 'none' }}>
+                  <Typography component={RouterLink} to={`/profile/${image.user.username}`} sx={{ color: 'primary.main', textDecoration: 'none' }}>
                     {image.user.username}
                   </Typography>
                 </Typography>
@@ -143,12 +143,12 @@ const ImageView = () => {
                     Tags:
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {image.tags.map((tag) => (
+                    {image.tags.map((tag, index) => (
                       <Chip 
-                        key={tag._id} 
-                        label={tag.tag} 
+                        key={index} 
+                        label={tag} 
                         size="small" 
-                        onClick={() => navigate(`/results?q=${tag.tag}`)}
+                        onClick={() => navigate(`/results?q=${tag}`)}
                       />
                     ))}
                   </Box>
@@ -162,14 +162,7 @@ const ImageView = () => {
         
         {/* Comment section */}
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Comments
-          </Typography>
-          {/* Placeholder */}
-          <Typography variant="body2" color="text.secondary">
-            Comment functionality coming soon...
-          </Typography>
-          {/* <CommentSection imageId={image.id} /> */}
+          <CommentSection imageId={image.publicId} commentsCount={image.commentsCount} />
         </Box>
       </Paper>
     </Container>

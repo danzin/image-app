@@ -10,6 +10,114 @@ export class ImageRepository extends BaseRepository<IImage> {
 		super(model);
 	}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
+	/**
+	 * Finds an image by its public ID and populates related fields.
+	 *
+	 * @param {string} publicId - The public ID of the image.
+	 * @param {ClientSession} [session] - Optional MongoDB transaction session.
+	 * @returns {Promise<IImage | null>} - The found image or null if not found.
+	 */
+	async findByPublicId(publicId: string, session?: ClientSession): Promise<IImage | null> {
+		try {
+			if (!publicId || typeof publicId !== "string") {
+				throw createError("ValidationError", "Invalid public ID");
+			}
+
+			const query = this.model
+				.findOne({ publicId })
+				.populate("user", "username avatar publicId")
+				.populate("tags", "tag");
+
+			if (session) query.session(session);
+			const result = await query.exec();
+			return result;
+		} catch (error) {
+			if ((error as any).name === "ValidationError") {
+				throw error;
+			}
+			throw createError("DatabaseError", (error as any).message);
+		}
+	}
+
+	/**
+	 * Finds an image by its slug and populates related fields.
+	 *
+	 * @param {string} slug - The slug of the image.
+	 * @param {ClientSession} [session] - Optional MongoDB transaction session.
+	 * @returns {Promise<IImage | null>} - The found image or null if not found.
+	 */
+	async findBySlug(slug: string, session?: ClientSession): Promise<IImage | null> {
+		try {
+			if (!slug || typeof slug !== "string") {
+				throw createError("ValidationError", "Invalid slug");
+			}
+
+			const query = this.model.findOne({ slug }).populate("user", "username avatar publicId").populate("tags", "tag");
+
+			if (session) query.session(session);
+			const result = await query.exec();
+			return result;
+		} catch (error) {
+			if ((error as any).name === "ValidationError") {
+				throw error;
+			}
+			throw createError("DatabaseError", (error as any).message);
+		}
+	}
+
+	/**
+	 * Finds images uploaded by a specific user using their public ID with pagination support.
+	 *
+	 * @param {string} userPublicId - The public ID of the user.
+	 * @param {PaginationOptions} options - Pagination options.
+	 * @returns {Promise<PaginationResult<IImage>>} - Paginated result of user's images.
+	 */
+	async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IImage>> {
+		try {
+			const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
+
+			const skip = (page - 1) * limit;
+			const sort = { [sortBy]: sortOrder };
+
+			// First find the user by publicId to get their internal _id
+			const userQuery = await this.model.db.collection("users").findOne({ publicId: userPublicId });
+			if (!userQuery) {
+				throw createError("NotFoundError", "User not found");
+			}
+
+			const userId = userQuery._id;
+
+			// Separate find query using internal user _id
+			const findQuery = this.model.find({ user: userId });
+
+			// Separate count query
+			const countQuery = this.model.countDocuments({ user: userId });
+
+			const [data, total] = await Promise.all([
+				findQuery
+					.populate("user", "username avatar publicId")
+					.populate("tags", "tag")
+					.sort(sort)
+					.skip(skip)
+					.limit(limit)
+					.exec(),
+				countQuery.exec(),
+			]);
+
+			return {
+				data,
+				total,
+				page,
+				limit,
+				totalPages: Math.ceil(total / limit),
+			};
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
 	/**
 	 * Finds an image by its ID and populates related fields.
 	 *
@@ -327,6 +435,18 @@ export class ImageRepository extends BaseRepository<IImage> {
 		} catch (error: any) {
 			console.error(error);
 			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
+	 * Increment or decrement comment count for an image
+	 */
+	async updateCommentCount(imageId: string, increment: number, session?: ClientSession): Promise<void> {
+		try {
+			const query = this.model.findByIdAndUpdate(imageId, { $inc: { commentsCount: increment } }, { session });
+			await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
 }

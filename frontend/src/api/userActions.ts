@@ -1,11 +1,13 @@
 import axiosClient from "./axiosClient";
 
-export const followUser = async (followeeId: string) => {
-	const response = await axiosClient.post(`/api/users/follow/${followeeId}`);
+// Follow/unfollow a user by their public ID
+export const followUser = async (publicId: string) => {
+	const response = await axiosClient.post(`/api/users/follow/${publicId}`);
 	return response.data;
 };
 
-export const likeImage = async (imageId: string) => {
-	const response = await axiosClient.post(`/api/users/like/${imageId}`);
+// Like/unlike an image by its public ID
+export const likeImage = async (imagePublicId: string) => {
+	const response = await axiosClient.post(`/api/users/like/image/${imagePublicId}`);
 	return response.data;
 };

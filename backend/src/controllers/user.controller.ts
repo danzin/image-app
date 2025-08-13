@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
+import { DTOService } from "../services/dto.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { FollowService } from "../services/follow.service";
@@ -32,7 +33,8 @@ export class UserController {
 		@inject("UserService") private readonly userService: UserService,
 		@inject("FollowService") private readonly followService: FollowService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus
+		@inject("QueryBus") private readonly queryBus: QueryBus,
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	//Register and login users
@@ -42,7 +44,7 @@ export class UserController {
 			const command = new RegisterUserCommand(username, email, password);
 			const { user, token } = await this.commandBus.dispatch<RegisterUserResult>(command);
 			res.cookie("token", token, cookieOptions);
-			res.status(201).json(user);
+			res.status(201).json({ user, token }); // Return both user and token
 		} catch (error) {
 			next(error);
 		}
@@ -69,7 +71,7 @@ export class UserController {
 			const { email, password } = req.body;
 			const { user, token } = await this.userService.login(email, password);
 			res.cookie("token", token, cookieOptions);
-			res.status(200).json(user);
+			res.status(200).json({ user, token }); // Return both user and token
 		} catch (error) {
 			next(error);
 		}
@@ -156,18 +158,204 @@ export class UserController {
 		}
 	};
 
-	// Delete user
-	deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+	/**
+	 * Get user profile by username (public endpoint)
+	 */
+	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
 		try {
-			const { decodedUser } = req;
+			const { username } = req.params;
+			const user = await this.userService.getUserByUsername(username);
 
-			if (!decodedUser) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
-			await this.userService.deleteUser(decodedUser.id);
-			res.status(204).send();
+			// Return public DTO (no sensitive data)
+			const userDTO = this.dtoService.toPublicDTO(user);
+
+			res.status(200).json(userDTO);
 		} catch (error) {
-			next(error);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Get user profile by public ID (for API integrations)
+	 */
+	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const user = await this.userService.getUserByPublicId(publicId);
+
+			// Return public DTO (no sensitive data)
+			const userDTO = this.dtoService.toPublicDTO(user);
+
+			res.status(200).json(userDTO);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Follow a user by their public ID
+	 */
+	followUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const followerId = req.decodedUser?.id;
+
+			if (!followerId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const result = await this.userService.followUserByPublicId(followerId, publicId);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else if (errorMessage.includes("already following")) {
+				res.status(400).json({ error: "Already following this user" });
+			} else if (errorMessage.includes("follow yourself")) {
+				res.status(400).json({ error: "Cannot follow yourself" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Unfollow a user by their public ID
+	 */
+	unfollowUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const followerId = req.decodedUser?.id;
+
+			if (!followerId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const result = await this.userService.unfollowUserByPublicId(followerId, publicId);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else if (errorMessage.includes("not following")) {
+				res.status(400).json({ error: "Not following this user" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Check if current user follows another user
+	 */
+	checkFollowStatus = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const followerId = req.decodedUser?.id;
+
+			if (!followerId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const isFollowing = await this.userService.checkFollowStatusByPublicId(followerId, publicId);
+			res.status(200).json({ isFollowing });
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			res.status(500).json({ error: errorMessage });
+		}
+	};
+
+	/**
+	 * Like an image by its public ID
+	 */
+	likeImageByPublicId = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const userId = req.decodedUser?.id;
+
+			if (!userId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const result = await this.userService.likeImageByPublicId(userId, publicId);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "Image not found" });
+			} else if (errorMessage.includes("already liked")) {
+				res.status(400).json({ error: "Image already liked" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Unlike an image by its public ID
+	 */
+	unlikeImageByPublicId = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const userId = req.decodedUser?.id;
+
+			if (!userId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const result = await this.userService.unlikeImageByPublicId(userId, publicId);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "Image not found" });
+			} else if (errorMessage.includes("not liked")) {
+				res.status(400).json({ error: "Image not liked" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Delete current user's account (self-deletion)
+	 */
+	deleteMyAccount = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const userId = req.decodedUser?.id;
+
+			if (!userId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			await this.userService.deleteMyAccount(userId);
+			res.status(200).json({ message: "Account deleted successfully" });
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			res.status(500).json({ error: errorMessage });
 		}
 	};
 

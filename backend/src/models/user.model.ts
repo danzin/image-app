@@ -2,9 +2,17 @@ import mongoose, { Schema, model, CallbackError } from "mongoose";
 import validator from "validator";
 import bcryptjs from "bcryptjs";
 import { IUser } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 const userSchema = new Schema<IUser>(
 	{
+		publicId: {
+			type: String,
+			required: true,
+			unique: true,
+			default: uuidv4(),
+			immutable: true,
+		},
 		username: {
 			type: String,
 			required: [true, "Username is required"],
@@ -153,7 +161,7 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
 	return bcryptjs.compare(candidatePassword, this.password);
 };
-userSchema.index({ username: "text" });
+userSchema.index({ username: 1 });
 
 const User = model<IUser>("User", userSchema);
 export default User;
