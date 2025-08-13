@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
 import { injectable, inject } from "tsyringe";
 import { ImageService } from "../services/image.service";
-import { IUser } from "../types";
 import { createError } from "../utils/errors";
 import { DTOService } from "services/dto.service";
 
@@ -31,6 +30,16 @@ export class AdminUserController {
 
 			const adminDTO = this.dtoService.toAdminDTO(user);
 			res.status(200).json(adminDTO);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	getUserStats = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { id } = req.params;
+			const stats = await this.userService.getUserStats(id);
+			res.status(200).json(stats);
 		} catch (error) {
 			next(error);
 		}
