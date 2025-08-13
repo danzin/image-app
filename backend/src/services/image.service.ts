@@ -25,7 +25,7 @@ export class ImageService {
 
 	// TODO: REFACTOR AND REMOVE OLD METHODS
 
-	async uploadImage(userId: string, file: Buffer, tags: string[]): Promise<Object> {
+	async uploadImage(userId: string, file: Buffer, tags: string[], originalName: string): Promise<Object> {
 		let cloudImagePublicId: string | null = null;
 
 		try {
@@ -57,15 +57,32 @@ export class ImageService {
 				const cloudImage = await this.imageStorageService.uploadImage(file, user.id);
 				cloudImagePublicId = cloudImage.publicId;
 
-				// Create image document with Cloudinary details
+				// Generate slug from originalName (same logic as pre-save middleware)
+				const slug =
+					originalName
+						.toLowerCase()
+						.replace(/[^a-z0-9]+/g, "-")
+						.replace(/(^-|-$)/g, "") +
+					"-" +
+					Date.now();
+
+				// Create image document with Cloudinary details and required fields
+				console.log("=== CREATING IMAGE DOCUMENT ===");
+				console.log("originalName being set:", originalName);
+				console.log("generated slug:", slug);
+				console.log("cloudImage:", cloudImage);
 				const image = {
 					url: cloudImage.url,
 					publicId: cloudImage.publicId,
+					originalName: originalName,
+					slug: slug,
 					user: user.id,
 					createdAt: new Date(),
 					tags: tagIds,
 					likes: 0,
 				} as unknown as IImage;
+
+				console.log("Image object before save:", image);
 
 				const img = await this.imageRepository.create(image as IImage, session);
 

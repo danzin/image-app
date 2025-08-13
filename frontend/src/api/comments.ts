@@ -6,8 +6,8 @@ const BASE_URL = "/api";
 /**
  * Create a new comment on an image
  */
-export const createComment = async (imageId: string, commentData: CommentCreateDto): Promise<IComment> => {
-	const response = await axiosClient.post(`${BASE_URL}/images/${imageId}/comments`, commentData);
+export const createComment = async (imagePublicId: string, commentData: CommentCreateDto): Promise<IComment> => {
+	const response = await axiosClient.post(`${BASE_URL}/images/${imagePublicId}/comments`, commentData);
 	return response.data;
 };
 
@@ -15,11 +15,11 @@ export const createComment = async (imageId: string, commentData: CommentCreateD
  * Get comments for an image with pagination
  */
 export const getCommentsByImageId = async (
-	imageId: string,
+	imagePublicId: string,
 	page: number = 1,
 	limit: number = 10
 ): Promise<CommentsPaginationResponse> => {
-	const response = await axiosClient.get(`${BASE_URL}/images/${imageId}/comments`, {
+	const response = await axiosClient.get(`${BASE_URL}/images/${imagePublicId}/comments`, {
 		params: { page, limit },
 	});
 	return response.data;

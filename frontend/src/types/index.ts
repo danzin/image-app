@@ -7,26 +7,34 @@ import {
 } from "@tanstack/react-query";
 import { Id } from "react-toastify";
 
-interface BaseUserDTO {
-	id: string;
+// Base user interface matching backend DTOs
+export interface PublicUserDTO {
+	publicId: string;
 	username: string;
 	avatar: string;
 	cover: string;
-	images?: string[];
-	followers?: string[];
-	following?: string[];
-	createdAt: Date;
 	bio: string;
+	createdAt: Date;
+	followerCount: number;
+	followingCount: number;
+	imageCount: number;
 }
 
-export interface AdminUserDTO extends BaseUserDTO {
-	email: string;
+export interface AuthenticatedUserDTO extends PublicUserDTO {
+	email: string; // Only for the user themselves
+}
+
+export interface AdminUserDTO extends AuthenticatedUserDTO {
 	isAdmin: boolean;
+	isBanned: boolean;
+	bannedAt?: Date;
+	bannedReason?: string;
+	bannedBy?: string;
 	updatedAt: Date;
 }
 
-// Use BaseUserDTO directly instead of PublicUserDTO
-export type IUser = BaseUserDTO | AdminUserDTO;
+// Main user type for the frontend - can be any of the DTO types
+export type IUser = PublicUserDTO | AuthenticatedUserDTO | AdminUserDTO;
 
 export interface ITag {
 	_id: string;
@@ -36,25 +44,28 @@ export interface ITag {
 }
 
 export interface IImage {
-	id: string;
-	url: string;
 	publicId: string;
-	tags: ITag[];
+	slug: string;
+	url: string;
+	title?: string;
+	tags: string[]; // Just tag names, not full tag objects
 	user: {
-		id: string;
+		publicId: string;
 		username: string;
+		avatar: string;
 	};
 	likes: number;
 	commentsCount: number;
 	createdAt: Date;
+	isLikedByViewer?: boolean; // Only when user is authenticated
 }
 
 export interface IComment {
 	id: string;
 	content: string;
-	imageId: string;
+	imagePublicId: string; // Using image public ID instead of internal ID
 	user: {
-		id: string;
+		publicId: string;
 		username: string;
 		avatar?: string;
 	};

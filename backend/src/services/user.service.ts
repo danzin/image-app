@@ -576,6 +576,12 @@ export class UserService {
 		}
 	}
 
+	// === ADMIN METHODS ===
+
+	/**
+	 * Gets detailed statistics for a specific user
+	 */
+
 	/**
 	 * Retrieves a paginated list of all users, including admin details.
 	 * Converts user data into admin DTO format before returning.
@@ -594,11 +600,6 @@ export class UserService {
 		};
 	}
 
-	// === ADMIN METHODS ===
-
-	/**
-	 * Gets detailed statistics for a specific user
-	 */
 	async getUserStats(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {

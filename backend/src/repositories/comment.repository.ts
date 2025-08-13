@@ -7,9 +7,9 @@ import { inject, injectable } from "tsyringe";
 export interface TransformedComment {
 	id: string;
 	content: string;
-	imageId: string;
+	imagePublicId: string; // Using image public ID instead of internal ID
 	user: {
-		id: string;
+		publicId: string;
 		username: string;
 		avatar?: string;
 	};
@@ -43,7 +43,8 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const [comments, total] = await Promise.all([
 			this.model
 				.find({ imageId })
-				.populate("userId", "username avatar")
+				.populate("userId", "publicId username avatar")
+				.populate("imageId", "publicId")
 				.sort({ createdAt: -1 }) // Newest first
 				.skip(skip)
 				.limit(limit)
@@ -55,9 +56,9 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const transformedComments = comments.map((comment: any) => ({
 			id: comment._id.toString(),
 			content: comment.content,
-			imageId: comment.imageId.toString(),
+			imagePublicId: comment.imageId.publicId,
 			user: {
-				id: comment.userId._id.toString(),
+				publicId: comment.userId.publicId,
 				username: comment.userId.username,
 				avatar: comment.userId.avatar,
 			},
@@ -95,7 +96,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 			this.model
 				.find({ userId })
 				.populate("imageId", "url publicId")
-				.populate("userId", "username avatar")
+				.populate("userId", "publicId username avatar")
 				.sort({ createdAt: -1 })
 				.skip(skip)
 				.limit(limit)
@@ -107,9 +108,9 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const transformedComments = comments.map((comment: any) => ({
 			id: comment._id.toString(),
 			content: comment.content,
-			imageId: comment.imageId._id ? comment.imageId._id.toString() : comment.imageId.toString(),
+			imagePublicId: comment.imageId.publicId,
 			user: {
-				id: comment.userId._id.toString(),
+				publicId: comment.userId.publicId,
 				username: comment.userId.username,
 				avatar: comment.userId.avatar,
 			},
@@ -141,7 +142,8 @@ export class CommentRepository extends BaseRepository<IComment> {
 				},
 				{ new: true, session }
 			)
-			.populate("userId", "username avatar")
+			.populate("userId", "publicId username avatar")
+			.populate("imageId", "publicId")
 			.lean();
 
 		if (!comment) return null;
@@ -150,9 +152,9 @@ export class CommentRepository extends BaseRepository<IComment> {
 		return {
 			id: (comment as any)._id.toString(),
 			content: (comment as any).content,
-			imageId: (comment as any).imageId.toString(),
+			imagePublicId: (comment as any).imageId.publicId,
 			user: {
-				id: (comment as any).userId._id.toString(),
+				publicId: (comment as any).userId.publicId,
 				username: (comment as any).userId.username,
 				avatar: (comment as any).userId.avatar,
 			},
@@ -166,7 +168,11 @@ export class CommentRepository extends BaseRepository<IComment> {
 	 * Find comment by ID with user population and transformation
 	 */
 	async findByIdTransformed(commentId: string): Promise<TransformedComment | null> {
-		const comment = await this.model.findById(commentId).populate("userId", "username avatar").lean();
+		const comment = await this.model
+			.findById(commentId)
+			.populate("userId", "publicId username avatar")
+			.populate("imageId", "publicId")
+			.lean();
 
 		if (!comment) return null;
 
@@ -174,9 +180,9 @@ export class CommentRepository extends BaseRepository<IComment> {
 		return {
 			id: (comment as any)._id.toString(),
 			content: (comment as any).content,
-			imageId: (comment as any).imageId.toString(),
+			imagePublicId: (comment as any).imageId.publicId,
 			user: {
-				id: (comment as any).userId._id.toString(),
+				publicId: (comment as any).userId.publicId,
 				username: (comment as any).userId.username,
 				avatar: (comment as any).userId.avatar,
 			},

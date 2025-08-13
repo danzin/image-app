@@ -11,10 +11,10 @@ import { IComment, CommentCreateDto, CommentUpdateDto, CommentsPaginationRespons
 /**
  * Hook to get comments for an image with infinite scrolling
  */
-export const useCommentsByImageId = (imageId: string, limit: number = 10) => {
+export const useCommentsByImageId = (imagePublicId: string, limit: number = 10) => {
 	return useInfiniteQuery<CommentsPaginationResponse, Error>({
-		queryKey: ["comments", "image", imageId],
-		queryFn: ({ pageParam = 1 }) => getCommentsByImageId(imageId, pageParam as number, limit),
+		queryKey: ["comments", "image", imagePublicId],
+		queryFn: ({ pageParam = 1 }) => getCommentsByImageId(imagePublicId, pageParam as number, limit),
 		getNextPageParam: (lastPage) => {
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
@@ -22,7 +22,7 @@ export const useCommentsByImageId = (imageId: string, limit: number = 10) => {
 			return undefined;
 		},
 		initialPageParam: 1,
-		enabled: !!imageId,
+		enabled: !!imagePublicId,
 		staleTime: 0, // Comments should be fresh
 	});
 };
@@ -30,11 +30,11 @@ export const useCommentsByImageId = (imageId: string, limit: number = 10) => {
 /**
  * Hook to get comments for an image (single page)
  */
-export const useCommentsForImage = (imageId: string, page: number = 1, limit: number = 10) => {
+export const useCommentsForImage = (imagePublicId: string, page: number = 1, limit: number = 10) => {
 	return useQuery<CommentsPaginationResponse, Error>({
-		queryKey: ["comments", "image", imageId, page, limit],
-		queryFn: () => getCommentsByImageId(imageId, page, limit),
-		enabled: !!imageId,
+		queryKey: ["comments", "image", imagePublicId, page, limit],
+		queryFn: () => getCommentsByImageId(imagePublicId, page, limit),
+		enabled: !!imagePublicId,
 		staleTime: 0,
 	});
 };
@@ -45,17 +45,17 @@ export const useCommentsForImage = (imageId: string, page: number = 1, limit: nu
 export const useCreateComment = () => {
 	const queryClient = useQueryClient();
 
-	return useMutation<IComment, Error, { imageId: string; commentData: CommentCreateDto }>({
-		mutationFn: ({ imageId, commentData }) => createComment(imageId, commentData),
-		onSuccess: (newComment, { imageId }) => {
+	return useMutation<IComment, Error, { imagePublicId: string; commentData: CommentCreateDto }>({
+		mutationFn: ({ imagePublicId, commentData }) => createComment(imagePublicId, commentData),
+		onSuccess: (newComment, { imagePublicId }) => {
 			// Invalidate and refetch comments for this image
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", imageId],
+				queryKey: ["comments", "image", imagePublicId],
 			});
 
 			// Update the image's comment count if data
 			queryClient.invalidateQueries({
-				queryKey: ["image", imageId],
+				queryKey: ["image", imagePublicId],
 			});
 
 			// Update images list to reflect new comment count
@@ -80,7 +80,7 @@ export const useUpdateComment = () => {
 		onSuccess: (updatedComment) => {
 			// Invalidate comments for the image this comment belongs to
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", updatedComment.imageId],
+				queryKey: ["comments", "image", updatedComment.imagePublicId],
 			});
 		},
 		onError: (error: Error) => {
@@ -95,17 +95,17 @@ export const useUpdateComment = () => {
 export const useDeleteComment = () => {
 	const queryClient = useQueryClient();
 
-	return useMutation<void, Error, { commentId: string; imageId: string }>({
+	return useMutation<void, Error, { commentId: string; imagePublicId: string }>({
 		mutationFn: ({ commentId }) => deleteComment(commentId),
-		onSuccess: (_, { imageId }) => {
+		onSuccess: (_, { imagePublicId }) => {
 			// Invalidate and refetch comments for this image
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", imageId],
+				queryKey: ["comments", "image", imagePublicId],
 			});
 
 			// Update the image's comment count
 			queryClient.invalidateQueries({
-				queryKey: ["image", imageId],
+				queryKey: ["image", imagePublicId],
 			});
 
 			// Update images list to reflect new comment count

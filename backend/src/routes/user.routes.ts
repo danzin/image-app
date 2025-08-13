@@ -119,11 +119,6 @@ export class UserRoutes {
 		 * @deprecated Use /like/image/:publicId instead
 		 */
 		this.router.post("/like/:imageId", this.userController.likeAction);
-
-		/**
-		 * @deprecated Admin operations moved to admin routes
-		 */
-		this.router.delete("/:id", this.userController.deleteUser);
 	}
 
 	public getRouter(): express.Router {

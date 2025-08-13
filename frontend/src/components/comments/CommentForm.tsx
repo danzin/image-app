@@ -11,7 +11,7 @@ import { useAuth } from '../../hooks/context/useAuth';
 import { useCreateComment } from '../../hooks/comments/useComments';
 
 interface CommentFormProps {
-  imageId: string;
+  imageId: string; // This is actually the publicId, keeping prop name for compatibility
 }
 
 const CommentForm: React.FC<CommentFormProps> = ({ imageId }) => {
@@ -26,7 +26,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ imageId }) => {
 
     try {
       await createCommentMutation.mutateAsync({
-        imageId,
+        imagePublicId: imageId, // imageId is actually publicId
         commentData: { content: content.trim() }
       });
       setContent(''); // Clear form after successful submission

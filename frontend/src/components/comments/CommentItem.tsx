@@ -32,7 +32,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
   const updateCommentMutation = useUpdateComment();
   const deleteCommentMutation = useDeleteComment();
 
-  const isOwner = user?.id === comment.user.id;
+  const isOwner = user?.publicId === comment.user.publicId;
   const isMenuOpen = Boolean(anchorEl);
 
   const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -73,7 +73,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
       try {
         await deleteCommentMutation.mutateAsync({
           commentId: comment.id,
-          imageId: comment.imageId
+          imagePublicId: comment.imagePublicId
         });
       } catch (error) {
         console.error('Failed to delete comment:', error);

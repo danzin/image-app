@@ -3,7 +3,7 @@ import { UserService } from "../services/user.service";
 import { injectable, inject } from "tsyringe";
 import { ImageService } from "../services/image.service";
 import { createError } from "../utils/errors";
-import { DTOService } from "services/dto.service";
+import { DTOService } from "../services/dto.service";
 
 @injectable()
 export class AdminUserController {

@@ -14,7 +14,7 @@ import CommentForm from './CommentForm';
 import { useCommentsByImageId } from '../../hooks/comments/useComments';
 
 interface CommentSectionProps {
-  imageId: string;
+  imageId: string; // This is actually the publicId, keeping prop name for compatibility
   commentsCount?: number;
 }
 
@@ -27,7 +27,7 @@ const CommentSection: React.FC<CommentSectionProps> = ({ imageId, commentsCount 
     isLoading,
     isError,
     error,
-  } = useCommentsByImageId(imageId, 10);
+  } = useCommentsByImageId(imageId, 10); // imageId is actually publicId
 
   const allComments = data?.pages.flatMap(page => page.comments) ?? [];
   const totalComments = data?.pages[0]?.total ?? commentsCount;

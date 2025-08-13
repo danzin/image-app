@@ -17,7 +17,7 @@ export class CommentService {
 	/**
 	 * Create a new comment on an image
 	 */
-	async createComment(userId: string, imageId: string, content: string): Promise<TransformedComment> {
+	async createComment(userId: string, imagePublicId: string, content: string): Promise<TransformedComment> {
 		// Validate input
 		if (!content.trim()) {
 			throw createError("ValidationError", "Comment content cannot be empty");
@@ -27,8 +27,8 @@ export class CommentService {
 			throw createError("ValidationError", "Comment cannot exceed 500 characters");
 		}
 
-		// Check if image exists
-		const image = await this.imageRepository.findById(imageId);
+		// Check if image exists by public ID
+		const image = await this.imageRepository.findByPublicId(imagePublicId);
 		if (!image) {
 			throw createError("NotFoundError", "Image not found");
 		}
@@ -41,14 +41,14 @@ export class CommentService {
 			const comment = await this.commentRepository.create(
 				{
 					content: content.trim(),
-					imageId: new mongoose.Types.ObjectId(imageId),
+					imageId: image._id as mongoose.Types.ObjectId,
 					userId: new mongoose.Types.ObjectId(userId),
 				} as Partial<IComment>,
 				session
 			);
 
 			// Increment comment count on image
-			await this.imageRepository.updateCommentCount(imageId, 1, session);
+			await this.imageRepository.updateCommentCount((image._id as mongoose.Types.ObjectId).toString(), 1, session);
 
 			await session.commitTransaction();
 
@@ -66,14 +66,18 @@ export class CommentService {
 	/**
 	 * Get comments for an image with pagination
 	 */
-	async getCommentsByImageId(imageId: string, page: number = 1, limit: number = 10) {
+	async getCommentsByImageId(imagePublicId: string, page: number = 1, limit: number = 10) {
 		// Validate image exists
-		const image = await this.imageRepository.findById(imageId);
+		const image = await this.imageRepository.findByPublicId(imagePublicId);
 		if (!image) {
 			throw createError("NotFoundError", "Image not found");
 		}
 
-		return await this.commentRepository.getCommentsByImageId(imageId, page, limit);
+		return await this.commentRepository.getCommentsByImageId(
+			(image._id as mongoose.Types.ObjectId).toString(),
+			page,
+			limit
+		);
 	}
 
 	/**

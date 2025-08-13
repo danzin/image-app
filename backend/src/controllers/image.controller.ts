@@ -31,7 +31,12 @@ export class ImageController {
 		try {
 			const { decodedUser, file } = req;
 
-			console.log(req.body.tags);
+			console.log("=== IMAGE UPLOAD DEBUG ===");
+			console.log("File object:", file);
+			console.log("File originalname:", file?.originalname);
+			console.log("Request body:", req.body);
+			console.log("Tags:", req.body.tags);
+
 			const tags = JSON.parse(req.body.tags);
 
 			if (!file) {
@@ -42,7 +47,11 @@ export class ImageController {
 				throw createError("AuthenticationError", "User information missing");
 			}
 
-			const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags);
+			// Extract original filename or use a default name
+			const originalName = file.originalname || `image-${Date.now()}`;
+			console.log("Using originalName:", originalName);
+
+			const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags, originalName);
 			res.status(201).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -58,8 +67,6 @@ export class ImageController {
 		const limit = parseInt(req.query.limit as string) || 9;
 		try {
 			const images = await this.imageService.getImages(page, limit);
-			res.header("Access-Control-Allow-Origin", "http://localhost:5173"); //specific origin
-			res.header("Access-Control-Allow-Credentials", "true"); //allow credentials
 			res.json(images);
 		} catch (error) {
 			if (error instanceof Error) {

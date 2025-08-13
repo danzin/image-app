@@ -1,18 +1,7 @@
 import express, { RequestHandler } from "express";
 import { AdminUserController } from "../controllers/admin.controller";
-import { AuthFactory } from "../middleware/authentication.middleware";
+import { adminRateLimit, AuthFactory, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
-
-// A middleware to ensure the user is admin.
-const adminOnly: RequestHandler = (req, res, next) => {
-	console.log(req.decodedUser);
-	if (req?.decodedUser && req.decodedUser.isAdmin) {
-		next();
-		return;
-	}
-	res.status(403).json({ error: "Admin privileges required." });
-	return;
-};
 
 @injectable()
 export class AdminUserRoutes {
@@ -26,7 +15,8 @@ export class AdminUserRoutes {
 
 	private initializeRoutes(): void {
 		this.router.use(this.auth);
-		this.router.use(adminOnly);
+		this.router.use(adminRateLimit);
+		this.router.use(enhancedAdminOnly);
 
 		// ===Admin endpoints===
 

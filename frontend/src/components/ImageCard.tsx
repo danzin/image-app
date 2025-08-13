@@ -32,7 +32,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
  const navigate = useNavigate();
 
     const handleClick = () => {
-      navigate(`/images/${image.id}`);
+      navigate(`/images/${image.publicId}`); // Use publicId for navigation
   };
   return (
     <Card
@@ -67,7 +67,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
             }
           }} 
           image={fullImageUrl}
-          alt={image.id}
+          alt={image.publicId}
         />
         {/* Gradient overlay for better text readability */}
         <Box

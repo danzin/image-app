@@ -26,7 +26,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     // Connect
     const handleConnect = () => {
       console.log('Socket connected');
-      socket.emit('join', user.id);
+      socket.emit('join', user.publicId);
       setReady(true);
     };
 
@@ -63,7 +63,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.off('notification', handleNotification);
       socket.disconnect();
     };
-  }, [isLoggedIn, user?.id]);
+  }, [isLoggedIn, user?.publicId]);
 
   return <SocketContext.Provider value={socketRef.current}>{children}</SocketContext.Provider>;
 };

@@ -8,24 +8,19 @@ import { AdminUserDTO, IUser } from '../types';
   then user is definitely AdminUserDTO"
 */
 function isAdminUser(user: IUser | null): user is AdminUserDTO { 
-
-  /*'
-    "!!user" makes sure user is not null 
-    casting "user" to "any" bypasses compile-time checks, allowing access to .isAdmin at runtime, regardless of which union member it is.
-    " typeof (user as any).isAdmin === 'boolean' " checks that there is an 'isAdmin' property that is actually a boolean.
-    
-    Basically, this makes sure that the user isn't nullish and the flag exists and is the right type(boolean)
+  /*
+    Check if user exists and has the isAdmin property (which only AdminUserDTO has)
+    This safely checks the type union without casting
    */
-  return !!user && 'isAdmin' in user && typeof user.isAdmin === 'boolean';
+  return !!user && 'isAdmin' in user && user.isAdmin === true;
 }
-
 
 export const AdminRoute = ({ element }: { element: JSX.Element }) => {
   const { user , loading } = useAuth();
 
    if (loading) return <LoadingSpinner />; 
   
-  if (!isAdminUser(user) || !user.isAdmin) {
+  if (!isAdminUser(user)) {
     return <Navigate to="/login" />;
   }
 

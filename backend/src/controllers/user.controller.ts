@@ -44,7 +44,7 @@ export class UserController {
 			const command = new RegisterUserCommand(username, email, password);
 			const { user, token } = await this.commandBus.dispatch<RegisterUserResult>(command);
 			res.cookie("token", token, cookieOptions);
-			res.status(201).json(user);
+			res.status(201).json({ user, token }); // Return both user and token
 		} catch (error) {
 			next(error);
 		}
@@ -71,7 +71,7 @@ export class UserController {
 			const { email, password } = req.body;
 			const { user, token } = await this.userService.login(email, password);
 			res.cookie("token", token, cookieOptions);
-			res.status(200).json(user);
+			res.status(200).json({ user, token }); // Return both user and token
 		} catch (error) {
 			next(error);
 		}
@@ -356,21 +356,6 @@ export class UserController {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			res.status(500).json({ error: errorMessage });
-		}
-	};
-
-	// Delete user
-	deleteUser = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { decodedUser } = req;
-
-			if (!decodedUser) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
-			await this.userService.deleteUser(decodedUser.id);
-			res.status(204).send();
-		} catch (error) {
-			next(error);
 		}
 	};
 

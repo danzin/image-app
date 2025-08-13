@@ -28,8 +28,17 @@ export const fetchImages = async (
 	return data;
 };
 
-export const fetchImageById = async (id: string) => {
-	const { data } = await axiosClient.get(`/api/images/${id}`);
+// Get image by public ID
+export const fetchImageByPublicId = async (publicId: string) => {
+	console.log(`Fetching image by public ID: ${publicId}`);
+	const { data } = await axiosClient.get(`/api/images/public/${publicId}`);
+	return data;
+};
+
+// Get image by slug (SEO-friendly)
+export const fetchImageBySlug = async (slug: string) => {
+	console.log("Fetching image by slug:", slug);
+	const { data } = await axiosClient.get(`/api/image/slug/${slug}`);
 	return data;
 };
 
@@ -53,7 +62,8 @@ export const fetchTags = async (): Promise<ITag[]> => {
 	return data;
 };
 
-export const deleteImageById = async (id: string): Promise<void> => {
-	console.log("Deleting image with ID:", id);
-	await axiosClient.delete(`/api/images/${id}`);
+// Delete image by public ID
+export const deleteImageByPublicId = async (publicId: string): Promise<void> => {
+	console.log("Deleting image with public ID:", publicId);
+	await axiosClient.delete(`/api/images/public/${publicId}`);
 };

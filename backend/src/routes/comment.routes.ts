@@ -14,9 +14,9 @@ export class CommentRoutes {
 
 	private initializeRoutes(): void {
 		// Comments on images
-		this.router.post("/images/:imageId/comments", this.auth, this.commentController.createComment);
+		this.router.post("/images/:imagePublicId/comments", this.auth, this.commentController.createComment);
 
-		this.router.get("/images/:imageId/comments", this.commentController.getCommentsByImageId);
+		this.router.get("/images/:imagePublicId/comments", this.commentController.getCommentsByImageId);
 
 		// Comment management
 		this.router.put("/comments/:commentId", this.auth, this.commentController.updateComment);

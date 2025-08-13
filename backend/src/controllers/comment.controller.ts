@@ -13,11 +13,11 @@ export class CommentController {
 
 	/**
 	 * Create a new comment on an image
-	 * POST /api/images/:imageId/comments
+	 * POST /api/images/:imagePublicId/comments
 	 */
 	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { imageId } = req.params;
+			const { imagePublicId } = req.params;
 			const { content } = req.body;
 			const { decodedUser } = req;
 
@@ -29,7 +29,7 @@ export class CommentController {
 				throw createError("ValidationError", "Comment content is required");
 			}
 
-			const comment = await this.commentService.createComment(decodedUser.id, imageId, content);
+			const comment = await this.commentService.createComment(decodedUser.id, imagePublicId, content);
 			res.status(201).json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -42,18 +42,18 @@ export class CommentController {
 
 	/**
 	 * Get comments for an image with pagination
-	 * GET /api/images/:imageId/comments?page=1&limit=10
+	 * GET /api/images/:imagePublicId/comments?page=1&limit=10
 	 */
 	getCommentsByImageId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { imageId } = req.params;
+			const { imagePublicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
 
 			// Limit max comments per page to prevent abuse
 			const maxLimit = Math.min(limit, 50);
 
-			const result = await this.commentService.getCommentsByImageId(imageId, page, maxLimit);
+			const result = await this.commentService.getCommentsByImageId(imagePublicId, page, maxLimit);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
