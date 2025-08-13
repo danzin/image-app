@@ -10,10 +10,11 @@ export class NotificationController {
 	getNotifications = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || (!(decodedUser as any).publicId && !(decodedUser as any).id)) {
 				throw createError("ValidationError", "User ID is required");
 			}
-			const notifications = await this.notificationService.getNotifications(decodedUser.id);
+			const userPublicId = (decodedUser as any).publicId || decodedUser.id;
+			const notifications = await this.notificationService.getNotifications(userPublicId);
 
 			res.status(200).json(notifications);
 		} catch (error) {
@@ -26,10 +27,11 @@ export class NotificationController {
 		try {
 			const { notificationId } = req.params;
 			const { decodedUser } = req;
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || (!(decodedUser as any).publicId && !(decodedUser as any).id)) {
 				throw createError("ValidationError", "User ID is required");
 			}
-			const notification = await this.notificationService.markAsRead(notificationId, decodedUser.id);
+			const userPublicId = (decodedUser as any).publicId || decodedUser.id;
+			const notification = await this.notificationService.markAsRead(notificationId, userPublicId);
 			res.status(200).json(notification);
 		} catch (error) {
 			console.error(error);

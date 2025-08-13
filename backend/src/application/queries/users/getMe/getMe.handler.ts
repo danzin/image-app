@@ -42,7 +42,13 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 	 * @returns A signed JWT token
 	 */
 	private generateToken(user: IUser): string {
-		const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
+		const payload = {
+			id: user._id,
+			publicId: user.publicId,
+			email: user.email,
+			username: user.username,
+			isAdmin: user.isAdmin,
+		};
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
 
