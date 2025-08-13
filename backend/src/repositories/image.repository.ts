@@ -136,7 +136,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			if (!mongoose.Types.ObjectId.isValid(id)) {
 				throw createError("ValidationError", "Invalid image ID");
 			}
-			const query = this.model.findById(id).populate("user", "username").populate("tags", "tag");
+			const query = this.model.findById(id).populate("user", "username avatar publicId").populate("tags", "tag");
 
 			if (session) query.session(session);
 			const result = await query.exec();

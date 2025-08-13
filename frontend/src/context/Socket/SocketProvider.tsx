@@ -63,7 +63,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.off('notification', handleNotification);
       socket.disconnect();
     };
-  }, [isLoggedIn, user?.publicId]);
+  }, [isLoggedIn, user, user?.publicId]);
 
   return <SocketContext.Provider value={socketRef.current}>{children}</SocketContext.Provider>;
 };

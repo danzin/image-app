@@ -31,9 +31,11 @@ export class UserSchemas {
 
 	// For public endpoints using UUIDs
 	static publicIdParams(): Joi.ObjectSchema {
+		// Accept UUID-like values (with optional image extension) and cloud-style IDs (may include slashes)
+		const permissiveId = /^[A-Za-z0-9._\/-]{1,200}$/;
 		return Joi.object({
-			publicId: Joi.string().uuid({ version: "uuidv4" }).required().messages({
-				"string.guid.version": "Invalid public ID format",
+			publicId: Joi.string().pattern(permissiveId).required().messages({
+				"string.pattern.base": "Invalid public ID format",
 				"any.required": "Public ID is required",
 			}),
 		}).options({ allowUnknown: false });
@@ -101,9 +103,10 @@ export class ImageSchemas {
 
 	// For public ID based image routes
 	static publicIdParams(): Joi.ObjectSchema {
+		const permissiveId = /^[A-Za-z0-9._\/-]{1,200}$/;
 		return Joi.object({
-			publicId: Joi.string().uuid({ version: "uuidv4" }).required().messages({
-				"string.guid.version": "Invalid public ID format",
+			publicId: Joi.string().pattern(permissiveId).required().messages({
+				"string.pattern.base": "Invalid public ID format",
 				"any.required": "Public ID is required",
 			}),
 		}).options({ allowUnknown: false });

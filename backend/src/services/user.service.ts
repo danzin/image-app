@@ -826,7 +826,7 @@ export class UserService {
 				throw createError("NotFoundError", "Image not found");
 			}
 
-			return await this.likeAction(userId, (image._id as string).toString());
+			return await this.likeAction(userId, image.id);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
@@ -844,7 +844,7 @@ export class UserService {
 			}
 
 			// Since likeAction handles both like/unlike, we can reuse it
-			return await this.likeAction(userId, (image._id as string).toString());
+			return await this.likeAction(userId, image.id);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);

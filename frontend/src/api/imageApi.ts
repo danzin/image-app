@@ -65,5 +65,5 @@ export const fetchTags = async (): Promise<ITag[]> => {
 // Delete image by public ID
 export const deleteImageByPublicId = async (publicId: string): Promise<void> => {
 	console.log("Deleting image with public ID:", publicId);
-	await axiosClient.delete(`/api/images/public/${publicId}`);
+	await axiosClient.delete(`/api/images/image/${publicId}`);
 };
