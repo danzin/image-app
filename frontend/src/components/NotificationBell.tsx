@@ -3,7 +3,6 @@ import { IconButton, Badge, Menu, MenuItem, Typography } from "@mui/material";
 import { Notifications as NotificationsIcon } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
-import { Link } from "react-router-dom";
 
 const NotificationBell = () => {
   const { notifications, markAsRead } = useNotifications();
@@ -43,7 +42,7 @@ const NotificationBell = () => {
           unreadNotifications
           .map((notification: Notification) =>(
             <MenuItem key={notification.id} onClick={() => handleNotificationClick(notification.id)}>
-              <Typography>{notification.actionType} by  <Link to={`/profile/${notification.actorId.id}`} style={{ color: 'lightslategray' }}> {notification.actorId.username} </Link>  </Typography> 
+              <Typography>{notification.actionType} by user {notification.actorId}</Typography> 
             </MenuItem>
           ))
         )}

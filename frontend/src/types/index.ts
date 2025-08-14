@@ -136,10 +136,7 @@ export interface Notification {
 	id: string;
 	userId: string;
 	actionType: string;
-	actorId: {
-		id: string;
-		username: string;
-	};
+	actorId: string; // Just the actor's publicId as string
 	targetId?: string;
 	timestamp: string;
 	isRead: boolean;
