@@ -34,9 +34,9 @@ export class FeedService {
 			// get the result once they've resolved or rejected
 			const [user, topTags] = await Promise.all([
 				this.userRepository.findByPublicId(userId),
-				this.userRepository.findByPublicId(userId).then((user: IUser | null) => 
-					user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : []
-				),
+				this.userRepository
+					.findByPublicId(userId)
+					.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
 			]);
 
 			if (!user) {
@@ -67,13 +67,13 @@ export class FeedService {
 	public async recordInteraction(userId: string, actionType: string, targetId: string, tags: string[]): Promise<void> {
 		console.log(`Running recordInteraction... for ${userId}, actionType: ${actionType}, \r\n 
       targetId: ${targetId}, tags: ${tags}`);
-		
+
 		// Get user's MongoDB ID from their public ID
 		const user = await this.userRepository.findByPublicId(userId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-		
+
 		// Record the action using MongoDB ID
 		await this.userActionRepository.logAction(String(user._id), actionType, targetId);
 
