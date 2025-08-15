@@ -43,8 +43,7 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 	 */
 	private generateToken(user: IUser): string {
 		const payload = {
-			id: user._id,
-			publicId: user.publicId,
+			id: user.publicId,
 			email: user.email,
 			username: user.username,
 			isAdmin: user.isAdmin,

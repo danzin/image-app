@@ -4,7 +4,7 @@ import { DTOService } from "../services/dto.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { FollowService } from "../services/follow.service";
-import { IUser } from "../types";
+import { IUser, IImage } from "../types";
 import { cookieOptions } from "../config/cookieConfig";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
@@ -13,6 +13,7 @@ import { RegisterUserResult } from "../application/commands/users/register/regis
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetMeResult } from "../application/queries/users/getMe/getMe.handler";
 import { LikeActionCommand } from "../application/commands/users/likeAction/likeAction.command";
+import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -286,7 +287,7 @@ export class UserController {
 	/**
 	 * Like an image by its public ID
 	 */
-	likeImageByPublicId = async (req: Request, res: Response): Promise<void> => {
+	likeImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
 			const userId = req.decodedUser?.id;
@@ -296,25 +297,18 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.likeImageByPublicId(userId, publicId);
+			const command = new LikeActionByPublicIdCommand(userId, publicId);
+			const result = await this.commandBus.dispatch<IImage>(command);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "Image not found" });
-			} else if (errorMessage.includes("already liked")) {
-				res.status(400).json({ error: "Image already liked" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(error);
 		}
 	};
 
 	/**
 	 * Unlike an image by its public ID
 	 */
-	unlikeImageByPublicId = async (req: Request, res: Response): Promise<void> => {
+	unlikeImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
 			const userId = req.decodedUser?.id;
@@ -324,18 +318,11 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.unlikeImageByPublicId(userId, publicId);
+			const command = new LikeActionByPublicIdCommand(userId, publicId);
+			const result = await this.commandBus.dispatch<IImage>(command);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "Image not found" });
-			} else if (errorMessage.includes("not liked")) {
-				res.status(400).json({ error: "Image not liked" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(error);
 		}
 	};
 
@@ -397,6 +384,22 @@ export class UserController {
 		}
 	};
 
+	likeActionByPublicId = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { decodedUser } = req;
+			const { publicId } = req.params;
+			console.log(publicId);
+			if (!decodedUser) {
+				return next(createError("UnauthorizedError", "User not authenticated."));
+			}
+			const command = new LikeActionByPublicIdCommand(decodedUser.id, publicId);
+			const result = await this.commandBus.dispatch<IImage>(command);
+			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	followAction = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
@@ -407,22 +410,6 @@ export class UserController {
 			}
 			const result = await this.userService.followAction(decodedUser.id, followeeId);
 			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
-
-	followExists = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { decodedUser } = req;
-			if (!decodedUser) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
-			const followerId = decodedUser.id;
-			const { followeeId } = req.params;
-
-			const followExists = await this.followService.isFollowing(followerId, followeeId);
-			res.status(200).json({ isFollowing: followExists });
 		} catch (error) {
 			next(error);
 		}

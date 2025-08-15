@@ -5,6 +5,7 @@ import { UserPreferenceRepository } from "../repositories/userPreference.reposit
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
+import { IUser } from "../types";
 
 @injectable()
 export class FeedService {
@@ -32,8 +33,10 @@ export class FeedService {
 			//Using Promise.all to execute the operations concurrently and
 			// get the result once they've resolved or rejected
 			const [user, topTags] = await Promise.all([
-				this.userRepository.findById(userId),
-				this.userPreferenceRepository.getTopUserTags(userId),
+				this.userRepository.findByPublicId(userId),
+				this.userRepository.findByPublicId(userId).then((user: IUser | null) => 
+					user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : []
+				),
 			]);
 
 			if (!user) {
@@ -64,8 +67,15 @@ export class FeedService {
 	public async recordInteraction(userId: string, actionType: string, targetId: string, tags: string[]): Promise<void> {
 		console.log(`Running recordInteraction... for ${userId}, actionType: ${actionType}, \r\n 
       targetId: ${targetId}, tags: ${tags}`);
-		// Record the action
-		await this.userActionRepository.logAction(userId, actionType, targetId);
+		
+		// Get user's MongoDB ID from their public ID
+		const user = await this.userRepository.findByPublicId(userId);
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+		
+		// Record the action using MongoDB ID
+		await this.userActionRepository.logAction(String(user._id), actionType, targetId);
 
 		// Update tag preferences based on action type
 		let scoreIncrement = 0;
@@ -75,7 +85,7 @@ export class FeedService {
 
 		if (scoreIncrement !== 0) {
 			await Promise.all(
-				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(userId, tag, scoreIncrement))
+				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
 			);
 		}
 		console.log("Removing cache");

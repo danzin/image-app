@@ -58,6 +58,8 @@ import { FeedInteractionHandler } from "../application/events/feed/feed-interact
 import { UserInteractedWithImageEvent } from "../application/events/user/user-interaction.event";
 import { LikeActionCommand } from "../application/commands/users/likeAction/likeAction.command";
 import { LikeActionCommandHandler } from "../application/commands/users/likeAction/likeAction.handler";
+import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
+import { LikeActionByPublicIdCommandHandler } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.handler";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -150,6 +152,7 @@ function registerCQRS(): void {
 	// Register command handlers
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
+	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
 
 	// Register query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
@@ -168,6 +171,10 @@ function registerCQRS(): void {
 	// Register command handlers with command bus
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
 	commandBus.register(LikeActionCommand, container.resolve<LikeActionCommandHandler>("LikeActionCommandHandler"));
+	commandBus.register(
+		LikeActionByPublicIdCommand,
+		container.resolve<LikeActionByPublicIdCommandHandler>("LikeActionByPublicIdCommandHandler")
+	);
 
 	// Register query handlers with query bus
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));

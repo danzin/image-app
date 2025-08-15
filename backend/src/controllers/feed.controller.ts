@@ -10,10 +10,10 @@ export class FeedController {
 	getFeed = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { page, limit } = req.query;
-			if (!req.decodedUser || !req.decodedUser.id) {
-				throw createError("ValidationError", "User ID is required");
+			if (!req.decodedUser || !req.decodedUser.publicId) {
+				throw createError("ValidationError", "User public ID is required");
 			}
-			const feed = await this.feedService.getPersonalizedFeed(req.decodedUser.id, Number(page), Number(limit));
+			const feed = await this.feedService.getPersonalizedFeed(req.decodedUser.publicId, Number(page), Number(limit));
 			res.json(feed);
 		} catch (error) {
 			console.error(error);
