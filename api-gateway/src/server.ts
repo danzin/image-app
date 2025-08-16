@@ -101,6 +101,18 @@ app.use(
 	})
 );
 
+// Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
+console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
+app.use(
+	"/socket.io",
+	createProxyMiddleware({
+		target: config.backendUrl,
+		changeOrigin: true,
+		ws: true,
+		...proxyOptions,
+	})
+);
+
 // Proxy /uploads with pathRewrite to preserve the prefix
 console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}`);
 app.use(

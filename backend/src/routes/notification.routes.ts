@@ -15,11 +15,10 @@ export class NotificationRoutes {
 
 	private initializeRoutes(): void {
 		const protectedRouter = express.Router();
-		this.router.use(protectedRouter);
 		protectedRouter.use(this.auth);
-
-		this.router.get("/", this.controller.getNotifications);
-		this.router.post("/read/:notificationId", this.auth, this.controller.markAsRead);
+		protectedRouter.get("/", this.controller.getNotifications);
+		protectedRouter.post("/read/:notificationId", this.controller.markAsRead);
+		this.router.use(protectedRouter);
 	}
 
 	getRouter() {

@@ -22,11 +22,11 @@ type UseUserImagesOptions = Omit<
 	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
 >;
 
-// Get current authenticated user (me endpoint)
+// Get current authenticated user /me
 export const useCurrentUser = () => {
 	return useQuery<AuthenticatedUserDTO | AdminUserDTO>({
 		queryKey: ["currentUser"],
-		queryFn: fetchCurrentUser,
+		queryFn: ({ signal }) => fetchCurrentUser(signal),
 		staleTime: 6000,
 	});
 };
@@ -35,17 +35,17 @@ export const useCurrentUser = () => {
 export const useGetUserByPublicId = (publicId: string | undefined) => {
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", "publicId", publicId],
-		queryFn: () => fetchUserByPublicId({ queryKey: ["user", publicId!] }),
+		queryFn: ({ queryKey }) => fetchUserByPublicId({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
 		enabled: !!publicId,
 		staleTime: 60000,
 	});
 };
 
-// Get user by username (for profile pages)
+// Get user by username
 export const useGetUserByUsername = (username: string | undefined) => {
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", "username", username],
-		queryFn: () => fetchUserByUsername({ queryKey: ["user", username!] }),
+		queryFn: ({ queryKey }) => fetchUserByUsername({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
 		enabled: !!username,
 		staleTime: 60000,
 	});
@@ -58,12 +58,12 @@ export const useGetUser = (identifier: string | undefined) => {
 
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", identifier],
-		queryFn: () => {
+		queryFn: ({ queryKey }) => {
+			const id = queryKey[1] as string;
 			if (isPublicId) {
-				return fetchUserByPublicId({ queryKey: ["user", identifier!] });
-			} else {
-				return fetchUserByUsername({ queryKey: ["user", identifier!] });
+				return fetchUserByPublicId({ queryKey: ["user", id] });
 			}
+			return fetchUserByUsername({ queryKey: ["user", id] });
 		},
 		enabled: !!identifier,
 		staleTime: 60000,

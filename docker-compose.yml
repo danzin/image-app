@@ -69,6 +69,8 @@ services:
       VITE_API_URL: http://localhost:3000
       FRONTEND_URL: http://localhost:5173
       JWT_SECRET: JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000
+      COOKIE_SECURE: "false"
     depends_on:
       mongo:
         condition: service_healthy

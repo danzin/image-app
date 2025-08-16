@@ -15,8 +15,12 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
   useEffect(() => {
     if (!isLoggedIn || !user) return;
-    const socket = io(process.env.REACT_APP_SOCKET_URL, {
+    const base = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
+    const socketUrl = base.replace(/\/$/, '');
+    const socket = io(socketUrl, {
+      path: '/socket.io',
       withCredentials: true,
+      transports: ['websocket', 'polling'],
       autoConnect: false,
       reconnection: true,
       reconnectionAttempts: 5,
@@ -42,15 +46,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         socket.connect();
       }
     };
-    const handleNotification = (msg: string) => {
-      
-      console.info('New notification:', msg);
+    const handleNotification = (msg: unknown) => {
+      console.info('New notification (raw listener):', msg);
     };
 
     socket.on('connect', handleConnect);
     socket.on('connect_error', handleError);
     socket.on('disconnect', handleDisconnect);
-    socket.on('new_notification', handleNotification);
+  socket.on('new_notification', handleNotification);
    
     // Store and explicitly connect
     socketRef.current = socket;
@@ -60,7 +63,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.off('connect', handleConnect);
       socket.off('connect_error', handleError);
       socket.off('disconnect', handleDisconnect);
-      socket.off('notification', handleNotification);
+  socket.off('new_notification', handleNotification);
       socket.disconnect();
     };
   }, [isLoggedIn, user, user?.publicId]);

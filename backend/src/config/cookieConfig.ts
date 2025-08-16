@@ -1,7 +1,11 @@
+// Allow explicit override for COOKIE_SECURE=false when running production mode on plain HTTP in local docker
+const explicitSecure = process.env.COOKIE_SECURE;
+const secureFlag = explicitSecure !== undefined ? explicitSecure === "true" : process.env.NODE_ENV === "production";
+
 export const cookieOptions = {
-  httpOnly: true, // not accessible via client-side JS
-  secure: process.env.NODE_ENV === 'production', // only over HTTPS in production
-  sameSite: process.env.NODE_ENV === "production" ? "none" as 'none': "lax" as 'lax' ,
-  maxAge: 1000 * 60 * 60 * 24, // 24hours
-  path: "/"
+	httpOnly: true,
+	secure: secureFlag,
+	sameSite: secureFlag ? ("none" as const) : ("lax" as const),
+	maxAge: 1000 * 60 * 60 * 24,
+	path: "/",
 };

@@ -128,25 +128,21 @@ export class NotificationService {
 
 	async markAsRead(notificationId: string, userPublicId: string) {
 		try {
+			console.log(`[NotificationService] markAsRead requested id=${notificationId} userPublicId=${userPublicId}`);
 			const io = this.getIO();
-
-			// Update the notification as read
-			const updatedNotification = await this.notificationRepository.markAsRead(notificationId);
-
+			const updatedNotification = await this.notificationRepository.markAsRead(notificationId, userPublicId);
 			if (!updatedNotification) {
-				throw createError("NotFoundError", "Notification not found");
+				console.log(`[NotificationService] markAsRead not found id=${notificationId} userPublicId=${userPublicId}`);
+				throw createError("PathError", "Notification not found");
 			}
-
-			// Emit the real-time event via websocket using publicId room
+			console.log(`[NotificationService] markAsRead updated id=${notificationId} userPublicId=${userPublicId}`);
 			this.readNotification(io, userPublicId, updatedNotification);
-
 			return updatedNotification;
 		} catch (error) {
-			if (error instanceof Error) {
-				throw createError("InternalServerError", error.message);
-			} else {
-				throw createError("InternalServerError", String(error));
-			}
+			// If already an AppError (has statusCode) rethrow
+			if (typeof error === "object" && error && "statusCode" in (error as any)) throw error as any;
+			if (error instanceof Error) throw createError(error.name, error.message);
+			throw createError("UnknownError", String(error));
 		}
 	}
 }

@@ -22,7 +22,31 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			.exec();
 	}
 
-	async markAsRead(notificationId: string) {
-		return this.model.findByIdAndUpdate(notificationId, { $set: { isRead: true } }, { new: true });
+	async markAsRead(notificationId: string, userId: string) {
+		if (!notificationId || !/^[0-9a-fA-F]{24}$/.test(notificationId)) {
+			console.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
+			return null;
+		}
+		console.log(`[NotificationRepository] markAsRead start id=${notificationId} userId=${userId}`);
+		try {
+			const updated = await this.model
+				.findOneAndUpdate({ _id: notificationId, userId }, { $set: { isRead: true } }, { new: true })
+				.exec();
+			if (!updated) {
+				console.warn(
+					`[NotificationRepository] markAsRead miss (not found or ownership mismatch) id=${notificationId} userId=${userId}`
+				);
+			} else {
+				console.log(
+					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${
+						(updated as any).isRead
+					}`
+				);
+			}
+			return updated as any;
+		} catch (e) {
+			console.error(`[NotificationRepository] markAsRead error id=${notificationId} userId=${userId}:`, e);
+			throw e;
+		}
 	}
 }

@@ -17,8 +17,16 @@ export class WebSocketServer {
 	initialize(server: HttpServer): void {
 		this.io = new SocketIOServer(server, {
 			cors: {
-				origin: ["http://localhost:5173", "http://localhost"],
-
+				origin: (origin, callback) => {
+					const allow = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost,http://localhost:80")
+						.split(/[,\s]+/)
+						.filter(Boolean);
+					if (!origin || allow.includes(origin)) {
+						return callback(null, true);
+					}
+					console.warn("[Socket CORS] Blocked origin", origin);
+					callback(new Error("Not allowed by CORS"));
+				},
 				credentials: true, // Allows credentials (cookies etc...)
 			},
 
@@ -42,6 +50,8 @@ export class WebSocketServer {
 		this.io.use(async (socket, next) => {
 			try {
 				const req = socket.request as Request;
+				console.log("[Socket][Auth] Incoming handshake headers:", req.headers);
+				console.log("[Socket][Auth] Incoming cookies:", (req as any).cookies);
 
 				// Handle authentication using the bearer token strategy
 				AuthFactory.bearerToken().handle()(req, {} as any, (error?: any) => {
@@ -54,6 +64,7 @@ export class WebSocketServer {
 						console.error("Missing decoded user after authentication");
 						return next(createError("UnauthorizedError", "Unauthorized"));
 					}
+					console.log("[Socket][Auth] Authenticated user:", req.decodedUser);
 
 					// Store user data in socket
 					socket.data.user = req.decodedUser;

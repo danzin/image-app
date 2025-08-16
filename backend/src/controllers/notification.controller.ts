@@ -35,11 +35,12 @@ export class NotificationController {
 			if (!decodedUser || !(decodedUser as any).publicId) {
 				throw createError("ValidationError", "User publicId is required");
 			}
+			console.log(`[NOTIFICATIONS] markAsRead attempt id=${notificationId}`);
 			const userPublicId = (decodedUser as any).publicId;
 			const notification = await this.notificationService.markAsRead(notificationId, userPublicId);
 			res.status(200).json(notification);
 		} catch (error) {
-			console.error(error);
+			console.error("[NOTIFICATIONS] markAsRead error:", error);
 			next(error);
 		}
 	};
