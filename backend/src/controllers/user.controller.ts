@@ -285,48 +285,6 @@ export class UserController {
 		}
 	};
 
-	// /**
-	//  * Like an image by its public ID
-	//  */
-	// likeImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-	// 	try {
-	// 		const { imagePublicId } = req.params;
-	// 		const userPublicId = req.decodedUser?.publicId;
-	// 		console.log(`[LIKEACTION]: User public ID: ${userPublicId}, Image public ID: ${imagePublicId}`);
-	// 		if (!userPublicId) {
-	// 			res.status(401).json({ error: "Authentication required" });
-	// 			return;
-	// 		}
-
-	// 		const command = new LikeActionByPublicIdCommand(userPublicId, imagePublicId);
-	// 		const result = await this.commandBus.dispatch<IImage>(command);
-	// 		res.status(200).json(result);
-	// 	} catch (error) {
-	// 		next(error);
-	// 	}
-	// };
-
-	// /**
-	//  * Unlike an image by its public ID
-	//  */
-	// unlikeImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-	// 	try {
-	// 		const { publicId } = req.params;
-	// 		const userId = req.decodedUser?.id;
-
-	// 		if (!userId) {
-	// 			res.status(401).json({ error: "Authentication required" });
-	// 			return;
-	// 		}
-
-	// 		const command = new LikeActionByPublicIdCommand(userId, publicId);
-	// 		const result = await this.commandBus.dispatch<IImage>(command);
-	// 		res.status(200).json(result);
-	// 	} catch (error) {
-	// 		next(error);
-	// 	}
-	// };
-
 	/**
 	 * Delete current user's account (self-deletion)
 	 */
@@ -369,27 +327,6 @@ export class UserController {
 	};
 
 	// User actions
-	likeAction = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { imagePublicId } = req.params;
-			const userPublicId = req.decodedUser?.publicId;
-			console.log(`[LIKEACTION]: User public ID: ${userPublicId}, Image public ID: ${imagePublicId}`);
-			if (!userPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
-			console.log(imagePublicId);
-			if (!userPublicId) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
-			const command = new LikeActionCommand(userPublicId, imagePublicId);
-			const result = await this.commandBus.dispatch(command);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
-
 	likeActionByPublicId = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
