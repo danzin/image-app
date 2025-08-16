@@ -42,10 +42,13 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		let userMongoId: string;
 
 		try {
-			// Get user's MongoDB ID from their public ID
-			const user = await this.userRepository.findByPublicId(command.userId);
+			console.log(
+				`[LIKEACTIONHANDLER]:\r\n  User public ID: ${command.userPublicId},
+				 Image public ID: ${command.imagePublicId} \r\n command: ${JSON.stringify(command)}`
+			);
+			const user = await this.userRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("PathError", `User with public ID ${command.userId} not found`);
+				throw createError("PathError", `User with public ID ${command.userPublicId} not found`);
 			}
 			userMongoId = user.id;
 
@@ -74,7 +77,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				// Queue an event to track user interaction with the image (using public ID for events)
 				this.eventBus.queueTransactional(
 					new UserInteractedWithImageEvent(
-						command.userId, // Keep using public ID for events
+						command.userPublicId, // Keep using public ID for events
 						isLikeAction ? "like" : "unlike",
 						existingImage!.id,
 						imageTags
@@ -95,7 +98,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
 			throw createError(errorName, errorMessage, {
 				operation: "LikeActionByPublicId",
-				userId: command.userId,
+				userId: command.userPublicId,
 				imagePublicId: command.imagePublicId,
 			});
 		}
@@ -134,7 +137,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		await this.notificationService.createNotification({
 			receiverId: image.user.publicId.toString(),
 			actionType: "like",
-			actorId: command.userId, // Use public ID for notifications
+			actorId: command.userPublicId, // Use public ID for notifications
 			targetId: image.id,
 			session,
 		});

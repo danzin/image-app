@@ -31,6 +31,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 		const token = req.cookies.token;
 		if (!token) throw createError("UnauthorizedError", "Missing token");
 		const user = jwt.verify(token, this.secret) as JwtPayload;
+		console.log(`[AUTH] User from token: ${JSON.stringify(user)}`);
 		return user;
 	}
 }
@@ -42,6 +43,7 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
+				console.log(`[AUTH] User authenticated: ${JSON.stringify(req.decodedUser)}`);
 				next();
 			} catch (error) {
 				const message =

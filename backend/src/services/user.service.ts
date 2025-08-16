@@ -48,7 +48,6 @@ export class UserService {
 	 */
 	private generateToken(user: IUser): string {
 		const payload = {
-			id: user._id,
 			publicId: user.publicId,
 			email: user.email,
 			username: user.username,
