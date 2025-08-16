@@ -64,18 +64,26 @@ export class FeedService {
 		}
 	}
 
-	public async recordInteraction(userId: string, actionType: string, targetId: string, tags: string[]): Promise<void> {
-		console.log(`Running recordInteraction... for ${userId}, actionType: ${actionType}, \r\n 
-      targetId: ${targetId}, tags: ${tags}`);
-
-		// Get user's MongoDB ID from their public ID
-		const user = await this.userRepository.findByPublicId(userId);
-		if (!user) {
-			throw createError("NotFoundError", "User not found");
+	public async recordInteraction(
+		userPublicId: string,
+		actionType: string,
+		targetIdentifier: string,
+		tags: string[]
+	): Promise<void> {
+		console.log(
+			`Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`
+		);
+		// Resolve user internal id
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		// If action targets an image provided by publicId (may include extension), normalize
+		let internalTargetId = targetIdentifier;
+		if (actionType === "like" || actionType === "unlike") {
+			const sanitized = targetIdentifier.replace(/\.[a-z0-9]{2,5}$/i, "");
+			const image = await this.imageRepository.findByPublicId(sanitized);
+			if (image) internalTargetId = (image as any)._id.toString();
 		}
-
-		// Record the action using MongoDB ID
-		await this.userActionRepository.logAction(String(user._id), actionType, targetId);
+		await this.userActionRepository.logAction(String(user._id), actionType, internalTargetId);
 
 		// Update tag preferences based on action type
 		let scoreIncrement = 0;
@@ -89,7 +97,7 @@ export class FeedService {
 			);
 		}
 		console.log("Removing cache");
-		await this.redisService.del(`feed:${userId}:*`);
+		await this.redisService.del(`feed:${userPublicId}:*`);
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {

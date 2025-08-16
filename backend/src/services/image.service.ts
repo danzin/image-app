@@ -25,13 +25,13 @@ export class ImageService {
 
 	// TODO: REFACTOR AND REMOVE OLD METHODS
 
-	async uploadImage(userId: string, file: Buffer, tags: string[], originalName: string): Promise<Object> {
+	async uploadImage(userPublicId: string, file: Buffer, tags: string[], originalName: string): Promise<Object> {
 		let cloudImagePublicId: string | null = null;
 
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
-				// Find user
-				const user = await this.userRepository.findById(userId, session);
+				// Find user by publicId (no internal id from client)
+				const user = await this.userRepository.findByPublicId(userPublicId);
 				if (!user) {
 					throw createError("ValidationError", "User not found");
 				}
@@ -87,7 +87,7 @@ export class ImageService {
 				const img = await this.imageRepository.create(image as IImage, session);
 
 				// Update user images array
-				await this.userRepository.update(userId, { images: [...user.images, img.url] }, session);
+				await this.userRepository.update(user.id, { images: [...user.images, img.url] }, session);
 				return {
 					id: img.id,
 					url: img.url,
@@ -101,7 +101,7 @@ export class ImageService {
 				};
 			});
 			console.log("Removing cache");
-			await this.redisService.del(`feed:${userId}:*`); //invalidate user cache on new image uploads
+			await this.redisService.del(`feed:${userPublicId}:*`); //invalidate user cache on new image uploads
 			return result;
 		} catch (error) {
 			// Cleanup Cloudinary asset if transaction failed after upload
@@ -351,7 +351,7 @@ export class ImageService {
 	/**
 	 * Deletes an image by public ID
 	 */
-	async deleteImageByPublicId(publicId: string, userId: string): Promise<{ message: string }> {
+	async deleteImageByPublicId(publicId: string, userPublicId: string): Promise<{ message: string }> {
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				// Find image by public ID
@@ -365,8 +365,10 @@ export class ImageService {
 					typeof image.user === "object" && (image.user as any)._id
 						? (image.user as any)._id.toString()
 						: image.user.toString();
-
-				if (imageUserId !== userId) {
+				// Resolve user internal id by publicId
+				const ownerInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+				if (!ownerInternalId) throw createError("AuthenticationError", "User not found");
+				if (imageUserId !== ownerInternalId) {
 					throw createError("ForbiddenError", "You can only delete your own images");
 				}
 
@@ -382,10 +384,10 @@ export class ImageService {
 				await this.imageRepository.delete((image as any)._id.toString(), session);
 
 				// Remove image URL from user's images array
-				const user = await this.userRepository.findById(userId, session);
+				const user = await this.userRepository.findById(imageUserId, session);
 				if (user) {
 					const updatedImages = user.images.filter((img) => img !== image.url);
-					await this.userRepository.update(userId, { images: updatedImages }, session);
+					await this.userRepository.update(imageUserId, { images: updatedImages }, session);
 				}
 
 				return { message: "Image deleted successfully" };

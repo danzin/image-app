@@ -1,5 +1,6 @@
 import { CommentRepository, TransformedComment } from "../repositories/comment.repository";
 import { ImageRepository } from "../repositories/image.repository";
+import { UserRepository } from "../repositories/user.repository";
 import { createError } from "../utils/errors";
 import { IComment } from "../models/comment.model";
 import { UnitOfWork } from "../database/UnitOfWork";
@@ -11,7 +12,8 @@ export class CommentService {
 	constructor(
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("UserRepository") private readonly userRepository: UserRepository
 	) {}
 
 	/**
@@ -61,6 +63,12 @@ export class CommentService {
 		} finally {
 			session.endSession();
 		}
+	}
+
+	async createCommentByPublicId(userPublicId: string, imagePublicId: string, content: string) {
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.createComment(user.id, imagePublicId, content);
 	}
 
 	/**
@@ -119,6 +127,12 @@ export class CommentService {
 		}
 	}
 
+	async updateCommentByPublicId(commentId: string, userPublicId: string, content: string) {
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateComment(commentId, user.id, content);
+	}
+
 	/**
 	 * Delete comment (only by comment owner or image owner)
 	 */
@@ -154,6 +168,12 @@ export class CommentService {
 		} finally {
 			session.endSession();
 		}
+	}
+
+	async deleteCommentByPublicId(commentId: string, userPublicId: string) {
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.deleteComment(commentId, user.id);
 	}
 
 	/**

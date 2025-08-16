@@ -1,5 +1,6 @@
 import axiosClient from "./axiosClient";
 import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../types";
+import axios, { AxiosError } from "axios";
 
 // Login returns user and token
 export const loginRequest = async (credentials: {
@@ -28,9 +29,28 @@ export const fetchIsFollowing = async ({ queryKey }: { queryKey: [string, string
 };
 
 // Get current user (me endpoint)
-export const fetchCurrentUser = async (): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
-	const { data } = await axiosClient.get("/api/users/me");
-	return data;
+export const fetchCurrentUser = async (signal?: AbortSignal): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
+	try {
+		const { data } = await axiosClient.get<AuthenticatedUserDTO | AdminUserDTO>("/api/users/me", { signal });
+		return data;
+	} catch (err) {
+		if (axios.isAxiosError(err)) {
+			const status = err.response?.status;
+			const info = {
+				status,
+				url: "/api/users/me",
+				message: err.message,
+				code: err.code,
+			};
+			// Auth specific
+			if (status === 401 || status === 403) {
+				throw Object.assign(new Error("UNAUTHORIZED"), info);
+			}
+			// Re-throw with context for diagnostics
+			throw Object.assign(err, info);
+		}
+		throw err as AxiosError; // non-axios
+	}
 };
 
 // Get user by public ID

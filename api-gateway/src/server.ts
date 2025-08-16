@@ -54,10 +54,15 @@ const proxyOptions: ExtendedProxyOptions = {
 	target: config.backendUrl,
 	changeOrigin: true,
 	ws: true,
+	timeout: 10000, // 10s backend timeout
+	proxyTimeout: 10000,
 	logLevel: "debug",
 	onProxyReq: (proxyReq, req) => {
 		// Log the actual path forwarded
 		console.log(`[Gateway] Proxying ${req.method} ${req.originalUrl} -> ${config.backendUrl}${proxyReq.path}`);
+		if (req.method === "GET" && req.originalUrl.startsWith("/api/users/me")) {
+			console.log("[Gateway][DEBUG] Forwarding headers:", req.headers);
+		}
 		proxyReq.setHeader("X-Forwarded-By", "api-gateway");
 	},
 	onProxyRes: (proxyRes, req) => {
@@ -68,7 +73,7 @@ const proxyOptions: ExtendedProxyOptions = {
 			url: req.originalUrl,
 		});
 		if (!res.headersSent) {
-			res.status(502).send("Bad Gateway");
+			res.status(504).json({ error: "GatewayTimeout", message: err.message });
 		} else if (!res.writableEnded) {
 			res.end();
 		}

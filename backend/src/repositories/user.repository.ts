@@ -116,6 +116,12 @@ export class UserRepository extends BaseRepository<IUser> {
 		return this.model.findOne({ publicId }).exec();
 	}
 
+	// Lightweight internal id lookup by publicId (projection only _id)
+	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
+		const doc = await this.model.findOne({ publicId }).select("_id").lean().exec();
+		return doc ? (doc as any)._id.toString() : null;
+	}
+
 	/**
 	 * Finds a user by username.
 	 * @param username - The username to search for.

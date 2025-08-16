@@ -28,11 +28,32 @@ export class BearerTokenStrategy extends AuthStrategy {
 	}
 
 	async authenticate(req: Request): Promise<JwtPayload> {
-		const token = req.cookies.token;
-		if (!token) throw createError("UnauthorizedError", "Missing token");
-		const user = jwt.verify(token, this.secret) as JwtPayload;
-		console.log(`[AUTH] User from token: ${JSON.stringify(user)}`);
-		return user;
+		// Prefer secure httpOnly cookie but fall back to Authorization header if present
+		let token: string | undefined = req.cookies?.token;
+		if (!token) {
+			// Some proxies may strip cookie; log incoming headers for diagnostics in dev
+			if (process.env.NODE_ENV !== "production") {
+				console.log("[AUTH][DEBUG] No token cookie. Incoming headers:", req.headers);
+			}
+		}
+		if (!token) {
+			const authHeader = req.headers.authorization;
+			if (authHeader && authHeader.startsWith("Bearer ")) {
+				token = authHeader.substring(7);
+			}
+		}
+		if (!token) {
+			console.warn(`[AUTH] Missing token for ${req.method} ${req.originalUrl}`);
+			throw createError("AuthenticationError", "Missing token");
+		}
+		try {
+			const user = jwt.verify(token, this.secret) as JwtPayload;
+			console.log(`[AUTH] User from token: ${JSON.stringify(user)}`);
+			return user;
+		} catch (err) {
+			console.error("[AUTH] Token verification failed", (err as Error).message);
+			throw createError("AuthenticationError", "Invalid or expired token");
+		}
 	}
 }
 
@@ -46,11 +67,22 @@ export class AuthenticationMiddleware {
 				console.log(`[AUTH] User authenticated: ${JSON.stringify(req.decodedUser)}`);
 				next();
 			} catch (error) {
+				// Preserve original AppError (with statusCode) if present
+				if (
+					typeof error === "object" &&
+					error !== null &&
+					"name" in error &&
+					"message" in error &&
+					"statusCode" in (error as any)
+				) {
+					return next(error as any);
+				}
 				const message =
 					typeof error === "object" && error !== null && "message" in error
 						? (error as { message?: string }).message || "Unauthorized"
 						: "Unauthorized";
-				next(createError("UnauthorizedError", message));
+				// Default missing/other errors to AuthenticationError (401)
+				next(createError("AuthenticationError", message));
 			}
 		};
 	}
@@ -63,7 +95,7 @@ export const adminRateLimit = rateLimit({
 	message: "Too many admin actions, please slow down",
 	standardHeaders: true,
 	legacyHeaders: false,
-	keyGenerator: (req) => `admin-${req.decodedUser?.id || req.ip}`,
+	keyGenerator: (req) => `admin-${req.decodedUser?.publicId || req.ip}`,
 });
 
 // Enhanced admin-only middleware (requires authentication first)

@@ -47,6 +47,7 @@ export class UserService {
 	 * @returns A signed JWT token
 	 */
 	private generateToken(user: IUser): string {
+		// Token intentionally exposes only public-facing identifiers.
 		const payload = {
 			publicId: user.publicId,
 			email: user.email,
@@ -55,7 +56,6 @@ export class UserService {
 		};
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
-
 		return jwt.sign(payload, secret, { expiresIn: "12h" });
 	}
 
@@ -123,11 +123,13 @@ export class UserService {
 	 */
 	async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
 		try {
-			const freshUser = await this.userRepository.findById(user.id as string);
-			if (!freshUser) {
-				throw createError("PathError", "User not found");
+			let freshUser: IUser | null = null;
+			if (user.publicId) {
+				freshUser = await this.userRepository.findByPublicId(user.publicId);
+			} else if (user.id) {
+				freshUser = await this.userRepository.findById(user.id as string);
 			}
-
+			if (!freshUser) throw createError("PathError", "User not found");
 			const token = this.generateToken(freshUser);
 			return { user: this.dtoService.toPublicDTO(freshUser), token };
 		} catch (error) {
@@ -136,9 +138,8 @@ export class UserService {
 					(error as { name: string; message: string }).name,
 					(error as { name: string; message: string }).message
 				);
-			} else {
-				throw createError("InternalServerError", "An unknown error occurred.");
 			}
+			throw createError("InternalServerError", "An unknown error occurred.");
 		}
 	}
 
@@ -230,6 +231,17 @@ export class UserService {
 		}
 	}
 
+	// PublicId variant
+	async updateProfileByPublicId(
+		publicId: string,
+		userData: { username?: string; bio?: string },
+		requestingUser: IUser
+	) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateProfile(user.id, userData, requestingUser);
+	}
+
 	/**
 	 * Changes a user's password after verifying the current one.
 	 * @param userId - The ID of the user being updated.
@@ -287,6 +299,12 @@ export class UserService {
 		}
 	}
 
+	async changePasswordByPublicId(publicId: string, currentPassword: string, newPassword: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.changePassword(user.id, currentPassword, newPassword);
+	}
+
 	/**
 	 * Updates a user's avatar image.
 	 * @param userId - The ID of the user updating their avatar.
@@ -337,6 +355,12 @@ export class UserService {
 		}
 	}
 
+	async updateAvatarByPublicId(publicId: string, file: Buffer): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateAvatar(user.id, file);
+	}
+
 	/**
 	 * Updates a user's cover image.
 	 * @param userId - The ID of the user updating their cover.
@@ -369,6 +393,12 @@ export class UserService {
 				throw createError("InternalServerError", "An unknown error occurred.");
 			}
 		}
+	}
+
+	async updateCoverByPublicId(publicId: string, file: Buffer): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateCover(user.id, file);
 	}
 
 	/**
@@ -507,7 +537,7 @@ export class UserService {
 
 			// Updating feed preference, not awaiting this to not block the response
 			this.feedService
-				.recordInteraction(userId, isLikeAction ? "like" : "unlike", imageId, imageTags)
+				.recordInteraction(userId, isLikeAction ? "like" : "unlike", existingImage.publicId, imageTags)
 				.catch((error) => {
 					// Log error but don't fail the request
 					console.error("Failed to record feed interaction:", error);
@@ -576,6 +606,13 @@ export class UserService {
 		}
 	}
 
+	// Adapter: follow action where follower is provided as publicId (legacy followeeId remains internal id)
+	async followActionByInternalId(followerPublicId: string, followeeInternalId: string): Promise<void> {
+		const follower = await this.userRepository.findByPublicId(followerPublicId);
+		if (!follower) throw createError("NotFoundError", "Follower not found");
+		return this.followAction(follower.id, followeeInternalId);
+	}
+
 	// === ADMIN METHODS ===
 
 	/**
@@ -626,6 +663,13 @@ export class UserService {
 		};
 	}
 
+	// PublicId wrapper for stats
+	async getUserStatsByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.getUserStats(user.id);
+	}
+
 	async deleteUserByPublicId(publicId: string): Promise<void> {
 		const user = await this.userRepository.findByPublicId(publicId);
 		if (!user) {
@@ -634,19 +678,19 @@ export class UserService {
 		await this.userRepository.delete(String(user._id).toString());
 	}
 
-	async banUserByPublicId(publicId: string, adminId: string, reason: string): Promise<any> {
+	async banUserByPublicId(publicId: string, adminPublicId: string, reason: string): Promise<any> {
 		const user = await this.userRepository.findByPublicId(publicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
+		const adminInternalId = await this.userRepository.findInternalIdByPublicId(adminPublicId);
+		if (!adminInternalId) throw createError("NotFoundError", "Admin not found");
 		const updatedUser = await this.userRepository.update(String(user._id), {
 			isBanned: true,
 			bannedAt: new Date(),
 			bannedReason: reason,
-			bannedBy: adminId,
+			bannedBy: adminInternalId,
 		});
-
 		return { message: "User banned successfully", user: this.dtoService.toAdminDTO(updatedUser!) };
 	}
 
@@ -658,19 +702,22 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		const updatedUser = await this.userRepository.update(userId, {
 			isBanned: false,
 			bannedAt: null,
 			bannedReason: null,
 			bannedBy: null,
 		});
-
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during unban.");
 		}
-
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async unbanUserByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.unbanUser(user.id);
 	}
 
 	/**
@@ -725,18 +772,20 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		if (user.isAdmin) {
 			throw createError("ValidationError", "User is already an admin");
 		}
-
-		const updatedUser = await this.userRepository.update(userId, {
-			isAdmin: true,
-		});
+		const updatedUser = await this.userRepository.update(userId, { isAdmin: true });
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during promotion.");
 		}
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async promoteToAdminByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.promoteToAdmin(user.id);
 	}
 
 	/**
@@ -747,18 +796,20 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		if (!user.isAdmin) {
 			throw createError("ValidationError", "User is not an admin");
 		}
-
-		const updatedUser = await this.userRepository.update(userId, {
-			isAdmin: false,
-		});
+		const updatedUser = await this.userRepository.update(userId, { isAdmin: false });
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during demotion.");
 		}
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async demoteFromAdminByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.demoteFromAdmin(user.id);
 	}
 
 	// === SECURE PUBLIC ID METHODS ===
@@ -862,5 +913,11 @@ export class UserService {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
 		}
+	}
+
+	async deleteMyAccountByPublicId(publicId: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.deleteMyAccount(user.id);
 	}
 }

@@ -1,80 +1,86 @@
-import { useState, ReactNode, useEffect, useCallback } from 'react';
+import { useState, ReactNode, useEffect, useCallback, useRef } from 'react';
 import axiosClient from '../../api/axiosClient';
 import { AuthContext } from './AuthContext';
 import { IUser } from '../../types';
+import { fetchCurrentUser } from '../../api/userApi';
+import axios from 'axios';
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+interface AuthProviderProps { children: ReactNode }
 
 export default function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<IUser | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  // [checkAuthState] is a dependency in the useEffect hook below.
-  // Without useCallaback, checkAuthState would be recreated on every render, causing the 
-  // useEffect to run unnecessary because it's dependency would change.
-  // useCallback memoizes checkAuthState, ensuring the same function instance is reused,
-  // and useEffect only runs once on mount. 
-  // It has an empty dependency array because it doesn't need to change unless thse component mounts/unmounts. 
   const checkAuthState = useCallback(async () => {
+    // Cancel any previous /me request
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const start = performance.now();
+    setLoading(true);
     try {
       setError(null);
-      const { data } = await axiosClient.get<IUser>('/api/users/me');
-      setUser(data);
-    } catch (error: any) {
-      console.log(error);
-      if (error.code === 403) {
-        setUser(null);
+      const data = await fetchCurrentUser(controller.signal);
+      setUser(data as IUser);
+    } catch (err) {
+      if (typeof err === 'object' && err && 'name' in err && (err as { name?: unknown }).name === 'CanceledError') return;
+      const markAnonymous = () => { setUser(null); setError(null); };
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        const timeout = err.code === 'ECONNABORTED';
+        const duration = Math.round(performance.now() - start);
+        console.warn('[Auth] /me failed', { status, code: err.code, duration });
+        if (status === 401 || status === 403) {
+          markAnonymous();
+        } else if (timeout) {
+          setUser(null);
+          setError('Session check timed out');
+        } else {
+            // Only show error for non-auth failures
+            setUser(null);
+            setError('Failed to verify session');
+        }
+      } else if (typeof err === 'object' && err && 'message' in err && (err as { message?: unknown }).message === 'UNAUTHORIZED') {
+        markAnonymous();
       } else {
-        // setError('An unexpected error occurred. Please try again later.');
+        console.error('[Auth] Unexpected error', err);
         setUser(null);
+        // Treat unknown error as non-fatal so public pages still render
+        setError(null);
       }
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    checkAuthState();
-  }, [checkAuthState]);
-
-  // The login function is part of the value obj. passed to AuthContext.Provider.
-  // Without useCallback, login would be a new function on every render, causing the value object  to be a new object
-  // every time. This triggers unnecessary re-renders in components consuming the context. 
-  // Memoizing it makes sure the same function reference is reused, optimizing performance. 
-  const login = useCallback((userData: IUser) => {
-    setUser(userData);
+  const login = useCallback((data: IUser) => {
+    setUser(data);
+    setError(null);
   }, []);
 
-  // Similar to login, logout is part of the value object and memoizing it with useCallback prevents unnecessary re-renders. 
-  // It just keeps the function reference stable across renders.
-  // Mepty dependency array because it relies on setUser, which is stable. 
   const logout = useCallback(async () => {
     try {
       setError(null);
       await axiosClient.post('/api/users/logout');
-  } catch (error: any) {
-      setError('Logout failed. Please try again.');
+    } catch {
+      setError('Logout failed');
     } finally {
       setUser(null);
     }
   }, []);
 
-  const value = {
-    user,
-    isLoggedIn: !!user,
-    login,
-    logout,
-    checkAuthState,
-    loading,
-    error,
-  };
+  useEffect(() => {
+    checkAuthState();
+    return () => abortRef.current?.abort();
+  }, [checkAuthState]);
+
+  const value = { user, isLoggedIn: !!user, login, logout, checkAuthState, loading, error };
 
   return (
     <AuthContext.Provider value={value}>
-      {loading ? <div>Loading...</div> : error ? <div>{error}</div> : children}
+      {loading ? <div>Loading...</div> : children}
     </AuthContext.Provider>
   );
 }

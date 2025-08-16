@@ -43,7 +43,7 @@ export class ImageController {
 				throw createError("ValidationError", "No file uploaded");
 			}
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User information missing");
 			}
 
@@ -51,7 +51,7 @@ export class ImageController {
 			const originalName = file.originalname || `image-${Date.now()}`;
 			console.log("Using originalName:", originalName);
 
-			const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags, originalName);
+			const result = await this.imageService.uploadImage(decodedUser.publicId, file.buffer, tags, originalName);
 			res.status(201).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -121,7 +121,7 @@ export class ImageController {
 			const image = looksLikeUUIDv4
 				? await this.imageService.getImageByPublicId(sanitizedSlug)
 				: await this.imageService.getImageBySlug(sanitizedSlug);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -143,7 +143,7 @@ export class ImageController {
 
 			const imagesDTOs = {
 				...images,
-				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.id)),
+				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.publicId)),
 			};
 
 			res.status(200).json(imagesDTOs);
@@ -160,7 +160,7 @@ export class ImageController {
 		try {
 			const { publicId } = req.params;
 			const image = await this.imageService.getImageByPublicId(publicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -220,12 +220,11 @@ export class ImageController {
 			const { publicId } = req.params;
 			const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
-
-			const result = await this.imageService.deleteImageByPublicId(publicId, decodedUser.id);
+			const result = await this.imageService.deleteImageByPublicId(publicId, decodedUser.publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {

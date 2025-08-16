@@ -18,7 +18,6 @@ export class NotificationRepository extends BaseRepository<INotification> {
 	async getNotifications(userId: string) {
 		return this.model
 			.find({ userId, isRead: false }) //fetch unread notifications by receiver publicId
-			.populate("actorId", "username") //populate the actor id field with username
 			.sort({ timestamp: -1 })
 			.exec();
 	}

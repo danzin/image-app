@@ -55,11 +55,10 @@ export class UserController {
 	getMe = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			console.log(`decodedUser: ${JSON.stringify(decodedUser)}`);
-			if (!decodedUser) {
+			if (!decodedUser?.publicId) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			const query = new GetMeQuery(decodedUser.id);
+			const query = new GetMeQuery(decodedUser.publicId as string);
 			const { user, token } = await this.queryBus.execute<GetMeResult>(query);
 			res.cookie("token", token, cookieOptions);
 			res.status(200).json(user);
@@ -99,7 +98,12 @@ export class UserController {
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			const updatedUser = await this.userService.updateProfile(decodedUser.id, userData, decodedUser as IUser);
+			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
+			const updatedUser = await this.userService.updateProfileByPublicId(
+				decodedUser.publicId,
+				userData,
+				decodedUser as IUser
+			);
 			res.status(200).json(updatedUser);
 		} catch (error) {
 			next(error);
@@ -117,7 +121,8 @@ export class UserController {
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			await this.userService.changePassword(decodedUser.id, currentPassword, newPassword);
+			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
+			await this.userService.changePasswordByPublicId(decodedUser.publicId, currentPassword, newPassword);
 
 			// res.clearCookie('token'); // Might clear cookies on password change to force re-login
 
@@ -136,7 +141,8 @@ export class UserController {
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			await this.userService.updateAvatar(decodedUser.id, file);
+			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
+			await this.userService.updateAvatarByPublicId(decodedUser.publicId, file);
 			res.status(200).json({ message: "Avatar updated successfully" });
 		} catch (error) {
 			next(error);
@@ -153,7 +159,8 @@ export class UserController {
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			await this.userService.updateCover(decodedUser.id, file);
+			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
+			await this.userService.updateCoverByPublicId(decodedUser.publicId, file);
 			res.status(200).json({ message: "Cover updated successfully" });
 		} catch (error) {
 			next(error);
@@ -212,14 +219,14 @@ export class UserController {
 	followUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerId = req.decodedUser?.id;
+			const followerPublicId = req.decodedUser?.publicId;
 
-			if (!followerId) {
+			if (!followerPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
 
-			const result = await this.userService.followUserByPublicId(followerId, publicId);
+			const result = await this.userService.followUserByPublicId(followerPublicId, publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -242,14 +249,14 @@ export class UserController {
 	unfollowUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerId = req.decodedUser?.id;
+			const followerPublicId = req.decodedUser?.publicId;
 
-			if (!followerId) {
+			if (!followerPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
 
-			const result = await this.userService.unfollowUserByPublicId(followerId, publicId);
+			const result = await this.userService.unfollowUserByPublicId(followerPublicId, publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -270,14 +277,14 @@ export class UserController {
 	checkFollowStatus = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerId = req.decodedUser?.id;
+			const followerPublicId = req.decodedUser?.publicId;
 
-			if (!followerId) {
+			if (!followerPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
 
-			const isFollowing = await this.userService.checkFollowStatusByPublicId(followerId, publicId);
+			const isFollowing = await this.userService.checkFollowStatusByPublicId(followerPublicId, publicId);
 			res.status(200).json({ isFollowing });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -290,14 +297,14 @@ export class UserController {
 	 */
 	deleteMyAccount = async (req: Request, res: Response): Promise<void> => {
 		try {
-			const userId = req.decodedUser?.id;
+			const userPublicId = req.decodedUser?.publicId;
 
-			if (!userId) {
+			if (!userPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
 
-			await this.userService.deleteMyAccount(userId);
+			await this.userService.deleteMyAccountByPublicId(userPublicId);
 			res.status(200).json({ message: "Account deleted successfully" });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -356,7 +363,8 @@ export class UserController {
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
-			const result = await this.userService.followAction(decodedUser.id, followeeId);
+			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
+			const result = await this.userService.followActionByInternalId(decodedUser.publicId, followeeId);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
