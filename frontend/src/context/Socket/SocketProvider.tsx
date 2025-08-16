@@ -53,7 +53,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     socket.on('connect', handleConnect);
     socket.on('connect_error', handleError);
     socket.on('disconnect', handleDisconnect);
-  socket.on('new_notification', handleNotification);
+    socket.on('new_notification', handleNotification);
    
     // Store and explicitly connect
     socketRef.current = socket;
