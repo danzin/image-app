@@ -24,6 +24,11 @@ interface ImageCardProps {
 const BASE_URL = '/api'; 
 
 const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
+    console.log('ImageCard - Received image data:', {
+    publicId: image.publicId,
+    commentsCount: image.commentsCount,
+    likes: image.likes
+  });
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')
@@ -32,7 +37,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
  const navigate = useNavigate();
 
     const handleClick = () => {
-      navigate(`/images/${image.publicId}`); // Use publicId for navigation
+      navigate(`/images/${image.publicId}`); 
   };
   return (
     <Card

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useImages, useImagesByTag, usePersonalizedFeed } from '../hooks/images/useImages';
 import { Tags } from '../components/TagsContainer';
@@ -23,15 +23,35 @@ const Home: React.FC = () => {
   const theme = useTheme();
   const isLargeScreen = useMediaQuery(theme.breakpoints.up('lg'));
   const { selectedTags, clearTags } = useGallery();
-  const { isLoggedIn } = useAuth();
+  const { user, isLoggedIn, loading: authLoading } = useAuth();
 
+  const [authTransitionComplete, setAuthTransitionComplete] = useState(false);
+  
+  useEffect(() => {
+    if (authLoading) {
+      setAuthTransitionComplete(false);
+    } else {
+      const timer = setTimeout(() => {
+        setAuthTransitionComplete(true);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading, isLoggedIn]);
+
+  // Only enable queries when auth transition is complete
   const personalizedFeedQuery = usePersonalizedFeed();
   const imagesQuery = useImages();
   const imagesByTagQuery = useImagesByTag(selectedTags);
 
-  // Use mainQuery to determine whether to show generic feed or personalized feed
-  // if a user is logged in
-  const mainQuery = isLoggedIn ? personalizedFeedQuery : imagesQuery;
+  console.log("Home - Auth state:", { isLoggedIn, user: user?.publicId, authLoading, authTransitionComplete });
+  console.log("Home - PersonalizedFeed data:", personalizedFeedQuery.data?.pages?.[0]?.data?.[0]);
+  console.log("Home - Images data:", imagesQuery.data?.pages?.[0]?.data?.[0]);
+
+  // Choose the appropriate query based on login status
+  // But ensure we're not switching during loading states
+  const shouldUsePersonalizedFeed = isLoggedIn && authTransitionComplete && !authLoading;
+  
+  const mainQuery = shouldUsePersonalizedFeed ? personalizedFeedQuery : imagesQuery;
   
   const {
     data: mainFeedData,
@@ -52,16 +72,38 @@ const Home: React.FC = () => {
   } = imagesByTagQuery;
 
   const activeImages = React.useMemo(() => {
-    return selectedTags.length === 0
-      ? mainFeedData?.pages.flatMap((page) => page.data) || []
-      : filteredImagesData?.pages.flatMap((page) => page.data) || [];
-  }, [selectedTags, mainFeedData, filteredImagesData]);
+    console.log("Home - Computing active images:", {
+      selectedTagsCount: selectedTags.length,
+      mainFeedPages: mainFeedData?.pages?.length,
+      filteredPages: filteredImagesData?.pages?.length,
+      shouldUsePersonalizedFeed
+    });
+
+    if (selectedTags.length === 0) {
+      const images = mainFeedData?.pages.flatMap((page) => page.data) || [];
+      console.log("Home - Using main feed images:", images.length, "first image:", images[0]);
+      return images;
+    } else {
+      const images = filteredImagesData?.pages.flatMap((page) => page.data) || [];
+      console.log("Home - Using filtered images:", images.length);
+      return images;
+    }
+  }, [selectedTags, mainFeedData, filteredImagesData, shouldUsePersonalizedFeed]);
 
   const error = selectedTags.length > 0 ? errorFiltered : errorMain;
   const isFetchingNext = selectedTags.length > 0 ? isFetchingNextFiltered : isFetchingNextMain;
   const fetchNextPage = selectedTags.length > 0 ? fetchNextFiltered : fetchNextMain;
   const hasNextPage = selectedTags.length > 0 ? !!hasNextFiltered : !!hasNextMain;
   const isLoading = selectedTags.length > 0 ? isLoadingFiltered : isLoadingMain;
+
+  // Show loading during auth transitions
+  if (authLoading || !authTransitionComplete) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
+        <Typography>Loading...</Typography>
+      </Box>
+    );
+  }
 
   const sidebarContent = (
     <Box sx={{ p: 3, width: SIDEBAR_WIDTH }}>
@@ -238,6 +280,7 @@ const Home: React.FC = () => {
         ) : (
           /* Gallery */
           <Gallery
+            key={shouldUsePersonalizedFeed ? 'personalized' : 'public'} // Force re-render when switching feed types
             images={activeImages}
             fetchNextPage={fetchNextPage}
             hasNextPage={hasNextPage}
