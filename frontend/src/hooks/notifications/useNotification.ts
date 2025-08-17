@@ -48,7 +48,6 @@ export const useNotifications = () => {
 	useEffect(() => {
 		if (!socket) return;
 		const handleNew = (notification: Notification) => {
-			console.log("New notification received:", notification);
 			queryClient.setQueryData(["notifications"], (oldNotifications: Notification[] = []) => [
 				notification,
 				...oldNotifications,
@@ -56,7 +55,6 @@ export const useNotifications = () => {
 		};
 
 		const handleRead = (updatedNotification: Notification) => {
-			console.log("Notification marked as read:", updatedNotification);
 			queryClient.setQueryData(["notifications"], (oldNotifications: Notification[] = []) =>
 				oldNotifications.map((notif) => (notif.id === updatedNotification.id ? updatedNotification : notif))
 			);

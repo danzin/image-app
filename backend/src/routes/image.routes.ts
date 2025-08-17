@@ -36,13 +36,15 @@ export class ImageRoutes {
 
 		// Use username for profile image galleries (public endpoint)
 		this.router.get(
-			"/user/:username/images",
+			"/user/username/:username",
 			new ValidationMiddleware(UserValidationSchemas.usernameAction()).validate(),
 			this.controller.getUserImagesByUsername
 		);
-
-		//returns images uploaded by userId (legacy - should be deprecated)
-		this.router.get("/user/:id", this.controller.getUserImages);
+		this.router.get(
+			"/user/id/:publicId",
+			new ValidationMiddleware(UserValidationSchemas.publicIdAction()).validate(),
+			this.controller.getUserImagesByPublicId
+		);
 
 		//return images by selected tags
 		this.router.get("/search/tags", this.controller.searchByTags);

@@ -77,15 +77,15 @@ export class ImageController {
 		}
 	};
 
-	getUserImages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		const { id } = req.params;
+	getUserImagesByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		const { publicId } = req.params;
 
 		const page = parseInt(req.query.page as string) || 1;
 		const limit = parseInt(req.query.limit as string) || 10;
-		console.log("ID of getUserImages: ", id);
+		console.log("ID of getUserImages: ", publicId);
 		try {
-			const images = await this.imageService.getUserImages(id, page, limit);
-			console.log(`images of user ${id}: ${images}`);
+			const images = await this.imageService.getUserImages(publicId, page, limit);
+			console.log(`images of user ${publicId}: ${images}`);
 			res.json(images);
 		} catch (error) {
 			if (error instanceof Error) {

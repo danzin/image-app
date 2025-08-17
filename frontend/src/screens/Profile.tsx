@@ -44,7 +44,7 @@ const Profile:React.FC  = () => {
   const queryClient = useQueryClient();
 
   const profileUserId = id || user?.publicId;
-  
+
   // Data for profile being viewed - use the identifier to get user data
   // If no id is provided in URL and user is logged in, use their data
   const { data: profileData, isLoading: isLoadingProfile, error: getUserError } = useGetUser(

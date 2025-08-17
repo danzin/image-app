@@ -206,9 +206,9 @@ export class ImageService {
 		}
 	}
 
-	async getUserImages(userId: string, page: number, limit: number): Promise<PaginationResult<IImage>> {
+	async getUserImages(userPublicId: string, page: number, limit: number): Promise<PaginationResult<IImage>> {
 		try {
-			return await this.imageRepository.findByUserId(userId, { page, limit });
+			return await this.imageRepository.findByUserPublicId(userPublicId, { page, limit });
 		} catch (error) {
 			if (error instanceof Error) {
 				throw createError(error.name, error.message, {

@@ -70,7 +70,7 @@ export const fetchUserByUsername = async ({ queryKey }: { queryKey: [string, str
 // Get user images by user public ID
 export const fetchUserImages = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
 	try {
-		const { data } = await axiosClient.get(`/api/images/user/public/${userPublicId}?page=${pageParam}`);
+		const { data } = await axiosClient.get(`/api/images/user/id/${userPublicId}?page=${pageParam}`);
 		return data;
 	} catch (error) {
 		console.error("Error fetching user images:", error);

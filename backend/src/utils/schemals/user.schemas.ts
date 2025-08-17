@@ -61,7 +61,7 @@ export class UserSchemas {
 				"string.min": "Username must be at least 1 character long",
 				"string.max": "Username must not exceed 30 characters",
 			}),
-			bio: Joi.string().max(500).optional().messages({
+			bio: Joi.string().max(500).allow("").optional().messages({
 				"string.max": "Bio must not exceed 500 characters",
 			}),
 		}).options({ allowUnknown: false, stripUnknown: true });
