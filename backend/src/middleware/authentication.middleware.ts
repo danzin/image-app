@@ -86,6 +86,24 @@ export class AuthenticationMiddleware {
 			}
 		};
 	}
+
+	/**
+	 * Optional authentication - sets req.decodedUser if token is present and valid,
+	 * but doesn't throw an error if token is missing or invalid
+	 */
+	handleOptional(): RequestHandler {
+		return async (req: Request, _res: Response, next: NextFunction) => {
+			try {
+				req.decodedUser = await this.strategy.authenticate(req);
+				console.log(`[AUTH] Optional auth - User authenticated: ${JSON.stringify(req.decodedUser)}`);
+			} catch (error) {
+				// Silently fail for optional authentication
+				console.log(`[AUTH] Optional auth - No valid token provided, continuing as anonymous`);
+				req.decodedUser = undefined;
+			}
+			next();
+		};
+	}
 }
 
 // Admin-specific rate limiting
@@ -171,6 +189,13 @@ export const adminActionValidation = (requiredFields: string[] = []) => {
 // Factory for common authentication types
 export class AuthFactory {
 	static bearerToken(): AuthenticationMiddleware {
+		const secret = process.env.JWT_SECRET;
+		if (!secret) throw new Error("JWT_SECRET not configured");
+
+		return new AuthenticationMiddleware(new BearerTokenStrategy(secret));
+	}
+
+	static optionalBearerToken(): AuthenticationMiddleware {
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw new Error("JWT_SECRET not configured");
 

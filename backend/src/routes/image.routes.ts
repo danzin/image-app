@@ -10,6 +10,7 @@ import { inject, injectable } from "tsyringe";
 export class ImageRoutes {
 	public router: express.Router;
 	private auth = AuthFactory.bearerToken().handle();
+	private optionalAuth = AuthFactory.optionalBearerToken().handleOptional();
 
 	constructor(@inject("ImageController") private controller: ImageController) {
 		this.router = express.Router();
@@ -20,16 +21,18 @@ export class ImageRoutes {
 		//get all images
 		this.router.get("/", this.controller.getImages);
 
-		// Use slug for SEO-friendly image URLs (public endpoint)
+		// Use slug for SEO-friendly image URLs (optional auth to check if user liked)
 		this.router.get(
 			"/image/:slug",
+			this.optionalAuth,
 			new ValidationMiddleware(ImageValidationSchemas.slugAction()).validate(),
 			this.controller.getImageBySlug
 		);
 
-		// Public: get image by publicId
+		// Public: get image by publicId (optional auth to check if user liked)
 		this.router.get(
 			"/image/:publicId",
+			this.optionalAuth,
 			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
 			this.controller.getImageByPublicId
 		);

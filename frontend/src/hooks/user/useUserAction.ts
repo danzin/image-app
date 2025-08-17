@@ -31,20 +31,34 @@ export const useLikeImage = () => {
 		onMutate: async (imagePublicId) => {
 			console.log("Optimistic update for image:", imagePublicId);
 
-			// Cancel queries
+			// Cancel all related queries
 			await queryClient.cancelQueries({ queryKey: ["personalizedFeed"] });
 			await queryClient.cancelQueries({ queryKey: ["image", imagePublicId] });
+			await queryClient.cancelQueries({ queryKey: ["image"] }); // Cancel all image queries
 
 			// Get current data
 			const previousFeed = queryClient.getQueryData(["personalizedFeed"]);
 			const previousImage = queryClient.getQueryData(["image", imagePublicId]);
 
-			// Update individual image cache
+			// Update individual image cache - toggle both likes count and isLikedByViewer
 			queryClient.setQueryData(["image", imagePublicId], (oldImage: IImage) => {
 				if (!oldImage) return oldImage;
+				const currentlyLiked = oldImage.isLikedByViewer;
 				return {
 					...oldImage,
-					likes: oldImage.likes === 0 ? 1 : 0,
+					likes: currentlyLiked ? oldImage.likes - 1 : oldImage.likes + 1,
+					isLikedByViewer: !currentlyLiked,
+				};
+			});
+
+			// Update the general image query (for useImageById)
+			queryClient.setQueriesData({ queryKey: ["image"] }, (oldImage: IImage | undefined) => {
+				if (!oldImage || oldImage.publicId !== imagePublicId) return oldImage;
+				const currentlyLiked = oldImage.isLikedByViewer;
+				return {
+					...oldImage,
+					likes: currentlyLiked ? oldImage.likes - 1 : oldImage.likes + 1,
+					isLikedByViewer: !currentlyLiked,
 				};
 			});
 
@@ -56,9 +70,17 @@ export const useLikeImage = () => {
 						...oldData,
 						pages: oldData.pages.map((page) => ({
 							...page,
-							data: page.data.map((image) =>
-								image.publicId === imagePublicId ? { ...image, likes: image.likes === 0 ? 1 : 0 } : image
-							),
+							data: page.data.map((image) => {
+								if (image.publicId === imagePublicId) {
+									const currentlyLiked = image.isLikedByViewer;
+									return {
+										...image,
+										likes: currentlyLiked ? image.likes - 1 : image.likes + 1,
+										isLikedByViewer: !currentlyLiked,
+									};
+								}
+								return image;
+							}),
 						})),
 					};
 				});
@@ -74,21 +96,17 @@ export const useLikeImage = () => {
 				queryClient.setQueryData(["image", imagePublicId], context.previousImage);
 			}
 		},
-		onSuccess: (updatedImage) => {
-			queryClient.setQueryData(["personalizedFeed"], (oldData: PaginatedResponse | undefined) => {
-				if (!oldData) return oldData;
-				return {
-					...oldData,
-					pages: oldData.pages.map((page) => ({
-						...page,
-						data: page.data.map((image) => (image.publicId === updatedImage.publicId ? updatedImage : image)),
-					})),
-				};
-			});
-		},
-		onSettled: () => {
+		onSuccess: () => {
+			// Invalidate all image-related queries to get fresh data
+			queryClient.invalidateQueries({ queryKey: ["image"] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["images"] });
+		},
+		onSettled: () => {
+			// Additional invalidation as fallback
+			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["images"] });
+			queryClient.invalidateQueries({ queryKey: ["image"] });
 		},
 	});
 };

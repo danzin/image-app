@@ -7,15 +7,13 @@ function isObject(val: unknown): val is RawRecord {
 }
 
 // Map raw image (backend shape) to frontend IImage
-export function mapImage(rawInput: unknown, viewerPublicId?: string): IImage {
+export function mapImage(rawInput: unknown): IImage {
 	const raw = isObject(rawInput) ? rawInput : {};
 	const user = isObject(raw.user) ? raw.user : {};
 	const tagsSource = Array.isArray(raw.tags) ? raw.tags : [];
 	const tagStrings = tagsSource
 		.map((t) => (isObject(t) && typeof t.tag === "string" ? t.tag : typeof t === "string" ? t : null))
 		.filter((t): t is string => !!t);
-	const likedByVal = (raw as RawRecord).likedBy;
-	const likedBy = Array.isArray(likedByVal) ? likedByVal.filter((v): v is string => typeof v === "string") : [];
 
 	return {
 		publicId: String(raw.publicId || ""),
@@ -31,7 +29,7 @@ export function mapImage(rawInput: unknown, viewerPublicId?: string): IImage {
 		likes: typeof raw.likes === "number" ? raw.likes : 0,
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
 		createdAt: new Date(String(raw.createdAt || new Date().toISOString())),
-		isLikedByViewer: viewerPublicId ? likedBy.includes(viewerPublicId) : undefined,
+		isLikedByViewer: typeof raw.isLikedByViewer === "boolean" ? raw.isLikedByViewer : false,
 	};
 }
 

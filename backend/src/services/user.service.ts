@@ -487,81 +487,6 @@ export class UserService {
 	}
 
 	/**
-	 * Handles user "like" or "unlike" actions on an image.
-	 * If the user has already liked the image, it removes the like.
-	 * Otherwise, it adds a like and triggers a notification.
-	 * @param userId - The ID of the user performing the action.
-	 * @param imageId - The ID of the image being liked/unliked.
-	 * @throws PathError if the image is not found.
-	 * @throws TransactionError if the database transaction fails.
-	 */
-	async likeAction(userId: string, imageId: string): Promise<IImage | null> {
-		let isLikeAction = true; // Track if this is a like or unlike
-		let imageTags: string[] = []; // Stroe image tags for the feed service
-
-		try {
-			// Check if image exists before starting transaction
-			const existingImage = await this.imageRepository.findById(imageId);
-			if (!existingImage) {
-				throw createError("PathError", `Image with id ${imageId} not found`);
-			}
-			imageTags = existingImage.tags.map((tag) => tag.tag);
-
-			await this.unitOfWork.executeInTransaction(async (session) => {
-				const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
-
-				if (existingLike) {
-					// Unlike flow
-					isLikeAction = false;
-					await this.likeRepository.deleteLike(userId, imageId, session);
-					await this.imageRepository.findOneAndUpdate({ _id: imageId }, { $inc: { likes: -1 } }, session);
-					await this.userActionRepository.logAction(userId, "unlike", imageId, session);
-				} else {
-					// Like flow
-					const userIdObject = convertToObjectId(userId);
-					const imageIdObject = convertToObjectId(imageId);
-
-					await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
-					await this.imageRepository.findOneAndUpdate({ _id: imageId }, { $inc: { likes: 1 } }, session);
-
-					await this.userActionRepository.logAction(userId, "like", imageId, session);
-					await this.notificationService.createNotification({
-						receiverId: existingImage.user.publicId.toString(),
-						actionType: "like",
-						actorId: userId,
-						targetId: imageId,
-						session,
-					});
-				}
-			});
-
-			// Updating feed preference, not awaiting this to not block the response
-			this.feedService
-				.recordInteraction(userId, isLikeAction ? "like" : "unlike", existingImage.publicId, imageTags)
-				.catch((error) => {
-					// Log error but don't fail the request
-					console.error("Failed to record feed interaction:", error);
-				});
-
-			//Return the updated image
-			return this.imageRepository.findById(imageId);
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				if (error.name === "PathError") {
-					throw createError("PathError", String(error.message));
-				}
-				throw createError("TransactionError", String(error.message), {
-					function: "likeAction",
-					additionalInfo: "Transaction failed",
-					originalError: error,
-				});
-			}
-			// If error is not handled above, return null to satisfy return type
-			return null;
-		}
-	}
-
-	/**
 	 * Handles user "follow" or "unfollow" actions.
 	 * If the user is already following the target user, it removes the follow.
 	 * Otherwise, it adds a follow and triggers a notification.
@@ -876,41 +801,6 @@ export class UserService {
 		try {
 			const isFollowing = await this.followRepository.isFollowingByPublicId(followerPublicId, targetPublicId);
 			return isFollowing;
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
-		}
-	}
-
-	/**
-	 * Likes an image by its public ID
-	 */
-	async likeImageByPublicId(userId: string, imagePublicId: string): Promise<IImage | null> {
-		try {
-			const image = await this.imageRepository.findByPublicId(imagePublicId);
-			if (!image) {
-				throw createError("NotFoundError", "Image not found");
-			}
-
-			return await this.likeAction(userId, image.id);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
-		}
-	}
-
-	/**
-	 * Unlikes an image by its public ID
-	 */
-	async unlikeImageByPublicId(userId: string, imagePublicId: string): Promise<IImage | null> {
-		try {
-			const image = await this.imageRepository.findByPublicId(imagePublicId);
-			if (!image) {
-				throw createError("NotFoundError", "Image not found");
-			}
-
-			// Since likeAction handles both like/unlike, we can reuse it
-			return await this.likeAction(userId, image.id);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);

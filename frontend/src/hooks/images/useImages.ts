@@ -14,7 +14,7 @@ import { useAuth } from "../context/useAuth";
 import { mapImage } from "../../lib/mappers";
 
 export const usePersonalizedFeed = () => {
-	const { isLoggedIn, user } = useAuth();
+	const { isLoggedIn } = useAuth();
 
 	return useInfiniteQuery<
 		{
@@ -31,7 +31,7 @@ export const usePersonalizedFeed = () => {
 			const response = await fetchPersonalizedFeed(pageParam as number, 5);
 			return {
 				...response,
-				data: response.data.map((rawImage: IImage) => mapImage(rawImage, user?.publicId)),
+				data: response.data.map((rawImage: IImage) => mapImage(rawImage)),
 			};
 		},
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
@@ -64,7 +64,7 @@ export const useImages = () => {
 			console.log("useImages - Raw response for query:", queryKey, response.data[0]);
 
 			const mappedData = response.data.map((rawImage: IImage) => {
-				const mapped = mapImage(rawImage, user?.publicId);
+				const mapped = mapImage(rawImage);
 				console.log("useImages - Mapped image for query:", queryKey, mapped);
 				return mapped;
 			});
@@ -96,7 +96,7 @@ export const useImageByPublicId = (publicId: string) => {
 		queryKey: ["image", "publicId", publicId, user?.publicId], // Include user in query key
 		queryFn: async () => {
 			const rawImage = await fetchImageByPublicId(publicId);
-			return mapImage(rawImage, user?.publicId);
+			return mapImage(rawImage);
 		},
 		enabled: !!publicId && !loading, // Wait for auth
 		staleTime: 0,
@@ -106,13 +106,11 @@ export const useImageByPublicId = (publicId: string) => {
 
 // Get image by slug (SEO-friendly URLs)
 export const useImageBySlug = (slug: string) => {
-	const { user } = useAuth();
-
 	return useQuery<IImage, Error>({
 		queryKey: ["image", "slug", slug],
 		queryFn: async () => {
 			const rawImage = await fetchImageBySlug(slug);
-			return mapImage(rawImage, user?.publicId);
+			return mapImage(rawImage);
 		},
 		enabled: !!slug,
 		staleTime: 0,
@@ -131,7 +129,12 @@ export const useImageById = (identifier: string) => {
 		queryKey: ["image", identifier],
 		queryFn: async () => {
 			const rawImage = isPublicId ? await fetchImageByPublicId(identifier) : await fetchImageBySlug(identifier);
-			return mapImage(rawImage, user?.publicId);
+			console.log("Raw image from API:", rawImage);
+			console.log("Raw image isLikedByViewer:", rawImage.isLikedByViewer);
+			const mappedImage = mapImage(rawImage);
+			console.log("Mapped image:", mappedImage);
+			console.log("User publicId for mapping:", user?.publicId);
+			return mappedImage;
 		},
 		enabled: !!identifier,
 		staleTime: 0,
@@ -146,7 +149,6 @@ export const useImagesByTag = (
 		enabled?: boolean;
 	}
 ) => {
-	const { user } = useAuth();
 	const limit = options?.limit ?? 10;
 	const enabled = options?.enabled ?? tags.length > 0;
 
@@ -165,7 +167,7 @@ export const useImagesByTag = (
 			const response = await fetchImagesByTag({ tags, page: pageParam as number, limit });
 			return {
 				...response,
-				data: response.data.map((rawImage: IImage) => mapImage(rawImage, user?.publicId)),
+				data: response.data.map((rawImage: IImage) => mapImage(rawImage)),
 			};
 		},
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),

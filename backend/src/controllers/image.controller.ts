@@ -114,14 +114,21 @@ export class ImageController {
 	getImageBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { slug } = req.params;
+			const viewerPublicId = req.decodedUser?.publicId;
+			console.log(`[IMAGE CONTROLLER] getImageBySlug called with slug: ${slug}, viewerPublicId: ${viewerPublicId}`);
+
 			// Sanitize slug: remove optional file extension if present (e.g., ".png", ".jpg")
 			const sanitizedSlug = slug.replace(/\.[a-z0-9]{2,5}$/i, "");
 			// If the slug looks like a UUID (publicId), fetch by publicId instead
 			const looksLikeUUIDv4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedSlug);
+			console.log(`[IMAGE CONTROLLER] Sanitized slug: ${sanitizedSlug}, looks like UUID: ${looksLikeUUIDv4}`);
+
 			const image = looksLikeUUIDv4
-				? await this.imageService.getImageByPublicId(sanitizedSlug)
-				: await this.imageService.getImageBySlug(sanitizedSlug);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
+				? await this.imageService.getImageByPublicId(sanitizedSlug, viewerPublicId)
+				: await this.imageService.getImageBySlug(sanitizedSlug, viewerPublicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, viewerPublicId);
+			console.log(`[IMAGE CONTROLLER] Returning imageDTO with isLikedByViewer: ${imageDTO.isLikedByViewer}`);
+
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {

@@ -62,7 +62,10 @@ const ImageView = () => {
   }
 
   const isOwner = isLoggedIn && user?.publicId === image.user.publicId;
-  const isLiked = image.likes > 0; // Assuming likes > 0 means liked
+  const isLiked = isLoggedIn && image.isLikedByViewer; // Check if current user has liked this image
+  console.log(`IS LIKED: ${isLiked}, User: ${user?.publicId}, Image Owner: ${image.user.publicId}`);  
+  console.log(`Full image object:`, image);
+  console.log(`isLikedByViewer property:`, image.isLikedByViewer);
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')

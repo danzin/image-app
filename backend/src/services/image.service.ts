@@ -1,6 +1,7 @@
 import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { CommentRepository } from "../repositories/comment.repository";
+import { LikeRepository } from "../repositories/like.repository";
 import { createError } from "../utils/errors";
 import { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
 import { errorLogger } from "../utils/winston";
@@ -19,6 +20,7 @@ export class ImageService {
 		private readonly imageStorageService: IImageStorageService,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
+		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("RedisService") private redisService: RedisService
 	) {}
@@ -298,12 +300,25 @@ export class ImageService {
 	/**
 	 * Gets an image by its public ID
 	 */
-	async getImageByPublicId(publicId: string): Promise<IImage> {
+	async getImageByPublicId(publicId: string, viewerPublicId?: string): Promise<IImage> {
 		try {
+			console.log(`getImageByPublicId called with publicId: ${publicId}, viewerPublicId: ${viewerPublicId}`);
 			const image = await this.imageRepository.findByPublicId(publicId);
 			if (!image) {
 				throw createError("NotFoundError", "Image not found");
 			}
+
+			// Add like status if viewer is provided
+			if (viewerPublicId) {
+				console.log(`Adding like status for viewer: ${viewerPublicId} on image publicId: ${publicId}`);
+				const isLikedByViewer = await this.checkIfUserLikedImage(viewerPublicId, (image as any)._id.toString());
+				console.log(`Setting isLikedByViewer to: ${isLikedByViewer}`);
+				(image as any).isLikedByViewer = isLikedByViewer;
+			} else {
+				console.log(`No viewerPublicId provided for image ${publicId}, skipping like status check`);
+			}
+
+			console.log(`Returning image with isLikedByViewer: ${(image as any).isLikedByViewer}`);
 			return image;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -314,16 +329,54 @@ export class ImageService {
 	/**
 	 * Gets an image by its slug (for SEO-friendly URLs)
 	 */
-	async getImageBySlug(slug: string): Promise<IImage> {
+	async getImageBySlug(slug: string, viewerPublicId?: string): Promise<IImage> {
 		try {
 			const image = await this.imageRepository.findBySlug(slug);
 			if (!image) {
 				throw createError("NotFoundError", "Image not found");
 			}
+
+			// Add like status if viewer is provided
+			if (viewerPublicId) {
+				console.log(`Adding like status for viewer: ${viewerPublicId} on image slug: ${slug}`);
+				const isLikedByViewer = await this.checkIfUserLikedImage(viewerPublicId, (image as any)._id.toString());
+				console.log(`Setting isLikedByViewer to: ${isLikedByViewer}`);
+				(image as any).isLikedByViewer = isLikedByViewer;
+			}
+
 			return image;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Private helper method to check if a user has liked a specific image
+	 */
+	private async checkIfUserLikedImage(userPublicId: string, imageId: string): Promise<boolean> {
+		try {
+			console.log(`Checking if user ${userPublicId} liked image ${imageId}`);
+
+			// Convert user public ID to internal ID
+			const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+			console.log(`User internal ID: ${userInternalId}`);
+
+			if (!userInternalId) {
+				console.log("User internal ID not found");
+				return false;
+			}
+
+			// Check if like record exists
+			const like = await this.likeRepository.findByUserAndImage(userInternalId, imageId);
+			console.log(`Like record found:`, like);
+			const result = like !== null;
+			console.log(`checkIfUserLikedImage result: ${result}`);
+			return result;
+		} catch (error) {
+			console.error("Error in checkIfUserLikedImage:", error);
+			// If there's an error checking likes, default to false
+			return false;
 		}
 	}
 
