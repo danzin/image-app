@@ -115,7 +115,6 @@ export class NotificationService {
 	async getNotifications(userPublicId: string) {
 		try {
 			const notifications = await this.notificationRepository.getNotifications(userPublicId);
-			console.log(`[NOTIFICATION SERVICE getNotifications]: ${notifications}`);
 			return notifications;
 		} catch (error) {
 			if (error instanceof Error) {

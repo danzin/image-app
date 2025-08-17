@@ -17,6 +17,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     if (!isLoggedIn || !user) return;
     const base = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
     const socketUrl = base.replace(/\/$/, '');
+    const token = localStorage.getItem('token');
     const socket = io(socketUrl, {
       path: '/socket.io',
       withCredentials: true,
@@ -25,6 +26,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelayMax: 10000,
+      auth: token ? { token } : undefined,
     });
 
     // Connect
@@ -63,7 +65,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.off('connect', handleConnect);
       socket.off('connect_error', handleError);
       socket.off('disconnect', handleDisconnect);
-  socket.off('new_notification', handleNotification);
+      socket.off('new_notification', handleNotification);
       socket.disconnect();
     };
   }, [isLoggedIn, user, user?.publicId]);

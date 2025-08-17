@@ -33,7 +33,8 @@ export const markNotificationAsRead = async (notificationId: string, signal?: Ab
 		throw new Error("notificationId is required");
 	}
 	try {
-		const raw = await unwrap<unknown>(axiosClient.post(`/api/notifications/read/${notificationId}`, null, { signal }));
+		console.log(`[useNotificationAPI]: Marking notification ${notificationId} as read`);
+		const raw = await unwrap<unknown>(axiosClient.post(`/api/notifications/read/${notificationId}`, { signal }));
 		return mapNotification(raw);
 	} catch (error) {
 		throw new Error(`markNotificationAsRead failed: ${errorMessage(error)}`);

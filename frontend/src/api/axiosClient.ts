@@ -21,3 +21,20 @@ axiosClient.interceptors.request.use(
 );
 
 export default axiosClient;
+
+// Global response interceptor to catch auth expiry and cleanup
+axiosClient.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		const status = error?.response?.status;
+		if (status === 401 || status === 403) {
+			try {
+				console.warn("[Axios] Auth error status", status, "- clearing stored token");
+				localStorage.removeItem("token");
+			} catch {
+				// Swallow storage errors (e.g., private mode)
+			}
+		}
+		return Promise.reject(error);
+	}
+);

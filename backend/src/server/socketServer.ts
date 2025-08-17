@@ -53,6 +53,13 @@ export class WebSocketServer {
 				console.log("[Socket][Auth] Incoming handshake headers:", req.headers);
 				console.log("[Socket][Auth] Incoming cookies:", (req as any).cookies);
 
+				// Allow token passed via Socket.IO auth payload as fallback
+				const handshakeAuth: any = (socket as any).handshake?.auth;
+				if (handshakeAuth?.token && !req.headers.authorization) {
+					req.headers.authorization = `Bearer ${handshakeAuth.token}`;
+					console.log("[Socket][Auth] Applied bearer token from handshake auth");
+				}
+
 				// Handle authentication using the bearer token strategy
 				AuthFactory.bearerToken().handle()(req, {} as any, (error?: any) => {
 					if (error) {
