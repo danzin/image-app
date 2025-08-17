@@ -67,6 +67,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
     } catch {
       setError('Logout failed');
     } finally {
+
       setUser(null);
     }
   }, []);

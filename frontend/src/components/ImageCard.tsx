@@ -108,7 +108,11 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
               background: 'linear-gradient(45deg, #6366f1, #8b5cf6)'
             }}
           >
-            {image.user?.username?.charAt(0).toUpperCase()}
+            {image.user?.avatar ? (
+              <img src={image.user.avatar} alt={image.user.username} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+            ) : (
+              <span>{image.user?.username?.charAt(0).toUpperCase()}</span>
+            )}
           </Avatar>
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>

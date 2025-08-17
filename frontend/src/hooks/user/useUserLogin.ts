@@ -14,9 +14,6 @@ export const useLogin = () => {
 		mutationFn: loginRequest,
 
 		onSuccess: (data) => {
-			// Store the token in localStorage
-			localStorage.setItem("token", data.token);
-
 			// Update the global authentication state using the context function
 			setAuthUser(data.user);
 
