@@ -87,10 +87,12 @@ export const useUpdateUserAvatar = () => {
 		mutationFn: updateUserAvatarApi,
 		onSuccess: (data) => {
 			// Update current user cache
-			queryClient.setQueryData(["currentUser"], data);
 			// Invalidate user-related queries
 			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["userImages"] });
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+
+			queryClient.setQueryData(["currentUser"], data);
 		},
 		onError(error) {
 			console.error("Avatar update failed:", error);
@@ -126,12 +128,9 @@ export const useEditUser = () => {
 			// Update current user cache
 			queryClient.setQueryData(["currentUser"], data);
 
-			// Invalidate user queries using publicId
+			// Invalidate all user-related queries - this covers all patterns
 			queryClient.invalidateQueries({
-				queryKey: ["user", "publicId", data.publicId],
-			});
-			queryClient.invalidateQueries({
-				queryKey: ["user", "username", data.username],
+				queryKey: ["user"],
 			});
 		},
 		onError: (error) => {
