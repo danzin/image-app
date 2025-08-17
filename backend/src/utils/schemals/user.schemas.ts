@@ -6,6 +6,7 @@ export class UserSchemas {
 			email: Joi.string().email().required(),
 			password: Joi.string().min(1).required(),
 			username: Joi.string().alphanum().min(1).max(30).required(),
+			confirmPassword: Joi.string().valid(Joi.ref("password")).required(),
 		});
 	}
 
