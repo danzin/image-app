@@ -15,10 +15,12 @@ import {
   Card,
   CardMedia,
   CardContent,
-  Alert
+  Alert,
+  IconButton
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CommentSection from '../components/comments/CommentSection'; 
 
@@ -30,7 +32,7 @@ const ImageView = () => {
   const { user, isLoggedIn } = useAuth();
   
   const { data: image, isLoading, isError, error } = useImageById(id || '');
-  const { mutate: likeImage, isPending: isLiking } = useLikeImage();
+  const { mutate: likeImage } = useLikeImage();
   const deleteMutation = useDeleteImage();
 
   if (isLoading) {
@@ -60,6 +62,7 @@ const ImageView = () => {
   }
 
   const isOwner = isLoggedIn && user?.publicId === image.user.publicId;
+  const isLiked = image.likes > 0; // Assuming likes > 0 means liked
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')
@@ -68,18 +71,17 @@ const ImageView = () => {
 
   const handleLikeImage = () => {
     if (!isLoggedIn) return navigate('/login');
-    likeImage(image.publicId); // Use publicId instead of id
+    likeImage(image.publicId);
   };
 
   const handleDeleteImage = () => {
     if (isOwner) {
-      deleteMutation.mutate(image.publicId, { // Use publicId instead of id
+      deleteMutation.mutate(image.publicId, {
         onSuccess: () => navigate(-1),
         onError: (err) => console.error('Delete failed', err),
       });
     }
   };
-
 
   return (
     <Container maxWidth="md" sx={{ my: 4 }}>
@@ -111,16 +113,15 @@ const ImageView = () => {
                   </Typography>
                 </Typography>
                 
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button 
-                    variant="outlined" 
-                    size="small" 
-                    startIcon={<FavoriteIcon />} 
-                    onClick={handleLikeImage} 
-                    disabled={isLiking}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <IconButton 
+                    onClick={handleLikeImage}
+                    color="error"
+                    size="medium"
+                    disabled={!isLoggedIn}
                   >
-                    {image.likes} {isLiking ? 'Liking…' : 'Like'}
-                  </Button>
+                    {isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+                  </IconButton>
                   
                   {isOwner && (
                     <Button 
