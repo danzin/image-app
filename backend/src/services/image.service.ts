@@ -132,57 +132,6 @@ export class ImageService {
 		}
 	}
 
-	async deleteImage(imageId: string): Promise<{ message: string }> {
-		try {
-			const result = await this.unitOfWork.executeInTransaction(async (session) => {
-				const image = await this.imageRepository.findById(imageId, session);
-				console.log(`Image to delete: ${image}`);
-				if (!image) {
-					throw createError("NotFoundError", "Image not found");
-				}
-
-				// Delete all comments associated with this image first
-				console.log("Deleting comments for image:", imageId);
-				await this.commentRepository.deleteCommentsByImageId(imageId, session);
-
-				// Delete from database
-				console.log("deleting from repository:");
-				await this.imageRepository.delete(imageId, session);
-
-				// Delete from storage
-				const deletionResult = await this.imageStorageService.deleteAssetByUrl(
-					image.user.publicId.toString(),
-					image.url
-				);
-
-				console.log(`result of await this.imageStorageService.deleteAssetByUrl: ${deletionResult}`);
-
-				if (deletionResult.result !== "ok") {
-					throw createError("StorageError", "Failed to delete from Cloudinary");
-				}
-				console.log("Removing cache");
-				await this.redisService.del(`feed:${image.user.publicId}:*`); //invalidate cache
-
-				return { message: "Image deleted successfully" };
-			});
-			console.log(`result of transaction: ${result}`);
-			return result;
-		} catch (error) {
-			console.error(error);
-			if (error instanceof Error) {
-				throw createError(error.name, error.message, {
-					function: "deleteImage",
-					file: "image.service.ts",
-				});
-			} else {
-				throw createError("UnknownError", String(error), {
-					function: "deleteImage",
-					file: "image.service.ts",
-				});
-			}
-		}
-	}
-
 	async getImages(page: number, limit: number): Promise<PaginationResult<IImage>> {
 		try {
 			return await this.imageRepository.findWithPagination({ page, limit });
@@ -404,7 +353,11 @@ export class ImageService {
 	/**
 	 * Deletes an image by public ID
 	 */
-	async deleteImageByPublicId(publicId: string, userPublicId: string): Promise<{ message: string }> {
+	async deleteImageByPublicId(
+		publicId: string,
+		userPublicId: string,
+		isAdmin: boolean = false
+	): Promise<{ message: string }> {
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				// Find image by public ID
@@ -413,16 +366,19 @@ export class ImageService {
 					throw createError("NotFoundError", "Image not found");
 				}
 
-				// Check if user owns the image - compare with user._id if it's populated, otherwise use user directly
-				const imageUserId =
-					typeof image.user === "object" && (image.user as any)._id
-						? (image.user as any)._id.toString()
-						: image.user.toString();
-				// Resolve user internal id by publicId
-				const ownerInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
-				if (!ownerInternalId) throw createError("AuthenticationError", "User not found");
-				if (imageUserId !== ownerInternalId) {
-					throw createError("ForbiddenError", "You can only delete your own images");
+				// Only check ownership if not admin
+				if (!isAdmin) {
+					// Check if user owns the image - compare with user._id if it's populated, otherwise use user directly
+					const imageUserId =
+						typeof image.user === "object" && (image.user as any)._id
+							? (image.user as any)._id.toString()
+							: image.user.toString();
+					// Resolve user internal id by publicId
+					const ownerInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+					if (!ownerInternalId) throw createError("AuthenticationError", "User not found");
+					if (imageUserId !== ownerInternalId) {
+						throw createError("ForbiddenError", "You can only delete your own images");
+					}
 				}
 
 				// Delete from cloud storage using the cloudinary public ID
@@ -437,6 +393,11 @@ export class ImageService {
 				await this.imageRepository.delete((image as any)._id.toString(), session);
 
 				// Remove image URL from user's images array
+				const imageUserId =
+					typeof image.user === "object" && (image.user as any)._id
+						? (image.user as any)._id.toString()
+						: image.user.toString();
+
 				const user = await this.userRepository.findById(imageUserId, session);
 				if (user) {
 					const updatedImages = user.images.filter((img) => img !== image.url);

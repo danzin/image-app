@@ -55,9 +55,6 @@ export class ImageRoutes {
 		//returns all tags
 		this.router.get("/tags", this.controller.getTags);
 
-		//returns image by id (legacy - should be deprecated)
-		this.router.get("/:id", this.controller.getImageById);
-
 		// === PROTECTED ROUTES (require authentication) ===
 		this.router.use(this.auth);
 
@@ -70,9 +67,6 @@ export class ImageRoutes {
 			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
 			this.controller.deleteImageByPublicId
 		);
-
-		//logged in deletes an image (legacy - should be deprecated)
-		this.router.delete("/:id", this.controller.deleteImage);
 	}
 	public getRouter(): express.Router {
 		return this.router;

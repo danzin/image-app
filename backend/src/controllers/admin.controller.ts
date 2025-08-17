@@ -101,8 +101,13 @@ export class AdminUserController {
 
 	deleteImage = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId } = req.params; // ✅ Use publicId
-			await this.imageService.deleteImage(publicId);
+			const { publicId } = req.params;
+			const { decodedUser } = req;
+
+			if (!decodedUser || !(decodedUser as any).publicId) {
+				throw createError("AuthenticationError", "Admin user not found");
+			}
+			await this.imageService.deleteImageByPublicId(publicId, (decodedUser as any).publicId, true);
 			res.status(204).send();
 		} catch (error) {
 			next(error);

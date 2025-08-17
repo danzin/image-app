@@ -17,6 +17,9 @@ export class FeedService {
 		@inject("RedisService") private redisService: RedisService
 	) {}
 
+	// TODO: Cache invalidation only invalidates the specific user's feed. When another user interacts
+	// with an image, the cache for all other users remains the same and they don't immediately see the update.
+	// Must deal with this shit.
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
 		console.log(`Running getPersonalizedFeed for userId: ${userId} `);
 
@@ -107,4 +110,39 @@ export class FeedService {
 		};
 		return scoreMap[actionType] ?? 0;
 	}
+
+	// 	public async invalidateRelevantFeeds(imagePublicId: string, actionType: string): Promise<void> {
+	//   try {
+	//     // Get the image and its details
+	//     const image = await this.imageRepository.findByPublicId(imagePublicId);
+	//     if (!image) return;
+
+	//     // Find users who might have this image in their feed
+	//     const usersToInvalidate = new Set<string>();
+
+	//     // 1. Add followers of the image owner
+	//     const imageOwner = await this.userRepository.findById(image.user._id);
+	//     if (imageOwner) {
+	//       const followers = await this.userRepository.getFollowers(imageOwner.publicId);
+	//       followers.forEach(follower => usersToInvalidate.add(follower.publicId));
+	//     }
+
+	//     // 2. Add users who have preferences for these tags
+	//     if (image.tags && image.tags.length > 0) {
+	//       const tagNames = image.tags.map(tag => tag.tag);
+	//       const usersWithTagPreferences = await this.userPreferenceRepository.getUsersByTags(tagNames);
+	//       usersWithTagPreferences.forEach(user => usersToInvalidate.add(user.publicId));
+	//     }
+
+	//     // 3. Invalidate all relevant user feeds
+	//     const invalidationPromises = Array.from(usersToInvalidate).map(userPublicId =>
+	//       this.redisService.del(`feed:${userPublicId}:*`)
+	//     );
+
+	//     await Promise.all(invalidationPromises);
+	//     console.log(`Invalidated feeds for ${usersToInvalidate.size} users`);
+	//   } catch (error) {
+	//     console.error('Failed to invalidate relevant feeds:', error);
+	//   }
+	// }
 }

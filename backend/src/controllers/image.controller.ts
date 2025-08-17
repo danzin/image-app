@@ -97,20 +97,6 @@ export class ImageController {
 		}
 	};
 
-	getImageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { id } = req.params;
-			const result = await this.imageService.getImageById(id);
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(createError(error.name, error.message));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
-
 	getImageBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { slug } = req.params;
@@ -192,20 +178,6 @@ export class ImageController {
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
-		}
-	};
-
-	deleteImage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { id } = req.params;
-			const result = await this.imageService.deleteImage(id);
-			res.status(200).json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(createError(error.name, error.message));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
 		}
 	};
 
