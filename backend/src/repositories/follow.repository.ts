@@ -89,6 +89,7 @@ export class FollowRepository extends BaseRepository<IFollow> {
 		try {
 			// First, get the internal IDs from public IDs
 			const [followerUser, followeeUser] = await Promise.all([
+				// projection _id : 1  tells mongo to only return the _id field, everything else is exculded by default
 				this.model.db.collection("users").findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
 				this.model.db.collection("users").findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
 			]);
