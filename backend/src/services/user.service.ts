@@ -817,14 +817,26 @@ export class UserService {
 	/**
 	 * Follows a user by their public ID
 	 */
-	async followUserByPublicId(followerId: string, targetPublicId: string): Promise<void> {
+	async followUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
 		try {
-			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
-			if (!targetUser) {
-				throw createError("NotFoundError", "User not found");
+			// Convert public IDs to internal IDs
+			const [followerUser, targetUser] = await Promise.all([
+				this.userRepository.findByPublicId(followerPublicId),
+				this.userRepository.findByPublicId(targetPublicId),
+			]);
+
+			if (!followerUser || !targetUser) {
+				throw createError("NotFoundError", "One or both users not found");
 			}
 
-			await this.followAction(followerId, (targetUser._id as string).toString());
+			const followerInternalId = (followerUser as any)._id.toString();
+			const targetInternalId = (targetUser as any)._id.toString();
+
+			if (followerInternalId === targetInternalId) {
+				throw createError("ValidationError", "Cannot follow yourself");
+			}
+
+			await this.followAction(followerInternalId, targetInternalId);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
@@ -834,15 +846,23 @@ export class UserService {
 	/**
 	 * Unfollows a user by their public ID
 	 */
-	async unfollowUserByPublicId(followerId: string, targetPublicId: string): Promise<void> {
+	async unfollowUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
 		try {
-			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
-			if (!targetUser) {
-				throw createError("NotFoundError", "User not found");
+			// Convert public IDs to internal IDs
+			const [followerUser, targetUser] = await Promise.all([
+				this.userRepository.findByPublicId(followerPublicId),
+				this.userRepository.findByPublicId(targetPublicId),
+			]);
+
+			if (!followerUser || !targetUser) {
+				throw createError("NotFoundError", "One or both users not found");
 			}
 
+			const followerInternalId = (followerUser as any)._id.toString();
+			const targetInternalId = (targetUser as any)._id.toString();
+
 			// Since followAction handles both follow/unfollow, we can reuse it
-			await this.followAction(followerId, (targetUser._id as string).toString());
+			await this.followAction(followerInternalId, targetInternalId);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
@@ -852,15 +872,10 @@ export class UserService {
 	/**
 	 * Checks if current user is following another user by public ID
 	 */
-	async checkFollowStatusByPublicId(followerId: string, targetPublicId: string): Promise<{ isFollowing: boolean }> {
+	async checkFollowStatusByPublicId(followerPublicId: string, targetPublicId: string): Promise<boolean> {
 		try {
-			const targetUser = await this.userRepository.findByPublicId(targetPublicId);
-			if (!targetUser) {
-				throw createError("NotFoundError", "User not found");
-			}
-
-			const isFollowing = await this.followRepository.isFollowing(followerId, (targetUser._id as string).toString());
-			return { isFollowing };
+			const isFollowing = await this.followRepository.isFollowingByPublicId(followerPublicId, targetPublicId);
+			return isFollowing;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
