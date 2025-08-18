@@ -47,8 +47,6 @@ const Home: React.FC = () => {
   console.log("Home - PersonalizedFeed data:", personalizedFeedQuery.data?.pages?.[0]?.data?.[0]);
   console.log("Home - Images data:", imagesQuery.data?.pages?.[0]?.data?.[0]);
 
-  // Choose the appropriate query based on login status
-  // But ensure we're not switching during loading states
   const shouldUsePersonalizedFeed = isLoggedIn && authTransitionComplete && !authLoading;
   
   const mainQuery = shouldUsePersonalizedFeed ? personalizedFeedQuery : imagesQuery;

@@ -24,7 +24,7 @@ export class NotificationService {
 
 	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			// Ensure we emit a plain JSON object (strip Mongoose internals)
+			// emit a plain JSON object stripping Mongoose internals
 			const plain =
 				typeof (notification as any).toObject === "function"
 					? (notification as any).toObject()
