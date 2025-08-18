@@ -1,14 +1,34 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "composite": true,
     "outDir": "./dist",
-    "baseUrl": "./src",
-    "typeRoots": ["../node_modules/@types", "./node_modules/@types"],
+    "rootDir": "./src",
+    "noEmit": false,
+  "module": "CommonJS",
+    "baseUrl": "./",
     "paths": {
-      "@types/*": ["types/*"]
-    }
+      "application/*": ["src/application/*"],
+      "config/*": ["src/config/*"],
+      "controllers/*": ["src/controllers/*"],
+      "database/*": ["src/database/*"],
+      "di/*": ["src/di/*"],
+      "middleware/*": ["src/middleware/*"],
+      "services/*": ["src/services/*"],
+      "repositories/*": ["src/repositories/*"],
+      "utils/*": ["src/utils/*"],
+      "server/*": ["src/server/*"],
+      "types/*": ["src/types/*"]
+    },
+    "moduleResolution": "node",
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "./src/__tests__"]
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/__tests__/**"
+  ]
 }

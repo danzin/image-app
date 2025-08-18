@@ -9,6 +9,10 @@
     "api-gateway"
   ],
   "scripts": {
+    "build": "tsc -b backend api-gateway frontend",
+    "build:backend": "tsc -b backend",
+    "build:frontend": "tsc --build frontend && vite build --config frontend/vite.config.ts --root frontend",
+    "build:api-gateway": "tsc -b api-gateway",
     "install-all": "npm install",
     "start-frontend": "npm run dev --workspace=frontend",
     "start-backend": "npm run start:dev --workspace=backend",

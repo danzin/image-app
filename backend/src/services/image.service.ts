@@ -3,7 +3,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { CommentRepository } from "../repositories/comment.repository";
 import { LikeRepository } from "../repositories/like.repository";
 import { createError } from "../utils/errors";
-import { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
+import type { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
 import { errorLogger } from "../utils/winston";
 import { TagRepository } from "../repositories/tag.repository";
 import { UnitOfWork } from "../database/UnitOfWork";

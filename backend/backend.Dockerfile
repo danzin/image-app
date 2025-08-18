@@ -1,45 +1,41 @@
-# -- Build stage
-FROM node:23.11.1-alpine AS builder
+# builder stage
+FROM node:23.11.0-alpine AS builder
 WORKDIR /app
 
-# Copy root package files (for workspace setup)
-COPY package*.json tsconfig.json ./
+# Copy root package files and each workspace package.json so npm knows the workspaces
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+COPY api-gateway/package.json ./api-gateway/
+COPY frontend/package.json ./frontend/
 
-# Copy workspace package files
-COPY backend/package*.json ./backend/
-COPY api-gateway/package*.json ./api-gateway/
-COPY frontend/package*.json ./frontend/
+# Install ALL dependencies including dev deps (needed for tsc)
+RUN npm ci --include=dev
 
-# Install all dependencies (including workspaces)
-RUN npm ci --no-audit
+# Copy rest of the sources
+COPY . .
 
-# Copy workspace tsconfig files
-COPY backend/tsconfig.json ./backend/
-COPY api-gateway/tsconfig.json ./api-gateway/
-
-# Copy source code for all workspaces (needed for workspace deps)
-COPY backend/src ./backend/src
-COPY api-gateway/src ./api-gateway/src
-
-# Build backend specifically
+# Build the specific workspace
 RUN npm run build --workspace=backend
 
 # -- Production stage
-FROM node:23.11.1-alpine
+FROM node:23.11.0-alpine
 WORKDIR /app
 
-# Copy root package files
-COPY package*.json ./
-COPY backend/package*.json ./backend/
+# Copy the root package files again
+COPY package.json package-lock.json ./
 
-# Install only production dependencies
-RUN npm ci --omit=dev --ignore-scripts
+# Copy the package.json files for each workspace so npm knows what to install
+COPY backend/package.json ./backend/
+COPY api-gateway/package.json ./api-gateway/
+COPY frontend/package.json ./frontend/
 
-# Copy compiled backend output
+# Install ONLY production dependencies for all workspaces
+RUN npm ci --omit=dev
+
+# Copy ONLY the compiled backend code from the builder stage
 COPY --from=builder /app/backend/dist ./backend/dist
 
-# Set working directory to backend for runtime
-WORKDIR /app/backend
-
 EXPOSE 3000
-CMD ["node", "dist/main.js"]
+
+# The command must now point to the correct path within the container
+CMD ["node", "backend/dist/main.js"]
