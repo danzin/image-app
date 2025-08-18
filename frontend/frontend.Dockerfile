@@ -1,4 +1,3 @@
-# frontend.Dockerfile
 # -- Build stage
 FROM node:23.11.1-alpine AS builder
 WORKDIR /app
