@@ -11,6 +11,7 @@ import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { ImageDeletedEvent, ImageUploadedEvent } from "../application/events/user/user-interaction.event";
+import { create } from "domain";
 
 @injectable()
 export class ImageService {
@@ -54,7 +55,7 @@ export class ImageService {
 				);
 
 				// Store publicId for cleanup if transaction fails
-				const cloudImage = await this.imageStorageService.uploadImage(file, user.id);
+				const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
 				cloudImagePublicId = cloudImage.publicId;
 
 				// Generate slug from originalName
@@ -84,8 +85,11 @@ export class ImageService {
 				} as unknown as IImage;
 
 				console.log("Image object before save:", image);
-				const img = await this.imageRepository.create(image as IImage, session);
 
+				const img = await this.imageRepository.create(image as IImage, session);
+				if (!img) {
+					throw createError("InternalServerError", "Failed to create image");
+				}
 				// Update user images array
 				await this.userRepository.update(user.id, { images: [...user.images, img.url] }, session);
 
@@ -94,7 +98,7 @@ export class ImageService {
 					url: img.url,
 					publicId: img.publicId,
 					user: {
-						id: user.id,
+						id: user.publicId,
 						username: user.username,
 					},
 					tags: tags.map((tag) => tag),
@@ -371,7 +375,7 @@ export class ImageService {
 				// Find image by public ID
 				const image = await this.imageRepository.findByPublicId(publicId, session);
 				if (!image) {
-					throw createError("NotFoundError", "Image not found");
+					throw createError("PathError", "Image not found");
 				}
 
 				// Only check ownership if not admin
@@ -388,17 +392,21 @@ export class ImageService {
 						throw createError("ForbiddenError", "You can only delete your own images");
 					}
 				}
+				// Delete the image from database using internal _id
+				await this.imageRepository.delete((image as any)._id.toString(), session);
 
-				// Delete from cloud storage using the cloudinary public ID
-				if (image.publicId) {
-					await this.imageStorageService.deleteImage(image.publicId);
+				const deletionResult = await this.imageStorageService.deleteAssetByUrl(
+					image.user.publicId.toString(),
+					image.url
+				);
+				console.log(`result of await this.imageStorageService.deleteAssetByUrl: ${deletionResult}`);
+
+				if (deletionResult.result !== "ok") {
+					throw createError("StorageError", "Failed to delete from Cloudinary");
 				}
 
 				// Delete comments associated with this image
 				await this.commentRepository.deleteCommentsByImageId((image as any)._id.toString(), session);
-
-				// Delete the image from database using internal _id
-				await this.imageRepository.delete((image as any)._id.toString(), session);
 
 				// Remove image URL from user's images array
 				const imageUserId =
@@ -417,11 +425,21 @@ export class ImageService {
 
 			console.log("Publishing ImageDeletedEvent");
 			await this.eventBus.publish(new ImageDeletedEvent(publicId, userPublicId));
-
+			console.log(`result of transaction: ${result}`);
 			return result;
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
+			console.error(error);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message, {
+					function: "deleteImage",
+					file: "image.service.ts",
+				});
+			} else {
+				throw createError("UnknownError", String(error), {
+					function: "deleteImage",
+					file: "image.service.ts",
+				});
+			}
 		}
 	}
 }

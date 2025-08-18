@@ -17,6 +17,8 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 		console.log(`New image uploaded by ${event.uploaderPublicId}, invalidating relevant feeds`);
 
 		try {
+			console.log(`Invalidating uploader's own feed: ${event.uploaderPublicId}`);
+			await this.redis.del(`feed:${event.uploaderPublicId}:*`);
 			// Get followers of the uploader
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
 
@@ -34,7 +36,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 			}
 		} catch (error) {
 			console.error("Error handling image upload:", error);
-			// Fallback: invalidate all feeds
+			// Fallback: nuke all feeds
 			await this.redis.del("feed:*");
 		}
 	}

@@ -15,6 +15,9 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 		console.log(`Image deleted by ${event.uploaderPublicId}, invalidating relevant feeds`);
 
 		try {
+			console.log(`Invalidating deleter's own feed: ${event.uploaderPublicId}`);
+			await this.redis.del(`feed:${event.uploaderPublicId}:*`);
+
 			// Get followers of the uploader (they might have seen this image)
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
 
