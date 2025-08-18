@@ -1,5 +1,5 @@
 #!/bin/bash
-# mongo-init.sh
+
 
 set -e
 
