@@ -1,12 +1,16 @@
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { Model } from "mongoose";
-import { IUserPreference } from "../types";
+import { IUser, IUserPreference } from "../types";
 import { createError } from "../utils/errors";
+import { UserRepository } from "./user.repository";
 
 @injectable()
 export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
-	constructor(@inject("UserPreferenceModel") model: Model<IUserPreference>) {
+	constructor(
+		@inject("UserPreferenceModel") model: Model<IUserPreference>,
+		@inject("UserRepository") private userRepository: UserRepository
+	) {
 		super(model);
 	}
 
@@ -52,5 +56,28 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 			},
 			{ upsert: true, new: true }
 		);
+	}
+
+	async getUsersWithTagPreferences(tags: string[], minScore: number = 1): Promise<IUser[]> {
+		try {
+			const preferences = await this.model
+				.find({
+					tag: { $in: tags },
+					score: { $gte: minScore },
+				})
+				.exec();
+
+			const userIds = [...new Set(preferences.map((pref) => pref.userId))];
+
+			// You'll need to inject UserRepository or use a different approach
+			return await this.userRepository
+				.find({
+					_id: { $in: userIds },
+				})
+				.exec();
+		} catch (error) {
+			console.error("Error getting users with tag preferences:", error);
+			return [];
+		}
 	}
 }

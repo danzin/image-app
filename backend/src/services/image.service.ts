@@ -9,6 +9,8 @@ import { TagRepository } from "../repositories/tag.repository";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
+import { EventBus } from "../application/common/buses/event.bus";
+import { ImageDeletedEvent, ImageUploadedEvent } from "../application/events/user/user-interaction.event";
 
 @injectable()
 export class ImageService {
@@ -22,20 +24,20 @@ export class ImageService {
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("RedisService") private redisService: RedisService
+		@inject("RedisService") private redisService: RedisService,
+		@inject("EventBus") private eventBus: EventBus
 	) {}
 
 	// TODO: REFACTOR AND REMOVE OLD METHODS
 
 	async uploadImage(userPublicId: string, file: Buffer, tags: string[], originalName: string): Promise<Object> {
 		let cloudImagePublicId: string | null = null;
-
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				// Find user by publicId (no internal id from client)
 				const user = await this.userRepository.findByPublicId(userPublicId);
 				if (!user) {
-					throw createError("ValidationError", "User not found");
+					throw createError("NotFoundError", "User not found");
 				}
 
 				// Process tags
@@ -45,10 +47,6 @@ export class ImageService {
 						if (existingTag) {
 							return existingTag._id;
 						}
-
-						//the create method in BaseRepository expects an object
-						//so I'm creating one and passing it instead of passing directly
-						// the tag as Partial<ITag>
 						const tagObject = { tag: tag } as Partial<ITag>;
 						const newTag = await this.tagRepository.create(tagObject, session);
 						return newTag._id;
@@ -59,7 +57,7 @@ export class ImageService {
 				const cloudImage = await this.imageStorageService.uploadImage(file, user.id);
 				cloudImagePublicId = cloudImage.publicId;
 
-				// Generate slug from originalName (same logic as pre-save middleware)
+				// Generate slug from originalName
 				const slug =
 					originalName
 						.toLowerCase()
@@ -68,11 +66,12 @@ export class ImageService {
 					"-" +
 					Date.now();
 
-				// Create image document with Cloudinary details and required fields
+				// Create image document
 				console.log("=== CREATING IMAGE DOCUMENT ===");
 				console.log("originalName being set:", originalName);
 				console.log("generated slug:", slug);
 				console.log("cloudImage:", cloudImage);
+
 				const image = {
 					url: cloudImage.url,
 					publicId: cloudImage.publicId,
@@ -85,11 +84,11 @@ export class ImageService {
 				} as unknown as IImage;
 
 				console.log("Image object before save:", image);
-
 				const img = await this.imageRepository.create(image as IImage, session);
 
 				// Update user images array
 				await this.userRepository.update(user.id, { images: [...user.images, img.url] }, session);
+
 				return {
 					id: img.id,
 					url: img.url,
@@ -102,8 +101,16 @@ export class ImageService {
 					createdAt: img.createdAt,
 				};
 			});
-			console.log("Removing cache");
-			await this.redisService.del(`feed:${userPublicId}:*`); //invalidate user cache on new image uploads
+
+			console.log("Publishing ImageUploadedEvent");
+			await this.eventBus.publish(
+				new ImageUploadedEvent(
+					result.publicId,
+					userPublicId, // Uploader's public ID
+					tags // Image tags
+				)
+			);
+
 			return result;
 		} catch (error) {
 			// Cleanup Cloudinary asset if transaction failed after upload
@@ -118,6 +125,7 @@ export class ImageService {
 					});
 				}
 			}
+
 			if (error instanceof Error) {
 				throw createError(error.name, error.message, {
 					function: "uploadImage",
@@ -406,6 +414,9 @@ export class ImageService {
 
 				return { message: "Image deleted successfully" };
 			});
+
+			console.log("Publishing ImageDeletedEvent");
+			await this.eventBus.publish(new ImageDeletedEvent(publicId, userPublicId));
 
 			return result;
 		} catch (error) {

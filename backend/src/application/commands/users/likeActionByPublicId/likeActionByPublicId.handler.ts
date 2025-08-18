@@ -80,7 +80,8 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 						command.userPublicId, // Keep using public ID for events
 						isLikeAction ? "like" : "unlike",
 						existingImage!.publicId, // Use public ID instead of MongoDB ID
-						imageTags
+						imageTags,
+						existingImage!.user.publicId // Use public ID for the image owner
 					),
 					this.feedInteractionHandler
 				);
