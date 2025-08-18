@@ -786,7 +786,6 @@ export class UserService {
 			const followerInternalId = (followerUser as any)._id.toString();
 			const targetInternalId = (targetUser as any)._id.toString();
 
-			// Since followAction handles both follow/unfollow, we can reuse it
 			await this.followAction(followerInternalId, targetInternalId);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);

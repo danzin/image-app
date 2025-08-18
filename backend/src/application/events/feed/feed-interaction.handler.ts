@@ -53,13 +53,13 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 		const affectedUsers: string[] = [];
 
 		try {
-			// 1. If we have the image owner, get their followers
+			// get image owner followers
 			if (event.imageOwnerId) {
 				const followers = await this.getFollowersOfUser(event.imageOwnerId);
 				affectedUsers.push(...followers);
 			}
 
-			// 2. Get users who are interested in these tags
+			// users who are interested in these tags
 			if (event.tags && event.tags.length > 0) {
 				const tagInterestedUsers = await this.getUsersInterestedInTags(event.tags);
 				affectedUsers.push(...tagInterestedUsers);
