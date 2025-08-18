@@ -17,9 +17,6 @@ export class FeedService {
 		@inject("RedisService") private redisService: RedisService
 	) {}
 
-	// TODO: Cache invalidation only invalidates the specific user's feed. When another user interacts
-	// with an image, the cache for all other users remains the same and they don't immediately see the update.
-	// Must deal with this shit.
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
 		console.log(`Running getPersonalizedFeed for userId: ${userId} `);
 
