@@ -28,6 +28,7 @@ export const useLogin = () => {
 
 		onError: (error) => {
 			// Error toast
+			console.log(error);
 			toast.error(`Login failed: ${error.message || "Invalid credentials or server error"}`);
 			console.error("Login mutation failed:", error);
 		},
