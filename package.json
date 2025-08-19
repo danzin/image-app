@@ -1,7 +1,6 @@
 {
   "name": "typescriptphotoapp",
   "version": "1.0.0",
-  "type": "module",
   "main": "index.js",
   "workspaces": [
     "frontend",
@@ -9,6 +8,10 @@
     "api-gateway"
   ],
   "scripts": {
+    "update:backend": "cd backend && npm update --no-workspaces",
+    "update:frontend": "cd frontend && npm update --no-workspaces", 
+    "update:api-gateway": "cd api-gateway && npm update --no-workspaces",
+    "update:all": "npm run update:backend && npm run update:frontend && npm run update:api-gateway",
     "build": "tsc -b backend api-gateway frontend",
     "build:backend": "tsc -b backend",
     "build:frontend": "tsc --build frontend && vite build --config frontend/vite.config.ts --root frontend",
@@ -20,7 +23,7 @@
     "test-backend": "npm run test --workspace=backend",
     "build-all": "npm run build --workspace=backend && npm run build --workspace=api-gateway && npm run build --workspace=frontend",
     "dev": "concurrently \"npm run start-backend\" \"npm run start-gateway\" \"npm run start-frontend\"",
-    "clean": "rimraf node_modules frontend/node_modules backend/node_modules api-gateway/node_modules"
+    "clean": "rimraf node_modules frontend/node_modules backend/node_modules api-gateway/node_modules package-lock.json"
   },
   "author": "",
   "license": "ISC",
@@ -29,10 +32,10 @@
     "concurrently": "^9.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.9.2",
-    "ts-node": "^10.9.2",
-    "nodemon": "^3.1.9",
     "@types/node": "^22.10.2",
-    "rimraf": "^6.0.1"
+    "nodemon": "^3.1.9",
+    "rimraf": "^6.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
   }
 }
