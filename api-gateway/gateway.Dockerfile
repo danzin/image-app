@@ -1,45 +1,42 @@
 # -- Build stage
-FROM node:23.11.1-alpine AS builder
+FROM node:23.11.0-alpine AS builder
 WORKDIR /app
 
-# Copy root package files (for workspace setup)
-COPY package*.json tsconfig.json ./
+# Copy root package files and each workspace package.json so npm knows the workspaces
+COPY package.json package-lock.json ./
+COPY backend/package.json ./backend/
+COPY api-gateway/package.json ./api-gateway/
+COPY frontend/package.json ./frontend/
 
-# Copy workspace package files
-COPY backend/package*.json ./backend/
-COPY api-gateway/package*.json ./api-gateway/
-COPY frontend/package*.json ./frontend/
+# Install ALL dependencies including dev deps (needed for tsc)
+RUN npm ci --include=dev
 
-# Install all dependencies
-RUN npm ci --no-audit
 
-# Copy workspace tsconfig files
-COPY backend/tsconfig.json ./backend/
-COPY api-gateway/tsconfig.json ./api-gateway/
+# Copy rest of the sources
+COPY . .
 
-# Copy source code
-COPY api-gateway/src ./api-gateway/src
-
-# Build api-gateway specifically  
+# Build the specific workspace
 RUN npm run build --workspace=api-gateway
-
 # -- Production stage
-FROM node:23.11.1-alpine
+FROM node:23.11.0-alpine
 WORKDIR /app
 
-# Copy root package files
-COPY package*.json ./
-COPY api-gateway/package*.json ./api-gateway/
+# Copy the root package files again
+COPY package.json package-lock.json ./
 
-# Install only production dependencies
-RUN npm ci --omit=dev --ignore-scripts
+# Copy the package.json files for each workspace so npm knows what to install
+COPY backend/package.json ./backend/
+COPY api-gateway/package.json ./api-gateway/
+COPY frontend/package.json ./frontend/
 
-# Copy compiled api-gateway output
+# Install ONLY production dependencies for all workspaces
+RUN npm ci --omit=dev
+
+# Copy ONLY the compiled api-gateway code from the builder stage
 COPY --from=builder /app/api-gateway/dist ./api-gateway/dist
 
-# Set working directory to api-gateway for runtime
-WORKDIR /app/api-gateway
-
-ENV PORT=8000
+# The gateway listens on 8000 externally; expose same internally for clarity
 EXPOSE 8000
-CMD ["node", "dist/server.js"]
+
+# Use the built server.js (compiled from src/server.ts)
+CMD ["node", "api-gateway/dist/server.js"]

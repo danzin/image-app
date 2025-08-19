@@ -85,8 +85,8 @@ const SearchResults = () => {
                     <p>No users found {query}.</p>
                   ) : (
                     data?.data.users?.map((user) => (
-                      <Box key={user.id} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
-                        <Link to={`/profile/${user.id}`} className='text-cyan-200'>{user.username}</Link>
+                      <Box key={user.publicId} sx={{ p: 2, borderBottom: '1px solid #ccc' }}>
+                        <Link to={`/profile/${user.publicId}`} className='text-cyan-200'>{user.username}</Link>
                       </Box>
                     ))
                   ))

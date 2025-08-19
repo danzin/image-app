@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import { createError } from "../../../../utils/errors";
 import { ICommandHandler } from "../../../../application/common/interfaces/command-handler.interface";
 import { IUser } from "../../../../types/index";
-import { UserDTOService } from "../../../../services/dto.service";
+import { DTOService } from "../../../../services/dto.service";
 
 export interface RegisterUserResult {
 	user: any;
@@ -16,7 +16,7 @@ export interface RegisterUserResult {
 export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserCommand, RegisterUserResult> {
 	constructor(
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("UserDTOService") private readonly dtoService: UserDTOService
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 	// Trying and keeping the logic from my current userservice method, see how it goes
 
@@ -47,7 +47,12 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 	 * @returns A signed JWT token
 	 */
 	private generateToken(user: IUser): string {
-		const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
+		const payload = {
+			id: user.publicId,
+			email: user.email,
+			username: user.username,
+			isAdmin: user.isAdmin,
+		};
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
 

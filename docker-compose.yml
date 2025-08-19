@@ -1,4 +1,8 @@
 services:
+
+  # Generate a keyfile for the mongodb replica set internal authentication
+  # sets chmod 400 on the keyfile and chown 999:999 so the mongod process can read it securely 
+  # store it in named volume
   mongo-setup:
     image: mongo:6
     container_name: mongo-setup
@@ -16,6 +20,9 @@ services:
     networks:
       - app-network
 
+  # Start mongod with --replSet rs0 and --keyfile [location] 
+  # at this point the replica set is uninitialized until rs.initiate is called
+
   mongo:
     image: mongo:6
     container_name: mongo
@@ -27,20 +34,45 @@ services:
     volumes:
       - mongo_data:/data/db
       - mongo_keyfile:/opt/keyfile:ro
-      - ./mongo-init.sh:/docker-entrypoint-initdb.d/mongo-init.sh:ro
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
-    command: >
-      mongod --bind_ip_all --replSet rs0 --keyFile /opt/keyfile/mongodb-keyfile --auth
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
     depends_on:
       - mongo-setup
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "try { rs.status().ok } catch(err) { rs.initiate({_id:'rs0', members: [{_id:0, host:'mongo:27017'}]}).ok }", "-u", "root", "-p", "secret", "--authenticationDatabase", "admin", "--quiet"]
+      # Read-only healthcheck: succeed if PRIMARY (1) or SECONDARY (2) or ARBITER (7)
+      test: >
+        mongosh --host mongo -u root -p secret --authenticationDatabase admin --quiet --eval "
+          try {
+            const st = rs.status();
+            if ([1,2,7].includes(st.myState)) { quit(0); } else { quit(1); }
+          } catch (e) { quit(1); }
+        "
       interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
+
+  # One-shot sidecar to initialize the replica set AFTER mongod starts with --replSet
+  # depends only on mongo container existing
+  # calls rs.initiate({_id:"rs0", members: [{_id:0, host:"mongo:27017"}]}) from the init script
+  # waits until myState == 1 PRIMARY
+  mongo-rs-init:
+    image: mongo:6
+    container_name: mongo-rs-init
+    depends_on:
+      - mongo
+    networks:
+      - app-network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+      MONGO_HOST: mongo
+    volumes:
+      - ./mongo-rs-init.sh:/rs-init/mongo-rs-init.sh:ro
+    entrypoint: ["bash", "/rs-init/mongo-rs-init.sh"]
+    restart: "no"
 
   redis:
     image: redis:alpine
@@ -66,12 +98,17 @@ services:
     environment:
       NODE_ENV: production
       MONGODB_URI: mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
-      VITE_API_URL: http://localhost:3000
+      VITE_API_URL: 'http://localhost:8000'
+      VITE_SOCKET_URL: 'http://localhost:3000'
       FRONTEND_URL: http://localhost:5173
       JWT_SECRET: JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000
+      COOKIE_SECURE: "false"
     depends_on:
       mongo:
         condition: service_healthy
+      mongo-rs-init:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     networks:
@@ -84,7 +121,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-
   api-gateway:
     build:
       context: .
@@ -114,6 +150,8 @@ services:
       dockerfile: frontend/frontend.Dockerfile
       args:
         VITE_API_URL: http://localhost:8000
+        VITE_SOCKET_URL: http://localhost:3000
+
     ports:
       - "80:80"
     depends_on:

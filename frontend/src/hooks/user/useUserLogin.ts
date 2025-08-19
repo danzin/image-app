@@ -4,40 +4,33 @@ import { AdminUserDTO, PublicUserDTO } from "../../types";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/useAuth";
 
-type LoginSuccessData = PublicUserDTO | AdminUserDTO;
+type LoginResponse = { user: PublicUserDTO | AdminUserDTO; token: string };
 
 export const useLogin = () => {
-  const queryClient = useQueryClient();
-  const { login: setAuthUser } = useAuth();
+	const queryClient = useQueryClient();
+	const { login: setAuthUser } = useAuth();
 
-  return useMutation<
-    LoginSuccessData,
-    Error,
-    { email: string; password: string }
-  >({
-    mutationFn: loginRequest,
+	return useMutation<LoginResponse, Error, { email: string; password: string }>({
+		mutationFn: loginRequest,
 
-    onSuccess: (data) => {
-      // Update the global authentication state using the context function
-      setAuthUser(data);
+		onSuccess: (data) => {
+			// Update the global authentication state using the context function
+			setAuthUser(data.user);
 
-      // Invalidate queries
-      queryClient.invalidateQueries({ queryKey: ["user", data.id] });
-      queryClient.invalidateQueries({ queryKey: ["userImages", data.id] });
-      queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			// Invalidate queries - use publicId instead of id
+			queryClient.invalidateQueries({ queryKey: ["user", data.user.publicId] });
+			queryClient.invalidateQueries({ queryKey: ["userImages", data.user.publicId] });
+			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 
-      // Success toast
-      toast.success("Login successful!");
-    },
+			// Success toast
+			toast.success("Login successful!");
+		},
 
-    onError: (error) => {
-      //Rrror toast
-      toast.error(
-        `Login failed: ${
-          error.message || "Invalid credentials or server error"
-        }`
-      );
-      console.error("Login mutation failed:", error);
-    },
-  });
+		onError: (error) => {
+			// Error toast
+			console.log(error);
+			toast.error(`Login failed: ${error.message || "Invalid credentials or server error"}`);
+			console.error("Login mutation failed:", error);
+		},
+	});
 };

@@ -8,7 +8,7 @@ export const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
 
   if (loading) return <LoadingSpinner />;
   if (!isLoggedIn) return <Navigate to="/login" state={{ from: location }} replace />;
-  if (user && location.pathname === "/profile") return <Navigate to={`/profile/${user.id}`} replace />;
+  if (user && location.pathname === "/profile") return <Navigate to={`/profile/${user.publicId}`} replace />;
 
   return element;
 };

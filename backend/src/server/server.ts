@@ -5,6 +5,7 @@ import http from "http";
 import { injectable, inject } from "tsyringe";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
+import { CommentRoutes } from "../routes/comment.routes";
 import { createError, ErrorHandler } from "../utils/errors";
 import { SearchRoutes } from "../routes/search.routes";
 import { AdminUserRoutes } from "../routes/admin.routes";
@@ -12,6 +13,8 @@ import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddlewar
 import { NotificationRoutes } from "../routes/notification.routes";
 import { FeedRoutes } from "../routes/feed.routes";
 import path from "path";
+import cors from "cors";
+import { corsOptions } from "../config/corsConfig";
 @injectable()
 export class Server {
 	private app: Application;
@@ -20,6 +23,7 @@ export class Server {
 	 * Constructor for initializing the server with injected dependencies.
 	 * @param {UserRoutes} userRoutes - Routes for user-related endpoints.
 	 * @param {ImageRoutes} imageRoutes - Routes for image-related endpoints.
+	 * @param {CommentRoutes} commentRoutes - Routes for comment-related endpoints.
 	 * @param {SearchRoutes} searchRoutes - Routes for search-related endpoints.
 	 * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
 	 * @param {NotificationRoutes} notificationRoutes - Routes for notifications.
@@ -28,6 +32,7 @@ export class Server {
 	constructor(
 		@inject(UserRoutes) private readonly userRoutes: UserRoutes,
 		@inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
+		@inject(CommentRoutes) private readonly commentRoutes: CommentRoutes,
 		@inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
 		@inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
 		@inject(NotificationRoutes)
@@ -48,6 +53,8 @@ export class Server {
 			console.log(`[Backend] ${req.method} ${req.originalUrl}`);
 			next();
 		});
+		// CORS before parsers to ensure preflight handled quickly
+		this.app.use(cors(corsOptions));
 		this.app.use(cookieParser() as any); // Parsing cookies
 		this.app.use(express.json()); // Parsing JSON request bodies
 		this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads
@@ -82,6 +89,7 @@ export class Server {
 
 		this.app.use("/users", this.userRoutes.getRouter());
 		this.app.use("/images", this.imageRoutes.getRouter());
+		this.app.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
 		this.app.use("/search", this.searchRoutes.getRouter());
 		this.app.use("/admin", this.adminUserRoutes.getRouter());
 		this.app.use("/notifications/", this.notificationRoutes.getRouter());

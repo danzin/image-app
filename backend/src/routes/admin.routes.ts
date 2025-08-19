@@ -1,18 +1,7 @@
 import express, { RequestHandler } from "express";
 import { AdminUserController } from "../controllers/admin.controller";
-import { AuthFactory } from "../middleware/authentication.middleware";
+import { adminRateLimit, AuthFactory, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
-
-// A middleware to ensure the user is admin.
-const adminOnly: RequestHandler = (req, res, next) => {
-	console.log(req.decodedUser);
-	if (req?.decodedUser && req.decodedUser.isAdmin) {
-		next();
-		return;
-	}
-	res.status(403).json({ error: "Admin privileges required." });
-	return;
-};
 
 @injectable()
 export class AdminUserRoutes {
@@ -25,33 +14,32 @@ export class AdminUserRoutes {
 	}
 
 	private initializeRoutes(): void {
-		const protectedRouter = express.Router();
-		this.router.use(protectedRouter); //mount the protectedRouter
-		protectedRouter.use(this.auth);
-		this.router.use(adminOnly);
+		this.router.use(this.auth);
+		this.router.use(adminRateLimit);
+		this.router.use(enhancedAdminOnly);
 
 		// ===Admin endpoints===
 
 		//Get all users
 		this.router.get("/", this.adminUserController.getAllUsersAdmin);
 
-		//Get user by id
-		this.router.get("/user/:id", this.adminUserController.getUser);
+		//Get user by public ID
+		this.router.get("/user/:publicId", this.adminUserController.getUser);
 
-		//Delete a user by id
-		this.router.delete("/user/:id", this.adminUserController.deleteUser);
+		//Delete a user by public ID
+		this.router.delete("/user/:publicId", this.adminUserController.deleteUser);
 
-		//Delete an image by id
-		this.router.delete("/image/:id", this.adminUserController.deleteImage);
+		//Delete an image by public ID
+		this.router.delete("/image/:publicId", this.adminUserController.deleteImage);
 
 		// ===New Admin endpoints===
 
 		// User management
-		this.router.get("/user/:id/stats", this.adminUserController.getUserStats);
-		this.router.put("/user/:id/ban", this.adminUserController.banUser);
-		this.router.put("/user/:id/unban", this.adminUserController.unbanUser);
-		this.router.put("/user/:id/promote", this.adminUserController.promoteToAdmin);
-		this.router.put("/user/:id/demote", this.adminUserController.demoteFromAdmin);
+		this.router.get("/user/:publicId/stats", this.adminUserController.getUserStats);
+		this.router.put("/user/:publicId/ban", this.adminUserController.banUser);
+		this.router.put("/user/:publicId/unban", this.adminUserController.unbanUser);
+		this.router.put("/user/:publicId/promote", this.adminUserController.promoteToAdmin);
+		this.router.put("/user/:publicId/demote", this.adminUserController.demoteFromAdmin);
 
 		// Image management
 		this.router.get("/images", this.adminUserController.getAllImages);

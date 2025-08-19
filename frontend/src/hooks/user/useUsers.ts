@@ -1,126 +1,151 @@
 import {
-  useQuery,
-  useInfiniteQuery,
-  UseInfiniteQueryOptions,
-  InfiniteData,
-  useMutation,
-  useQueryClient,
+	useQuery,
+	useInfiniteQuery,
+	UseInfiniteQueryOptions,
+	InfiniteData,
+	useMutation,
+	useQueryClient,
 } from "@tanstack/react-query";
 import {
-  fetchCurrentUser,
-  fetchUserData,
-  fetchUserImages,
-  updateUserAvatar as updateUserAvatarApi,
-  updateUserCover as updateUserCoverApi,
+	fetchCurrentUser,
+	fetchUserByPublicId,
+	fetchUserByUsername,
+	fetchUserImages,
+	updateUserAvatar as updateUserAvatarApi,
+	updateUserCover as updateUserCoverApi,
 } from "../../api/userApi";
-import { ImagePageData, IUser } from "../../types";
+import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../../types";
 import { editUserRequest, changePasswordRequest } from "../../api/userApi";
 
 type UseUserImagesOptions = Omit<
-  UseInfiniteQueryOptions<
-    ImagePageData,
-    Error,
-    InfiniteData<ImagePageData, number>
-  >,
-  "queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
+	UseInfiniteQueryOptions<ImagePageData, Error, InfiniteData<ImagePageData, number>>,
+	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
 >;
 
+// Get current authenticated user /me
 export const useCurrentUser = () => {
-  return useQuery<IUser>({
-    queryKey: ["currentUser"],
-    queryFn: fetchCurrentUser,
-    staleTime: 6000,
-  });
+	return useQuery<AuthenticatedUserDTO | AdminUserDTO>({
+		queryKey: ["currentUser"],
+		queryFn: ({ signal }) => fetchCurrentUser(signal),
+		staleTime: 6000,
+	});
 };
 
-export const useGetUser = (id: string | undefined) => {
-  return useQuery<IUser>({
-    queryKey: ["user", id],
-    queryFn: () => fetchUserData({ queryKey: ["user", id!] }),
-    enabled: !!id,
-    staleTime: 60000,
-  });
+// Get user by public ID
+export const useGetUserByPublicId = (publicId: string | undefined) => {
+	return useQuery<PublicUserDTO>({
+		queryKey: ["user", "publicId", publicId],
+		queryFn: ({ queryKey }) => fetchUserByPublicId({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
+		enabled: !!publicId,
+		staleTime: 60000,
+	});
 };
 
-export const useUserImages = (
-  userId: string,
-  options?: UseUserImagesOptions
-) => {
-  return useInfiniteQuery({
-    queryKey: ["userImages", userId] as const,
-    queryFn: ({ pageParam = 1 }) =>
-      fetchUserImages(pageParam as number, userId),
-    initialPageParam: 1,
-    getNextPageParam: (lastPage) =>
-      lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
-    ...options,
-  });
+// Get user by username
+export const useGetUserByUsername = (username: string | undefined) => {
+	return useQuery<PublicUserDTO>({
+		queryKey: ["user", "username", username],
+		queryFn: ({ queryKey }) => fetchUserByUsername({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
+		enabled: !!username,
+		staleTime: 60000,
+	});
+};
+
+// For backward compatibility - tries to determine if it's a publicId or username
+export const useGetUser = (identifier: string | undefined) => {
+	// Check if identifier looks like a UUID (publicId)
+	const isPublicId = identifier && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+	return useQuery<PublicUserDTO>({
+		queryKey: ["user", identifier],
+		queryFn: ({ queryKey }) => {
+			const id = queryKey[1] as string;
+			if (isPublicId) {
+				return fetchUserByPublicId({ queryKey: ["user", id] });
+			}
+			return fetchUserByUsername({ queryKey: ["user", id] });
+		},
+		enabled: !!identifier,
+		staleTime: 60000,
+	});
+};
+
+// Get user images by user public ID
+export const useUserImages = (userPublicId: string, options?: UseUserImagesOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["userImages", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchUserImages(pageParam as number, userPublicId),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		...options,
+	});
 };
 
 export const useUpdateUserAvatar = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: updateUserAvatarApi,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+	const queryClient = useQueryClient();
+	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, Blob>({
+		mutationFn: updateUserAvatarApi,
+		onSuccess: (data) => {
+			// Update current user cache
+			// Invalidate user-related queries
+			queryClient.invalidateQueries({ queryKey: ["user"] });
+			queryClient.invalidateQueries({ queryKey: ["userImages"] });
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 
-      queryClient.invalidateQueries({ queryKey: ["userImages"] });
-    },
-    onError(error) {
-      console.error("Avatar update failed:", error);
-    },
-  });
+			queryClient.setQueryData(["currentUser"], data);
+		},
+		onError(error) {
+			console.error("Avatar update failed:", error);
+		},
+	});
 };
 
 export const useUpdateUserCover = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: updateUserCoverApi,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["user"] });
-    },
-    onError: (error) => {
-      console.error("Cover update failed:", error);
-    },
-  });
+	const queryClient = useQueryClient();
+	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, Blob>({
+		mutationFn: updateUserCoverApi,
+		onSuccess: (data) => {
+			// Update current user cache
+			queryClient.setQueryData(["currentUser"], data);
+			// Invalidate user-related queries
+			queryClient.invalidateQueries({ queryKey: ["user"] });
+		},
+		onError: (error) => {
+			console.error("Cover update failed:", error);
+		},
+	});
 };
 
 export const useEditUser = () => {
-  const queryClient = useQueryClient();
+	const queryClient = useQueryClient();
 
-  // TODO: Improve type safety by adding proper types like UserResponse, UserUpdateData, and UserData
-  return useMutation({
-    mutationFn: editUserRequest,
+	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, { username?: string; bio?: string }>({
+		mutationFn: editUserRequest,
 
-    onSuccess: (data) => {
-      console.log("User updated successfully:", data);
+		onSuccess: (data) => {
+			console.log("User updated successfully:", data);
 
-      queryClient.setQueryData(["user"], (oldData: {}) => ({
-        ...oldData,
-        ...data, // Merge the updated data with the existing data
-      }));
-      queryClient.invalidateQueries({
-        // Pass the specific type of filter object to invalidateQueries
-        queryKey: ["user", data.id],
-      });
-    },
-    onError: (error) => {
-      console.error("Userdate failed:", error.message);
-    },
-  });
+			// Update current user cache
+			queryClient.setQueryData(["currentUser"], data);
+
+			// Invalidate all user-related queries - this covers all patterns
+			queryClient.invalidateQueries({
+				queryKey: ["user"],
+			});
+		},
+		onError: (error) => {
+			console.error("User update failed:", error.message);
+		},
+	});
 };
 
 export const useChangePassword = () => {
-  return useMutation<
-    void,
-    Error,
-    { currentPassword: string; newPassword: string }
-  >({
-    mutationFn: changePasswordRequest,
+	return useMutation<void, Error, { currentPassword: string; newPassword: string }>({
+		mutationFn: changePasswordRequest,
 
-    onError: (error) => {
-      console.error("Change password failed:", error);
-      // Error handled via notifyError and local state in the form
-    },
-  });
+		onError: (error) => {
+			console.error("Change password failed:", error);
+			// Error handled via notifyError and local state in the form
+		},
+	});
 };

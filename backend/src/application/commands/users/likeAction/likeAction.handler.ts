@@ -9,7 +9,7 @@ import { LikeRepository } from "../../../../repositories/like.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../../application/events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
 import { ClientSession } from "mongoose";
 import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
@@ -25,6 +25,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
 	) {}
+
+	// TODO: REFACTOR AND REMOVE OLD METHODS
 
 	/**
 	 * Handles the execution of the LikeActionCommand.
@@ -66,7 +68,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 						command.userId,
 						isLikeAction ? "like" : "unlike",
 						command.imageId,
-						imageTags
+						imageTags,
+						existingImage!.user.publicId
 					),
 					this.feedInteractionHandler
 				);
@@ -115,7 +118,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		// Send a notification to the image owner about the like action
 		await this.notificationService.createNotification({
-			receiverId: image.user.id.toString(),
+			receiverId: image.user.publicId.toString(),
 			actionType: "like",
 			actorId: command.userId,
 			targetId: command.imageId,

@@ -43,21 +43,25 @@ const Profile:React.FC  = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const queryClient = useQueryClient();
 
-  const profileUserId = id || user?.id;
-  
-  // Data for profile being viewed
-  const { data: profileData, isLoading: isLoadingProfile, error: getUserError } = useGetUser(id as string); //profileData -> data of the user profile
+  const profileUserId = id || user?.publicId;
+
+  // Data for profile being viewed - use the identifier to get user data
+  // If no id is provided in URL and user is logged in, use their data
+  const { data: profileData, isLoading: isLoadingProfile, error: getUserError } = useGetUser(
+    id ? id : (isLoggedIn ? user?.username : undefined)
+  );
+
   const {
     data: imagesData,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
     isLoading: isLoadingImages,
-  } = useUserImages(profileData?.id || '', { enabled: !!profileData?.id });
+  } = useUserImages(profileData?.publicId || '', { enabled: !!profileData?.publicId });
   
   const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(
-    profileUserId || '', 
-    { enabled: isLoggedIn && !!profileUserId && profileUserId !== user?.id }
+    profileData?.publicId || '', 
+    { enabled: isLoggedIn && !!profileData?.publicId && profileData?.publicId !== user?.publicId }
   );
 
   // modals state
@@ -67,7 +71,7 @@ const Profile:React.FC  = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
   //check if user is the owner of the profile
-  const isProfileOwner = isLoggedIn && profileUserId === user?.id;
+  const isProfileOwner = isLoggedIn && profileData?.publicId === user?.publicId;
 
   // mutations
   const avatarMutation = useUpdateUserAvatar();
@@ -75,10 +79,10 @@ const Profile:React.FC  = () => {
   const { mutate: followUserMutation, isPending: followPending } = useFollowUser();
 
 
-  const notifySuccess = (message: string) => toast.success(message);
-  const notifyError = (message: string) => toast.error(message);
+  const notifySuccess = useCallback((message: string) => toast.success(message), []);
+  const notifyError = useCallback((message: string) => toast.error(message), []);
 
-  const flattenedImages = imagesData?.pages?.flatMap((page: any) => page.data) || [];
+  const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
 
   // Proper check for data in imagesData. totalPages can't be accessed because it's a property of each page object within pages array, 
   // not a direct property of imagesData. This was causing the TS error, `imagesData` is of type `InfiniteData<ImagePageData, number> | undefined`
@@ -87,14 +91,14 @@ const Profile:React.FC  = () => {
 
   const handleFollowUser = () => {
     if (!isLoggedIn) return navigate('/login');
-    if (!profileUserId) return;
+    if (!profileUserId || !profileData) return;
 
-    followUserMutation(profileUserId, {
+    followUserMutation(profileData.publicId, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['isFollowing', profileUserId] });
-        queryClient.invalidateQueries({ queryKey: ['user', profileUserId] });
+        queryClient.invalidateQueries({ queryKey: ['isFollowing', profileData.publicId] });
+        queryClient.invalidateQueries({ queryKey: ['user', profileData.publicId] });
       },
-      onError: (error: any) => {
+      onError: (error: Error) => {
         notifyError(`Action failed: ${error?.message || 'Unknown error'}`);
         console.error('Error following/unfollowing user:', error);
       }
@@ -113,7 +117,7 @@ const handleAvatarUpload = useCallback((croppedImage: Blob | null) => {
   try {
     avatarMutation.mutate(croppedImage, {
       onSuccess: () => notifySuccess('Avatar updated successfully!'),
-      onError: (error: any) => notifyError(`Avatar upload failed: ${error?.message || 'Error'}`),
+      onError: (error: Error) => notifyError(`Avatar upload failed: ${error?.message || 'Error'}`),
       onSettled: () => setIsAvatarModalOpen(false)
     });
   } catch (error) {
@@ -132,7 +136,7 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
   try {
     coverMutation.mutate(croppedImage, {
       onSuccess: () => notifySuccess('Cover photo updated successfully!'),
-      onError: (error: any) => notifyError(`Cover upload failed: ${error?.message || 'Error'}`),
+      onError: (error: Error) => notifyError(`Cover upload failed: ${error?.message || 'Error'}`),
       onSettled: () => setIsCoverModalOpen(false)
     });
   } catch (error) {
@@ -364,8 +368,8 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
         <Grid container spacing={3} justifyContent="center">
           {[
             { label: 'Posts', value: flattenedImages.length || 0 },
-            { label: 'Followers', value: profileData?.followers?.length || 0 },
-            { label: 'Following', value: profileData?.following?.length || 0 },
+            { label: 'Followers', value: profileData?.followerCount || 0 },
+            { label: 'Following', value: profileData?.followingCount || 0 },
           ].map((stat) => (
             <Grid item xs={4} key={stat.label} sx={{ textAlign: 'center' }}>
               <Typography variant="h5" fontWeight="medium" color="primary">
@@ -446,11 +450,11 @@ const handleCoverUpload = useCallback((croppedImage: Blob | null) => {
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="text.secondary">Followers:</Typography>
-                  <Typography variant="body2">{profileData?.followers?.length || 0}</Typography>
+                  <Typography variant="body2">{profileData?.followerCount || 0}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2" color="text.secondary">Following:</Typography>
-                  <Typography variant="body2">{profileData?.following?.length || 0}</Typography>
+                  <Typography variant="body2">{profileData?.followingCount || 0}</Typography>
                 </Box>
               </Box>
             </Paper>

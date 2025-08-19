@@ -14,6 +14,8 @@ export class UserRepository extends BaseRepository<IUser> {
 		super(model);
 	}
 
+	// TODO: REFACTOR AND REMOVE OLD METHODS
+
 	/**
 	 * Creates a new user in the database, handling duplicate key errors.
 	 * @param userData - Partial user data to create a new user.
@@ -107,6 +109,22 @@ export class UserRepository extends BaseRepository<IUser> {
 				options: options,
 			});
 		}
+	}
+
+	// Find user by public id
+	async findByPublicId(publicId: string): Promise<IUser | null> {
+		return this.model.findOne({ publicId }).exec();
+	}
+
+	//find by query
+	find(query: any) {
+		return this.model.find(query);
+	}
+
+	// Lightweight internal id lookup by publicId (projection only _id)
+	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
+		const doc = await this.model.findOne({ publicId }).select("_id").lean().exec();
+		return doc ? (doc as any)._id.toString() : null;
 	}
 
 	/**
@@ -210,6 +228,22 @@ export class UserRepository extends BaseRepository<IUser> {
 			await query.exec();
 		} catch (error) {
 			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	async findUsersFollowing(userPublicId: string): Promise<IUser[]> {
+		try {
+			const user = await this.findByPublicId(userPublicId);
+			if (!user) return [];
+
+			return await this.model
+				.find({
+					following: user._id,
+				})
+				.exec();
+		} catch (error) {
+			console.error("Error finding users following:", error);
+			return [];
 		}
 	}
 }

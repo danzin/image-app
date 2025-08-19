@@ -2,9 +2,17 @@ import mongoose, { Schema, model, CallbackError } from "mongoose";
 import validator from "validator";
 import bcryptjs from "bcryptjs";
 import { IUser } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 const userSchema = new Schema<IUser>(
 	{
+		publicId: {
+			type: String,
+			required: true,
+			unique: true,
+			default: uuidv4(),
+			immutable: true,
+		},
 		username: {
 			type: String,
 			required: [true, "Username is required"],
@@ -153,7 +161,26 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
 	return bcryptjs.compare(candidatePassword, this.password);
 };
-userSchema.index({ username: "text" });
+
+// Transform the user object when serialized to JSON
+userSchema.set("toJSON", {
+	transform: (_doc, ret) => {
+		// Convert _id to id
+		if (ret._id) {
+			ret.id = ret._id.toString();
+			delete ret._id;
+		}
+
+		// Remove fields using type assertion to handle TypeScript errors
+		delete (ret as any).__v;
+		delete (ret as any).password;
+		delete (ret as any).email; // Remove email from public responses unless specifically needed
+
+		return ret;
+	},
+});
+
+userSchema.index({ username: 1 }); // Create an index on username for faster lookups
 
 const User = model<IUser>("User", userSchema);
 export default User;

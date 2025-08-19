@@ -1,6 +1,6 @@
 import { Model } from "mongoose";
 import { UserRepository } from "../repositories/user.repository";
-import { IImage, IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
+import type { IImage, IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
 import { ImageRepository } from "../repositories/image.repository";
 import { createError } from "../utils/errors";
 import jwt from "jsonwebtoken";
@@ -11,9 +11,10 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { convertToObjectId } from "../utils/helpers";
 import { NotificationService } from "./notification.service";
-import { UserDTOService } from "./dto.service";
-import { AdminUserDTO, PublicUserDTO } from "../types";
+import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
 import { FeedService } from "./feed.service";
+
+// TODO: REFACTOR AND REMOVE OLD METHODS
 
 /**
  * UserService handles all user-related operations, including authentication, profile updates,
@@ -37,7 +38,7 @@ export class UserService {
 		@inject("NotificationService")
 		private readonly notificationService: NotificationService,
 		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("UserDTOService") private readonly dtoService: UserDTOService
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	/**
@@ -46,15 +47,15 @@ export class UserService {
 	 * @returns A signed JWT token
 	 */
 	private generateToken(user: IUser): string {
+		// Token intentionally exposes only public-facing identifiers.
 		const payload = {
-			id: user._id,
+			publicId: user.publicId,
 			email: user.email,
 			username: user.username,
 			isAdmin: user.isAdmin,
 		};
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
-
 		return jwt.sign(payload, secret, { expiresIn: "12h" });
 	}
 
@@ -122,11 +123,13 @@ export class UserService {
 	 */
 	async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
 		try {
-			const freshUser = await this.userRepository.findById(user.id as string);
-			if (!freshUser) {
-				throw createError("PathError", "User not found");
+			let freshUser: IUser | null = null;
+			if (user.publicId) {
+				freshUser = await this.userRepository.findByPublicId(user.publicId);
+			} else if (user.id) {
+				freshUser = await this.userRepository.findById(user.id as string);
 			}
-
+			if (!freshUser) throw createError("PathError", "User not found");
 			const token = this.generateToken(freshUser);
 			return { user: this.dtoService.toPublicDTO(freshUser), token };
 		} catch (error) {
@@ -135,9 +138,40 @@ export class UserService {
 					(error as { name: string; message: string }).name,
 					(error as { name: string; message: string }).message
 				);
-			} else {
-				throw createError("InternalServerError", "An unknown error occurred.");
 			}
+			throw createError("InternalServerError", "An unknown error occurred.");
+		}
+	}
+
+	/**
+	 * Gets user profile by public ID
+	 */
+	async getUserByPublicId(publicId: string): Promise<IUser> {
+		try {
+			const user = await this.userRepository.findByPublicId(publicId);
+			if (!user) {
+				throw createError("NotFoundError", "User not found");
+			}
+			return user;
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Gets user profile by username (for SEO-friendly profile URLs)
+	 */
+	async getUserByUsername(username: string): Promise<IUser> {
+		try {
+			const user = await this.userRepository.findByUsername(username);
+			if (!user) {
+				throw createError("NotFoundError", "User not found");
+			}
+			return user;
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
 		}
 	}
 
@@ -197,6 +231,17 @@ export class UserService {
 		}
 	}
 
+	// PublicId variant
+	async updateProfileByPublicId(
+		publicId: string,
+		userData: { username?: string; bio?: string },
+		requestingUser: IUser
+	) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateProfile(user.id, userData, requestingUser);
+	}
+
 	/**
 	 * Changes a user's password after verifying the current one.
 	 * @param userId - The ID of the user being updated.
@@ -254,6 +299,12 @@ export class UserService {
 		}
 	}
 
+	async changePasswordByPublicId(publicId: string, currentPassword: string, newPassword: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.changePassword(user.id, currentPassword, newPassword);
+	}
+
 	/**
 	 * Updates a user's avatar image.
 	 * @param userId - The ID of the user updating their avatar.
@@ -304,6 +355,12 @@ export class UserService {
 		}
 	}
 
+	async updateAvatarByPublicId(publicId: string, file: Buffer): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateAvatar(user.id, file);
+	}
+
 	/**
 	 * Updates a user's cover image.
 	 * @param userId - The ID of the user updating their cover.
@@ -336,6 +393,12 @@ export class UserService {
 				throw createError("InternalServerError", "An unknown error occurred.");
 			}
 		}
+	}
+
+	async updateCoverByPublicId(publicId: string, file: Buffer): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.updateCover(user.id, file);
 	}
 
 	/**
@@ -424,81 +487,6 @@ export class UserService {
 	}
 
 	/**
-	 * Handles user "like" or "unlike" actions on an image.
-	 * If the user has already liked the image, it removes the like.
-	 * Otherwise, it adds a like and triggers a notification.
-	 * @param userId - The ID of the user performing the action.
-	 * @param imageId - The ID of the image being liked/unliked.
-	 * @throws PathError if the image is not found.
-	 * @throws TransactionError if the database transaction fails.
-	 */
-	async likeAction(userId: string, imageId: string): Promise<IImage | null> {
-		let isLikeAction = true; // Track if this is a like or unlike
-		let imageTags: string[] = []; // Stroe image tags for the feed service
-
-		try {
-			// Check if image exists before starting transaction
-			const existingImage = await this.imageRepository.findById(imageId);
-			if (!existingImage) {
-				throw createError("PathError", `Image with id ${imageId} not found`);
-			}
-			imageTags = existingImage.tags.map((tag) => tag.tag);
-
-			await this.unitOfWork.executeInTransaction(async (session) => {
-				const existingLike = await this.likeRepository.findByUserAndImage(userId, imageId, session);
-
-				if (existingLike) {
-					// Unlike flow
-					isLikeAction = false;
-					await this.likeRepository.deleteLike(userId, imageId, session);
-					await this.imageRepository.findOneAndUpdate({ _id: imageId }, { $inc: { likes: -1 } }, session);
-					await this.userActionRepository.logAction(userId, "unlike", imageId, session);
-				} else {
-					// Like flow
-					const userIdObject = convertToObjectId(userId);
-					const imageIdObject = convertToObjectId(imageId);
-
-					await this.likeRepository.create({ userId: userIdObject, imageId: imageIdObject }, session);
-					await this.imageRepository.findOneAndUpdate({ _id: imageId }, { $inc: { likes: 1 } }, session);
-
-					await this.userActionRepository.logAction(userId, "like", imageId, session);
-					await this.notificationService.createNotification({
-						receiverId: existingImage.user.id.toString(),
-						actionType: "like",
-						actorId: userId,
-						targetId: imageId,
-						session,
-					});
-				}
-			});
-
-			// Updating feed preference, not awaiting this to not block the response
-			this.feedService
-				.recordInteraction(userId, isLikeAction ? "like" : "unlike", imageId, imageTags)
-				.catch((error) => {
-					// Log error but don't fail the request
-					console.error("Failed to record feed interaction:", error);
-				});
-
-			//Return the updated image
-			return this.imageRepository.findById(imageId);
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				if (error.name === "PathError") {
-					throw createError("PathError", String(error.message));
-				}
-				throw createError("TransactionError", String(error.message), {
-					function: "likeAction",
-					additionalInfo: "Transaction failed",
-					originalError: error,
-				});
-			}
-			// If error is not handled above, return null to satisfy return type
-			return null;
-		}
-	}
-
-	/**
 	 * Handles user "follow" or "unfollow" actions.
 	 * If the user is already following the target user, it removes the follow.
 	 * Otherwise, it adds a follow and triggers a notification.
@@ -543,6 +531,19 @@ export class UserService {
 		}
 	}
 
+	// Adapter: follow action where follower is provided as publicId (legacy followeeId remains internal id)
+	async followActionByInternalId(followerPublicId: string, followeeInternalId: string): Promise<void> {
+		const follower = await this.userRepository.findByPublicId(followerPublicId);
+		if (!follower) throw createError("NotFoundError", "Follower not found");
+		return this.followAction(follower.id, followeeInternalId);
+	}
+
+	// === ADMIN METHODS ===
+
+	/**
+	 * Gets detailed statistics for a specific user
+	 */
+
 	/**
 	 * Retrieves a paginated list of all users, including admin details.
 	 * Converts user data into admin DTO format before returning.
@@ -561,11 +562,6 @@ export class UserService {
 		};
 	}
 
-	// === ADMIN METHODS ===
-
-	/**
-	 * Gets detailed statistics for a specific user
-	 */
 	async getUserStats(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -592,31 +588,35 @@ export class UserService {
 		};
 	}
 
-	/**
-	 * Bans a user with a reason
-	 */
-	async banUser(userId: string, adminId: string, reason: string) {
-		const user = await this.userRepository.findById(userId);
+	// PublicId wrapper for stats
+	async getUserStatsByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.getUserStats(user.id);
+	}
+
+	async deleteUserByPublicId(publicId: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
+		await this.userRepository.delete(String(user._id).toString());
+	}
 
-		if (user.isAdmin) {
-			throw createError("ValidationError", "Cannot ban admin users");
+	async banUserByPublicId(publicId: string, adminPublicId: string, reason: string): Promise<any> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
 		}
-
-		const updatedUser = await this.userRepository.update(userId, {
+		const adminInternalId = await this.userRepository.findInternalIdByPublicId(adminPublicId);
+		if (!adminInternalId) throw createError("NotFoundError", "Admin not found");
+		const updatedUser = await this.userRepository.update(String(user._id), {
 			isBanned: true,
 			bannedAt: new Date(),
 			bannedReason: reason,
-			bannedBy: adminId,
+			bannedBy: adminInternalId,
 		});
-
-		if (!updatedUser) {
-			throw createError("InternalServerError", "Failed to update user during ban.");
-		}
-
-		return this.dtoService.toAdminDTO(updatedUser);
+		return { message: "User banned successfully", user: this.dtoService.toAdminDTO(updatedUser!) };
 	}
 
 	/**
@@ -627,19 +627,22 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		const updatedUser = await this.userRepository.update(userId, {
 			isBanned: false,
 			bannedAt: null,
 			bannedReason: null,
 			bannedBy: null,
 		});
-
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during unban.");
 		}
-
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async unbanUserByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.unbanUser(user.id);
 	}
 
 	/**
@@ -694,18 +697,20 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		if (user.isAdmin) {
 			throw createError("ValidationError", "User is already an admin");
 		}
-
-		const updatedUser = await this.userRepository.update(userId, {
-			isAdmin: true,
-		});
+		const updatedUser = await this.userRepository.update(userId, { isAdmin: true });
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during promotion.");
 		}
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async promoteToAdminByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.promoteToAdmin(user.id);
 	}
 
 	/**
@@ -716,17 +721,107 @@ export class UserService {
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-
 		if (!user.isAdmin) {
 			throw createError("ValidationError", "User is not an admin");
 		}
-
-		const updatedUser = await this.userRepository.update(userId, {
-			isAdmin: false,
-		});
+		const updatedUser = await this.userRepository.update(userId, { isAdmin: false });
 		if (!updatedUser) {
 			throw createError("InternalServerError", "Failed to update user during demotion.");
 		}
 		return this.dtoService.toAdminDTO(updatedUser);
+	}
+
+	async demoteFromAdminByPublicId(publicId: string) {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.demoteFromAdmin(user.id);
+	}
+
+	// === SECURE PUBLIC ID METHODS ===
+
+	/**
+	 * Follows a user by their public ID
+	 */
+	async followUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
+		try {
+			// Convert public IDs to internal IDs
+			const [followerUser, targetUser] = await Promise.all([
+				this.userRepository.findByPublicId(followerPublicId),
+				this.userRepository.findByPublicId(targetPublicId),
+			]);
+
+			if (!followerUser || !targetUser) {
+				throw createError("NotFoundError", "One or both users not found");
+			}
+
+			const followerInternalId = (followerUser as any)._id.toString();
+			const targetInternalId = (targetUser as any)._id.toString();
+
+			if (followerInternalId === targetInternalId) {
+				throw createError("ValidationError", "Cannot follow yourself");
+			}
+
+			await this.followAction(followerInternalId, targetInternalId);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Unfollows a user by their public ID
+	 */
+	async unfollowUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
+		try {
+			// Convert public IDs to internal IDs
+			const [followerUser, targetUser] = await Promise.all([
+				this.userRepository.findByPublicId(followerPublicId),
+				this.userRepository.findByPublicId(targetPublicId),
+			]);
+
+			if (!followerUser || !targetUser) {
+				throw createError("NotFoundError", "One or both users not found");
+			}
+
+			const followerInternalId = (followerUser as any)._id.toString();
+			const targetInternalId = (targetUser as any)._id.toString();
+
+			await this.followAction(followerInternalId, targetInternalId);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Checks if current user is following another user by public ID
+	 */
+	async checkFollowStatusByPublicId(followerPublicId: string, targetPublicId: string): Promise<boolean> {
+		try {
+			const isFollowing = await this.followRepository.isFollowingByPublicId(followerPublicId, targetPublicId);
+			return isFollowing;
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Deletes the current user's account
+	 */
+	async deleteMyAccount(userId: string): Promise<void> {
+		try {
+			// Use the existing deleteUser method
+			await this.deleteUser(userId);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	async deleteMyAccountByPublicId(publicId: string): Promise<void> {
+		const user = await this.userRepository.findByPublicId(publicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		return this.deleteMyAccount(user.id);
 	}
 }
