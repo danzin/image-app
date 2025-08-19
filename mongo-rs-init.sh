@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -euo pipefail # Exit immediately if a command exits with a non-zero status, treat unset variables as an error, and fail if any command in a pipeline fails
 
 HOST="${MONGO_HOST:-mongo}"
 ROOT_USER="${MONGO_INITDB_ROOT_USERNAME:-root}"

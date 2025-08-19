@@ -56,7 +56,7 @@ services:
 
   # One-shot sidecar to initialize the replica set AFTER mongod starts with --replSet
   # depends only on mongo container existing
-  # calls rs.initiate({_id:"rs0", members: [{_id:0, host:"mongo:27017"}]})
+  # calls rs.initiate({_id:"rs0", members: [{_id:0, host:"mongo:27017"}]}) from the init script
   # waits until myState == 1 PRIMARY
   mongo-rs-init:
     image: mongo:6
