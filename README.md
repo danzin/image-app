@@ -138,12 +138,15 @@ The project is built on solid architectural principles:
       - User feed - Done ✅
  - **Enhanced Security Features:**
     Continued enhancements to authentication, authorization, and data protection.
+      - Done ✅ 
  - **Expanded Search Capabilities:**
     Refining the universal search to support advanced queries and more refined result filtering.
+      - Done ✅
  - **Additional API Endpoints:** 
     Further expansion of administrative, notification, and real-time features.
  - **Polishing the frontend**:
     So far the backend has been my primary focus and frontend has been falling behind.
+      - Done ✅
  - **Full monitoring suite**
    
 ## Installation & Setup
