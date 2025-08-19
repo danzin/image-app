@@ -24,8 +24,16 @@ export class NotificationService {
 
 	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			console.log(`Sending new_notification to user ${userPublicId}:`, notification);
-			io.to(userPublicId).emit("new_notification", notification);
+			// emit a plain JSON object stripping Mongoose internals
+			const plain =
+				typeof (notification as any).toObject === "function"
+					? (notification as any).toObject()
+					: { ...(notification as any) };
+			if (plain._id && !plain.id) plain.id = String(plain._id);
+			// Remove any circular/internal fields
+			delete (plain as any).$__; // Mongoose internal cache
+			console.log(`Sending new_notification to user ${userPublicId}:`, plain);
+			io.to(userPublicId).emit("new_notification", plain);
 			console.log("Notification sent successfully");
 		} catch (error) {
 			console.error("Error sending notification:", error);
@@ -39,8 +47,14 @@ export class NotificationService {
 
 	private readNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			console.log(`Sending notification_read to user ${userPublicId}:`, notification);
-			io.to(userPublicId).emit("notification_read", notification);
+			const plain =
+				typeof (notification as any).toObject === "function"
+					? (notification as any).toObject()
+					: { ...(notification as any) };
+			if (plain._id && !plain.id) plain.id = String(plain._id);
+			delete (plain as any).$__;
+			console.log(`Sending notification_read to user ${userPublicId}:`, plain);
+			io.to(userPublicId).emit("notification_read", plain);
 			console.log("Notification sent successfully");
 		} catch (error) {
 			console.error("Error sending notification:", error);
@@ -57,6 +71,7 @@ export class NotificationService {
 		actionType: string; // like, follow, etc
 		actorId: string; // actor publicId
 		targetId?: string; // optional target publicId (e.g., image publicId)
+		actorUsername?: string; // optional actor username provided by frontend
 		session?: ClientSession;
 	}): Promise<INotification> {
 		// Validate required fields
@@ -69,6 +84,7 @@ export class NotificationService {
 			const userPublicId = data.receiverId.trim();
 			const actorPublicId = data.actorId.trim();
 			const targetPublicId = data.targetId?.trim();
+			const actorUsername = data.actorUsername?.trim();
 
 			const io = this.getIO();
 
@@ -78,6 +94,7 @@ export class NotificationService {
 					userId: userPublicId,
 					actionType: data.actionType,
 					actorId: actorPublicId,
+					actorUsername,
 					targetId: targetPublicId,
 					isRead: false,
 					timestamp: new Date(),
@@ -97,33 +114,34 @@ export class NotificationService {
 
 	async getNotifications(userPublicId: string) {
 		try {
-			return await this.notificationRepository.getNotifications(userPublicId);
-		} catch (error) {
-			throw createError("InternalServerError", "Failed to fetch notifications");
-		}
-	}
-
-	async markAsRead(notificationId: string, userPublicId: string) {
-		try {
-			const io = this.getIO();
-
-			// Update the notification as read
-			const updatedNotification = await this.notificationRepository.markAsRead(notificationId);
-
-			if (!updatedNotification) {
-				throw createError("NotFoundError", "Notification not found");
-			}
-
-			// Emit the real-time event via websocket using publicId room
-			this.readNotification(io, userPublicId, updatedNotification);
-
-			return updatedNotification;
+			const notifications = await this.notificationRepository.getNotifications(userPublicId);
+			return notifications;
 		} catch (error) {
 			if (error instanceof Error) {
 				throw createError("InternalServerError", error.message);
 			} else {
 				throw createError("InternalServerError", String(error));
 			}
+		}
+	}
+
+	async markAsRead(notificationId: string, userPublicId: string) {
+		try {
+			console.log(`[NotificationService] markAsRead requested id=${notificationId} userPublicId=${userPublicId}`);
+			const io = this.getIO();
+			const updatedNotification = await this.notificationRepository.markAsRead(notificationId, userPublicId);
+			if (!updatedNotification) {
+				console.log(`[NotificationService] markAsRead not found id=${notificationId} userPublicId=${userPublicId}`);
+				throw createError("PathError", "Notification not found");
+			}
+			console.log(`[NotificationService] markAsRead updated id=${notificationId} userPublicId=${userPublicId}`);
+			this.readNotification(io, userPublicId, updatedNotification);
+			return updatedNotification;
+		} catch (error) {
+			// If already an AppError (has statusCode) rethrow
+			if (typeof error === "object" && error && "statusCode" in (error as any)) throw error as any;
+			if (error instanceof Error) throw createError(error.name, error.message);
+			throw createError("UnknownError", String(error));
 		}
 	}
 }

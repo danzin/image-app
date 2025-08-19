@@ -44,12 +44,13 @@ const Profile:React.FC  = () => {
   const queryClient = useQueryClient();
 
   const profileUserId = id || user?.publicId;
-  
+
   // Data for profile being viewed - use the identifier to get user data
   // If no id is provided in URL and user is logged in, use their data
   const { data: profileData, isLoading: isLoadingProfile, error: getUserError } = useGetUser(
     id ? id : (isLoggedIn ? user?.username : undefined)
   );
+
   const {
     data: imagesData,
     fetchNextPage,
@@ -90,12 +91,12 @@ const Profile:React.FC  = () => {
 
   const handleFollowUser = () => {
     if (!isLoggedIn) return navigate('/login');
-    if (!profileUserId) return;
+    if (!profileUserId || !profileData) return;
 
-    followUserMutation(profileUserId, {
+    followUserMutation(profileData.publicId, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['isFollowing', profileUserId] });
-        queryClient.invalidateQueries({ queryKey: ['user', profileUserId] });
+        queryClient.invalidateQueries({ queryKey: ['isFollowing', profileData.publicId] });
+        queryClient.invalidateQueries({ queryKey: ['user', profileData.publicId] });
       },
       onError: (error: Error) => {
         notifyError(`Action failed: ${error?.message || 'Unknown error'}`);

@@ -6,6 +6,7 @@ export class UserSchemas {
 			email: Joi.string().email().required(),
 			password: Joi.string().min(1).required(),
 			username: Joi.string().alphanum().min(1).max(30).required(),
+			confirmPassword: Joi.string().valid(Joi.ref("password")).required(),
 		});
 	}
 
@@ -61,7 +62,7 @@ export class UserSchemas {
 				"string.min": "Username must be at least 1 character long",
 				"string.max": "Username must not exceed 30 characters",
 			}),
-			bio: Joi.string().max(500).optional().messages({
+			bio: Joi.string().max(500).allow("").optional().messages({
 				"string.max": "Bio must not exceed 500 characters",
 			}),
 		}).options({ allowUnknown: false, stripUnknown: true });

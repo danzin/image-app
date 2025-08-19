@@ -21,7 +21,7 @@ export class CommentController {
 			const { content } = req.body;
 			const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
@@ -29,7 +29,7 @@ export class CommentController {
 				throw createError("ValidationError", "Comment content is required");
 			}
 
-			const comment = await this.commentService.createComment(decodedUser.id, imagePublicId, content);
+			const comment = await this.commentService.createCommentByPublicId(decodedUser.publicId, imagePublicId, content);
 			res.status(201).json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -74,7 +74,7 @@ export class CommentController {
 			const { content } = req.body;
 			const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
@@ -82,7 +82,7 @@ export class CommentController {
 				throw createError("ValidationError", "Comment content is required");
 			}
 
-			const comment = await this.commentService.updateComment(commentId, decodedUser.id, content);
+			const comment = await this.commentService.updateCommentByPublicId(commentId, decodedUser.publicId, content);
 			res.json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -102,11 +102,11 @@ export class CommentController {
 			const { commentId } = req.params;
 			const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
-			await this.commentService.deleteComment(commentId, decodedUser.id);
+			await this.commentService.deleteCommentByPublicId(commentId, decodedUser.publicId);
 			res.status(204).send(); // No content response
 		} catch (error) {
 			if (error instanceof Error) {

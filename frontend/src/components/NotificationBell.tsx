@@ -43,7 +43,7 @@ const NotificationBell = () => {
           unreadNotifications
           .map((notification: Notification) =>(
             <MenuItem key={notification.id} onClick={() => handleNotificationClick(notification.id)}>
-              <Typography>{notification.actionType} by <Link to={`/profile/${notification.actorId}`} style={{ color: 'lightslategray' }}> {notification.actorId} </Link>  </Typography> 
+              <Typography>{notification.actionType} by <Link to={`/profile/${notification.actorId}`} style={{ color: 'lightslategray' }}> {notification.actorUsername} </Link>  </Typography> 
             </MenuItem>
           ))
         )}

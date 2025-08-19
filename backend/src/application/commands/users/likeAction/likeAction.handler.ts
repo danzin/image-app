@@ -9,7 +9,7 @@ import { LikeRepository } from "../../../../repositories/like.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../../application/events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
 import { ClientSession } from "mongoose";
 import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
@@ -68,7 +68,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 						command.userId,
 						isLikeAction ? "like" : "unlike",
 						command.imageId,
-						imageTags
+						imageTags,
+						existingImage!.user.publicId
 					),
 					this.feedInteractionHandler
 				);

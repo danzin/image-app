@@ -13,6 +13,8 @@ import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddlewar
 import { NotificationRoutes } from "../routes/notification.routes";
 import { FeedRoutes } from "../routes/feed.routes";
 import path from "path";
+import cors from "cors";
+import { corsOptions } from "../config/corsConfig";
 @injectable()
 export class Server {
 	private app: Application;
@@ -51,6 +53,8 @@ export class Server {
 			console.log(`[Backend] ${req.method} ${req.originalUrl}`);
 			next();
 		});
+		// CORS before parsers to ensure preflight handled quickly
+		this.app.use(cors(corsOptions));
 		this.app.use(cookieParser() as any); // Parsing cookies
 		this.app.use(express.json()); // Parsing JSON request bodies
 		this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads

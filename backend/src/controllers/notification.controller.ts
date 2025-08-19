@@ -10,11 +10,16 @@ export class NotificationController {
 	getNotifications = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			if (!decodedUser || (!(decodedUser as any).publicId && !(decodedUser as any).id)) {
-				throw createError("ValidationError", "User ID is required");
+			if (!decodedUser || !(decodedUser as any).publicId) {
+				throw createError("ValidationError", "User publicId is required");
 			}
-			const userPublicId = (decodedUser as any).publicId || decodedUser.id;
+			const userPublicId = (decodedUser as any).publicId;
 			const notifications = await this.notificationService.getNotifications(userPublicId);
+			console.log(
+				`[NOTIFICATIONS] Fetched notifications for user: ${userPublicId} \r\n [NOTIFICATIONS] ${JSON.stringify(
+					notifications
+				)}`
+			);
 
 			res.status(200).json(notifications);
 		} catch (error) {
@@ -27,14 +32,13 @@ export class NotificationController {
 		try {
 			const { notificationId } = req.params;
 			const { decodedUser } = req;
-			if (!decodedUser || (!(decodedUser as any).publicId && !(decodedUser as any).id)) {
-				throw createError("ValidationError", "User ID is required");
+			if (!decodedUser || !(decodedUser as any).publicId) {
+				throw createError("ValidationError", "User publicId is required");
 			}
-			const userPublicId = (decodedUser as any).publicId || decodedUser.id;
+			const userPublicId = (decodedUser as any).publicId;
 			const notification = await this.notificationService.markAsRead(notificationId, userPublicId);
 			res.status(200).json(notification);
 		} catch (error) {
-			console.error(error);
 			next(error);
 		}
 	};

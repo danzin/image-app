@@ -43,7 +43,7 @@ export class ImageController {
 				throw createError("ValidationError", "No file uploaded");
 			}
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User information missing");
 			}
 
@@ -51,7 +51,7 @@ export class ImageController {
 			const originalName = file.originalname || `image-${Date.now()}`;
 			console.log("Using originalName:", originalName);
 
-			const result = await this.imageService.uploadImage(decodedUser.id, file.buffer, tags, originalName);
+			const result = await this.imageService.uploadImage(decodedUser.publicId, file.buffer, tags, originalName);
 			res.status(201).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -77,15 +77,15 @@ export class ImageController {
 		}
 	};
 
-	getUserImages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		const { id } = req.params;
+	getUserImagesByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		const { publicId } = req.params;
 
 		const page = parseInt(req.query.page as string) || 1;
 		const limit = parseInt(req.query.limit as string) || 10;
-		console.log("ID of getUserImages: ", id);
+		console.log("ID of getUserImages: ", publicId);
 		try {
-			const images = await this.imageService.getUserImages(id, page, limit);
-			console.log(`images of user ${id}: ${images}`);
+			const images = await this.imageService.getUserImages(publicId, page, limit);
+			console.log(`images of user ${publicId}: ${images}`);
 			res.json(images);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -97,31 +97,24 @@ export class ImageController {
 		}
 	};
 
-	getImageById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { id } = req.params;
-			const result = await this.imageService.getImageById(id);
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(createError(error.name, error.message));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
-
 	getImageBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { slug } = req.params;
+			const viewerPublicId = req.decodedUser?.publicId;
+			console.log(`[IMAGE CONTROLLER] getImageBySlug called with slug: ${slug}, viewerPublicId: ${viewerPublicId}`);
+
 			// Sanitize slug: remove optional file extension if present (e.g., ".png", ".jpg")
 			const sanitizedSlug = slug.replace(/\.[a-z0-9]{2,5}$/i, "");
 			// If the slug looks like a UUID (publicId), fetch by publicId instead
 			const looksLikeUUIDv4 = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sanitizedSlug);
+			console.log(`[IMAGE CONTROLLER] Sanitized slug: ${sanitizedSlug}, looks like UUID: ${looksLikeUUIDv4}`);
+
 			const image = looksLikeUUIDv4
-				? await this.imageService.getImageByPublicId(sanitizedSlug)
-				: await this.imageService.getImageBySlug(sanitizedSlug);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
+				? await this.imageService.getImageByPublicId(sanitizedSlug, viewerPublicId)
+				: await this.imageService.getImageBySlug(sanitizedSlug, viewerPublicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, viewerPublicId);
+			console.log(`[IMAGE CONTROLLER] Returning imageDTO with isLikedByViewer: ${imageDTO.isLikedByViewer}`);
+
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -143,7 +136,7 @@ export class ImageController {
 
 			const imagesDTOs = {
 				...images,
-				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.id)),
+				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.publicId)),
 			};
 
 			res.status(200).json(imagesDTOs);
@@ -160,7 +153,7 @@ export class ImageController {
 		try {
 			const { publicId } = req.params;
 			const image = await this.imageService.getImageByPublicId(publicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.id);
+			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -188,20 +181,6 @@ export class ImageController {
 		}
 	};
 
-	deleteImage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { id } = req.params;
-			const result = await this.imageService.deleteImage(id);
-			res.status(200).json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(createError(error.name, error.message));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
-
 	getTags = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const result = await this.imageService.getTags();
@@ -220,12 +199,11 @@ export class ImageController {
 			const { publicId } = req.params;
 			const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.id) {
+			if (!decodedUser || !decodedUser.publicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
-
-			const result = await this.imageService.deleteImageByPublicId(publicId, decodedUser.id);
+			const result = await this.imageService.deleteImageByPublicId(publicId, decodedUser.publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {

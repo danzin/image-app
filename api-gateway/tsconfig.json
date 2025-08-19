@@ -1,11 +1,19 @@
 {
-  "extends": "../tsconfig.json",
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
+  "composite": true,
     "rootDir": "./src",
     "outDir": "./dist",
     "baseUrl": "./src",
-    "typeRoots": ["../node_modules/@types", "./node_modules/@types"]
+    "moduleResolution": "node",
+    "target": "ESNext",
+    "module": "ESNext",
+  "noEmit": false,
+    "skipLibCheck": true,
+    "types": ["node"]            /* limit ambient types so frontend @types don't bleed in */,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
 }

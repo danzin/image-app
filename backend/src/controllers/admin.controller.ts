@@ -37,8 +37,8 @@ export class AdminUserController {
 
 	getUserStats = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { id } = req.params;
-			const stats = await this.userService.getUserStats(id);
+			const { publicId } = req.params;
+			const stats = await this.userService.getUserStatsByPublicId(publicId);
 			res.status(200).json(stats);
 		} catch (error) {
 			next(error);
@@ -68,7 +68,10 @@ export class AdminUserController {
 				throw createError("ValidationError", "Admin user is required");
 			}
 
-			const result = await this.userService.banUserByPublicId(publicId, decodedUser.id, reason);
+			if (!(decodedUser as any).publicId) {
+				throw createError("ValidationError", "Admin publicId missing in token");
+			}
+			const result = await this.userService.banUserByPublicId(publicId, (decodedUser as any).publicId, reason);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -78,7 +81,7 @@ export class AdminUserController {
 	unbanUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const result = await this.userService.unbanUser(publicId);
+			const result = await this.userService.unbanUserByPublicId(publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -98,8 +101,13 @@ export class AdminUserController {
 
 	deleteImage = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId } = req.params; // ✅ Use publicId
-			await this.imageService.deleteImage(publicId);
+			const { publicId } = req.params;
+			const { decodedUser } = req;
+
+			if (!decodedUser || !(decodedUser as any).publicId) {
+				throw createError("AuthenticationError", "Admin user not found");
+			}
+			await this.imageService.deleteImageByPublicId(publicId, (decodedUser as any).publicId, true);
 			res.status(204).send();
 		} catch (error) {
 			next(error);
@@ -130,8 +138,8 @@ export class AdminUserController {
 	// === PROMOTE/DEMOTE ADMIN ===
 	promoteToAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId } = req.params; // ✅ Use publicId
-			const result = await this.userService.promoteToAdmin(publicId);
+			const { publicId } = req.params;
+			const result = await this.userService.promoteToAdminByPublicId(publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -140,8 +148,8 @@ export class AdminUserController {
 
 	demoteFromAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId } = req.params; // ✅ Use publicId
-			const result = await this.userService.demoteFromAdmin(publicId);
+			const { publicId } = req.params;
+			const result = await this.userService.demoteFromAdminByPublicId(publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);

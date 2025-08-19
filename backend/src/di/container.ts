@@ -55,11 +55,17 @@ import { GetMeQueryHandler } from "../application/queries/users/getMe/getMe.hand
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { EventBus } from "../application/common/buses/event.bus";
 import { FeedInteractionHandler } from "../application/events/feed/feed-interaction.handler";
-import { UserInteractedWithImageEvent } from "../application/events/user/user-interaction.event";
+import {
+	ImageDeletedEvent,
+	ImageUploadedEvent,
+	UserInteractedWithImageEvent,
+} from "../application/events/user/user-interaction.event";
 import { LikeActionCommand } from "../application/commands/users/likeAction/likeAction.command";
 import { LikeActionCommandHandler } from "../application/commands/users/likeAction/likeAction.handler";
 import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 import { LikeActionByPublicIdCommandHandler } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.handler";
+import { ImageUploadHandler } from "../application/events/image/image-upload.handler";
+import { ImageDeleteHandler } from "../application/events/image/image-delete.handler";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -154,6 +160,10 @@ function registerCQRS(): void {
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
 	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
 
+	// Register reactive event handlers
+	container.register("ImageUploadHandler", { useClass: ImageUploadHandler });
+	container.register("ImageDeleteHandler", { useClass: ImageDeleteHandler });
+
 	// Register query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 
@@ -167,6 +177,8 @@ function registerCQRS(): void {
 
 	// Subscribe handlers
 	eventBus.subscribe(UserInteractedWithImageEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
+	eventBus.subscribe(ImageUploadedEvent, container.resolve<ImageUploadHandler>("ImageUploadHandler"));
+	eventBus.subscribe(ImageDeletedEvent, container.resolve<ImageDeleteHandler>("ImageDeleteHandler"));
 
 	// Register command handlers with command bus
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));

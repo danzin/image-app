@@ -1,4 +1,9 @@
+**/node_modules
 node_modules
+**/dist
+**/build
+.vscode/
+.idea/
 dist
 .env
 *.md
@@ -7,3 +12,5 @@ dist
 .txt
 __tests__
 .docs
+*.log
+npm-debug.log*

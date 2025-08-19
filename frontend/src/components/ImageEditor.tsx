@@ -13,17 +13,17 @@ function centerAspectCrop(
     aspect: number,
 ): Crop {
     return centerCrop(
-        makeAspectCrop(
-            {
-                unit: '%',
-                width: 90, // Start with 90% width crop
-            },
-            aspect,
-            mediaWidth,
-            mediaHeight,
-        ),
+      makeAspectCrop(
+      {
+        unit: '%',
+        width: 90, // Start with 90% width crop
+      },
+        aspect,
         mediaWidth,
         mediaHeight,
+      ),
+      mediaWidth,
+      mediaHeight,
     );
 }
 
@@ -50,7 +50,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
       reader.addEventListener('load', () => setSrc(reader.result?.toString() || null));
       reader.readAsDataURL(e.target.files[0]);
     } else {
-        setSrc(null); 
+      setSrc(null); 
     }
       e.target.value = ''; 
   };
@@ -64,11 +64,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({
 
   useEffect(() => {
     if (
-        !completedCrop ||
-        !previewCanvasRef.current ||
-        !imgRef.current
+      !completedCrop ||
+      !previewCanvasRef.current ||
+      !imgRef.current
     ) {
-        return;
+      return;
     }
 
     const image = imgRef.current;

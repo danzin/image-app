@@ -79,8 +79,9 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					new UserInteractedWithImageEvent(
 						command.userPublicId, // Keep using public ID for events
 						isLikeAction ? "like" : "unlike",
-						existingImage!.id,
-						imageTags
+						existingImage!.publicId, // Use public ID instead of MongoDB ID
+						imageTags,
+						existingImage!.user.publicId // Use public ID for the image owner
 					),
 					this.feedInteractionHandler
 				);
@@ -91,7 +92,10 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			if (!updatedImage) {
 				throw createError("PathError", `Image with public ID ${command.imagePublicId} not found after update`);
 			}
-			return updatedImage;
+
+			// Apply toJSON transform to ensure MongoDB IDs are converted to strings
+			// and unwanted fields are removed
+			return updatedImage.toJSON() as IImage;
 		} catch (error) {
 			console.error(error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";
@@ -138,7 +142,8 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			receiverId: image.user.publicId.toString(),
 			actionType: "like",
 			actorId: command.userPublicId, // Use public ID for notifications
-			targetId: image.id,
+			actorUsername: (await this.userRepository.findByPublicId(command.userPublicId))?.username, // denormalize username
+			targetId: image.publicId, // Use public ID instead of MongoDB ID
 			session,
 		});
 	}
