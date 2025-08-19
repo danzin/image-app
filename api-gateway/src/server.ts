@@ -3,7 +3,8 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
-import { config } from "./config";
+// explicit .js so compiled output works (TS maps this to config.ts during build)
+import { config } from "./config.js";
 
 interface ExtendedProxyOptions extends Options<IncomingMessage, ServerResponse> {
 	onProxyReq?: (proxyReq: any, req: Request, res: Response) => void;
@@ -54,10 +55,15 @@ const proxyOptions: ExtendedProxyOptions = {
 	target: config.backendUrl,
 	changeOrigin: true,
 	ws: true,
+	timeout: 10000, // 10s backend timeout
+	proxyTimeout: 10000,
 	logLevel: "debug",
 	onProxyReq: (proxyReq, req) => {
 		// Log the actual path forwarded
 		console.log(`[Gateway] Proxying ${req.method} ${req.originalUrl} -> ${config.backendUrl}${proxyReq.path}`);
+		if (req.method === "GET" && req.originalUrl.startsWith("/api/users/me")) {
+			console.log("[Gateway][DEBUG] Forwarding headers:", req.headers);
+		}
 		proxyReq.setHeader("X-Forwarded-By", "api-gateway");
 	},
 	onProxyRes: (proxyRes, req) => {
@@ -68,7 +74,7 @@ const proxyOptions: ExtendedProxyOptions = {
 			url: req.originalUrl,
 		});
 		if (!res.headersSent) {
-			res.status(502).send("Bad Gateway");
+			res.status(504).json({ error: "GatewayTimeout", message: err.message });
 		} else if (!res.writableEnded) {
 			res.end();
 		}
@@ -92,6 +98,18 @@ app.use(
 		pathRewrite: {
 			"^/api": "", // Remove /api prefix when forwarding to backend
 		},
+		...proxyOptions,
+	})
+);
+
+// Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
+console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
+app.use(
+	"/socket.io",
+	createProxyMiddleware({
+		target: config.backendUrl,
+		changeOrigin: true,
+		ws: true,
 		...proxyOptions,
 	})
 );

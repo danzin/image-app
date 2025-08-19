@@ -21,11 +21,10 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 
 	async execute(query: GetMeQuery): Promise<GetMeResult> {
 		try {
-			const user = await this.userRepository.findById(query.userId);
+			const user = await this.userRepository.findByPublicId(query.publicId);
 			if (!user) {
 				throw createError("PathError", "User not found");
 			}
-
 			const token = this.generateToken(user);
 			return { user: this.dtoService.toPublicDTO(user), token };
 		} catch (error) {
@@ -42,10 +41,14 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 	 * @returns A signed JWT token
 	 */
 	private generateToken(user: IUser): string {
-		const payload = { id: user._id, email: user.email, username: user.username, isAdmin: user.isAdmin };
+		const payload = {
+			publicId: user.publicId,
+			email: user.email,
+			username: user.username,
+			isAdmin: user.isAdmin,
+		};
 		const secret = process.env.JWT_SECRET;
 		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
-
 		return jwt.sign(payload, secret, { expiresIn: "12h" });
 	}
 }

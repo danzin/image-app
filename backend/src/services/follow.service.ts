@@ -35,6 +35,7 @@ export class FollowService {
 				receiverId: followeeId,
 				actionType: "follow",
 				actorId: followerId,
+				actorUsername: (await this.userRepository.findByPublicId(followerId))?.username,
 			});
 
 			await this.userActionRepository.logAction(followerId, "follow", followeeId);

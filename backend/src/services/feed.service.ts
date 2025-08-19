@@ -5,6 +5,7 @@ import { UserPreferenceRepository } from "../repositories/userPreference.reposit
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
+import { IUser } from "../types";
 
 @injectable()
 export class FeedService {
@@ -32,8 +33,10 @@ export class FeedService {
 			//Using Promise.all to execute the operations concurrently and
 			// get the result once they've resolved or rejected
 			const [user, topTags] = await Promise.all([
-				this.userRepository.findById(userId),
-				this.userPreferenceRepository.getTopUserTags(userId),
+				this.userRepository.findByPublicId(userId),
+				this.userRepository
+					.findByPublicId(userId)
+					.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
 			]);
 
 			if (!user) {
@@ -61,11 +64,26 @@ export class FeedService {
 		}
 	}
 
-	public async recordInteraction(userId: string, actionType: string, targetId: string, tags: string[]): Promise<void> {
-		console.log(`Running recordInteraction... for ${userId}, actionType: ${actionType}, \r\n 
-      targetId: ${targetId}, tags: ${tags}`);
-		// Record the action
-		await this.userActionRepository.logAction(userId, actionType, targetId);
+	public async recordInteraction(
+		userPublicId: string,
+		actionType: string,
+		targetIdentifier: string,
+		tags: string[]
+	): Promise<void> {
+		console.log(
+			`Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`
+		);
+		// Resolve user internal id
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) throw createError("NotFoundError", "User not found");
+		// If action targets an image provided by publicId (may include extension), normalize
+		let internalTargetId = targetIdentifier;
+		if (actionType === "like" || actionType === "unlike") {
+			const sanitized = targetIdentifier.replace(/\.[a-z0-9]{2,5}$/i, "");
+			const image = await this.imageRepository.findByPublicId(sanitized);
+			if (image) internalTargetId = (image as any)._id.toString();
+		}
+		await this.userActionRepository.logAction(String(user._id), actionType, internalTargetId);
 
 		// Update tag preferences based on action type
 		let scoreIncrement = 0;
@@ -75,11 +93,11 @@ export class FeedService {
 
 		if (scoreIncrement !== 0) {
 			await Promise.all(
-				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(userId, tag, scoreIncrement))
+				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
 			);
 		}
 		console.log("Removing cache");
-		await this.redisService.del(`feed:${userId}:*`);
+		await this.redisService.del(`feed:${userPublicId}:*`);
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {

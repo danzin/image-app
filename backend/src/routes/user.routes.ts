@@ -92,13 +92,7 @@ export class UserRoutes {
 		this.router.post(
 			"/like/image/:publicId",
 			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
-			this.userController.likeImageByPublicId
-		);
-
-		this.router.delete(
-			"/unlike/image/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
-			this.userController.unlikeImageByPublicId
+			this.userController.likeActionByPublicId
 		);
 
 		// Account deletion (self-deletion only, admins use separate endpoints)
@@ -114,11 +108,6 @@ export class UserRoutes {
 		 * @deprecated Use /follow/:publicId instead
 		 */
 		this.router.post("/follow/:followeeId", this.userController.followAction);
-
-		/**
-		 * @deprecated Use /like/image/:publicId instead
-		 */
-		this.router.post("/like/:imageId", this.userController.likeAction);
 	}
 
 	public getRouter(): express.Router {

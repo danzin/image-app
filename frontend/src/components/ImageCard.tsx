@@ -24,6 +24,11 @@ interface ImageCardProps {
 const BASE_URL = '/api'; 
 
 const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
+    console.log('ImageCard - Received image data:', {
+    publicId: image.publicId,
+    commentsCount: image.commentsCount,
+    likes: image.likes
+  });
   const fullImageUrl = image.url.startsWith('http')
     ? image.url
     : image.url.startsWith('/')
@@ -32,7 +37,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
  const navigate = useNavigate();
 
     const handleClick = () => {
-      navigate(`/images/${image.publicId}`); // Use publicId for navigation
+      navigate(`/images/${image.publicId}`); 
   };
   return (
     <Card
@@ -103,7 +108,11 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
               background: 'linear-gradient(45deg, #6366f1, #8b5cf6)'
             }}
           >
-            {image.user?.username?.charAt(0).toUpperCase()}
+            {image.user?.avatar ? (
+              <img src={image.user.avatar} alt={image.user.username} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+            ) : (
+              <span>{image.user?.username?.charAt(0).toUpperCase()}</span>
+            )}
           </Avatar>
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>

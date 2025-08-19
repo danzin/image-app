@@ -6,6 +6,7 @@ export class UserSchemas {
 			email: Joi.string().email().required(),
 			password: Joi.string().min(1).required(),
 			username: Joi.string().alphanum().min(1).max(30).required(),
+			confirmPassword: Joi.string().valid(Joi.ref("password")).required(),
 		});
 	}
 
@@ -31,9 +32,11 @@ export class UserSchemas {
 
 	// For public endpoints using UUIDs
 	static publicIdParams(): Joi.ObjectSchema {
+		// Accept UUID-like values (with optional image extension) and cloud-style IDs (may include slashes)
+		const permissiveId = /^[A-Za-z0-9._\/-]{1,200}$/;
 		return Joi.object({
-			publicId: Joi.string().uuid({ version: "uuidv4" }).required().messages({
-				"string.guid.version": "Invalid public ID format",
+			publicId: Joi.string().pattern(permissiveId).required().messages({
+				"string.pattern.base": "Invalid public ID format",
 				"any.required": "Public ID is required",
 			}),
 		}).options({ allowUnknown: false });
@@ -59,7 +62,7 @@ export class UserSchemas {
 				"string.min": "Username must be at least 1 character long",
 				"string.max": "Username must not exceed 30 characters",
 			}),
-			bio: Joi.string().max(500).optional().messages({
+			bio: Joi.string().max(500).allow("").optional().messages({
 				"string.max": "Bio must not exceed 500 characters",
 			}),
 		}).options({ allowUnknown: false, stripUnknown: true });
@@ -85,7 +88,8 @@ export class ImageSchemas {
 	static slugParams(): Joi.ObjectSchema {
 		return Joi.object({
 			slug: Joi.string()
-				.pattern(/^[a-z0-9-]+$/)
+				// allow standard slug plus an optional file extension (e.g., .png, .jpg)
+				.pattern(/^[a-z0-9-]+(?:\.[a-z0-9]{2,5})?$/i)
 				.min(1)
 				.max(100)
 				.required()
@@ -100,9 +104,10 @@ export class ImageSchemas {
 
 	// For public ID based image routes
 	static publicIdParams(): Joi.ObjectSchema {
+		const permissiveId = /^[A-Za-z0-9._\/-]{1,200}$/;
 		return Joi.object({
-			publicId: Joi.string().uuid({ version: "uuidv4" }).required().messages({
-				"string.guid.version": "Invalid public ID format",
+			publicId: Joi.string().pattern(permissiveId).required().messages({
+				"string.pattern.base": "Invalid public ID format",
 				"any.required": "Public ID is required",
 			}),
 		}).options({ allowUnknown: false });

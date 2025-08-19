@@ -8,16 +8,22 @@ const axiosClient = axios.create({
 	},
 });
 
-// Add request interceptor for auth token
-axiosClient.interceptors.request.use(
-	(config) => {
-		const token = localStorage.getItem("token");
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		return config;
-	},
-	(error) => Promise.reject(error)
-);
-
 export default axiosClient;
+
+// Global response interceptor to catch auth expiry
+axiosClient.interceptors.response.use(
+	(response) => response,
+	(error) => {
+		const status = error?.response?.status;
+
+		// Extract the backend error message if available
+		if (error.response?.data?.message) {
+			error.message = error.response.data.message;
+		}
+
+		if (status === 401 || status === 403) {
+			console.warn("[Axios] Auth error status", status, "- user session expired");
+		}
+		return Promise.reject(error);
+	}
+);

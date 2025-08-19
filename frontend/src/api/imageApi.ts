@@ -38,7 +38,7 @@ export const fetchImageByPublicId = async (publicId: string) => {
 // Get image by slug (SEO-friendly)
 export const fetchImageBySlug = async (slug: string) => {
 	console.log("Fetching image by slug:", slug);
-	const { data } = await axiosClient.get(`/api/image/slug/${slug}`);
+	const { data } = await axiosClient.get(`/api/images/image/${slug}`);
 	return data;
 };
 
@@ -65,5 +65,5 @@ export const fetchTags = async (): Promise<ITag[]> => {
 // Delete image by public ID
 export const deleteImageByPublicId = async (publicId: string): Promise<void> => {
 	console.log("Deleting image with public ID:", publicId);
-	await axiosClient.delete(`/api/images/public/${publicId}`);
+	await axiosClient.delete(`/api/images/image/${publicId}`);
 };

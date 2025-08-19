@@ -99,7 +99,7 @@ export class DTOService {
 			likes: image.likes || 0,
 			commentsCount: image.commentsCount || 0,
 			createdAt: image.createdAt,
-			isLikedByViewer: viewerUserId ? image.likedBy?.includes(viewerUserId) : undefined,
+			isLikedByViewer: (image as any).isLikedByViewer || false,
 		};
 	}
 }

@@ -116,6 +116,17 @@ export class UserRepository extends BaseRepository<IUser> {
 		return this.model.findOne({ publicId }).exec();
 	}
 
+	//find by query
+	find(query: any) {
+		return this.model.find(query);
+	}
+
+	// Lightweight internal id lookup by publicId (projection only _id)
+	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
+		const doc = await this.model.findOne({ publicId }).select("_id").lean().exec();
+		return doc ? (doc as any)._id.toString() : null;
+	}
+
 	/**
 	 * Finds a user by username.
 	 * @param username - The username to search for.
@@ -217,6 +228,22 @@ export class UserRepository extends BaseRepository<IUser> {
 			await query.exec();
 		} catch (error) {
 			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	async findUsersFollowing(userPublicId: string): Promise<IUser[]> {
+		try {
+			const user = await this.findByPublicId(userPublicId);
+			if (!user) return [];
+
+			return await this.model
+				.find({
+					following: user._id,
+				})
+				.exec();
+		} catch (error) {
+			console.error("Error finding users following:", error);
+			return [];
 		}
 	}
 }
