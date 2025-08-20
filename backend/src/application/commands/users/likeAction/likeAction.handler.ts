@@ -10,6 +10,7 @@ import { UserActionRepository } from "../../../../repositories/userAction.reposi
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
+import { FeedService } from "../../../../services/feed.service";
 import { ClientSession } from "mongoose";
 import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
@@ -23,7 +24,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
+		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
+		@inject("FeedService") private readonly feedService: FeedService
 	) {}
 
 	// TODO: REFACTOR AND REMOVE OLD METHODS
@@ -79,6 +81,12 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			const updatedImage = await this.imageRepository.findById(command.imageId);
 			if (!updatedImage) {
 				throw createError("PathError", `Image ${command.imageId} not found after update`);
+			}
+			// Update per-image meta cache asynchronously (do not block response)
+			if ((updatedImage as any).publicId) {
+				this.feedService
+					.updateImageLikeMeta((updatedImage as any).publicId, updatedImage.likes)
+					.catch((e) => console.warn("updateImageLikeMeta failed", e));
 			}
 			return updatedImage;
 		} catch (error) {

@@ -59,6 +59,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			if (!slug || typeof slug !== "string") {
 				throw createError("ValidationError", "Invalid slug");
 			}
+			console.log(`Finding image by slug: ${slug}`);
 
 			const query = this.model.findOne({ slug }).populate("user", "username avatar publicId").populate("tags", "tag");
 
