@@ -64,8 +64,8 @@ export class FeedService {
 			// Check cache first
 			const cachedFeed = await this.redisService.get(cacheKey);
 			if (cachedFeed) {
-				console.log("Returning cached feed");
-				return cachedFeed;
+				console.log("Returning cached legacy feed (no dynamic enrichment, fallback mode)");
+				return cachedFeed; // legacy path stays simple
 			}
 
 			//Using Promise.all to execute the operations concurrently and
@@ -89,9 +89,8 @@ export class FeedService {
 				`==================followingIds: ${followingIds}, favoriteTags: ${favoriteTags} \r\n =======================`
 			);
 			const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
-
 			await this.redisService.set(cacheKey, feed, 120); // Cache feed for 2 minutes
-			return feed;
+			return feed; // return raw feed as legacy fallback
 		} catch (error) {
 			console.error(error);
 			const errorMessage =
@@ -129,6 +128,7 @@ export class FeedService {
 
 		// Extract unique user publicIds
 		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
+		const imagePublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
 
 		// Get current user data
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
@@ -141,15 +141,27 @@ export class FeedService {
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Enrich each feed item with current user data
-		return coreFeedData.map((item) => ({
-			...item,
-			user: {
-				publicId: userMap.get(item.userPublicId)?.publicId,
-				username: userMap.get(item.userPublicId)?.username,
-				avatar: userMap.get(item.userPublicId)?.avatar,
-			},
-		}));
+		// Attempt to load per-image meta (e.g., likes updates) to avoid stale counts
+		const imageMetaKeys = imagePublicIds.map((id) => `image_meta:${id}`);
+		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.get(k).catch(() => null)));
+		const metaMap = new Map<string, any>();
+		imagePublicIds.forEach((id, idx) => {
+			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
+		});
+
+		// Enrich each feed item with current user data + dynamic meta overrides
+		return coreFeedData.map((item) => {
+			const meta = metaMap.get(item.publicId);
+			return {
+				...item,
+				likes: meta?.likes ?? item.likes,
+				user: {
+					publicId: userMap.get(item.userPublicId)?.publicId,
+					username: userMap.get(item.userPublicId)?.username,
+					avatar: userMap.get(item.userPublicId)?.avatar,
+				},
+			};
+		});
 	}
 
 	public async recordInteraction(
@@ -184,8 +196,18 @@ export class FeedService {
 				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
 			);
 		}
-		console.log("Removing cache");
-		await this.redisService.del(`feed:${userPublicId}:*`);
+		console.log("Removing cache for user feed (legacy + core)");
+		await this.redisService.deletePatterns([`feed:${userPublicId}:*`, `core_feed:${userPublicId}:*`]);
+
+		// Remove batch user lookup (could affect avatar/username) so next enrichment is fresh
+		await this.redisService.del(`user_batch:*`); // broad pattern; refine if needed
+	}
+
+	/**
+	 * Update per-image meta cache after like/unlike without regenerating entire feed partition.
+	 */
+	public async updateImageLikeMeta(imagePublicId: string, newTotalLikes: number): Promise<void> {
+		await this.redisService.merge(`image_meta:${imagePublicId}`, { likes: newTotalLikes }, 300);
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {
