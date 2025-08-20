@@ -367,128 +367,107 @@ export class ImageRepository extends BaseRepository<IImage> {
 	 * @returns {Promise<PaginationResult<IImage>>} - A promise resolving to a paginated result containing images.
 	 * @throws {Error} - Throws a 'DatabaseError' if the aggregation query fails.
 	 */
-	async getFeedForUser(
+	async getFeedForUserCore(
 		followingIds: string[],
 		favoriteTags: string[],
 		limit: number,
 		skip: number
-	): Promise<PaginationResult<IImage>> {
+	): Promise<PaginationResult<any>> {
 		try {
-			console.log(`getFeedForUser - followingIds: ${followingIds}, favoriteTags: ${favoriteTags}`);
-			// Convert user IDs to MongoDB ObjectId format for querying
 			const followingIdsObj = followingIds.map((id) => new mongoose.Types.ObjectId(id));
-
-			// Determine if the user has any preferences (following users or favorite tags)
 			const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
 
-			// Aggregation pipeline for generating the user feed
-			// Personalized content is prioritized; when unavailable, it falls back to recent images
 			const [results, total] = await Promise.all([
 				this.model
 					.aggregate([
-						// Stage 1: Lookup tags associated with each image
+						// Stage 1: Lookup tags
 						{
 							$lookup: {
-								from: "tags", // Join with the 'tags' collection
-								localField: "tags", // Image document's 'tags' field
-								foreignField: "_id", // Match with '_id' field in 'tags' collection
-								as: "tagObjects", // Output array of matching tag documents
+								from: "tags",
+								localField: "tags",
+								foreignField: "_id",
+								as: "tagObjects",
 							},
 						},
-
-						// Stage 2: Extract tag names into a separate field for easier filtering
+						// Stage 2: Extract tag names
 						{
 							$addFields: {
 								tagNames: {
 									$map: {
 										input: "$tagObjects",
 										as: "tag",
-										in: "$$tag.tag", // Extract the 'tag' field from each tag document
+										in: "$$tag.tag",
 									},
 								},
 							},
 						},
-
-						// Stage 3: Determine whether an image matches the user's preferences
+						// Stage 3: Determine personalization
 						{
 							$addFields: {
 								isPersonalized: hasPreferences
 									? {
 											$or: [
-												{ $in: ["$user", followingIdsObj] }, // Image posted by a followed user
-												{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] }, // Image contains a favorite tag
+												{ $in: ["$user", followingIdsObj] },
+												{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] },
 											],
 									  }
 									: false,
 							},
 						},
-
-						// Stage 4: Sort images, prioritizing personalized content and then recency
+						// Stage 4: Sort
 						{
 							$sort: {
-								isPersonalized: -1, // Show personalized content first
-								createdAt: -1, // Sort by newest images when personalization is equal
+								isPersonalized: -1,
+								createdAt: -1,
 							},
 						},
-
-						// Stage 5: Pagination (skip and limit)
+						// Stage 5: Pagination
 						{ $skip: skip },
 						{ $limit: limit },
 
-						// Stage 6: Lookup user information for the image uploader
+						// Stage 6: Lookup user and get publicId
 						{
 							$lookup: {
-								from: "users", // Join with the 'users' collection
-								localField: "user", // Match the 'user' field from images
-								foreignField: "_id", // Match with '_id' field in 'users' collection
-								as: "userInfo", // Output array of matching user documents
+								from: "users",
+								localField: "user",
+								foreignField: "_id",
+								as: "userInfo",
 							},
 						},
-
-						// Stage 7: Unwind the user info array (since lookup returns an array)
 						{ $unwind: "$userInfo" },
 
-						// Stage 8: Project the final structure of the returned images
+						// Stage 7: Project
 						{
 							$project: {
-								_id: 0, // Exclude the default '_id' field
-								publicId: 1, // Public identifier for the image
-								url: 1, // Image URL
-								createdAt: 1, // Image creation timestamp
-								likes: 1, // Number of likes
-								commentsCount: 1, // Number of comments
+								_id: 0,
+								publicId: 1,
+								url: 1,
+								createdAt: 1,
+								likes: 1,
+								commentsCount: 1,
+								userPublicId: "$userInfo.publicId",
 								tags: {
-									// Transform tags to match the format returned by other endpoints
 									$map: {
 										input: "$tagObjects",
 										as: "tagObj",
 										in: {
-											tag: "$$tagObj.tag", // Extract tag name
-											publicId: "$$tagObj.publicId", // Use tag's public ID instead of MongoDB _id
+											tag: "$$tagObj.tag",
+											publicId: "$$tagObj.publicId",
 										},
 									},
 								},
-								user: {
-									// Extract relevant user information using public IDs
-									publicId: "$userInfo.publicId", // Use user's public ID instead of MongoDB _id
-									username: "$userInfo.username",
-									avatar: "$userInfo.avatar",
-								},
-								isPersonalized: 1, // Keep for debugging (optional)
+								isPersonalized: 1,
 							},
 						},
 					])
 					.exec(),
 
-				// Count total number of available images in the database
 				this.model.countDocuments({}),
 			]);
 
-			// Calculate pagination details
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
 
-			// Return the paginated feed data
 			return {
 				data: results,
 				total,
