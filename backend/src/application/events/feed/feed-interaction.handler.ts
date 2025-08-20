@@ -5,6 +5,7 @@ import { FeedService } from "../../../services/feed.service";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
+import { ImageRepository } from "../../../repositories/image.repository";
 
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithImageEvent> {
@@ -12,7 +13,8 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 		@inject("FeedService") private readonly feedService: FeedService,
 		@inject("RedisService") private readonly redis: RedisService,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository
+		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
+		@inject("ImageRepository") private readonly imageRepository: ImageRepository
 	) {}
 
 	async handle(event: UserInteractedWithImageEvent): Promise<void> {
@@ -30,20 +32,35 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 	 * Invalidate feeds for users who would see this interaction change
 	 */
 	private async invalidateRelevantFeeds(event: UserInteractedWithImageEvent): Promise<void> {
-		console.log(`Smart cache invalidation for interaction: ${event.interactionType} on image ${event.imageId}`);
+		console.log(`Smart cache handling for interaction: ${event.interactionType} on image ${event.imageId}`);
 
-		// Always invalidate the acting user's feed
-		await this.redis.del(`feed:${event.userId}:*`);
+		const isLikeEvent = event.interactionType === "like" || event.interactionType === "unlike";
 
-		// Get users who would see this image in their feeds
+		if (isLikeEvent) {
+			// Update per-image meta so all users see new like count without structural invalidation
+			try {
+				console.log(`event.imageId in invalidateRelevantFeeds: ${event.imageId}`);
+				const image = await this.imageRepository.findByPublicId(event.imageId);
+				if (image && (image as any).publicId) {
+					await this.feedService.updateImageLikeMeta((image as any).publicId, (image as any).likes || 0);
+				}
+			} catch (e) {
+				console.warn("Failed to update image like meta during like/unlike event", e);
+			}
+			// Invalidate only actor's structural feed so their personalization (tag score changes) can reorder
+			await this.redis.deletePatterns([`core_feed:${event.userId}:*`, `feed:${event.userId}:*`]);
+			console.log("Selective invalidation done (actor only) for like/unlike; others rely on meta overlay");
+			return;
+		}
+
+		// Non-like events (e.g., comments) may affect counts not covered by meta yet; perform broader invalidation
+		await this.redis.deletePatterns([`feed:${event.userId}:*`, `core_feed:${event.userId}:*`]);
 		const affectedUsers = await this.getAffectedUsers(event);
-
-		// Invalidate their feeds too
 		if (affectedUsers.length > 0) {
-			const cachePatterns = affectedUsers.map((publicId) => `feed:${publicId}:*`);
-			await Promise.all(cachePatterns.map((pattern) => this.redis.del(pattern)));
-
-			console.log(`Invalidated feeds for ${affectedUsers.length} users who might see this image`);
+			const cachePatternsLegacy = affectedUsers.map((publicId) => `feed:${publicId}:*`);
+			const cachePatternsCore = affectedUsers.map((publicId) => `core_feed:${publicId}:*`);
+			await Promise.all([...cachePatternsLegacy, ...cachePatternsCore].map((pattern) => this.redis.del(pattern)));
+			console.log(`Invalidated feeds (legacy + core) for ${affectedUsers.length} users (non-like event)`);
 		}
 	}
 	/**
@@ -70,7 +87,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 		} catch (error) {
 			console.error("Error determining affected users:", error);
 			// Fallback: invalidate all feeds (nuclear option)
-			await this.redis.del("feed:*");
+			await this.redis.deletePatterns(["feed:*", "core_feed:*"]);
 			return [];
 		}
 	}

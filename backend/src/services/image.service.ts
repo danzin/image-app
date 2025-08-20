@@ -10,8 +10,7 @@ import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
 import { EventBus } from "../application/common/buses/event.bus";
-import { ImageDeletedEvent, ImageUploadedEvent } from "../application/events/user/user-interaction.event";
-import { create } from "domain";
+import { ImageDeletedEvent, ImageUploadedEvent } from "../application/events/image/image.event";
 
 @injectable()
 export class ImageService {

@@ -4,14 +4,14 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
+    "start": "node dist/server.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/server.ts"
-  },
+    "dev": "nodemon --watch src --ext ts --exec \"node --loader ts-node/esm src/server.ts\""
+    },
   "keywords": [],
+  "type": "module",
   "author": "",
   "license": "ISC",
-  "type": "module",
   "description": "",
   "dependencies": {
     "cors": "^2.8.5",

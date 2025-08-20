@@ -1,6 +1,6 @@
 import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { ImageDeletedEvent } from "../user/user-interaction.event";
+import { ImageDeletedEvent } from "./image.event";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
 

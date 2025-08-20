@@ -20,3 +20,10 @@ export interface IUser extends Document {
 	following: string[];
 	comparePassword(candidatePassword: string): Promise<boolean>;
 }
+
+// Create a user lookup map using publicId
+export interface UserLookupData {
+	publicId: string;
+	username: string;
+	avatar?: string;
+}
