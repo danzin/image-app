@@ -13,27 +13,13 @@ export class UserInteractedWithImageEvent implements IEvent {
 	) {}
 }
 
-/**
- * Fired when a new image is uploaded
- * This is separate from interaction events because it affects different users
- */
-export class ImageUploadedEvent implements IEvent {
-	readonly type = "ImageUploadedEvent";
+export class UserAvatarChangedEvent implements IEvent {
+	readonly type = "UserAvatarChangedEvent";
 	readonly timestamp: Date = new Date();
 
 	constructor(
-		public readonly imageId: string,
-		public readonly uploaderPublicId: string,
-		public readonly tags: string[]
+		public readonly userPublicId: string, // Use publicId, not ObjectId
+		public readonly oldAvatarUrl?: string,
+		public readonly newAvatarUrl?: string
 	) {}
-}
-
-/**
- * Fired when an image is deleted
- */
-export class ImageDeletedEvent implements IEvent {
-	readonly type = "ImageDeletedEvent";
-	readonly timestamp: Date = new Date();
-
-	constructor(public readonly imageId: string, public readonly uploaderPublicId: string) {}
 }

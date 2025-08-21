@@ -9,10 +9,12 @@ import { UnitOfWork } from "../database/UnitOfWork";
 import { LikeRepository } from "../repositories/like.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
-import { convertToObjectId } from "../utils/helpers";
 import { NotificationService } from "./notification.service";
+import { EventBus } from "../application/common/buses/event.bus";
+
 import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
 import { FeedService } from "./feed.service";
+import { UserAvatarChangedEvent } from "../application/events/user/user-interaction.event";
 
 // TODO: REFACTOR AND REMOVE OLD METHODS
 
@@ -38,7 +40,8 @@ export class UserService {
 		@inject("NotificationService")
 		private readonly notificationService: NotificationService,
 		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("DTOService") private readonly dtoService: DTOService,
+		@inject("EventBus") private eventBus: EventBus
 	) {}
 
 	/**
@@ -314,25 +317,27 @@ export class UserService {
 		let newAvatarUrl: string | null = null;
 		let username: string | null = null;
 		let oldAvatarUrl: string | null = null;
-
+		let userPublicId: string | null = null;
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const user = await this.userRepository.findById(userId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}
+				userPublicId = user.publicId;
 				oldAvatarUrl = user.avatar;
 				const newAvatar = await this.imageStorageService.uploadImage(file, user.id);
 				newAvatarUrl = newAvatar.url;
 				userId = user.id;
 				await this.userRepository.updateAvatar(userId, newAvatar.url, session);
 			});
-
 			if (oldAvatarUrl) {
 				const deleteResult = await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
 				if (deleteResult.result !== "ok") {
 					console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
 				}
+				console.log("Publishing UserAvatarChangedEvent");
+				await this.eventBus.publish(new UserAvatarChangedEvent(userPublicId!, oldAvatarUrl, newAvatarUrl!));
 			}
 		} catch (error) {
 			// Clean up the only if the transaction or upload failed

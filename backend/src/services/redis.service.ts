@@ -46,4 +46,21 @@ export class RedisService {
 			await this.client.del(keys);
 		}
 	}
+
+	/**
+	 * Convenience helper for deleting multiple patterns sequentially.
+	 * (Redis doesn't support multi-pattern scan in one call.)
+	 */
+	async deletePatterns(patterns: string[]): Promise<void> {
+		await Promise.all(patterns.map((p) => this.del(p)));
+	}
+
+	/**
+	 * Update (merge) JSON value at key if exists; else set. Useful for small partial updates like image meta.
+	 */
+	async merge(key: string, value: Record<string, any>, ttl?: number): Promise<void> {
+		const existing = await this.get<any>(key);
+		const next = existing ? { ...existing, ...value } : value;
+		await this.set(key, next, ttl);
+	}
 }

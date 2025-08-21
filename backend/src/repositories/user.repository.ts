@@ -246,4 +246,21 @@ export class UserRepository extends BaseRepository<IUser> {
 			return [];
 		}
 	}
+
+	/**
+	 * Get multiple users by their PUBLIC IDs (not ObjectIds)
+	 */
+	async findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]> {
+		try {
+			return await this.model
+				.find({
+					publicId: { $in: userPublicIds },
+				})
+				.select("publicId username avatar")
+				.exec();
+		} catch (error) {
+			console.error("Error in findUsersByPublicIds:", error);
+			return [];
+		}
+	}
 }
