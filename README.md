@@ -31,7 +31,11 @@ Tech stack:
     - Routing Architecture:
 ![image](https://github.com/user-attachments/assets/be1da114-3c9e-4eb1-b5d6-433338267a9b)
 
-        
+- **Real-Time Functionality:**
+  - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
+  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users.
+  - **Redis caching: The app uses a partitioned user feed caching strategy. Parts of the user feed are cached and invalidated when certain actions are taken by the user or other users. User cache invalidation only applies for certain actions and only the relevant users' cache is enriched/invalidated depending on the action.**
+    
 - **CQRS**: **Currently working on gradually switching from the classic modular architecture to CQRS.**
   - Command, Query and Event buses are implemented and fully functional.
   - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
@@ -52,10 +56,7 @@ Tech stack:
   - **Custom Error Handling:** Implemented via a factory pattern for consistent error responses.
   - **Data Transfer Objects (DTOs):** Tailored data views for guests, authenticated users, and admins.
     
-- **Real-Time Functionality:**
-  - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
-  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users.
-  - **Redis caching:** User feed is cached for a set period of time and served from Redis rather than querying the Database every time, enhancing performance and reducing server load. Cache is invalidated when changes occur on the feed(user uploads or removes an image, etc) 
+
     
 - **Modern Frontend:**
   - Developed with React and TypeScript for a responsive and maintainable UI with MUI and TailwindCSS.
