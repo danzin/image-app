@@ -16,7 +16,7 @@ const userSchema = new Schema<IUser>(
 		username: {
 			type: String,
 			required: [true, "Username is required"],
-			unique: true,
+			unique: true, // Also creates an index
 		},
 		avatar: {
 			type: String,
@@ -179,8 +179,6 @@ userSchema.set("toJSON", {
 		return ret;
 	},
 });
-
-userSchema.index({ username: 1 }); // Create an index on username for faster lookups
 
 const User = model<IUser>("User", userSchema);
 export default User;
