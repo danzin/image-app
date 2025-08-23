@@ -331,14 +331,18 @@ export class UserService {
 				userId = user.id;
 				await this.userRepository.updateAvatar(userId, newAvatar.url, session);
 			});
+
+			// Delete old avatar if it exists
 			if (oldAvatarUrl) {
 				const deleteResult = await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
 				if (deleteResult.result !== "ok") {
 					console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
 				}
-				console.log("Publishing UserAvatarChangedEvent");
-				await this.eventBus.publish(new UserAvatarChangedEvent(userPublicId!, oldAvatarUrl, newAvatarUrl!));
 			}
+
+			// Always publish the event when avatar is updated, regardless of whether there was a previous avatar
+			console.log("Publishing UserAvatarChangedEvent");
+			await this.eventBus.publish(new UserAvatarChangedEvent(userPublicId!, oldAvatarUrl || undefined, newAvatarUrl!));
 		} catch (error) {
 			// Clean up the only if the transaction or upload failed
 			if (newAvatarUrl && !userId) {
