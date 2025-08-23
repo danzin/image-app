@@ -18,26 +18,46 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 
 		try {
 			console.log(`Invalidating uploader's own feed: ${event.uploaderPublicId}`);
-			await this.redis.del(`feed:${event.uploaderPublicId}:*`);
+			// Invalidate both legacy and new feed cache patterns for the uploader
+			const uploaderLegacyPattern = `feed:${event.uploaderPublicId}:*`;
+			const uploaderCorePattern = `core_feed:${event.uploaderPublicId}:*`;
+
+			console.log(`Deleting cache patterns for uploader: ${uploaderLegacyPattern}, ${uploaderCorePattern}`);
+			await Promise.all([this.redis.del(uploaderLegacyPattern), this.redis.del(uploaderCorePattern)]);
+
 			// Get followers of the uploader
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
+			console.log(`Found ${followers.length} followers: ${followers.join(", ")}`);
 
 			// Get users interested in the image's tags
 			const tagInterestedUsers = await this.getUsersInterestedInTags(event.tags);
+			console.log(
+				`Found ${tagInterestedUsers.length} users interested in tags [${event.tags.join(
+					", "
+				)}]: ${tagInterestedUsers.join(", ")}`
+			);
 
 			// Combine and deduplicate
 			const affectedUsers = [...new Set([...followers, ...tagInterestedUsers])];
 
 			if (affectedUsers.length > 0) {
-				const cachePatterns = affectedUsers.map((publicId) => `feed:${publicId}:*`);
-				await Promise.all(cachePatterns.map((pattern) => this.redis.del(pattern)));
+				// Invalidate both legacy and new feed cache patterns for affected users
+				const legacyCachePatterns = affectedUsers.map((publicId) => `feed:${publicId}:*`);
+				const coreCachePatterns = affectedUsers.map((publicId) => `core_feed:${publicId}:*`);
+				const allPatterns = [...legacyCachePatterns, ...coreCachePatterns];
 
-				console.log(`Invalidated feeds for ${affectedUsers.length} users due to new image upload`);
+				console.log(`Deleting cache patterns for ${affectedUsers.length} affected users:`, allPatterns);
+				await Promise.all(allPatterns.map((pattern) => this.redis.del(pattern)));
+
+				console.log(` Invalidated feeds (legacy + core) for ${affectedUsers.length} users due to new image upload`);
+			} else {
+				console.log(`No affected users found (no followers or tag-interested users)`);
 			}
 		} catch (error) {
 			console.error("Error handling image upload:", error);
-			// Fallback: nuke all feeds
-			await this.redis.del("feed:*");
+			// Fallback: nuke all feeds (both legacy and new patterns)
+			console.log(" FALLBACK: Nuking all feed caches due to error");
+			await Promise.all([this.redis.del("feed:*"), this.redis.del("core_feed:*")]);
 		}
 	}
 
