@@ -237,17 +237,12 @@ describe("ImageRepository", () => {
         sortBy: "likes",
         sortOrder: "asc",
       };
-      const expectedSkip = (options.page! - 1) * options.limit!;
 
-      const mockFindQuery = {
-        populate: sinon.stub().returnsThis(),
+      const mockAggregateQuery = {
         session: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        skip: sinon.stub().returnsThis(),
-        limit: sinon.stub().returnsThis(),
         exec: sinon.stub().resolves(mockImages),
       };
-      mockModel.find.returns(mockFindQuery);
+      mockModel.aggregate.returns(mockAggregateQuery);
 
       const mockCountQuery = {
         session: sinon.stub().returnsThis(),
@@ -265,16 +260,9 @@ describe("ImageRepository", () => {
         totalPages: Math.ceil(totalCount / options.limit!),
       });
 
-      expect(mockModel.find.calledOnce).to.be.true;
-      expect(mockFindQuery.session.calledOnceWith(mockSession)).to.be.true;
-      expect(
-        mockFindQuery.sort.calledOnceWith({
-          [options.sortBy!]: options.sortOrder,
-        })
-      ).to.be.true;
-      expect(mockFindQuery.skip.calledOnceWith(expectedSkip)).to.be.true;
-      expect(mockFindQuery.limit.calledOnceWith(options.limit)).to.be.true;
-      expect(mockFindQuery.exec.calledOnce).to.be.true;
+      expect(mockModel.aggregate.calledOnce).to.be.true;
+      expect(mockAggregateQuery.session.calledOnceWith(mockSession)).to.be.true;
+      expect(mockAggregateQuery.exec.calledOnce).to.be.true;
 
       expect(mockModel.countDocuments.calledOnce).to.be.true;
       expect(mockCountQuery.session.calledOnceWith(mockSession)).to.be.true;
@@ -285,15 +273,11 @@ describe("ImageRepository", () => {
       const dbError = new Error("DatabaseError");
       const options: PaginationOptions = {};
 
-      const mockFindQuery = {
-        populate: sinon.stub().returnsThis(),
+      const mockAggregateQuery = {
         session: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        skip: sinon.stub().returnsThis(),
-        limit: sinon.stub().returnsThis(),
-        exec: sinon.stub().rejects(dbError), // Find query fails
+        exec: sinon.stub().rejects(dbError), // Aggregate query fails
       };
-      mockModel.find.returns(mockFindQuery);
+      mockModel.aggregate.returns(mockAggregateQuery);
 
       const mockCountQuery = {
         session: sinon.stub().returnsThis(),
@@ -313,15 +297,11 @@ describe("ImageRepository", () => {
       const dbError = new Error("Count failed");
       const options: PaginationOptions = {};
 
-      const mockFindQuery = {
-        populate: sinon.stub().returnsThis(),
+      const mockAggregateQuery = {
         session: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        skip: sinon.stub().returnsThis(),
-        limit: sinon.stub().returnsThis(),
         exec: sinon.stub().resolves([]),
       };
-      mockModel.find.returns(mockFindQuery);
+      mockModel.aggregate.returns(mockAggregateQuery);
 
       const mockCountQuery = {
         session: sinon.stub().returnsThis(),
@@ -340,7 +320,7 @@ describe("ImageRepository", () => {
       const mockUserId = generateRandomObjectId();
       const mockUserIdString = mockUserId.toString();
       const mockImages = generateMockImages(5, {
-        user: { publicId: mockUserId as any, username: "testuser" },
+        user: { publicId: mockUserId as any, username: "testuser", avatar: "test-avatar.jpg" },
       }) as IImage[];
       const totalCount = 5;
       const options: PaginationOptions = {};
