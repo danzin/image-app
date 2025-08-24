@@ -146,7 +146,7 @@ describe("ImageRepository", () => {
 
       expect(result).to.deep.equal(mockImage);
       expect(mockModel.findById.calledOnceWith(mockId)).to.be.true;
-      expect(mockQuery.populate.calledWith("user", "username")).to.be.true;
+      expect(mockQuery.populate.calledWith("user", "username avatar publicId")).to.be.true;
       expect(mockQuery.populate.calledWith("tags", "tag")).to.be.true;
       expect(mockQuery.exec.calledOnce).to.be.true;
 
