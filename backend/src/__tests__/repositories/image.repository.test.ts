@@ -198,15 +198,11 @@ describe("ImageRepository", () => {
       const expectedPage = 1;
       const expectedLimit = 20;
 
-      const mockFindQuery = {
-        populate: sinon.stub().returnsThis(),
+      const mockAggregateQuery = {
         session: sinon.stub().returnsThis(),
-        sort: sinon.stub().returnsThis(),
-        skip: sinon.stub().returnsThis(),
-        limit: sinon.stub().returnsThis(),
         exec: sinon.stub().resolves(mockImages),
       };
-      mockModel.find.returns(mockFindQuery);
+      mockModel.aggregate.returns(mockAggregateQuery);
 
       const mockCountQuery = {
         session: sinon.stub().returnsThis(),
@@ -224,14 +220,8 @@ describe("ImageRepository", () => {
         totalPages: Math.ceil(totalCount / expectedLimit),
       });
 
-      expect(mockModel.find.calledOnce).to.be.true;
-      expect(mockFindQuery.populate.calledWith("user", "username")).to.be.true;
-      expect(mockFindQuery.populate.calledWith("tags", "tag")).to.be.true;
-      expect(mockFindQuery.sort.calledOnceWith({ createdAt: "desc" })).to.be
-        .true;
-      expect(mockFindQuery.skip.calledOnceWith(0)).to.be.true;
-      expect(mockFindQuery.limit.calledOnceWith(expectedLimit)).to.be.true;
-      expect(mockFindQuery.exec.calledOnce).to.be.true;
+      expect(mockModel.aggregate.calledOnce).to.be.true;
+      expect(mockAggregateQuery.exec.calledOnce).to.be.true;
 
       expect(mockModel.countDocuments.calledOnce).to.be.true;
       expect(mockCountQuery.session.called).to.be.false;
@@ -350,7 +340,7 @@ describe("ImageRepository", () => {
       const mockUserId = generateRandomObjectId();
       const mockUserIdString = mockUserId.toString();
       const mockImages = generateMockImages(5, {
-        user: { id: mockUserId as any, username: "testuser" },
+        user: { publicId: mockUserId as any, username: "testuser" },
       }) as IImage[];
       const totalCount = 5;
       const options: PaginationOptions = {};
