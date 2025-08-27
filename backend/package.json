@@ -4,7 +4,7 @@
 	"main": "index.js",
 	"type": "commonjs",
 	"scripts": {
-		"test": "mocha -r ts-node/register -r src/__tests__/setup.ts \"src/__tests__/**/*.test.ts\"",
+		"test": "cross-env TS_NODE_PROJECT=tsconfig.test.json mocha",
 		"start:dev": "nodemon ./src/main.ts",
 		"start": "node ./dist/main.js",
 		"build": "tsc"
@@ -54,8 +54,10 @@
 		"@types/validator": "^13.12.2",
 		"chai": "^5.2.0",
 		"chai-as-promised": "^8.0.1",
+		"cross-env": "^7.0.3",
 		"mocha": "^11.2.2",
 		"sinon": "^20.0.0",
-		"supertest": "^7.0.0"
+		"supertest": "^7.0.0",
+		"ts-node": "^10.9.2"
 	}
 }
