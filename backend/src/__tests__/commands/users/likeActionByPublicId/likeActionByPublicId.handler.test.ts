@@ -107,7 +107,9 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 		it("should throw error when user not found", async () => {
 			mockUserRepository.findByPublicId.resolves(null);
 
-			await expect(handler.execute(command)).to.be.rejectedWith(`User with public ID ${command.userPublicId} not found`);
+			await expect(handler.execute(command)).to.be.rejectedWith(
+				`User with public ID ${command.userPublicId} not found`
+			);
 		});
 
 		it("should throw error when image not found", async () => {
