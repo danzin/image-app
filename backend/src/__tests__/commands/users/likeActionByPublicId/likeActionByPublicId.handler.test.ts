@@ -97,7 +97,7 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 
 	describe("Command Creation", () => {
 		it("should create command with correct properties", () => {
-			expect(command.userId).to.have.lengthOf(24); // Valid ObjectId length
+			expect(command.userPublicId).to.have.lengthOf(24); // Valid ObjectId length
 			expect(command.imagePublicId).to.equal("img-public-123");
 			expect(command.type).to.equal("LikeActionByPublicIdCommand");
 		});
@@ -107,7 +107,9 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 		it("should throw error when user not found", async () => {
 			mockUserRepository.findByPublicId.resolves(null);
 
-			await expect(handler.execute(command)).to.be.rejectedWith(`User with public ID ${command.userId} not found`);
+			await expect(handler.execute(command)).to.be.rejectedWith(
+				`User with public ID ${command.userPublicId} not found`
+			);
 		});
 
 		it("should throw error when image not found", async () => {
@@ -124,6 +126,7 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 				id: new Types.ObjectId().toString(),
 				tags: [{ tag: "nature" }, { tag: "landscape" }],
 				user: { publicId: new Types.ObjectId() } as any,
+				toJSON: () => mockImage, // Add toJSON method to mock
 			};
 
 			mockUserRepository.findByPublicId.resolves(mockUser);
@@ -141,7 +144,7 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 
 			const result = await handler.execute(command);
 
-			expect(mockUserRepository.findByPublicId.calledWith(command.userId)).to.be.true;
+			expect(mockUserRepository.findByPublicId.calledWith(command.userPublicId)).to.be.true;
 			expect(mockImageRepository.findByPublicId.calledWith("img-public-123")).to.be.true;
 			expect(mockLikeRepository.findByUserAndImage.calledWith(mockUser.id, mockImage.id, mockSession)).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
@@ -154,6 +157,7 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 				id: new Types.ObjectId().toString(),
 				tags: [{ tag: "nature" }, { tag: "landscape" }],
 				user: { publicId: new Types.ObjectId() } as any,
+				toJSON: () => mockImage, // Add toJSON method to mock
 			};
 
 			const mockExistingLike = {
@@ -176,7 +180,7 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 
 			const result = await handler.execute(command);
 
-			expect(mockUserRepository.findByPublicId.calledWith(command.userId)).to.be.true;
+			expect(mockUserRepository.findByPublicId.calledWith(command.userPublicId)).to.be.true;
 			expect(mockImageRepository.findByPublicId.calledWith("img-public-123")).to.be.true;
 			expect(mockLikeRepository.deleteLike.calledWith(mockUser.id, mockImage.id, mockSession)).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
