@@ -22,6 +22,7 @@ import { DatabaseConfig } from "./config/dbConfig";
 import { Server } from "./server/server";
 import { setupContainer } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
+import { RealTimeFeedService } from "./services/real-time-feed.service";
 
 async function bootstrap(): Promise<void> {
 	try {
@@ -40,6 +41,10 @@ async function bootstrap(): Promise<void> {
 		// Resolve and initialize WebSocket server
 		const webSocketServer = container.resolve<WebSocketServer>("WebSocketServer");
 		webSocketServer.initialize(server);
+
+		// Initialize real-time feed service
+		const realTimeFeedService = container.resolve<RealTimeFeedService>("RealTimeFeedService");
+		console.log("Real-time feed service initialized");
 
 		// Start the HTTP server last
 		const port = 3000;

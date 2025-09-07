@@ -31,12 +31,15 @@ export class FeedService {
 		try {
 			// STEP 1: Get core feed structure (image IDs and order)
 			const coreFeedKey = `core_feed:${userId}:${page}:${limit}`;
-			let coreFeed = await this.redisService.get(coreFeedKey);
+			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
 
 			if (!coreFeed) {
 				console.log("Core feed cache miss, generating...");
 				coreFeed = await this.generateCoreFeed(userId, page, limit);
-				await this.redisService.set(coreFeedKey, coreFeed, 300); // 5 minutes
+
+				// Cache with tags for smart invalidation
+				const tags = [`user_feed:${userId}`, `feed_page:${page}`, `feed_limit:${limit}`];
+				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
 			} else {
 				console.log("Core feed cache hit");
 			}
@@ -130,20 +133,22 @@ export class FeedService {
 		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
 		const imagePublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
 
-		// Get current user data
+		// Get current user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.get(userDataKey);
+		let userData = await this.redisService.getWithTags(userDataKey);
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
-			await this.redisService.set(userDataKey, userData, 60); // 1 minute cache
+			// Cache with user-specific tags for avatar invalidation
+			const userTags = userPublicIds.map((id) => `user_data:${id}`);
+			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache
 		}
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Attempt to load per-image meta (e.g., likes updates) to avoid stale counts
+		// Attempt to load per-image meta with tag-based caching
 		const imageMetaKeys = imagePublicIds.map((id) => `image_meta:${id}`);
-		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.get(k).catch(() => null)));
+		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
 		const metaMap = new Map<string, any>();
 		imagePublicIds.forEach((id, idx) => {
 			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
@@ -196,18 +201,39 @@ export class FeedService {
 				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
 			);
 		}
-		console.log("Removing cache for user feed (legacy + core)");
-		await this.redisService.deletePatterns([`feed:${userPublicId}:*`, `core_feed:${userPublicId}:*`]);
 
-		// Remove batch user lookup (could affect avatar/username) so next enrichment is fresh
-		await this.redisService.del(`user_batch:*`); // broad pattern; refine if needed
+		// Smart invalidation: only invalidate affected feeds
+		const invalidationTags = [`user_feed:${userPublicId}`];
+		await this.redisService.invalidateByTags(invalidationTags);
+
+		// Publish real-time update via Redis pub/sub
+		await this.redisService.publish("feed_updates", {
+			type: "interaction",
+			userId: userPublicId,
+			actionType,
+			targetId: targetIdentifier,
+			tags,
+			timestamp: new Date().toISOString(),
+		});
+
+		console.log("Smart cache invalidation completed for user interaction");
 	}
 
 	/**
 	 * Update per-image meta cache after like/unlike without regenerating entire feed partition.
 	 */
 	public async updateImageLikeMeta(imagePublicId: string, newTotalLikes: number): Promise<void> {
-		await this.redisService.merge(`image_meta:${imagePublicId}`, { likes: newTotalLikes }, 300);
+		const metaKey = `image_meta:${imagePublicId}`;
+		const tags = [`image_meta:${imagePublicId}`, `image_likes:${imagePublicId}`];
+		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
+
+		// Publish real-time like update
+		await this.redisService.publish("feed_updates", {
+			type: "like_update",
+			imageId: imagePublicId,
+			newLikes: newTotalLikes,
+			timestamp: new Date().toISOString(),
+		});
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {
