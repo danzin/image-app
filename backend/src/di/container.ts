@@ -65,6 +65,7 @@ import { ImageUploadHandler } from "../application/events/image/image-upload.han
 import { ImageDeleteHandler } from "../application/events/image/image-delete.handler";
 import { UserAvatarChangedEvent } from "../application/events/user/user-interaction.event";
 import { UserAvatarChangedHandler } from "../application/events/user/user-avatar-change.handler";
+import { RealTimeFeedService } from "../services/real-time-feed.service";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -124,6 +125,7 @@ function registerServices(): void {
 	container.registerSingleton("DTOService", DTOService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
+	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
 }
 
 // Register Controllers as singletons

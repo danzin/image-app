@@ -18,12 +18,9 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 
 		try {
 			console.log(`Invalidating uploader's own feed: ${event.uploaderPublicId}`);
-			// Invalidate both legacy and new feed cache patterns for the uploader
-			const uploaderLegacyPattern = `feed:${event.uploaderPublicId}:*`;
-			const uploaderCorePattern = `core_feed:${event.uploaderPublicId}:*`;
-
-			console.log(`Deleting cache patterns for uploader: ${uploaderLegacyPattern}, ${uploaderCorePattern}`);
-			await Promise.all([this.redis.del(uploaderLegacyPattern), this.redis.del(uploaderCorePattern)]);
+			// Smart invalidation using tags
+			const uploaderTags = [`user_feed:${event.uploaderPublicId}`];
+			await this.redis.invalidateByTags(uploaderTags);
 
 			// Get followers of the uploader
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
@@ -41,15 +38,21 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 			const affectedUsers = [...new Set([...followers, ...tagInterestedUsers])];
 
 			if (affectedUsers.length > 0) {
-				// Invalidate both legacy and new feed cache patterns for affected users
-				const legacyCachePatterns = affectedUsers.map((publicId) => `feed:${publicId}:*`);
-				const coreCachePatterns = affectedUsers.map((publicId) => `core_feed:${publicId}:*`);
-				const allPatterns = [...legacyCachePatterns, ...coreCachePatterns];
+				// Smart invalidation for affected users
+				const affectedTags = affectedUsers.map((userId) => `user_feed:${userId}`);
+				await this.redis.invalidateByTags(affectedTags);
 
-				console.log(`Deleting cache patterns for ${affectedUsers.length} affected users:`, allPatterns);
-				await Promise.all(allPatterns.map((pattern) => this.redis.del(pattern)));
+				// Publish real-time feed update notifications
+				await this.redis.publish("feed_updates", {
+					type: "new_image",
+					uploaderId: event.uploaderPublicId,
+					imageId: event.imageId,
+					tags: event.tags,
+					affectedUsers,
+					timestamp: new Date().toISOString(),
+				});
 
-				console.log(` Invalidated feeds (legacy + core) for ${affectedUsers.length} users due to new image upload`);
+				console.log(`Smart cache invalidation completed for ${affectedUsers.length} users due to new image upload`);
 			} else {
 				console.log(`No affected users found (no followers or tag-interested users)`);
 			}

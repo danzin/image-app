@@ -1,34 +1,28 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-    "composite": true,
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "noEmit": false,
-  "module": "CommonJS",
-    "baseUrl": "./",
-    "paths": {
-      "application/*": ["src/application/*"],
-      "config/*": ["src/config/*"],
-      "controllers/*": ["src/controllers/*"],
-      "database/*": ["src/database/*"],
-      "di/*": ["src/di/*"],
-      "middleware/*": ["src/middleware/*"],
-      "services/*": ["src/services/*"],
-      "repositories/*": ["src/repositories/*"],
-      "utils/*": ["src/utils/*"],
-      "server/*": ["src/server/*"],
-      "types/*": ["src/types/*"]
-    },
-    "moduleResolution": "node",
-    "types": ["node"]
-  },
-  "include": ["src/**/*"],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/__tests__/**"
-  ]
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"outDir": "dist",
+		"rootDir": "src",
+		"noEmit": false,
+		"module": "CommonJS",
+		"baseUrl": "./",
+		"paths": {
+			"application/*": ["src/application/*"],
+			"config/*": ["src/config/*"],
+			"controllers/*": ["src/controllers/*"],
+			"database/*": ["src/database/*"],
+			"di/*": ["src/di/*"],
+			"middleware/*": ["src/middleware/*"],
+			"services/*": ["src/services/*"],
+			"repositories/*": ["src/repositories/*"],
+			"utils/*": ["src/utils/*"],
+			"server/*": ["src/server/*"],
+			"types/*": ["src/types/*"]
+		},
+		"moduleResolution": "node",
+		"types": ["node"]
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
 }

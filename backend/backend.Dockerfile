@@ -15,7 +15,7 @@ RUN npm ci --include=dev
 COPY . .
 
 # Build the specific workspace
-RUN npm run build --workspace=backend
+RUN cd backend && npm run build
 
 # -- Production stage
 FROM node:23.11.0-alpine
