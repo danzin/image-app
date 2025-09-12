@@ -482,6 +482,135 @@ export class ImageRepository extends BaseRepository<IImage> {
 		}
 	}
 
+	async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
+		try {
+			const hasPreferences = favoriteTags.length > 0;
+
+			// Define weights for ranking
+			const weights = {
+				recency: 0.5,
+				popularity: 0.3,
+				tagMatch: 0.2,
+			};
+
+			const aggregationPipeline: any[] = [
+				// Stage 1: Lookup tags
+				{
+					$lookup: {
+						from: "tags",
+						localField: "tags",
+						foreignField: "_id",
+						as: "tagObjects",
+					},
+				},
+				// Stage 2: Extract tag names
+				{
+					$addFields: {
+						tagNames: {
+							$map: {
+								input: "$tagObjects",
+								as: "tag",
+								in: "$$tag.tag",
+							},
+						},
+					},
+				},
+				// Stage 3: Calculate scores
+				{
+					$addFields: {
+						recencyScore: {
+							$divide: [
+								1,
+								{
+									$add: [
+										1,
+										{
+											$divide: [
+												{ $subtract: [new Date(), "$createdAt"] },
+												1000 * 60 * 60 * 24, // milliseconds in a day
+											],
+										},
+									],
+								},
+							],
+						},
+						popularityScore: { $ln: { $add: ["$likes", 1] } },
+						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
+					},
+				},
+				// Stage 4: Calculate final rank score
+				{
+					$addFields: {
+						rankScore: {
+							$add: [
+								{ $multiply: ["$recencyScore", weights.recency] },
+								{ $multiply: ["$popularityScore", weights.popularity] },
+								{ $multiply: ["$tagMatchScore", weights.tagMatch] },
+							],
+						},
+					},
+				},
+				// Stage 5: Sort by rank score
+				{ $sort: { rankScore: -1 } },
+				// Stage 6: Pagination
+				{ $skip: skip },
+				{ $limit: limit },
+				// Stage 7: Lookup user and get publicId
+				{
+					$lookup: {
+						from: "users",
+						localField: "user",
+						foreignField: "_id",
+						as: "userInfo",
+					},
+				},
+				{ $unwind: "$userInfo" },
+				// Stage 8: Project final shape
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: {
+									tag: "$$tagObj.tag",
+									publicId: "$$tagObj.publicId",
+								},
+							},
+						},
+						rankScore: 1, // for debugging
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(aggregationPipeline).exec(),
+				this.model.countDocuments({}),
+			]);
+
+			const totalPages = Math.ceil(total / limit);
+			const currentPage = Math.floor(skip / limit) + 1;
+
+			return {
+				data: results,
+				total,
+				page: currentPage,
+				limit,
+				totalPages,
+			};
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
 	/**
 	 * Increment or decrement comment count for an image
 	 */
