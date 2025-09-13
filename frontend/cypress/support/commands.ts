@@ -1,9 +1,12 @@
 /// <reference types="cypress" />
 /// <reference types="cypress-file-upload" />
 
-declare namespace Cypress {
-	interface Chainable {
-		login(email: string, password: string): Chainable<void>;
+// Add to global Cypress interface
+declare global {
+	namespace Cypress {
+		interface Chainable {
+			login(email: string, password: string): Chainable<void>;
+		}
 	}
 }
 
@@ -16,3 +19,6 @@ Cypress.Commands.add("login", (email: string, password: string) => {
 		cy.url().should("not.include", "/login");
 	});
 });
+
+// Export to make it a module
+export {};
