@@ -22,7 +22,6 @@ import {
 	CameraAlt as CameraAltIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
-import { useCurrentUser } from "../hooks/user/useCurrentUser";
 import UploadForm from "./UploadForm";
 
 const SIDEBAR_WIDTH = 240;
@@ -54,8 +53,7 @@ interface LeftSidebarProps {
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
-	const { isLoggedIn, logout } = useAuth();
-	const { data: user } = useCurrentUser();
+	const { isLoggedIn, logout, user } = useAuth();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const theme = useTheme();
@@ -100,7 +98,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			) : (
 				<PersonIcon />
 			),
-			path: user ? `/profile/${user.publicId}` : "/profile",
+			path: user?.publicId ? `/profile/${user.publicId}` : "/profile",
 		},
 	];
 
@@ -216,6 +214,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 						<ListItem sx={{ px: 0, mt: 3 }}>
 							<ListItemButton
 								onClick={openUploadModal}
+								data-testid="post-button"
 								sx={{
 									backgroundColor: alpha(theme.palette.primary.main, 0.9),
 									borderRadius: 3,
@@ -332,6 +331,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 	return (
 		<Drawer
 			variant="permanent"
+			data-testid="left-sidebar"
 			sx={{
 				display: { xs: "none", md: "block" },
 				"& .MuiDrawer-paper": {
