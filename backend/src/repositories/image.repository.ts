@@ -621,7 +621,11 @@ export class ImageRepository extends BaseRepository<IImage> {
 	async getTrendingFeed(
 		limit: number,
 		skip: number,
-		options?: { timeWindowDays?: number; minLikes?: number; weights?: { recency?: number; popularity?: number; comments?: number } }
+		options?: {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
 	): Promise<PaginationResult<any>> {
 		try {
 			const timeWindowDays = options?.timeWindowDays ?? 14;
@@ -647,10 +651,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 							$divide: [
 								1,
 								{
-									$add: [
-										1,
-										{ $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] },
-									],
+									$add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }],
 								},
 							],
 						},
