@@ -482,6 +482,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 		}
 	}
 
+	/**
+	 * Generates a ranked feed of images based on user preferences and image attributes.
+	 * Ranks images by recency, popularity, and tag relevance.
+	 */
 	async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
 			const hasPreferences = favoriteTags.length > 0;

@@ -20,10 +20,6 @@ export class FeedService {
 		@inject("EventBus") private eventBus: EventBus
 	) {}
 
-	public async getPersonalizedFeedLegacy(userId: string, page: number, limit: number): Promise<any> {
-		return this.getPersonalizedFeedOriginal(userId, page, limit);
-	}
-
 	// New partitioned implementation
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
 		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
@@ -52,9 +48,11 @@ export class FeedService {
 				data: enrichedFeed,
 			};
 		} catch (error) {
-			console.error("Partitioned feed error, falling back to legacy:", error);
-			// Fallback to previous working implementation
-			return this.getPersonalizedFeedLegacy(userId, page, limit);
+			console.error("Failed to generate personalized feed:", error);
+			throw createError(
+				"UnknownError",
+				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`
+			);
 		}
 	}
 
@@ -84,52 +82,6 @@ export class FeedService {
 		} catch (error) {
 			console.error("For You feed error:", error);
 			throw createError("FeedError", "Could not generate For You feed.");
-		}
-	}
-
-	// Legacy implementation, keeping it as a fallback
-	private async getPersonalizedFeedOriginal(userId: string, page: number, limit: number): Promise<any> {
-		console.log(`Running getPersonalizedFeed for userId: ${userId} `);
-		try {
-			const cacheKey = `feed:${userId}:${page}:${limit}`;
-
-			// Check cache first
-			const cachedFeed = await this.redisService.get(cacheKey);
-			if (cachedFeed) {
-				console.log("Returning cached legacy feed (no dynamic enrichment, fallback mode)");
-				return cachedFeed; // legacy path stays simple
-			}
-
-			//Using Promise.all to execute the operations concurrently and
-			// get the result once they've resolved or rejected
-			const [user, topTags] = await Promise.all([
-				this.userRepository.findByPublicId(userId),
-				this.userRepository
-					.findByPublicId(userId)
-					.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
-			]);
-
-			if (!user) {
-				throw createError("NotFoundError", "User not found");
-			}
-
-			const followingIds = user.following || [];
-			const favoriteTags = topTags.map((pref) => pref.tag);
-
-			const skip = (page - 1) * limit;
-			console.log(
-				`==================followingIds: ${followingIds}, favoriteTags: ${favoriteTags} \r\n =======================`
-			);
-			const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
-			await this.redisService.set(cacheKey, feed, 120); // Cache feed for 2 minutes
-			return feed; // return raw feed as legacy fallback
-		} catch (error) {
-			console.error(error);
-			const errorMessage =
-				typeof error === "object" && error !== null && "message" in error
-					? (error as { message?: string }).message || "Unknown error"
-					: String(error);
-			throw createError("FeedError", errorMessage);
 		}
 	}
 
