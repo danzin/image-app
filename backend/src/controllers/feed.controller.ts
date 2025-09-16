@@ -42,4 +42,36 @@ export class FeedController {
 			}
 		}
 	};
+
+	getTrendingFeed = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = Number(req.query.page) || 1;
+			const limit = Number(req.query.limit) || 20;
+			const feed = await this.feedService.getTrendingFeed(page, limit);
+			res.json(feed);
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
+
+	getNewFeed = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const page = Number(req.query.page) || 1;
+			const limit = Number(req.query.limit) || 20;
+			const feed = await this.feedService.getNewFeed(page, limit);
+			res.json(feed);
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
 }
