@@ -4,6 +4,7 @@ import { NotificationService } from "./notification.service";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { UserRepository } from "../repositories/user.repository";
+import { RedisService } from "./redis.service";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -12,7 +13,8 @@ export class FollowService {
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository
+		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("RedisService") private readonly redisService: RedisService
 	) {}
 
 	async followUser(followerId: string, followeeId: string): Promise<void | string> {
@@ -41,6 +43,9 @@ export class FollowService {
 			await this.userActionRepository.logAction(followerId, "follow", followeeId);
 
 			await session.commitTransaction();
+
+			// Invalidate the follower's feed cache so they see the new content immediately
+			await this.invalidateFollowerFeedCache(followerId);
 		} catch (error) {
 			await session.abortTransaction();
 			const errorMessage = error instanceof Error ? error.message : "Failed to follow user";
@@ -70,6 +75,8 @@ export class FollowService {
 			await this.userActionRepository.logAction(followerId, "unfollow", followeeId);
 
 			await session.commitTransaction();
+
+			await this.invalidateFollowerFeedCache(followerId);
 		} catch (error) {
 			await session.abortTransaction();
 			const errorMessage = error instanceof Error ? error.message : "Failed to follow user";
@@ -86,6 +93,24 @@ export class FollowService {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : "Failed to check following status";
 			throw createError("InternalServerError", errorMessage);
+		}
+	}
+
+	/**
+	 * Invalidate all feed-related cache for a user after follow/unfollow actions
+	 * This ensures their feed updates immediately to reflect new or removed content
+	 */
+	private async invalidateFollowerFeedCache(userId: string): Promise<void> {
+		try {
+			// Invalidate personalized feed cache
+			await this.redisService.deletePatterns([`feed:${userId}:*`, `core_feed:${userId}:*`]);
+
+			// Invalidate for you feed cache
+			await this.redisService.deletePatterns([`for_you_feed:${userId}:*`]);
+
+			console.log(`Invalidated feed cache for user ${userId} after follow/unfollow action`);
+		} catch (error) {
+			console.error(`Error invalidating feed cache for user ${userId}:`, error);
 		}
 	}
 }

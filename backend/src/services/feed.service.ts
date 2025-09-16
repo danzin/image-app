@@ -58,6 +58,35 @@ export class FeedService {
 		}
 	}
 
+	public async getForYouFeed(userId: string, page: number, limit: number): Promise<any> {
+		console.log(`Running getForYouFeed for userId: ${userId}`);
+
+		try {
+			const coreFeedKey = `for_you_feed:${userId}:${page}:${limit}`;
+			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
+
+			if (!coreFeed) {
+				console.log("For You feed cache miss, generating...");
+				coreFeed = await this.generateForYouFeed(userId, page, limit);
+
+				const tags = [`user_for_you_feed:${userId}`, `for_you_feed_page:${page}`, `for_you_feed_limit:${limit}`];
+				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
+			} else {
+				console.log("For You feed cache hit");
+			}
+
+			const enrichedFeed = await this.enrichFeedWithCurrentData(coreFeed.data);
+
+			return {
+				...coreFeed,
+				data: enrichedFeed,
+			};
+		} catch (error) {
+			console.error("For You feed error:", error);
+			throw createError("FeedError", "Could not generate For You feed.");
+		}
+	}
+
 	// Legacy implementation, keeping it as a fallback
 	private async getPersonalizedFeedOriginal(userId: string, page: number, limit: number): Promise<any> {
 		console.log(`Running getPersonalizedFeed for userId: ${userId} `);
@@ -122,6 +151,27 @@ export class FeedService {
 
 		// Use the new core method that returns userPublicId instead of ObjectId
 		const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+
+		return feed;
+	}
+
+	private async generateForYouFeed(userId: string, page: number, limit: number) {
+		const [user, topTags] = await Promise.all([
+			this.userRepository.findByPublicId(userId),
+			this.userRepository
+				.findByPublicId(userId)
+				.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
+		]);
+
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const favoriteTags = topTags.map((pref) => pref.tag);
+		const skip = (page - 1) * limit;
+
+		// This will be a new method in the image repository for fetching a ranked feed
+		const feed = await this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
 
 		return feed;
 	}

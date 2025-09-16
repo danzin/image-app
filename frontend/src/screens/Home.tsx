@@ -1,17 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useImages, useImagesByTag, usePersonalizedFeed } from "../hooks/images/useImages";
-import { Tags } from "../components/TagsContainer";
 import Gallery from "../components/Gallery";
-import { Box, Button, Typography, useTheme, useMediaQuery, Drawer, Divider, Container, alpha } from "@mui/material";
+import { Box, Button, Typography, useTheme, Container, alpha } from "@mui/material";
 
 import { useGallery } from "../context/GalleryContext";
 import { useAuth } from "../hooks/context/useAuth";
-const SIDEBAR_WIDTH = 280;
 
 const Home: React.FC = () => {
 	const theme = useTheme();
-	const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
 	const { selectedTags, clearTags } = useGallery();
 	const { user, isLoggedIn, loading: authLoading } = useAuth();
 
@@ -93,24 +90,6 @@ const Home: React.FC = () => {
 		);
 	}
 
-	const sidebarContent = (
-		<Box sx={{ p: 3, width: SIDEBAR_WIDTH }}>
-			<Typography
-				variant="h6"
-				gutterBottom
-				sx={{
-					color: "primary.main",
-					fontWeight: 600,
-					mb: 2,
-				}}
-			>
-				Filter by Tags
-			</Typography>
-			<Divider sx={{ mb: 2, borderColor: "rgba(99, 102, 241, 0.2)" }} />
-			<Tags />
-		</Box>
-	);
-
 	return (
 		<Box
 			sx={{
@@ -120,26 +99,6 @@ const Home: React.FC = () => {
 				overflow: "hidden",
 			}}
 		>
-			{/* Enhanced Sidebar */}
-			{isLargeScreen && (
-				<Drawer
-					variant="permanent"
-					sx={{
-						width: SIDEBAR_WIDTH,
-						flexShrink: 0,
-						[`& .MuiDrawer-paper`]: {
-							width: SIDEBAR_WIDTH,
-							boxSizing: "border-box",
-							position: "relative",
-							borderRight: "1px solid rgba(99, 102, 241, 0.2)",
-							background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)",
-						},
-					}}
-				>
-					{sidebarContent}
-				</Drawer>
-			)}
-
 			{/* Main Content */}
 			<Box
 				component="main"
