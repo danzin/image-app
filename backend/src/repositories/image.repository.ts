@@ -616,6 +616,142 @@ export class ImageRepository extends BaseRepository<IImage> {
 	}
 
 	/**
+	 * Trending feed: rank by popularity and recency within an optional time window
+	 */
+	async getTrendingFeed(
+		limit: number,
+		skip: number,
+		options?: { timeWindowDays?: number; minLikes?: number; weights?: { recency?: number; popularity?: number; comments?: number } }
+	): Promise<PaginationResult<any>> {
+		try {
+			const timeWindowDays = options?.timeWindowDays ?? 14;
+			const minLikes = options?.minLikes ?? 0;
+			const weights = {
+				recency: options?.weights?.recency ?? 0.4,
+				popularity: options?.weights?.popularity ?? 0.5,
+				comments: options?.weights?.comments ?? 0.1,
+			};
+
+			const sinceDate = new Date(Date.now() - timeWindowDays * 24 * 60 * 60 * 1000);
+
+			const pipeline: any[] = [
+				// Restrict to recent window and minimal likes
+				{ $match: { createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } } },
+				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
+				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
+				{ $unwind: "$userInfo" },
+				// Scores
+				{
+					$addFields: {
+						recencyScore: {
+							$divide: [
+								1,
+								{
+									$add: [
+										1,
+										{ $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] },
+									],
+								},
+							],
+						},
+						popularityScore: { $ln: { $add: ["$likes", 1] } },
+						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+						trendScore: {
+							$add: [
+								{ $multiply: ["$recencyScore", weights.recency] },
+								{ $multiply: ["$popularityScore", weights.popularity] },
+								{ $multiply: ["$commentsScore", weights.comments] },
+							],
+						},
+					},
+				},
+				{ $sort: { trendScore: -1 } },
+				{ $skip: skip },
+				{ $limit: limit },
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" },
+							},
+						},
+						trendScore: 1,
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(pipeline).exec(),
+				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } }),
+			]);
+
+			const totalPages = Math.ceil(total / limit);
+			const currentPage = Math.floor(skip / limit) + 1;
+
+			return { data: results, total, page: currentPage, limit, totalPages };
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
+	 * New feed: sorted by recency only
+	 */
+	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
+		try {
+			const pipeline: any[] = [
+				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
+				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
+				{ $unwind: "$userInfo" },
+				{ $sort: { createdAt: -1 } },
+				{ $skip: skip },
+				{ $limit: limit },
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" },
+							},
+						},
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(pipeline).exec(),
+				this.model.countDocuments({}),
+			]);
+
+			const totalPages = Math.ceil(total / limit);
+			const currentPage = Math.floor(skip / limit) + 1;
+
+			return { data: results, total, page: currentPage, limit, totalPages };
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
 	 * Increment or decrement comment count for an image
 	 */
 	async updateCommentCount(imageId: string, increment: number, session?: ClientSession): Promise<void> {

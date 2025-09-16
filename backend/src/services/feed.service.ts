@@ -7,6 +7,7 @@ import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
 import { IUser, UserLookupData } from "../types";
 import { EventBus } from "../application/common/buses/event.bus";
+import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
 
 @injectable()
 export class FeedService {
@@ -101,10 +102,50 @@ export class FeedService {
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
-		// Use the new core method that returns userPublicId instead of ObjectId
-		const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+		// Cold-start: no signals -> discovery-oriented feed
+		if (followingIds.length === 0 && favoriteTags.length === 0) {
+			if (page === 1) {
+				// Fire an event we can later use for analytics or onboarding tweaks
+				try {
+					await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userId));
+				} catch (_) {
+					// non-fatal
+				}
+			}
 
-		return feed;
+			return this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
+		}
+
+		// Use the personalized core method when we have signals
+		return this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+	}
+
+	// Discover: Trending feed (ranked by popularity + recency)
+	public async getTrendingFeed(page: number, limit: number): Promise<any> {
+		const key = `trending_feed:${page}:${limit}`;
+		let cached = await this.redisService.getWithTags(key);
+		if (!cached) {
+			const skip = (page - 1) * limit;
+			const core = await this.imageRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
+			await this.redisService.setWithTags(key, core, ["trending_feed", `page:${page}`, `limit:${limit}`], 120);
+			cached = core;
+		}
+		const enriched = await this.enrichFeedWithCurrentData(cached.data);
+		return { ...cached, data: enriched };
+	}
+
+	// Discover: New feed (sorted by recency)
+	public async getNewFeed(page: number, limit: number): Promise<any> {
+		const key = `new_feed:${page}:${limit}`;
+		let cached = await this.redisService.getWithTags(key);
+		if (!cached) {
+			const skip = (page - 1) * limit;
+			const core = await this.imageRepository.getNewFeed(limit, skip);
+			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 60);
+			cached = core;
+		}
+		const enriched = await this.enrichFeedWithCurrentData(cached.data);
+		return { ...cached, data: enriched };
 	}
 
 	private async generateForYouFeed(userId: string, page: number, limit: number) {
