@@ -695,8 +695,9 @@ export class ImageRepository extends BaseRepository<IImage> {
 				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } }),
 			]);
 
-			const totalPages = Math.ceil(total / limit);
-			const currentPage = Math.floor(skip / limit) + 1;
+			// pagination
+			const totalPages = Math.ceil(total / limit); // round up so partial pages count as full pages
+			const currentPage = Math.floor(skip / limit) + 1; // when skip is 0, page should be 1
 
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
