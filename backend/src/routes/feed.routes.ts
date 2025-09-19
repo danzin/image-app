@@ -14,7 +14,7 @@ export class FeedRoutes {
 	}
 
 	private initializeRoutes(): void {
-		this.router.get("/", this.controller.getFeed);
+		this.router.get("/", this.auth, this.controller.getFeed);
 		this.router.get("/for-you", this.auth, this.controller.getForYouFeed);
 		this.router.get("/trending", this.controller.getTrendingFeed);
 		this.router.get("/new", this.controller.getNewFeed);

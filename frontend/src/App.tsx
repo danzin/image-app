@@ -7,6 +7,7 @@ import Register from "./screens/Register";
 import Profile from "./screens/Profile";
 import Discovery from "./screens/Discovery";
 import Layout from "./components/Layout";
+import FeedSocketManager from "./components/FeedSocketManager";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { GalleryProvider } from "./context/GalleryContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ function App() {
 				<QueryClientProvider client={queryClient}>
 					<AuthProvider>
 						<SocketProvider>
+							<FeedSocketManager />
 							<GalleryProvider>
 								<Routes>
 									<Route path="/" element={<Layout />}>
