@@ -20,6 +20,7 @@ import {
 	Person as PersonIcon,
 	Add as AddIcon,
 	CameraAlt as CameraAltIcon,
+	Explore as ExploreIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import UploadForm from "./UploadForm";
@@ -88,6 +89,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			label: "Home",
 			icon: <HomeIcon />,
 			path: "/",
+		},
+		{
+			label: "Discover",
+			icon: <ExploreIcon />,
+			path: "/discover",
 		},
 		{
 			label: "Profile",
