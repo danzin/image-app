@@ -59,7 +59,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 				console.log(`[IMAGE_UPLOAD_HANDLER] Invalidating using tags: ${tagInvalidationTargets.join(", ")}`);
 				await this.redis.invalidateByTags(tagInvalidationTargets);
 
-				// Publish real-time feed update notifications
+				// Publish real-time feed update notifications for followers
 				await this.redis.publish("feed_updates", {
 					type: "new_image",
 					uploaderId: event.uploaderPublicId,
@@ -72,7 +72,19 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 				console.log(
 					`[IMAGE_UPLOAD_HANDLER] Smart cache invalidation completed for ${affectedUsers.length} users due to new image upload`
 				);
-			} else {
+			}
+
+			// ALWAYS publish global new image event for discovery feeds (no cache invalidation)
+			await this.redis.publish("feed_updates", {
+				type: "new_image_global",
+				uploaderId: event.uploaderPublicId,
+				imageId: event.imageId,
+				tags: event.tags,
+				timestamp: new Date().toISOString(),
+			});
+			console.log(`[IMAGE_UPLOAD_HANDLER] Published global new image event for discovery feeds`);
+
+			if (affectedUsers.length === 0) {
 				console.log(`[IMAGE_UPLOAD_HANDLER] No affected users found (no followers or tag-interested users)`);
 			}
 		} catch (error) {

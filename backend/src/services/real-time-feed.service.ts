@@ -3,7 +3,7 @@ import { RedisService } from "./redis.service";
 import { WebSocketServer } from "../server/socketServer";
 
 export interface FeedUpdateMessage {
-	type: "new_image" | "interaction" | "like_update" | "avatar_changed";
+	type: "new_image" | "new_image_global" | "interaction" | "like_update" | "avatar_changed";
 	userId?: string;
 	uploaderId?: string;
 	imageId?: string;
@@ -51,6 +51,9 @@ export class RealTimeFeedService {
 				case "new_image":
 					await this.handleNewImageUpdate(io, message);
 					break;
+				case "new_image_global":
+					await this.handleGlobalNewImageUpdate(io, message);
+					break;
 				case "interaction":
 					await this.handleInteractionUpdate(io, message);
 					break;
@@ -72,17 +75,29 @@ export class RealTimeFeedService {
 	 * Handle new image upload notifications
 	 */
 	private async handleNewImageUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
-		if (!message.affectedUsers || !message.uploaderId) return;
+		if (!message.uploaderId) return;
 
-		// Notify affected users about new content in their feed
-		for (const userId of message.affectedUsers) {
-			io.to(userId).emit("feed_update", {
-				type: "new_image",
-				uploaderId: message.uploaderId,
-				imageId: message.imageId,
-				tags: message.tags,
-				timestamp: message.timestamp,
-			});
+		// GLOBAL BROADCAST: Notify ALL users about new content for discovery feeds
+		// This ensures the "new" feed updates immediately for everyone
+		io.emit("discovery_update", {
+			type: "new_image_global",
+			uploaderId: message.uploaderId,
+			imageId: message.imageId,
+			tags: message.tags,
+			timestamp: message.timestamp,
+		});
+
+		// TARGETED NOTIFICATIONS: Notify specific users about content in their personalized feeds
+		if (message.affectedUsers && message.affectedUsers.length > 0) {
+			for (const userId of message.affectedUsers) {
+				io.to(userId).emit("feed_update", {
+					type: "new_image",
+					uploaderId: message.uploaderId,
+					imageId: message.imageId,
+					tags: message.tags,
+					timestamp: message.timestamp,
+				});
+			}
 		}
 
 		// Also notify the uploader
@@ -94,7 +109,9 @@ export class RealTimeFeedService {
 		});
 
 		console.log(
-			`Real-time notification sent for new image ${message.imageId} to ${message.affectedUsers.length} users`
+			`Real-time notification sent globally for new image ${message.imageId} + to ${
+				message.affectedUsers?.length || 0
+			} specific users`
 		);
 	}
 
@@ -118,6 +135,29 @@ export class RealTimeFeedService {
 		});
 
 		console.log(`Real-time interaction notification sent for ${message.actionType} on ${message.targetId}`);
+	}
+
+	/**
+	 * Handle global new image notifications for discovery feeds
+	 */
+	private async handleGlobalNewImageUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
+		if (!message.imageId) return;
+
+		// Get image details to include in the notification
+		const imageData = {
+			imageId: message.imageId,
+			userId: message.userId,
+			tags: message.tags,
+			timestamp: message.timestamp,
+		};
+
+		// Broadcast globally to all connected clients for discovery feeds
+		io.emit("discovery_new_image", {
+			type: "new_image_global",
+			data: imageData,
+		});
+
+		console.log(`Global new image notification sent for image ${message.imageId} to all connected clients`);
 	}
 
 	/**
