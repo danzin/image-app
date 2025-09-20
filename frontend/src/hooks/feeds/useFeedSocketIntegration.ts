@@ -184,16 +184,17 @@ export const useFeedSocketIntegration = () => {
 			console.log("Real-time: Feed interaction received", data);
 
 			// For comments and other interactions that affect counts
-			if (data.actionType === "comment") {
-				// Invalidate specific image to refresh comment count
-				queryClient.invalidateQueries({ queryKey: ["image", data.targetId] });
-				queryClient.invalidateQueries({ queryKey: ["comments", "image", data.targetId] });
-
-				// Also invalidate feeds to show updated comment counts
+			if (data.actionType === "comment" || data.actionType === "comment_deleted") {
+				console.log(`Handling ${data.actionType} for image ${data.targetId}`);
+				
+				// Invalidate specific image and comment queries for this image
+				queryClient.invalidateQueries({ queryKey: ["image"] }); // Refresh image details (comment count)
+				queryClient.invalidateQueries({ queryKey: ["comments", "image", data.targetId] }); // Refresh comment list
+				
+				// Only invalidate the personalized feed - most relevant for the user
 				queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
-				queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
-				queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
-				queryClient.invalidateQueries({ queryKey: ["newFeed"] });
+				
+				console.log(`Invalidated image and personalized feed for ${data.actionType} on image ${data.targetId}`);
 			}
 		};
 

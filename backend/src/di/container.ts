@@ -66,6 +66,10 @@ import { ImageDeleteHandler } from "../application/events/image/image-delete.han
 import { UserAvatarChangedEvent } from "../application/events/user/user-interaction.event";
 import { UserAvatarChangedHandler } from "../application/events/user/user-avatar-change.handler";
 import { RealTimeFeedService } from "../services/real-time-feed.service";
+import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
+import { CreateCommentCommandHandler } from "../application/commands/comments/createComment/createComment.handler";
+import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
+import { DeleteCommentCommandHandler } from "../application/commands/comments/deleteComment/deleteComment.handler";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -160,6 +164,8 @@ function registerCQRS(): void {
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
 	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
+	container.register("CreateCommentCommandHandler", { useClass: CreateCommentCommandHandler });
+	container.register("DeleteCommentCommandHandler", { useClass: DeleteCommentCommandHandler });
 
 	// Register reactive event handlers
 	container.register("ImageUploadHandler", { useClass: ImageUploadHandler });
@@ -188,6 +194,30 @@ function registerCQRS(): void {
 	commandBus.register(
 		LikeActionByPublicIdCommand,
 		container.resolve<LikeActionByPublicIdCommandHandler>("LikeActionByPublicIdCommandHandler")
+	);
+	commandBus.register(
+		CreateCommentCommand,
+		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
+	);
+	commandBus.register(
+		DeleteCommentCommand,
+		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
+	);
+	commandBus.register(
+		CreateCommentCommand,
+		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
+	);
+	commandBus.register(
+		DeleteCommentCommand,
+		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
+	);
+	commandBus.register(
+		CreateCommentCommand,
+		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
+	);
+	commandBus.register(
+		DeleteCommentCommand,
+		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
 	);
 
 	// Register query handlers with query bus

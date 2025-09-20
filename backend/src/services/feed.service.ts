@@ -226,7 +226,12 @@ export class FeedService {
 		if (!user) throw createError("NotFoundError", "User not found");
 		// If action targets an image provided by publicId (may include extension), normalize
 		let internalTargetId = targetIdentifier;
-		if (actionType === "like" || actionType === "unlike") {
+		if (
+			actionType === "like" ||
+			actionType === "unlike" ||
+			actionType === "comment" ||
+			actionType === "comment_deleted"
+		) {
 			const sanitized = targetIdentifier.replace(/\.[a-z0-9]{2,5}$/i, "");
 			const image = await this.imageRepository.findByPublicId(sanitized);
 			if (image) internalTargetId = (image as any)._id.toString();

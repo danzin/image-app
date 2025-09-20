@@ -31,8 +31,20 @@ export class RealTimeFeedService {
 	 */
 	private async initializePubSubListener(): Promise<void> {
 		try {
-			await this.redisService.subscribe(["feed_updates"], (channel: string, message: FeedUpdateMessage) => {
-				this.handleFeedUpdate(message);
+			await this.redisService.subscribe(["feed_updates"], (channel: string, message: any) => {
+				// Handle case where message might be a string that needs parsing
+				let parsedMessage: FeedUpdateMessage;
+				if (typeof message === 'string') {
+					try {
+						parsedMessage = JSON.parse(message);
+					} catch (error) {
+						console.error("Failed to parse feed update message:", error);
+						return;
+					}
+				} else {
+					parsedMessage = message;
+				}
+				this.handleFeedUpdate(parsedMessage);
 			});
 			console.log("Real-time feed update listener initialized");
 		} catch (error) {
@@ -45,6 +57,7 @@ export class RealTimeFeedService {
 	 */
 	private async handleFeedUpdate(message: FeedUpdateMessage): Promise<void> {
 		try {
+			console.log("Real-time service received message:", JSON.stringify(message, null, 2));
 			const io = this.webSocketServer.getIO();
 
 			switch (message.type) {
