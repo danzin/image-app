@@ -34,7 +34,7 @@ export class RealTimeFeedService {
 			await this.redisService.subscribe(["feed_updates"], (channel: string, message: any) => {
 				// Handle case where message might be a string that needs parsing
 				let parsedMessage: FeedUpdateMessage;
-				if (typeof message === 'string') {
+				if (typeof message === "string") {
 					try {
 						parsedMessage = JSON.parse(message);
 					} catch (error) {
