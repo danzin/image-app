@@ -3,7 +3,8 @@ import { useFeedSocketIntegration } from "../hooks/feeds/useFeedSocketIntegratio
 
 /**
  * Component that enables real-time feed updates via WebSocket
- * Should be placed inside SocketProvider and QueryClientProvider
+ * Should be placed inside SocketProvider and QueryClientProvider in the component tree
+ * as it reliess on both contexts
  */
 const FeedSocketManager: React.FC = () => {
 	useFeedSocketIntegration();
