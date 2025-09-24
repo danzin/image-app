@@ -239,7 +239,7 @@ export const useTrendingFeed = () => {
 	>({
 		queryKey: ["trendingFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchTrendingFeed(pageParam as number, 20);
+			const response = await fetchTrendingFeed(pageParam as number, 10);
 			return {
 				...response,
 				data: response.data.map(mapImage),
@@ -270,7 +270,7 @@ export const useNewFeed = () => {
 	>({
 		queryKey: ["newFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchNewFeed(pageParam as number, 20);
+			const response = await fetchNewFeed(pageParam as number, 10);
 			return {
 				...response,
 				data: response.data.map(mapImage),
@@ -303,7 +303,7 @@ export const useForYouFeed = () => {
 	>({
 		queryKey: ["forYouFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchForYouFeed(pageParam as number, 20);
+			const response = await fetchForYouFeed(pageParam as number, 10);
 			return {
 				...response,
 				data: response.data.map(mapImage),

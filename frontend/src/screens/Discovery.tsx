@@ -104,16 +104,6 @@ const Discovery: React.FC = () => {
 						>
 							Discover
 						</Typography>
-						<Typography
-							variant="h6"
-							sx={{
-								color: "text.secondary",
-								fontSize: { xs: "1rem", md: "1.1rem" },
-								lineHeight: 1.6,
-							}}
-						>
-							Explore trending content, discover new images, and find your personalized feed
-						</Typography>
 					</Container>
 				</motion.div>
 
