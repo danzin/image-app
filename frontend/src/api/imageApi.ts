@@ -15,6 +15,48 @@ export const fetchPersonalizedFeed = async (
 	return data;
 };
 
+export const fetchTrendingFeed = async (
+	pageParam: number,
+	limit: number = 20
+): Promise<{
+	data: IImage[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	const { data } = await axiosClient.get(`/api/feed/trending?page=${pageParam}&limit=${limit}`);
+	return data;
+};
+
+export const fetchNewFeed = async (
+	pageParam: number,
+	limit: number = 20
+): Promise<{
+	data: IImage[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	const { data } = await axiosClient.get(`/api/feed/new?page=${pageParam}&limit=${limit}`);
+	return data;
+};
+
+export const fetchForYouFeed = async (
+	pageParam: number,
+	limit: number = 20
+): Promise<{
+	data: IImage[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	const { data } = await axiosClient.get(`/api/feed/for-you?page=${pageParam}&limit=${limit}`);
+	return data;
+};
+
 export const fetchImages = async (
 	pageParam: number
 ): Promise<{

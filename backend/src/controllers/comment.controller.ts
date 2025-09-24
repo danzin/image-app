@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import { CommentService } from "../services/comment.service";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
+import { CommandBus } from "../application/common/buses/command.bus";
+import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
+import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
 
 /**
  * Comment Controller
@@ -9,7 +12,10 @@ import { inject, injectable } from "tsyringe";
  */
 @injectable()
 export class CommentController {
-	constructor(@inject("CommentService") private readonly commentService: CommentService) {}
+	constructor(
+		@inject("CommentService") private readonly commentService: CommentService,
+		@inject("CommandBus") private readonly commandBus: CommandBus
+	) {}
 
 	/**
 	 * Create a new comment on an image
@@ -29,7 +35,10 @@ export class CommentController {
 				throw createError("ValidationError", "Comment content is required");
 			}
 
-			const comment = await this.commentService.createCommentByPublicId(decodedUser.publicId, imagePublicId, content);
+			// Use CQRS command instead of service
+			const command = new CreateCommentCommand(decodedUser.publicId, imagePublicId, content);
+			const comment = await this.commandBus.dispatch(command);
+
 			res.status(201).json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -106,7 +115,10 @@ export class CommentController {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
-			await this.commentService.deleteCommentByPublicId(commentId, decodedUser.publicId);
+			// Use CQRS command instead of service
+			const command = new DeleteCommentCommand(commentId, decodedUser.publicId);
+			await this.commandBus.dispatch(command);
+
 			res.status(204).send(); // No content response
 		} catch (error) {
 			if (error instanceof Error) {

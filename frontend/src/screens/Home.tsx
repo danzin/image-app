@@ -1,18 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useImages, useImagesByTag, usePersonalizedFeed } from "../hooks/images/useImages";
 import Gallery from "../components/Gallery";
 import { Box, Button, Typography, useTheme, Container, alpha } from "@mui/material";
 
 import { useGallery } from "../context/GalleryContext";
 import { useAuth } from "../hooks/context/useAuth";
+import { shouldShowDiscoveryFirst } from "../lib/userOnboarding";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
+	const navigate = useNavigate();
 	const { selectedTags, clearTags } = useGallery();
 	const { user, isLoggedIn, loading: authLoading } = useAuth();
 
 	const [authTransitionComplete, setAuthTransitionComplete] = useState(false);
+
+	// Redirect new users to Discovery
+	useEffect(() => {
+		if (!authLoading && shouldShowDiscoveryFirst(user, isLoggedIn)) {
+			// Only redirect if we're actually on the home page and not coming from /discover
+			if (window.location.pathname === "/" && !window.location.search.includes("from=discover")) {
+				navigate("/discover");
+				return;
+			}
+		}
+	}, [authLoading, user, isLoggedIn, navigate]);
 
 	useEffect(() => {
 		if (authLoading) {

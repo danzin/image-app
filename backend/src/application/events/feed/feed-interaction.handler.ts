@@ -22,6 +22,9 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 			await this.feedService.recordInteraction(event.userId, event.interactionType, event.imageId, event.tags);
 
 			await this.invalidateRelevantFeeds(event);
+			
+			// Publish real-time interaction event for WebSocket notifications
+			await this.publishInteractionEvent(event);
 		} catch (error) {
 			console.error("Feed update failed:", error);
 			throw error;
@@ -109,6 +112,27 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 		} catch (error) {
 			console.error(`Error getting users interested in tags ${tags.join(", ")}:`, error);
 			return [];
+		}
+	}
+
+	/**
+	 * Publish real-time interaction event to Redis for WebSocket broadcasting
+	 */
+	private async publishInteractionEvent(event: UserInteractedWithImageEvent): Promise<void> {
+		try {
+			const interactionMessage = {
+				type: "interaction" as const,
+				userId: event.userId,
+				actionType: event.interactionType,
+				targetId: event.imageId,
+				tags: event.tags,
+				timestamp: new Date().toISOString(),
+			};
+
+			await this.redis.publish("feed_updates", JSON.stringify(interactionMessage));
+			console.log(`Published real-time interaction event: ${event.interactionType} on image ${event.imageId} by user ${event.userId}`);
+		} catch (error) {
+			console.error("Failed to publish interaction event:", error);
 		}
 	}
 }
