@@ -12,3 +12,4 @@ backend/uploads
 frontend/.env
 /uploads
 dist
+.github

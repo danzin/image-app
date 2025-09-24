@@ -7,6 +7,7 @@ import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
 import { IUser, UserLookupData } from "../types";
 import { EventBus } from "../application/common/buses/event.bus";
+import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
 
 @injectable()
 export class FeedService {
@@ -20,10 +21,6 @@ export class FeedService {
 		@inject("EventBus") private eventBus: EventBus
 	) {}
 
-	public async getPersonalizedFeedLegacy(userId: string, page: number, limit: number): Promise<any> {
-		return this.getPersonalizedFeedOriginal(userId, page, limit);
-	}
-
 	// New partitioned implementation
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
 		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
@@ -31,12 +28,15 @@ export class FeedService {
 		try {
 			// STEP 1: Get core feed structure (image IDs and order)
 			const coreFeedKey = `core_feed:${userId}:${page}:${limit}`;
-			let coreFeed = await this.redisService.get(coreFeedKey);
+			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
 
 			if (!coreFeed) {
 				console.log("Core feed cache miss, generating...");
 				coreFeed = await this.generateCoreFeed(userId, page, limit);
-				await this.redisService.set(coreFeedKey, coreFeed, 300); // 5 minutes
+
+				// Cache with tags for smart invalidation
+				const tags = [`user_feed:${userId}`, `feed_page:${page}`, `feed_limit:${limit}`];
+				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
 			} else {
 				console.log("Core feed cache hit");
 			}
@@ -49,55 +49,40 @@ export class FeedService {
 				data: enrichedFeed,
 			};
 		} catch (error) {
-			console.error("Partitioned feed error, falling back to legacy:", error);
-			// Fallback to previous working implementation
-			return this.getPersonalizedFeedLegacy(userId, page, limit);
+			console.error("Failed to generate personalized feed:", error);
+			throw createError(
+				"UnknownError",
+				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`
+			);
 		}
 	}
 
-	// Legacy implementation, keeping it as a fallback
-	private async getPersonalizedFeedOriginal(userId: string, page: number, limit: number): Promise<any> {
-		console.log(`Running getPersonalizedFeed for userId: ${userId} `);
+	public async getForYouFeed(userId: string, page: number, limit: number): Promise<any> {
+		console.log(`Running getForYouFeed for userId: ${userId}`);
+
 		try {
-			const cacheKey = `feed:${userId}:${page}:${limit}`;
+			const coreFeedKey = `for_you_feed:${userId}:${page}:${limit}`;
+			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
 
-			// Check cache first
-			const cachedFeed = await this.redisService.get(cacheKey);
-			if (cachedFeed) {
-				console.log("Returning cached legacy feed (no dynamic enrichment, fallback mode)");
-				return cachedFeed; // legacy path stays simple
+			if (!coreFeed) {
+				console.log("For You feed cache miss, generating...");
+				coreFeed = await this.generateForYouFeed(userId, page, limit);
+
+				const tags = [`user_for_you_feed:${userId}`, `for_you_feed_page:${page}`, `for_you_feed_limit:${limit}`];
+				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
+			} else {
+				console.log("For You feed cache hit");
 			}
 
-			//Using Promise.all to execute the operations concurrently and
-			// get the result once they've resolved or rejected
-			const [user, topTags] = await Promise.all([
-				this.userRepository.findByPublicId(userId),
-				this.userRepository
-					.findByPublicId(userId)
-					.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
-			]);
+			const enrichedFeed = await this.enrichFeedWithCurrentData(coreFeed.data);
 
-			if (!user) {
-				throw createError("NotFoundError", "User not found");
-			}
-
-			const followingIds = user.following || [];
-			const favoriteTags = topTags.map((pref) => pref.tag);
-
-			const skip = (page - 1) * limit;
-			console.log(
-				`==================followingIds: ${followingIds}, favoriteTags: ${favoriteTags} \r\n =======================`
-			);
-			const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
-			await this.redisService.set(cacheKey, feed, 120); // Cache feed for 2 minutes
-			return feed; // return raw feed as legacy fallback
+			return {
+				...coreFeed,
+				data: enrichedFeed,
+			};
 		} catch (error) {
-			console.error(error);
-			const errorMessage =
-				typeof error === "object" && error !== null && "message" in error
-					? (error as { message?: string }).message || "Unknown error"
-					: String(error);
-			throw createError("FeedError", errorMessage);
+			console.error("For You feed error:", error);
+			throw createError("FeedError", "Could not generate For You feed.");
 		}
 	}
 
@@ -117,8 +102,69 @@ export class FeedService {
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
-		// Use the new core method that returns userPublicId instead of ObjectId
-		const feed = await this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+		// Cold-start: no signals -> discovery-oriented feed
+		if (followingIds.length === 0 && favoriteTags.length === 0) {
+			if (page === 1) {
+				// Fire an event we can later use for analytics or onboarding tweaks
+				try {
+					await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userId));
+				} catch (_) {
+					// non-fatal
+				}
+			}
+
+			return this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
+		}
+
+		// Use the personalized core method when we have signals
+		return this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+	}
+
+	// Discover: Trending feed (ranked by popularity + recency)
+	public async getTrendingFeed(page: number, limit: number): Promise<any> {
+		const key = `trending_feed:${page}:${limit}`;
+		let cached = await this.redisService.getWithTags(key);
+		if (!cached) {
+			const skip = (page - 1) * limit;
+			const core = await this.imageRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
+			await this.redisService.setWithTags(key, core, ["trending_feed", `page:${page}`, `limit:${limit}`], 120);
+			cached = core;
+		}
+		const enriched = await this.enrichFeedWithCurrentData(cached.data);
+		return { ...cached, data: enriched };
+	}
+
+	// Discover: New feed (sorted by recency)
+	public async getNewFeed(page: number, limit: number): Promise<any> {
+		const key = `new_feed:${page}:${limit}`;
+		let cached = await this.redisService.getWithTags(key);
+		if (!cached) {
+			const skip = (page - 1) * limit;
+			const core = await this.imageRepository.getNewFeed(limit, skip);
+			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 60);
+			cached = core;
+		}
+		const enriched = await this.enrichFeedWithCurrentData(cached.data);
+		return { ...cached, data: enriched };
+	}
+
+	private async generateForYouFeed(userId: string, page: number, limit: number) {
+		const [user, topTags] = await Promise.all([
+			this.userRepository.findByPublicId(userId),
+			this.userRepository
+				.findByPublicId(userId)
+				.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
+		]);
+
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const favoriteTags = topTags.map((pref) => pref.tag);
+		const skip = (page - 1) * limit;
+
+		// This will be a new method in the image repository for fetching a ranked feed
+		const feed = await this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
 
 		return feed;
 	}
@@ -130,20 +176,22 @@ export class FeedService {
 		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
 		const imagePublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
 
-		// Get current user data
+		// Get current user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.get(userDataKey);
+		let userData = await this.redisService.getWithTags(userDataKey);
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
-			await this.redisService.set(userDataKey, userData, 60); // 1 minute cache
+			// Cache with user-specific tags for avatar invalidation
+			const userTags = userPublicIds.map((id) => `user_data:${id}`);
+			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache
 		}
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Attempt to load per-image meta (e.g., likes updates) to avoid stale counts
+		// Attempt to load per-image meta with tag-based caching
 		const imageMetaKeys = imagePublicIds.map((id) => `image_meta:${id}`);
-		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.get(k).catch(() => null)));
+		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
 		const metaMap = new Map<string, any>();
 		imagePublicIds.forEach((id, idx) => {
 			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
@@ -178,7 +226,12 @@ export class FeedService {
 		if (!user) throw createError("NotFoundError", "User not found");
 		// If action targets an image provided by publicId (may include extension), normalize
 		let internalTargetId = targetIdentifier;
-		if (actionType === "like" || actionType === "unlike") {
+		if (
+			actionType === "like" ||
+			actionType === "unlike" ||
+			actionType === "comment" ||
+			actionType === "comment_deleted"
+		) {
 			const sanitized = targetIdentifier.replace(/\.[a-z0-9]{2,5}$/i, "");
 			const image = await this.imageRepository.findByPublicId(sanitized);
 			if (image) internalTargetId = (image as any)._id.toString();
@@ -196,18 +249,39 @@ export class FeedService {
 				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
 			);
 		}
-		console.log("Removing cache for user feed (legacy + core)");
-		await this.redisService.deletePatterns([`feed:${userPublicId}:*`, `core_feed:${userPublicId}:*`]);
 
-		// Remove batch user lookup (could affect avatar/username) so next enrichment is fresh
-		await this.redisService.del(`user_batch:*`); // broad pattern; refine if needed
+		// Smart invalidation: only invalidate affected feeds
+		const invalidationTags = [`user_feed:${userPublicId}`];
+		await this.redisService.invalidateByTags(invalidationTags);
+
+		// Publish real-time update via Redis pub/sub
+		await this.redisService.publish("feed_updates", {
+			type: "interaction",
+			userId: userPublicId,
+			actionType,
+			targetId: targetIdentifier,
+			tags,
+			timestamp: new Date().toISOString(),
+		});
+
+		console.log("Smart cache invalidation completed for user interaction");
 	}
 
 	/**
 	 * Update per-image meta cache after like/unlike without regenerating entire feed partition.
 	 */
 	public async updateImageLikeMeta(imagePublicId: string, newTotalLikes: number): Promise<void> {
-		await this.redisService.merge(`image_meta:${imagePublicId}`, { likes: newTotalLikes }, 300);
+		const metaKey = `image_meta:${imagePublicId}`;
+		const tags = [`image_meta:${imagePublicId}`, `image_likes:${imagePublicId}`];
+		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
+
+		// Publish real-time like update
+		await this.redisService.publish("feed_updates", {
+			type: "like_update",
+			imageId: imagePublicId,
+			newLikes: newTotalLikes,
+			timestamp: new Date().toISOString(),
+		});
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {

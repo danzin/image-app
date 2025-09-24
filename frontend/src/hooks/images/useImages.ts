@@ -8,6 +8,9 @@ import {
 	fetchImagesByTag,
 	deleteImageByPublicId,
 	fetchPersonalizedFeed,
+	fetchTrendingFeed,
+	fetchNewFeed,
+	fetchForYouFeed,
 } from "../../api/imageApi";
 import { IImage, ITag } from "../../types";
 import { useAuth } from "../context/useAuth";
@@ -220,5 +223,101 @@ export const useDeleteImage = () => {
 		onError: (error: Error) => {
 			console.error("Error deleting image:", error);
 		},
+	});
+};
+
+export const useTrendingFeed = () => {
+	return useInfiniteQuery<
+		{
+			data: IImage[];
+			total: number;
+			page: number;
+			limit: number;
+			totalPages: number;
+		},
+		Error
+	>({
+		queryKey: ["trendingFeed"],
+		queryFn: async ({ pageParam = 1 }) => {
+			const response = await fetchTrendingFeed(pageParam as number, 10);
+			return {
+				...response,
+				data: response.data.map(mapImage),
+			};
+		},
+		getNextPageParam: (lastPage) => {
+			if (lastPage.page < lastPage.totalPages) {
+				return lastPage.page + 1;
+			}
+			return undefined;
+		},
+		initialPageParam: 1,
+		staleTime: 2 * 60 * 1000, // 2 minutes - backend cache TTL
+		refetchOnWindowFocus: false,
+	});
+};
+
+export const useNewFeed = () => {
+	return useInfiniteQuery<
+		{
+			data: IImage[];
+			total: number;
+			page: number;
+			limit: number;
+			totalPages: number;
+		},
+		Error
+	>({
+		queryKey: ["newFeed"],
+		queryFn: async ({ pageParam = 1 }) => {
+			const response = await fetchNewFeed(pageParam as number, 10);
+			return {
+				...response,
+				data: response.data.map(mapImage),
+			};
+		},
+		getNextPageParam: (lastPage) => {
+			if (lastPage.page < lastPage.totalPages) {
+				return lastPage.page + 1;
+			}
+			return undefined;
+		},
+		initialPageParam: 1,
+		staleTime: 1 * 60 * 1000, // 1 minute - backend cache TTL
+		refetchOnWindowFocus: false,
+	});
+};
+
+export const useForYouFeed = () => {
+	const { isLoggedIn } = useAuth();
+
+	return useInfiniteQuery<
+		{
+			data: IImage[];
+			total: number;
+			page: number;
+			limit: number;
+			totalPages: number;
+		},
+		Error
+	>({
+		queryKey: ["forYouFeed"],
+		queryFn: async ({ pageParam = 1 }) => {
+			const response = await fetchForYouFeed(pageParam as number, 10);
+			return {
+				...response,
+				data: response.data.map(mapImage),
+			};
+		},
+		getNextPageParam: (lastPage) => {
+			if (lastPage.page < lastPage.totalPages) {
+				return lastPage.page + 1;
+			}
+			return undefined;
+		},
+		initialPageParam: 1,
+		enabled: isLoggedIn,
+		staleTime: 5 * 60 * 1000, // 5 minutes - backend cache TTL
+		refetchOnWindowFocus: false,
 	});
 };

@@ -13,21 +13,25 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 		);
 
 		try {
-			// Clear all user batch caches since they contain avatar URLs
-			console.log("Clearing user batch caches...");
-			await this.redis.del(`user_batch:*`);
+			// Smart invalidation: only invalidate user data caches that contain this user's avatar
+			const avatarTags = [`user_data:${event.userPublicId}`];
+			await this.redis.invalidateByTags(avatarTags);
 
-			// Clear ALL feed caches because the user's avatar appears in:
-			// 1. Their own posts in their feed
-			// 2. Their posts in other users' feeds
+			// For feeds, we need to invalidate feeds of users who follow this user
+			// and feeds that contain posts from this user
+			const followerTags = [`user_feed:${event.userPublicId}`]; // User's own feed
+			await this.redis.invalidateByTags(followerTags);
 
-			console.log("Clearing all feed caches due to avatar change...");
-			await Promise.all([
-				this.redis.del("feed:*"), // Legacy feed caches
-				this.redis.del("core_feed:*"), // New partitioned feed caches
-			]);
+			// Publish real-time avatar update
+			await this.redis.publish("feed_updates", {
+				type: "avatar_changed",
+				userId: event.userPublicId,
+				oldAvatar: event.oldAvatarUrl,
+				newAvatar: event.newAvatarUrl,
+				timestamp: new Date().toISOString(),
+			});
 
-			console.log(`Successfully cleared caches for avatar change of user ${event.userPublicId}`);
+			console.log(`Smart cache invalidation completed for avatar change of user ${event.userPublicId}`);
 		} catch (error) {
 			console.error(`Error while handling avatar change for user ${event.userPublicId}:`, error);
 

@@ -12,7 +12,6 @@ RUN npm ci --include=dev
 # Copy the rest of the repo
 COPY . .
 
-# Optional: set build-time envs for Vite (pass via docker build --build-arg)
 ARG VITE_API_URL
 ARG VITE_SOCKET_URL
 ENV VITE_API_URL=${VITE_API_URL}

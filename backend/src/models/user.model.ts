@@ -8,9 +8,7 @@ const userSchema = new Schema<IUser>(
 	{
 		publicId: {
 			type: String,
-			required: true,
 			unique: true,
-			default: uuidv4(),
 			immutable: true,
 		},
 		username: {
@@ -101,6 +99,11 @@ const userSchema = new Schema<IUser>(
 
 // Hash pasword when a new user is registered
 userSchema.pre("save", async function (next) {
+	// Generate publicId if it doesn't exist
+	if (!this.publicId) {
+		this.publicId = uuidv4();
+	}
+
 	if (!this.isModified("password")) return next();
 
 	try {

@@ -483,6 +483,277 @@ export class ImageRepository extends BaseRepository<IImage> {
 	}
 
 	/**
+	 * Generates a ranked feed of images based on user preferences and image attributes.
+	 * Ranks images by recency, popularity, and tag relevance.
+	 */
+	async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
+		try {
+			const hasPreferences = favoriteTags.length > 0;
+
+			// Define weights for ranking
+			const weights = {
+				recency: 0.5,
+				popularity: 0.3,
+				tagMatch: 0.2,
+			};
+
+			const aggregationPipeline: any[] = [
+				// Stage 1: Lookup tags
+				{
+					$lookup: {
+						from: "tags",
+						localField: "tags",
+						foreignField: "_id",
+						as: "tagObjects",
+					},
+				},
+				// Stage 2: Extract tag names
+				{
+					$addFields: {
+						tagNames: {
+							$map: {
+								input: "$tagObjects",
+								as: "tag",
+								in: "$$tag.tag",
+							},
+						},
+					},
+				},
+				// Stage 3: Calculate scores
+				{
+					$addFields: {
+						recencyScore: {
+							$divide: [
+								1,
+								{
+									$add: [
+										1,
+										{
+											$divide: [
+												{ $subtract: [new Date(), "$createdAt"] },
+												1000 * 60 * 60 * 24, // milliseconds in a day
+											],
+										},
+									],
+								},
+							],
+						},
+						popularityScore: { $ln: { $add: ["$likes", 1] } },
+						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
+					},
+				},
+				// Stage 4: Calculate final rank score
+				{
+					$addFields: {
+						rankScore: {
+							$add: [
+								{ $multiply: ["$recencyScore", weights.recency] },
+								{ $multiply: ["$popularityScore", weights.popularity] },
+								{ $multiply: ["$tagMatchScore", weights.tagMatch] },
+							],
+						},
+					},
+				},
+				// Stage 5: Sort by rank score
+				{ $sort: { rankScore: -1 } },
+				// Stage 6: Pagination
+				{ $skip: skip },
+				{ $limit: limit },
+				// Stage 7: Lookup user and get publicId
+				{
+					$lookup: {
+						from: "users",
+						localField: "user",
+						foreignField: "_id",
+						as: "userInfo",
+					},
+				},
+				{ $unwind: "$userInfo" },
+				// Stage 8: Project final shape
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: {
+									tag: "$$tagObj.tag",
+									publicId: "$$tagObj.publicId",
+								},
+							},
+						},
+						rankScore: 1, // for debugging
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(aggregationPipeline).exec(),
+				this.model.countDocuments({}),
+			]);
+
+			const totalPages = Math.ceil(total / limit);
+			const currentPage = Math.floor(skip / limit) + 1;
+
+			return {
+				data: results,
+				total,
+				page: currentPage,
+				limit,
+				totalPages,
+			};
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
+	 * Trending feed: rank by popularity and recency within an optional time window
+	 */
+	async getTrendingFeed(
+		limit: number,
+		skip: number,
+		options?: {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
+	): Promise<PaginationResult<any>> {
+		try {
+			const timeWindowDays = options?.timeWindowDays ?? 14;
+			const minLikes = options?.minLikes ?? 0;
+			const weights = {
+				recency: options?.weights?.recency ?? 0.4,
+				popularity: options?.weights?.popularity ?? 0.5,
+				comments: options?.weights?.comments ?? 0.1,
+			};
+
+			const sinceDate = new Date(Date.now() - timeWindowDays * 24 * 60 * 60 * 1000);
+
+			const pipeline: any[] = [
+				// Restrict to recent window and minimal likes
+				{ $match: { createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } } },
+				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
+				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
+				{ $unwind: "$userInfo" },
+				// Scores
+				{
+					$addFields: {
+						recencyScore: {
+							$divide: [
+								1,
+								{
+									$add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }],
+								},
+							],
+						},
+						popularityScore: { $ln: { $add: ["$likes", 1] } },
+						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+						trendScore: {
+							$add: [
+								{ $multiply: ["$recencyScore", weights.recency] },
+								{ $multiply: ["$popularityScore", weights.popularity] },
+								{ $multiply: ["$commentsScore", weights.comments] },
+							],
+						},
+					},
+				},
+				{ $sort: { trendScore: -1 } },
+				{ $skip: skip },
+				{ $limit: limit },
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" },
+							},
+						},
+						trendScore: 1,
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(pipeline).exec(),
+				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } }),
+			]);
+
+			// pagination
+			const totalPages = Math.ceil(total / limit); // round up so partial pages count as full pages
+			const currentPage = Math.floor(skip / limit) + 1; // when skip is 0, page should be 1
+
+			return { data: results, total, page: currentPage, limit, totalPages };
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
+	 * New feed: sorted by recency only
+	 */
+	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
+		try {
+			const pipeline: any[] = [
+				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
+				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
+				{ $unwind: "$userInfo" },
+				{ $sort: { createdAt: -1 } },
+				{ $skip: skip },
+				{ $limit: limit },
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" },
+							},
+						},
+					},
+				},
+			];
+
+			const [results, total] = await Promise.all([
+				this.model.aggregate(pipeline).exec(),
+				this.model.countDocuments({}),
+			]);
+
+			const totalPages = Math.ceil(total / limit);
+			const currentPage = Math.floor(skip / limit) + 1;
+
+			return { data: results, total, page: currentPage, limit, totalPages };
+		} catch (error: any) {
+			console.error(error);
+			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
 	 * Increment or decrement comment count for an image
 	 */
 	async updateCommentCount(imageId: string, increment: number, session?: ClientSession): Promise<void> {

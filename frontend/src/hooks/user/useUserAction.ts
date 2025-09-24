@@ -100,11 +100,17 @@ export const useLikeImage = () => {
 			// Invalidate all image-related queries to get fresh data
 			queryClient.invalidateQueries({ queryKey: ["image"] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["images"] });
 		},
 		onSettled: () => {
 			// Additional invalidation as fallback
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["images"] });
 			queryClient.invalidateQueries({ queryKey: ["image"] });
 		},

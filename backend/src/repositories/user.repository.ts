@@ -51,13 +51,9 @@ export class UserRepository extends BaseRepository<IUser> {
 	async update(id: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
 		try {
 			console.log("updateData in user repo:", updateData);
-			const query = this.model.findOneAndUpdate(
-				{ _id: id },
-				{ $set: updateData },
-				{
-					new: true,
-				}
-			);
+
+			const query = this.model.findOneAndUpdate({ _id: id }, updateData, { new: true });
+
 			if (session) query.session(session);
 			const result = await query.exec();
 			console.log("[UserRepository.update] Result:", result);
@@ -234,15 +230,18 @@ export class UserRepository extends BaseRepository<IUser> {
 	async findUsersFollowing(userPublicId: string): Promise<IUser[]> {
 		try {
 			const user = await this.findByPublicId(userPublicId);
-			if (!user) return [];
+			if (!user || !user.followers || user.followers.length === 0) {
+				return [];
+			}
 
 			return await this.model
 				.find({
-					following: user._id,
+					_id: { $in: user.followers },
 				})
+				.select("publicId username avatar")
 				.exec();
 		} catch (error) {
-			console.error("Error finding users following:", error);
+			console.error(`Error finding followers for user ${userPublicId}:`, error);
 			return [];
 		}
 	}

@@ -25,7 +25,8 @@ import { LikeActionByPublicIdCommand } from "../application/commands/users/likeA
  *  1 - manually bind all methods that will be used as route handlers:
  *     - this.register = this.register.bind(this);
  *     - etc etc, for every single method
- *  2 - user arrow functions, which automatically bind `this` and it doesn't get lost because they don't have their own 'this' context.
+ *  2 - user arrow functions, which automatically bind `this` and it doesn't get lost because they don't have their own 'this' context but use global one
+ *     - this is the approach I used here
  */
 
 @injectable()

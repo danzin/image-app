@@ -1,21 +1,32 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { useImages, useImagesByTag, usePersonalizedFeed } from "../hooks/images/useImages";
-import { Tags } from "../components/TagsContainer";
 import Gallery from "../components/Gallery";
-import { Box, Button, Typography, useTheme, useMediaQuery, Drawer, Divider, Container, alpha } from "@mui/material";
+import { Box, Button, Typography, useTheme, Container, alpha } from "@mui/material";
 
 import { useGallery } from "../context/GalleryContext";
 import { useAuth } from "../hooks/context/useAuth";
-const SIDEBAR_WIDTH = 280;
+import { shouldShowDiscoveryFirst } from "../lib/userOnboarding";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
-	const isLargeScreen = useMediaQuery(theme.breakpoints.up("lg"));
+	const navigate = useNavigate();
 	const { selectedTags, clearTags } = useGallery();
 	const { user, isLoggedIn, loading: authLoading } = useAuth();
 
 	const [authTransitionComplete, setAuthTransitionComplete] = useState(false);
+
+	// Redirect new users to Discovery
+	useEffect(() => {
+		if (!authLoading && shouldShowDiscoveryFirst(user, isLoggedIn)) {
+			// Only redirect if we're actually on the home page and not coming from /discover
+			if (window.location.pathname === "/" && !window.location.search.includes("from=discover")) {
+				navigate("/discover");
+				return;
+			}
+		}
+	}, [authLoading, user, isLoggedIn, navigate]);
 
 	useEffect(() => {
 		if (authLoading) {
@@ -93,24 +104,6 @@ const Home: React.FC = () => {
 		);
 	}
 
-	const sidebarContent = (
-		<Box sx={{ p: 3, width: SIDEBAR_WIDTH }}>
-			<Typography
-				variant="h6"
-				gutterBottom
-				sx={{
-					color: "primary.main",
-					fontWeight: 600,
-					mb: 2,
-				}}
-			>
-				Filter by Tags
-			</Typography>
-			<Divider sx={{ mb: 2, borderColor: "rgba(99, 102, 241, 0.2)" }} />
-			<Tags />
-		</Box>
-	);
-
 	return (
 		<Box
 			sx={{
@@ -120,26 +113,6 @@ const Home: React.FC = () => {
 				overflow: "hidden",
 			}}
 		>
-			{/* Enhanced Sidebar */}
-			{isLargeScreen && (
-				<Drawer
-					variant="permanent"
-					sx={{
-						width: SIDEBAR_WIDTH,
-						flexShrink: 0,
-						[`& .MuiDrawer-paper`]: {
-							width: SIDEBAR_WIDTH,
-							boxSizing: "border-box",
-							position: "relative",
-							borderRight: "1px solid rgba(99, 102, 241, 0.2)",
-							background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)",
-						},
-					}}
-				>
-					{sidebarContent}
-				</Drawer>
-			)}
-
 			{/* Main Content */}
 			<Box
 				component="main"
