@@ -522,7 +522,9 @@ export class ImageRepository extends BaseRepository<IImage> {
 				// Stage 3: Calculate scores
 				{
 					$addFields: {
+						//Exponential decay favoring newer content
 						recencyScore: {
+							// basically: '1 / ( 1 + days_old)' - creates a decay favoring more recent content
 							$divide: [
 								1,
 								{
@@ -538,7 +540,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 								},
 							],
 						},
+
+						// Logarithmic to prevent super viral content from dominating completely
 						popularityScore: { $ln: { $add: ["$likes", 1] } },
+
 						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
 					},
 				},
