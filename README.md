@@ -21,7 +21,14 @@ Tech stack:
 
 ### Feed system
  - **Personalized (Home) Feed**: user-specific partitioned feed - follows + growing personalization signals. Fast, cached per-user, primary home view for active users.
- - **ForYou Feed**: algorithmic / ranked recommendations (tag-weighted + recency/popularity). Discovery-first, less tied to follows - for "recommended" content.
+ - **ForYou Feed**:
+   -  `For You` feed is an algorithmic feed created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
+    ``` 
+    recency: 0.5,
+   popularity: 0.3,
+   tagMatch: 0.2,
+   ```
+ - New frontend hook `useFeedSocketIntegration.ts` to handle real-time feed updates through WebSocket integrating socket events with React Query cache invalidation.
  - **Trending / New**: discovery feeds. Trending = popularity + recency within time window; New = strict recency.
  - **Core feed**: internal cached structure (IDs + ordering). Not a UI feed — used to enrich and serve many view variants without recomputing rankings.
 
