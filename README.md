@@ -9,7 +9,6 @@ Tech stack:
 ## Table of Contents
 - [Overview](#overview)
 - [Features](#features)
-- [API Endpoints](#api-endpoints)
 - [Architecture & Implementation](#architecture--implementation)
 - [Future Improvements](#future-improvements)
 - [Installation & Setup](#installation--setup)
@@ -20,7 +19,13 @@ Tech stack:
 
 ## Features
 
-- **Dockerization**
+### Feed system
+ - **Personalized (Home) Feed**: user-specific partitioned feed - follows + growing personalization signals. Fast, cached per-user, primary home view for active users.
+ - **ForYou Feed**: algorithmic / ranked recommendations (tag-weighted + recency/popularity). Discovery-first, less tied to follows - for "recommended" content.
+ - **Trending / New**: discovery feeds. Trending = popularity + recency within time window; New = strict recency.
+ - **Core feed**: internal cached structure (IDs + ordering). Not a UI feed — used to enrich and serve many view variants without recomputing rankings.
+
+### **Dockerization**
    - The docker setup includes multiple services and a few extra caveats in order to run hassle-free
       - *Mongo-setup service* - A helper service handling the keyfile for the single-node replica set auth
       - *MongoDB service* - Mongo database running as a single-node replica set with persistent storage volume
@@ -31,23 +36,19 @@ Tech stack:
     - Routing Architecture:
 ![image](https://github.com/user-attachments/assets/be1da114-3c9e-4eb1-b5d6-433338267a9b)
 
-- **Real-Time Functionality:**
+### Real-Time Functionality
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
-  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users.
+  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users. New users are exposed to the new and trending feeds first.
   - **Redis caching: The app uses a partitioned user feed caching strategy. Parts of the user feed are cached and invalidated when certain actions are taken by the user or other users. User cache invalidation only applies for certain actions and only the relevant users' cache is enriched/invalidated depending on the action.**
     
-- **CQRS**: **Currently working on gradually switching from the classic modular architecture to CQRS.**
+### CQRS: Working on gradually switching from the classic modular architecture to CQRS
   - Command, Query and Event buses are implemented and fully functional.
   - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
   - Some methods from the service layer are already obsolete and replaced by their corresponding commands and queries.
   - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses.
     
-- **API Gateway:** **Serves as a dedicated layer within the internal network focused solely on managing API traffic before it hits the final backend service**
-  - **Rate Limiting:**  Applies rate limiting (express-rate-limit). This logic lives within the gateway service. This ensures requests are limited before they even reach the core backend logic.
-  - **Centralized Logging (API Focus):** It provides specific logging points (onProxyReq, onProxyRes, onError) focused on the API request lifecycle as it passes between the frontend proxy and the backend service.
-  - **Decoupling & Routing Hub (Future Microservices):** Crucially, this gateway is perfectly positioned for when I break down the monolith (backend service) into microservices.
     
-- **Modular Backend Architecture:**
+### Modular Backend Architecture
   - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
   - **Repositories:** A base repository abstract class extended by model-specific repositories.
   - **Service Layer & Controllers:** Clean separation of business logic from API request handling.
@@ -55,7 +56,10 @@ Tech stack:
   - **Dependency Injection:** Using TSyringe for DI, ensuring loose coupling and testability.
   - **Custom Error Handling:** Implemented via a factory pattern for consistent error responses.
   - **Data Transfer Objects (DTOs):** Tailored data views for guests, authenticated users, and admins.
-    
+  - **API Gateway:** **Serves as a dedicated layer within the internal network focused solely on managing API traffic before it hits the final backend service**
+  - **Rate Limiting:**  Applies rate limiting (express-rate-limit). This logic lives within the gateway service. This ensures requests are limited before they even reach the core backend logic.
+  - **Centralized Logging (API Focus):** It provides specific logging points (onProxyReq, onProxyRes, onError) focused on the API request lifecycle as it passes between the frontend proxy and the backend service.
+  - **Decoupling & Routing Hub (Future Microservices):** Crucially, this gateway is perfectly positioned for when I break down the monolith (backend service) into microservices.
 
     
 - **Modern Frontend:**
@@ -66,52 +70,12 @@ Tech stack:
     
 - **Transaction Management:**
   - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
-    
-- **Docker:**
-  - You can run the app in docker using `docker-compose up --build` It defaults to using local storage in /backend/uploads for images if Cloudinary credentials are not set. When running in Docker it also uses [nginx](https://nginx.org/en/). 
-    
+        
 - **Planned Enhancements:**
   - **Redis:** Expanding Redis coverage for the app. 
   - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
   - **Decoupling:** Planning on decoupling functionality from the monolith into microservices
 
-## API Endpoints
-
-### Users
-- **GET** `/api/users/:userId` - Retrieve user information by ID.
-- **GET** `/api/users/users` - Retrieve a list of users.
-- **GET** `/api/users/me` - Get the profile of the logged-in user. (requires authentication).
-- **GET** `/api/users/follows/:followeeId` - Check if a follow relationship exists. (requires authentication).
-- **POST** `/api/users/register` - Register a new user.
-- **POST** `/api/users/login` - Authenticate a user. 
-- **POST** `/api/users/logout` - Log out the current user. 
-- **POST** `/api/users/follow/:followeeId` - Follow another user(if the follower already follows the followee, they unfollow them). (requires authentication).
-- **POST** `/api/users/like/:imageId` - Like an image(if the image is already liked, the user un-likes it). (requires authentication).
-- **PUT** `/api/users/edit` - Update user profile information. (requires authentication).
-- **PUT** `/api/users/avatar` - Update user avatar. (requires authentication).
-- **PUT** `/api/users/cover` - Update user cover photo. (requires authentication).
-- **DELETE** `/api/users/:id` - Delete a user. (requires authentication).
-
-### Images
-- **GET** `/api/images/` - Retrieve all images.
-- **GET** `/api/images/user/:id` - Get images uploaded by a specific user.
-- **GET** `/api/images/search/tags` - Search images by tags.
-- **GET** `/api/images/:id` - Retrieve image by ID.
-- **GET** `/api/images/tags` - Retrieve all available tags.
-- **POST** `/api/images/upload` - Upload a new image (requires authentication).
-- **DELETE** `/api/images/:id` - Delete an image (requires authentication).
-
-### Search
-- **GET** `/api/search/` - Perform a universal search across users, images, and tags.
-
-### Admin
-- **API paths under `/api/admin`** - Administrative actions and management tasks.
-
-### Notifications
-- **API paths under `/api/notifications`** - Managing real-time notifications. (requires authentication).
-
-### Feed
-- **GET** `/api/feed/` - Retrieve a personalized feed for the logged-in user. (requires authentication, guest users get a generic feed sorted by recency).
 
 
 ## Architecture & Implementation
