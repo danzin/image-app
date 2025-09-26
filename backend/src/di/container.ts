@@ -86,6 +86,20 @@ export function setupContainer(): void {
 	container.registerSingleton("Server", Server);
 }
 
+// container.register("X", { useValue: value }) binds an existing value and is
+// great for things like models or config objects that are effectively singletons anyway
+
+// container.registerSingleton(...) binds a class as a singleton aka the same instance
+// is returned each time it is resolved.
+// Great for repositories, servvices, buses, controllers etc
+// because these are expensive to create, hold resources/connections/state/cache etc
+// and must be single source of truth across the app
+
+// container.register("Token", { useClass: HandlerClass }) binds a class as transient
+// aka a new instance is created each time it is resolved
+// Great for things like command/query/event handlers that may hold
+// per-request state like sessions
+
 function registerCoreComponents(): void {
 	container.register("UserModel", { useValue: User });
 	container.register("ImageModel", { useValue: Image });
@@ -209,22 +223,7 @@ function registerCQRS(): void {
 		CreateCommentCommand,
 		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
 	);
-	commandBus.register(
-		DeleteCommentCommand,
-		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
-	);
-	commandBus.register(
-		CreateCommentCommand,
-		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
-	);
-	commandBus.register(
-		DeleteCommentCommand,
-		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
-	);
-	commandBus.register(
-		CreateCommentCommand,
-		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
-	);
+
 	commandBus.register(
 		DeleteCommentCommand,
 		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
