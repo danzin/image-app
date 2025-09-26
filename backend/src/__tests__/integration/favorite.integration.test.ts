@@ -1,6 +1,5 @@
 import { describe, it } from "mocha";
 import { expect } from "chai";
-import { Types } from "mongoose";
 import "reflect-metadata";
 
 // Integration test to verify all components work together
@@ -35,9 +34,9 @@ describe("Favorite Feature Integration", () => {
 	it("should have correct favorite routes pattern", () => {
 		// Verify the API route patterns match expected frontend usage
 		const expectedRoutes = [
-			"POST /images/:publicId/favorite",
-			"DELETE /images/:publicId/favorite",
-			"GET /users/:publicId/favorites",
+			"POST /favorites/images/:publicId",
+			"DELETE /favorites/images/:publicId",
+			"GET /favorites/user",
 		];
 
 		expect(expectedRoutes).to.have.lengthOf(3);

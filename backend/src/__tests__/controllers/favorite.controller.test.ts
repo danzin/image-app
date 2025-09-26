@@ -168,13 +168,11 @@ describe("FavoriteController", () => {
 	});
 
 	describe("getFavorites", () => {
-		const profileOwnerPublicId = "user-public-456";
-		const viewerPublicId = "user-public-456"; // Same as profile owner
+		const viewerPublicId = "user-public-456"; // The logged-in user viewing their own favorites
 		const internalUserId = new Types.ObjectId().toString();
 
 		beforeEach(() => {
 			mockReq = {
-				params: { publicId: profileOwnerPublicId },
 				decodedUser: { publicId: viewerPublicId },
 				query: {},
 			};
@@ -199,7 +197,7 @@ describe("FavoriteController", () => {
 
 			await controller.getFavorites(mockReq as TestRequest, mockRes as Response, mockNext);
 
-			expect(mockUserRepository.findInternalIdByPublicId.calledWith(profileOwnerPublicId)).to.be.true;
+			expect(mockUserRepository.findInternalIdByPublicId.calledWith(viewerPublicId)).to.be.true;
 			expect(mockFavoriteRepository.findFavoritesByUserId.calledWith(internalUserId, 1, 20)).to.be.true;
 			expect(mockDTOService.toPublicImageDTO.calledWith(mockImages[0], viewerPublicId)).to.be.true;
 			expect((mockRes.status as SinonStub).calledWith(200)).to.be.true;
@@ -214,15 +212,28 @@ describe("FavoriteController", () => {
 			).to.be.true;
 		});
 
-		it("should handle unauthorized access to other user's favorites", async () => {
-			mockReq.decodedUser!.publicId = "different-user-456";
+		it("should successfully get favorites with custom pagination", async () => {
+			mockReq.query = { page: "2", limit: "10" };
+			const mockImages = [] as IImage[];
+
+			mockUserRepository.findInternalIdByPublicId.resolves(internalUserId);
+			mockFavoriteRepository.findFavoritesByUserId.resolves({
+				data: mockImages,
+				total: 15,
+			});
 
 			await controller.getFavorites(mockReq as TestRequest, mockRes as Response, mockNext);
 
-			expect(mockNext.calledOnce).to.be.true;
-			const error = mockNext.getCall(0).args[0];
-			expect(error.name).to.equal("ForbiddenError");
-			expect(error.message).to.equal("You are not authorized to view this user's favorites.");
+			expect(mockFavoriteRepository.findFavoritesByUserId.calledWith(internalUserId, 2, 10)).to.be.true;
+			expect(
+				(mockRes.json as SinonStub).calledWith({
+					data: [],
+					page: 2,
+					limit: 10,
+					total: 15,
+					totalPages: 2,
+				})
+			).to.be.true;
 		});
 
 		it("should handle user not found", async () => {
@@ -243,7 +254,8 @@ describe("FavoriteController", () => {
 
 			expect(mockNext.calledOnce).to.be.true;
 			const error = mockNext.getCall(0).args[0];
-			expect(error.name).to.equal("ForbiddenError");
+			expect(error.name).to.equal("NotFoundError");
+			expect(error.message).to.equal("User not found");
 		});
 	});
 });
