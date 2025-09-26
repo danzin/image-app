@@ -22,7 +22,6 @@ export class FavoriteController {
 	 */
 	addFavorite = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			// 1. Identify the Actor (who is doing the action) and the Target (what is being actioned on)
 			const { publicId: imagePublicId } = req.params; // The TARGET is the image from the URL
 			const actorPublicId = req.decodedUser?.publicId; // The ACTOR is the logged-in user from the token
 
@@ -30,7 +29,6 @@ export class FavoriteController {
 				throw createError("AuthenticationError", "User must be logged in to favorite an image.");
 			}
 
-			// 2. Translate public IDs to internal database IDs for the service layer
 			const internalActorId = await this.userRepository.findInternalIdByPublicId(actorPublicId);
 			const internalImageId = await this.imageRepository.findInternalIdByPublicId(imagePublicId);
 
@@ -38,7 +36,6 @@ export class FavoriteController {
 				throw createError("NotFoundError", "User or Image not found");
 			}
 
-			// 3. Call the service with the internal IDs
 			await this.favoriteService.addFavorite(internalActorId, internalImageId);
 			res.status(204).send(); // 204 No Content is appropriate for a successful action with no body
 		} catch (error) {
@@ -77,17 +74,12 @@ export class FavoriteController {
 	 */
 	getFavorites = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId: profileOwnerPublicId } = req.params; // The TARGET is the user profile being viewed
 			const viewerPublicId = req.decodedUser?.publicId; // The VIEWER (actor) is the logged-in user
-
-			if (profileOwnerPublicId !== viewerPublicId) {
-				throw createError("ForbiddenError", "You are not authorized to view this user's favorites.");
-			}
 
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 
-			const internalUserId = await this.userRepository.findInternalIdByPublicId(profileOwnerPublicId);
+			const internalUserId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
 			if (!internalUserId) {
 				throw createError("NotFoundError", "User not found");
 			}

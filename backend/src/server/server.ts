@@ -97,7 +97,7 @@ export class Server {
 		this.app.use("/admin", this.adminUserRoutes.getRouter());
 		this.app.use("/notifications/", this.notificationRoutes.getRouter());
 		this.app.use("/feed", this.feedRoutes.getRouter());
-		this.app.use("/", this.favoriteRoutes.getRouter()); // Favorites include both /images and /users routes
+		this.app.use("/favorites", this.favoriteRoutes.getRouter());
 
 		// Catch-all route for debugging
 		this.app.use("*", (req, res) => {
@@ -114,8 +114,8 @@ export class Server {
 					"/api/admin",
 					"/api/notifications",
 					"/api/feed",
-					"/api/images/:imageId/favorite (POST/DELETE)",
-					"/api/users/:userId/favorites (GET)",
+					"/api/favorites/images/:imageId/ (POST/DELETE)",
+					"/api/favorites/user (GET)",
 				],
 			});
 		});

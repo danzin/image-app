@@ -14,11 +14,11 @@ export class FavoriteRoutes {
 
 	private initializeRoutes(): void {
 		// Image-based favorite actions (add/remove favorite from specific image)
-		this.router.post("/images/:publicId/favorite", this.auth, this.favoriteController.addFavorite);
-		this.router.delete("/images/:publicId/favorite", this.auth, this.favoriteController.removeFavorite);
+		this.router.post("/images/:publicId", this.auth, this.favoriteController.addFavorite);
+		this.router.delete("/images/:publicId", this.auth, this.favoriteController.removeFavorite);
 
 		// User-based favorites listing (get all favorites for a user)
-		this.router.get("/users/:publicId/favorites", this.auth, this.favoriteController.getFavorites);
+		this.router.get("/user", this.auth, this.favoriteController.getFavorites);
 	}
 
 	public getRouter(): express.Router {
