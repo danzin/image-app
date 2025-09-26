@@ -2,7 +2,7 @@ import { CommentRepository, TransformedComment } from "../repositories/comment.r
 import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { createError } from "../utils/errors";
-import { IComment } from "../models/comment.model";
+import { IComment } from "types/index";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
