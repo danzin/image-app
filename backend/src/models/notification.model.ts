@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { INotification } from "../types";
 
-const notificationSchema = new mongoose.Schema<INotification>({
+const notificationSchema = new Schema<INotification>({
 	userId: { type: String, required: true }, // receiver publicId
 	actionType: { type: String, required: true },
 	actorId: { type: String, required: true }, // actor publicId

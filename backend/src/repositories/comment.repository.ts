@@ -1,6 +1,6 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { BaseRepository } from "./base.repository";
-import { IComment } from "../models/comment.model";
+import { IComment } from "types/index";
 import { inject, injectable } from "tsyringe";
 
 // Interface for the transformed comment that matches frontend expectations

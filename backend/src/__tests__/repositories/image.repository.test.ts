@@ -100,7 +100,7 @@ describe("ImageRepository", () => {
 			try {
 				await repository.findById(invalidId);
 				throw new Error("Excpect findById to throw");
-			} catch (err) {
+			} catch (err: any) {
 				expect(err.name).to.equal("ValidationError");
 				expect(err.message).to.equal("Invalid image ID");
 				expect(mockModel.findById.called).to.be.false;

@@ -4,16 +4,20 @@ import { container } from "tsyringe";
 import User from "../models/user.model";
 import Image, { Tag } from "../models/image.model";
 import { Comment } from "../models/comment.model";
+import Favorite from "../models/favorite.model";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { CommentRepository } from "../repositories/comment.repository";
+import { FavoriteRepository } from "repositories/favorite.repository";
 import { CloudinaryService } from "../services/cloudinary.service";
 import { UserService } from "../services/user.service";
 import { ImageService } from "../services/image.service";
+import { FavoriteService } from "services/favorite.service";
 import { CommentService } from "../services/comment.service";
 import { UserController } from "../controllers/user.controller";
 import { ImageController } from "../controllers/image.controller";
+import { FavoriteController } from "controllers/favorite.controller";
 import { CommentController } from "../controllers/comment.controller";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
@@ -43,6 +47,7 @@ import { UserPreference } from "../models/userPreference.model";
 import { FeedService } from "../services/feed.service";
 import { FeedController } from "../controllers/feed.controller";
 import { FeedRoutes } from "../routes/feed.routes";
+import { FavoriteRoutes } from "../routes/favorite.routes";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { RedisService } from "../services/redis.service";
 import { LocalStorageService } from "../services/localStorage.service";
@@ -91,6 +96,7 @@ function registerCoreComponents(): void {
 	container.register("LikeModel", { useValue: Like });
 	container.register("UserActionModel", { useValue: UserAction });
 	container.register("UserPreferenceModel", { useValue: UserPreference });
+	container.register("FavoriteModel", { useValue: Favorite });
 	container.registerSingleton("WebSocketServer", WebSocketServer);
 }
 
@@ -106,6 +112,7 @@ function registerRepositories(): void {
 	container.registerSingleton("NotificationRepository", NotificationRepository);
 	container.registerSingleton("LikeRepository", LikeRepository);
 	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
+	container.registerSingleton("FavoriteRepository", FavoriteRepository);
 }
 
 // Register Services
@@ -130,6 +137,7 @@ function registerServices(): void {
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
+	container.registerSingleton("FavoriteService", FavoriteService);
 }
 
 // Register Controllers as singletons
@@ -141,6 +149,7 @@ function registerControllers(): void {
 	container.registerSingleton("NotificationController", NotificationController);
 	container.registerSingleton("AdminUserController", AdminUserController);
 	container.registerSingleton("FeedController", FeedController);
+	container.registerSingleton("FavoriteController", FavoriteController);
 }
 
 // Register Routes as singletons
@@ -152,6 +161,7 @@ function registerRoutes(): void {
 	container.registerSingleton("AdminUserRoutes", AdminUserRoutes);
 	container.registerSingleton("NotificationRoutes", NotificationRoutes);
 	container.registerSingleton("FeedRoutes", FeedRoutes);
+	container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
 }
 
 // Register CQRS components
