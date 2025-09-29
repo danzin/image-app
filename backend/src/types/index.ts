@@ -14,3 +14,4 @@ export * from "./customUserPreference/userPreference.types";
 export * from "./customImageStorage/imageStorage.types";
 export * from "./customFavorites/favorites.types";
 export * from "./customComments/comments.types";
+export * from "./customMessages/messages.types";

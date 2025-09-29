@@ -5,11 +5,15 @@ import User from "../models/user.model";
 import Image, { Tag } from "../models/image.model";
 import { Comment } from "../models/comment.model";
 import Favorite from "../models/favorite.model";
+import Conversation from "../models/conversation.model";
+import Message from "../models/message.model";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { CommentRepository } from "../repositories/comment.repository";
 import { FavoriteRepository } from "../repositories/favorite.repository";
+import { ConversationRepository } from "../repositories/conversation.repository";
+import { MessageRepository } from "../repositories/message.repository";
 import { CloudinaryService } from "../services/cloudinary.service";
 import { UserService } from "../services/user.service";
 import { ImageService } from "../services/image.service";
@@ -48,6 +52,7 @@ import { FeedService } from "../services/feed.service";
 import { FeedController } from "../controllers/feed.controller";
 import { FeedRoutes } from "../routes/feed.routes";
 import { FavoriteRoutes } from "../routes/favorite.routes";
+import { MessagingService } from "../services/messaging.service";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { RedisService } from "../services/redis.service";
 import { LocalStorageService } from "../services/localStorage.service";
@@ -75,6 +80,8 @@ import { CreateCommentCommand } from "../application/commands/comments/createCom
 import { CreateCommentCommandHandler } from "../application/commands/comments/createComment/createComment.handler";
 import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
 import { DeleteCommentCommandHandler } from "../application/commands/comments/deleteComment/deleteComment.handler";
+import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+import { MessageSentEvent } from "../application/events/message/message.event";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -111,6 +118,8 @@ function registerCoreComponents(): void {
 	container.register("UserActionModel", { useValue: UserAction });
 	container.register("UserPreferenceModel", { useValue: UserPreference });
 	container.register("FavoriteModel", { useValue: Favorite });
+	container.register("ConversationModel", { useValue: Conversation });
+	container.register("MessageModel", { useValue: Message });
 	container.registerSingleton("WebSocketServer", WebSocketServer);
 }
 
@@ -127,6 +136,8 @@ function registerRepositories(): void {
 	container.registerSingleton("LikeRepository", LikeRepository);
 	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
 	container.registerSingleton("FavoriteRepository", FavoriteRepository);
+	container.registerSingleton("ConversationRepository", ConversationRepository);
+	container.registerSingleton("MessageRepository", MessageRepository);
 }
 
 // Register Services
@@ -152,6 +163,7 @@ function registerServices(): void {
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
 	container.registerSingleton("FavoriteService", FavoriteService);
+	container.registerSingleton("MessagingService", MessagingService);
 }
 
 // Register Controllers as singletons
@@ -200,6 +212,7 @@ function registerCQRS(): void {
 
 	// Register interaction handlers
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
+	container.register("MessageSentHandler", { useClass: MessageSentHandler });
 
 	// Setup the buses
 	const commandBus = container.resolve<CommandBus>("CommandBus");
@@ -211,6 +224,7 @@ function registerCQRS(): void {
 	eventBus.subscribe(ImageUploadedEvent, container.resolve<ImageUploadHandler>("ImageUploadHandler"));
 	eventBus.subscribe(ImageDeletedEvent, container.resolve<ImageDeleteHandler>("ImageDeleteHandler"));
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
 
 	// Register command handlers with command bus
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
