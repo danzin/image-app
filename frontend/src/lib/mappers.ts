@@ -30,6 +30,7 @@ export function mapImage(rawInput: unknown): IImage {
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
 		createdAt: new Date(String(raw.createdAt || new Date().toISOString())),
 		isLikedByViewer: typeof raw.isLikedByViewer === "boolean" ? raw.isLikedByViewer : false,
+		isFavoritedByViewer: typeof raw.isFavoritedByViewer === "boolean" ? raw.isFavoritedByViewer : false,
 	};
 }
 

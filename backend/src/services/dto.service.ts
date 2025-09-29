@@ -41,6 +41,7 @@ export interface PublicImageDTO {
 	commentsCount: number;
 	createdAt: Date;
 	isLikedByViewer?: boolean; // Only when user is authenticated
+	isFavoritedByViewer?: boolean;
 }
 
 @injectable()
@@ -100,6 +101,7 @@ export class DTOService {
 			commentsCount: image.commentsCount || 0,
 			createdAt: image.createdAt,
 			isLikedByViewer: (image as any).isLikedByViewer || false,
+			isFavoritedByViewer: (image as any).isFavoritedByViewer || false,
 		};
 	}
 }

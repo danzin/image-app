@@ -58,6 +58,7 @@ export interface IImage {
 	commentsCount: number;
 	createdAt: Date;
 	isLikedByViewer?: boolean; // Only when user is authenticated
+	isFavoritedByViewer?: boolean;
 }
 
 export interface IComment {
@@ -130,6 +131,8 @@ export interface GalleryProps {
 	isFetchingNext?: boolean;
 	isLoadingFiltered?: boolean;
 	isLoadingAll?: boolean;
+	emptyTitle?: string;
+	emptyDescription?: string;
 }
 
 export interface Notification {

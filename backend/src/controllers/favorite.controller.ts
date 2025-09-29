@@ -86,7 +86,12 @@ export class FavoriteController {
 
 			const { data, total } = await this.favoriteRepository.findFavoritesByUserId(internalUserId, page, limit);
 
-			const imageDTOs = data.map((img) => this.dtoService.toPublicImageDTO(img, viewerPublicId));
+			const dataWithFlag = data.map((img) => {
+				(img as any).isFavoritedByViewer = true;
+				return img;
+			});
+
+			const imageDTOs = dataWithFlag.map((img) => this.dtoService.toPublicImageDTO(img, viewerPublicId));
 
 			res.status(200).json({
 				data: imageDTOs,
