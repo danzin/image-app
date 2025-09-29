@@ -3,7 +3,7 @@ import { IImage, ITag } from "../types";
 import User from "./user.model";
 import { v4 as uuidv4 } from "uuid";
 
-const imageSchema = new mongoose.Schema<IImage>({
+const imageSchema = new Schema<IImage>({
 	url: { type: String, required: true },
 	publicId: {
 		type: String,
@@ -21,9 +21,9 @@ const imageSchema = new mongoose.Schema<IImage>({
 		type: String,
 		required: true,
 	},
-	user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Reference to User schema
+	user: { type: Schema.Types.ObjectId, ref: "User", required: true }, // Reference to User schema
 	createdAt: { type: Date, default: Date.now },
-	tags: [{ type: mongoose.Schema.Types.ObjectId, ref: "Tag" }], // Reference to Tag schema
+	tags: [{ type: Schema.Types.ObjectId, ref: "Tag" }], // Reference to Tag schema
 	likes: { type: Number, default: 0, required: true },
 	commentsCount: { type: Number, default: 0, required: true }, // Track comment count for performance
 });

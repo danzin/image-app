@@ -12,3 +12,5 @@ export * from "./customUsers/user.types";
 export * from "./customUsers/dto.types";
 export * from "./customUserPreference/userPreference.types";
 export * from "./customImageStorage/imageStorage.types";
+export * from "./customFavorites/favorites.types";
+export * from "./customComments/comments.types";

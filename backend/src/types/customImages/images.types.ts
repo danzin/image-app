@@ -16,4 +16,6 @@ export interface IImage extends Document {
 	likes: number;
 	commentsCount: number;
 	likedBy: string[];
+	isLikedByViewer?: boolean;
+	isFavoritedByViewer?: boolean;
 }

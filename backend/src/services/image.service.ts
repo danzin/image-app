@@ -2,6 +2,7 @@ import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { CommentRepository } from "../repositories/comment.repository";
 import { LikeRepository } from "../repositories/like.repository";
+import { FavoriteRepository } from "../repositories/favorite.repository";
 import { createError } from "../utils/errors";
 import type { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
 import { errorLogger } from "../utils/winston";
@@ -23,6 +24,7 @@ export class ImageService {
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
+		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("EventBus") private eventBus: EventBus
@@ -274,6 +276,9 @@ export class ImageService {
 				const isLikedByViewer = await this.checkIfUserLikedImage(viewerPublicId, (image as any)._id.toString());
 				console.log(`Setting isLikedByViewer to: ${isLikedByViewer}`);
 				(image as any).isLikedByViewer = isLikedByViewer;
+				const isFavoritedByViewer = await this.checkIfUserFavoritedImage(viewerPublicId, (image as any)._id.toString());
+				console.log(`Setting isFavoritedByViewer to: ${isFavoritedByViewer}`);
+				(image as any).isFavoritedByViewer = isFavoritedByViewer;
 			} else {
 				console.log(`No viewerPublicId provided for image ${publicId}, skipping like status check`);
 			}
@@ -296,12 +301,15 @@ export class ImageService {
 				throw createError("NotFoundError", "Image not found");
 			}
 
-			// Add like status if viewer is provided
+			// Add like/favorite status if viewer is provided
 			if (viewerPublicId) {
 				console.log(`Adding like status for viewer: ${viewerPublicId} on image slug: ${slug}`);
 				const isLikedByViewer = await this.checkIfUserLikedImage(viewerPublicId, (image as any)._id.toString());
 				console.log(`Setting isLikedByViewer to: ${isLikedByViewer}`);
 				(image as any).isLikedByViewer = isLikedByViewer;
+				const isFavoritedByViewer = await this.checkIfUserFavoritedImage(viewerPublicId, (image as any)._id.toString());
+				console.log(`Setting isFavoritedByViewer to: ${isFavoritedByViewer}`);
+				(image as any).isFavoritedByViewer = isFavoritedByViewer;
 			}
 
 			return image;
@@ -336,6 +344,21 @@ export class ImageService {
 		} catch (error) {
 			console.error("Error in checkIfUserLikedImage:", error);
 			// If there's an error checking likes, default to false
+			return false;
+		}
+	}
+
+	private async checkIfUserFavoritedImage(userPublicId: string, imageId: string): Promise<boolean> {
+		try {
+			const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+			if (!userInternalId) {
+				return false;
+			}
+
+			const favorite = await this.favoriteRepository.findByUserAndImage(userInternalId, imageId);
+			return favorite !== null;
+		} catch (error) {
+			console.error("Error in checkIfUserFavoritedImage:", error);
 			return false;
 		}
 	}

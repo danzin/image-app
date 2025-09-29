@@ -69,7 +69,7 @@ const userSchema = new Schema<IUser>(
 			required: false,
 		},
 		bannedBy: {
-			type: mongoose.Schema.Types.ObjectId,
+			type: Schema.Types.ObjectId,
 			ref: "User",
 			required: false,
 		},
@@ -81,13 +81,13 @@ const userSchema = new Schema<IUser>(
 		],
 		followers: [
 			{
-				type: mongoose.Schema.Types.ObjectId,
+				type: Schema.Types.ObjectId,
 				ref: "User",
 			},
 		],
 		following: [
 			{
-				type: mongoose.Schema.Types.ObjectId,
+				type: Schema.Types.ObjectId,
 				ref: "User",
 			},
 		],

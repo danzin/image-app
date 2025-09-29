@@ -11,7 +11,7 @@ import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { IComment } from "../../../../models/comment.model";
+import { IComment } from "types/index";
 import mongoose from "mongoose";
 
 @injectable()
