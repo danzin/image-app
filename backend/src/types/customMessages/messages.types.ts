@@ -45,6 +45,7 @@ export interface SendMessagePayload {
 	conversationPublicId?: string;
 	recipientPublicId?: string;
 	body: string;
+	attachments?: IMessageAttachment[];
 }
 
 export interface MessageDTO {

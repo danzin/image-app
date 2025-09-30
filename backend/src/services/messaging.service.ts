@@ -186,6 +186,10 @@ export class MessagingService {
 					conversation: new mongoose.Types.ObjectId(conversationId),
 					sender: new mongoose.Types.ObjectId(senderInternalId),
 					body: payload.body.trim(),
+					attachments:
+						Array.isArray(payload.attachments) && payload.attachments.length > 0
+							? payload.attachments.map((attachment) => ({ ...attachment }))
+							: undefined,
 					readBy: [new mongoose.Types.ObjectId(senderInternalId)],
 					status: "sent",
 				},

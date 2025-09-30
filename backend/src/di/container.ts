@@ -23,20 +23,27 @@ import { UserController } from "../controllers/user.controller";
 import { ImageController } from "../controllers/image.controller";
 import { FavoriteController } from "../controllers/favorite.controller";
 import { CommentController } from "../controllers/comment.controller";
+import { SearchController } from "../controllers/search.controller";
+import { NotificationController } from "../controllers/notification.controller";
+import { AdminUserController } from "../controllers/admin.controller";
+import { FeedController } from "../controllers/feed.controller";
+import { MessagingController } from "../controllers/messaging.controller";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
 import { CommentRoutes } from "../routes/comment.routes";
+import { SearchRoutes } from "../routes/search.routes";
+import { AdminUserRoutes } from "../routes/admin.routes";
+import { NotificationRoutes } from "../routes/notification.routes";
+import { FeedRoutes } from "../routes/feed.routes";
+import { FavoriteRoutes } from "../routes/favorite.routes";
+import { MessagingRoutes } from "../routes/messaging.routes";
 import { Server } from "../server/server";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { SearchService } from "../services/search.service";
-import { SearchController } from "../controllers/search.controller";
 import { FollowService } from "../services/follow.service";
 import Follow from "../models/follow.model";
-import { NotificationRepository } from "../repositories/notification.respository";
 import Notification from "../models/notification.model";
 import { NotificationService } from "../services/notification.service";
-import { NotificationController } from "../controllers/notification.controller";
-import { SearchRoutes } from "../routes/search.routes";
 import Like from "../models/like.model";
 import { LikeRepository } from "../repositories/like.repository";
 import UserAction from "../models/userAction.model";
@@ -44,14 +51,8 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { WebSocketServer } from "../server/socketServer";
 import { DTOService } from "../services/dto.service";
-import { AdminUserRoutes } from "../routes/admin.routes";
-import { AdminUserController } from "../controllers/admin.controller";
-import { NotificationRoutes } from "../routes/notification.routes";
 import { UserPreference } from "../models/userPreference.model";
 import { FeedService } from "../services/feed.service";
-import { FeedController } from "../controllers/feed.controller";
-import { FeedRoutes } from "../routes/feed.routes";
-import { FavoriteRoutes } from "../routes/favorite.routes";
 import { MessagingService } from "../services/messaging.service";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { RedisService } from "../services/redis.service";
@@ -82,6 +83,7 @@ import { DeleteCommentCommand } from "../application/commands/comments/deleteCom
 import { DeleteCommentCommandHandler } from "../application/commands/comments/deleteComment/deleteComment.handler";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
 import { MessageSentEvent } from "../application/events/message/message.event";
+import { NotificationRepository } from "../repositories/notification.respository";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -176,6 +178,7 @@ function registerControllers(): void {
 	container.registerSingleton("AdminUserController", AdminUserController);
 	container.registerSingleton("FeedController", FeedController);
 	container.registerSingleton("FavoriteController", FavoriteController);
+	container.registerSingleton("MessagingController", MessagingController);
 }
 
 // Register Routes as singletons
@@ -188,6 +191,7 @@ function registerRoutes(): void {
 	container.registerSingleton("NotificationRoutes", NotificationRoutes);
 	container.registerSingleton("FeedRoutes", FeedRoutes);
 	container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
+	container.registerSingleton("MessagingRoutes", MessagingRoutes);
 }
 
 // Register CQRS components
