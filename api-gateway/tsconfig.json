@@ -1,19 +1,19 @@
 {
-  "extends": "../tsconfig.base.json",
-  "compilerOptions": {
-  "composite": true,
-    "rootDir": "./src",
-    "outDir": "./dist",
-    "baseUrl": "./src",
-    "moduleResolution": "node",
-    "target": "ESNext",
-    "module": "ESNext",
-  "noEmit": false,
-    "skipLibCheck": true,
-    "types": ["node"]            /* limit ambient types so frontend @types don't bleed in */,
-    "emitDecoratorMetadata": true,
-    "experimentalDecorators": true
-  },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"composite": true,
+		"rootDir": "./src",
+		"outDir": "./dist",
+		"baseUrl": "./src",
+		"moduleResolution": "nodenext",
+		"target": "ESNext",
+		"module": "NodeNext",
+		"noEmit": false,
+		"skipLibCheck": true,
+		"types": ["node"] /* limit ambient types so frontend @types don't bleed in */,
+		"emitDecoratorMetadata": true,
+		"experimentalDecorators": true
+	},
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules", "**/*.test.ts", "**/*.spec.ts", "**/__tests__/**"]
 }

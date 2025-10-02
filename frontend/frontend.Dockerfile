@@ -10,7 +10,9 @@ COPY frontend/package.json ./frontend/
 RUN npm ci --include=dev
 
 # Copy the rest of the repo
-COPY . .
+COPY frontend/src ./frontend/src
+COPY frontend/tsconfig.json ./frontend/
+COPY tsconfig.base.json ./
 
 ARG VITE_API_URL
 ARG VITE_SOCKET_URL

@@ -29,9 +29,26 @@ export const useMessagingSocketIntegration = (): void => {
 
 			const { conversationId } = payload;
 
-			queryClient.invalidateQueries({ queryKey: ["messaging", "conversations"] });
+			queryClient.invalidateQueries({ queryKey: ["messaging", "conversations"], exact: false });
 			if (conversationId) {
-				queryClient.invalidateQueries({ queryKey: ["messaging", "conversation", conversationId] });
+				queryClient.invalidateQueries({
+					predicate: (query) => {
+						const key = query.queryKey;
+						return (
+							Array.isArray(key) && key[0] === "messaging" && key[1] === "conversation" && key[2] === conversationId
+						);
+					},
+				});
+
+				queryClient.refetchQueries({
+					predicate: (query) => {
+						const key = query.queryKey;
+						return (
+							Array.isArray(key) && key[0] === "messaging" && key[1] === "conversation" && key[2] === conversationId
+						);
+					},
+					type: "active",
+				});
 			}
 		};
 

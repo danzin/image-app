@@ -10,6 +10,28 @@ import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { MessageSentEvent } from "../application/events/message/message.event";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+/*
+Notes on messaging system:
+
+	Storing each message as its own MongoDB document is okay at moderate scale,
+	but if volume grows significantly, certain guardrails must be put into place.
+	
+	- Shard or partition by conversationId so Mongo splits write load and keeps indexes bounded; 
+			enable hashed sharding on conversationId + createdAt.
+	- Bound indexes (compound { conversationId: 1, createdAt: -1 }) and avoid multi-field text indexes on the hot collection.
+	- Cold-storage tiers: keep only the latest N (e.g., 5–20 k) messages per conversation in the primary messages collection,
+			then roll off older ones to an archive collection or object storage via scheduled jobs.
+	- Paginated reads using time or snowflake IDs rather than skip/limit to keep queries O(1).
+	- Soft deletes/retention policies (per workspace, per conversation) stop infinite growth.
+	- Attachment offloading: store blob metadata only; push files to S3/Cloudinary/other storage. 
+			Just not in the message document itself.
+	- Compression: enable MognoDB's WiredTiger block compression and keep payloads trimmed to reduce storage footprint.
+
+	With sharding plus archival and retention policies, single-document messages remain manageable even at scale.
+	For the current needs of the app, i'm keeping this approach. It's simple and fexible and I don't plan on
+	having thousands of active users with millions of messages each. 
+	This whole project is proof of concept. 
+*/
 
 @injectable()
 export class MessagingService {
@@ -40,28 +62,7 @@ export class MessagingService {
 		}
 
 		const result = await this.conversationRepository.findUserConversations(userInternalId, page, limit);
-		const conversations = await Promise.all(
-			result.data.map(async (conversation) => {
-				const unreadCounts = this.extractUnreadCounts(conversation.unreadCounts);
-				const lastMessage = conversation.lastMessage
-					? this.dtoService.toPublicMessageDTO(conversation.lastMessage, conversation.publicId)
-					: null;
-
-				return {
-					publicId: conversation.publicId,
-					participants: conversation.participants.map((participant: any) => ({
-						publicId: participant.publicId,
-						username: participant.username,
-						avatar: participant.avatar,
-					})),
-					lastMessage,
-					lastMessageAt: conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toISOString() : null,
-					unreadCount: unreadCounts[userInternalId] || 0,
-					isGroup: Boolean(conversation.isGroup),
-					title: conversation.title,
-				} as ConversationSummaryDTO;
-			})
-		);
+		const conversations = result.data.map((conversation) => this.mapConversationSummary(conversation, userInternalId));
 
 		return {
 			conversations,
@@ -70,6 +71,62 @@ export class MessagingService {
 			limit: result.limit,
 			totalPages: result.totalPages,
 		};
+	}
+
+	async initiateConversation(userPublicId: string, recipientPublicId: string): Promise<ConversationSummaryDTO> {
+		if (userPublicId === recipientPublicId) {
+			throw createError("ValidationError", "You cannot start a conversation with yourself");
+		}
+
+		const [userInternalId, recipientInternalId] = await Promise.all([
+			this.userRepository.findInternalIdByPublicId(userPublicId),
+			this.userRepository.findInternalIdByPublicId(recipientPublicId),
+		]);
+
+		if (!userInternalId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		if (!recipientInternalId) {
+			throw createError("NotFoundError", "Recipient not found");
+		}
+
+		const participantIds = [userInternalId, recipientInternalId];
+		const participantHash = this.buildParticipantHash(participantIds);
+
+		let conversation = await this.conversationRepository.findByParticipantHash(participantHash);
+
+		if (!conversation) {
+			conversation = await this.unitOfWork.executeInTransaction(async (session) => {
+				const participantObjectIds = participantIds.map((id) => new mongoose.Types.ObjectId(id));
+				const unreadSeed = participantIds.reduce<Record<string, number>>((acc, id) => {
+					acc[id] = 0;
+					return acc;
+				}, {});
+
+				return this.conversationRepository.create(
+					{
+						participantHash,
+						participants: participantObjectIds,
+						lastMessageAt: new Date(),
+						unreadCounts: unreadSeed as any,
+						isGroup: false,
+					},
+					session
+				);
+			});
+		}
+
+		const hydratedConversation = await this.conversationRepository.findByPublicId(conversation.publicId, undefined, {
+			populateParticipants: true,
+			includeLastMessage: true,
+		});
+
+		if (!hydratedConversation) {
+			throw createError("InternalError", "Conversation could not be loaded");
+		}
+
+		return this.mapConversationSummary(hydratedConversation, userInternalId);
 	}
 
 	async getConversationMessages(
@@ -137,7 +194,6 @@ export class MessagingService {
 
 		const messageDoc = await this.unitOfWork.executeInTransaction(async (session) => {
 			let conversationDoc = targetConversation;
-			let recipientInternalIds: string[] = [];
 
 			if (!conversationDoc) {
 				const recipientInternalId = await this.userRepository.findInternalIdByPublicId(payload.recipientPublicId!);
@@ -167,18 +223,19 @@ export class MessagingService {
 						session
 					);
 				}
-				recipientInternalIds = participantIds.filter((id) => id !== senderInternalId);
 			} else {
-				const isParticipant = conversationDoc.participants
-					.map((participant) => participant.toString())
-					.includes(senderInternalId);
-				if (!isParticipant) {
+				const existingParticipantIds = this.getParticipantIds(conversationDoc.participants);
+				if (!existingParticipantIds.includes(senderInternalId)) {
 					throw createError("ForbiddenError", "You do not have access to this conversation");
 				}
-				recipientInternalIds = conversationDoc.participants
-					.map((participant) => participant.toString())
-					.filter((id) => id !== senderInternalId);
 			}
+
+			const participantIds: string[] = this.getParticipantIds(conversationDoc!.participants);
+			if (!participantIds.includes(senderInternalId)) {
+				throw createError("ForbiddenError", "You do not have access to this conversation");
+			}
+
+			const recipientInternalIds: string[] = participantIds.filter((id: string) => id !== senderInternalId);
 
 			const conversationId = (conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString();
 			const message = await this.messageRepository.create(
@@ -204,18 +261,24 @@ export class MessagingService {
 						lastMessageAt: message.createdAt,
 						[`unreadCounts.${senderInternalId}`]: 0,
 					},
-					$inc: recipientInternalIds.reduce<Record<string, number>>((acc, recipientId) => {
-						acc[`unreadCounts.${recipientId}`] = 1;
-						return acc;
-					}, {}),
+					$inc: recipientInternalIds.reduce<Record<string, number>>(
+						(acc: Record<string, number>, recipientId: string) => {
+							acc[`unreadCounts.${recipientId}`] = 1;
+							return acc;
+						},
+						{}
+					),
 				},
 				session
 			);
 
 			await message.populate("sender", "publicId username avatar");
 
+			const participantObjectIds = participantIds.map(
+				(participantId: string) => new mongoose.Types.ObjectId(participantId)
+			);
 			const participantDocs = await this.userRepository
-				.find({ _id: { $in: conversationDoc!.participants } })
+				.find({ _id: { $in: participantObjectIds } })
 				.select("publicId")
 				.session(session)
 				.lean()
@@ -251,6 +314,35 @@ export class MessagingService {
 			.join(":");
 	}
 
+	private mapConversationSummary(conversation: any, userInternalId: string): ConversationSummaryDTO {
+		const unreadCounts = this.extractUnreadCounts(conversation.unreadCounts);
+		const participants = Array.isArray(conversation.participants)
+			? conversation.participants
+					.map((participant: any) => ({
+						publicId: participant?.publicId ?? this.extractParticipantId(participant) ?? "",
+						username: participant?.username ?? "",
+						avatar: participant?.avatar ?? "",
+					}))
+					.filter((participant: any) => Boolean(participant.publicId))
+			: [];
+
+		const hasLastMessage =
+			conversation.lastMessage && (conversation.lastMessage.publicId || conversation.lastMessage._id);
+		const lastMessage = hasLastMessage
+			? this.dtoService.toPublicMessageDTO(conversation.lastMessage as any, conversation.publicId)
+			: null;
+
+		return {
+			publicId: conversation.publicId,
+			participants,
+			lastMessage,
+			lastMessageAt: conversation.lastMessageAt ? new Date(conversation.lastMessageAt).toISOString() : null,
+			unreadCount: unreadCounts[userInternalId] || 0,
+			isGroup: Boolean(conversation.isGroup),
+			title: conversation.title,
+		};
+	}
+
 	private extractUnreadCounts(unreadCounts: any): Record<string, number> {
 		if (!unreadCounts) {
 			return {};
@@ -278,11 +370,72 @@ export class MessagingService {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		const hasAccess = conversation.participants.some((participant) => participant.toString() === userInternalId);
+		const hasAccess = Array.isArray(conversation.participants)
+			? conversation.participants.some((participant) => this.participantMatchesUser(participant, userInternalId))
+			: false;
 		if (!hasAccess) {
 			throw createError("ForbiddenError", "You do not have access to this conversation");
 		}
 
 		return conversation;
+	}
+
+	private participantMatchesUser(participant: any, userInternalId: string): boolean {
+		if (!participant) {
+			return false;
+		}
+
+		if (typeof participant === "string") {
+			return participant === userInternalId;
+		}
+
+		if (participant instanceof mongoose.Types.ObjectId) {
+			return participant.toString() === userInternalId;
+		}
+
+		const candidateId = this.extractParticipantId(participant);
+		return candidateId ? candidateId === userInternalId : false;
+	}
+
+	private extractParticipantId(participant: any): string | null {
+		if (!participant) {
+			return null;
+		}
+
+		if (participant instanceof mongoose.Types.ObjectId) {
+			return participant.toString();
+		}
+
+		if (typeof participant === "string") {
+			return participant;
+		}
+
+		if (typeof participant._id === "string") {
+			return participant._id;
+		}
+
+		if (participant._id instanceof mongoose.Types.ObjectId) {
+			return participant._id.toString();
+		}
+
+		if (typeof participant.id === "string") {
+			return participant.id;
+		}
+
+		if (typeof participant.toString === "function") {
+			return participant.toString();
+		}
+
+		return null;
+	}
+
+	private getParticipantIds(participants: any): string[] {
+		if (!Array.isArray(participants)) {
+			return [];
+		}
+
+		return participants
+			.map((participant: any) => this.extractParticipantId(participant))
+			.filter((id: string | null): id is string => Boolean(id));
 	}
 }

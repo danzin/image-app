@@ -58,6 +58,25 @@ export class MessagingController {
 		}
 	};
 
+	initiateConversation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const senderPublicId = req.decodedUser?.publicId as string | undefined;
+			if (!senderPublicId) {
+				throw createError("AuthenticationError", "User must be logged in to start a conversation");
+			}
+
+			const recipientPublicId = req.body.recipientPublicId as string | undefined;
+			if (!recipientPublicId) {
+				throw createError("ValidationError", "Recipient public ID is required");
+			}
+
+			const conversation = await this.messagingService.initiateConversation(senderPublicId, recipientPublicId);
+			res.status(201).json({ conversation });
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	sendMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const senderPublicId = req.decodedUser?.publicId as string | undefined;

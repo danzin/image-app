@@ -31,6 +31,12 @@ export class MessagingRoutes {
 		);
 
 		this.router.post(
+			"/conversations/initiate",
+			new ValidationMiddleware(MessagingValidationSchemas.initiateConversation()).validate(),
+			this.messagingController.initiateConversation
+		);
+
+		this.router.post(
 			"/conversations/:conversationId/read",
 			new ValidationMiddleware(MessagingValidationSchemas.markConversationRead()).validate(),
 			this.messagingController.markConversationRead

@@ -4,6 +4,28 @@ import { BaseRepository } from "./base.repository";
 import { IConversation } from "../types";
 import { createError } from "../utils/errors";
 
+/*
+Notes on messaging system:
+
+	Storing each message as its own MongoDB document is okay at moderate scale,
+	but if volume grows significantly, certain guardrails must be put into place.
+	
+	- Shard or partition by conversationId so Mongo splits write load and keeps indexes bounded; 
+			enable hashed sharding on conversationId + createdAt.
+	- Bound indexes (compound { conversationId: 1, createdAt: -1 }) and avoid multi-field text indexes on the hot collection.
+	- Cold-storage tiers: keep only the latest N (e.g., 5–20 k) messages per conversation in the primary messages collection,
+			then roll off older ones to an archive collection or object storage via scheduled jobs.
+	- Paginated reads using time or snowflake IDs rather than skip/limit to keep queries O(1).
+	- Soft deletes/retention policies (per workspace, per conversation) stop infinite growth.
+	- Attachment offloading: store blob metadata only; push files to S3/Cloudinary/other storage. 
+			Just not in the message document itself.
+	- Compression: enable MognoDB's WiredTiger block compression and keep payloads trimmed to reduce storage footprint.
+
+	With sharding plus archival and retention policies, single-document messages remain manageable even at scale.
+	For the current needs of the app, i'm keeping this approach. It's simple and fexible and I don't plan on
+	having thousands of active users with millions of messages each. 
+	This whole project is proof of concept.
+*/
 @injectable()
 export class ConversationRepository extends BaseRepository<IConversation> {
 	constructor(@inject("ConversationModel") model: Model<IConversation>) {
@@ -111,7 +133,6 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 						title: 1,
 						createdAt: 1,
 						updatedAt: 1,
-						lastMessageSender: 0,
 					},
 				},
 				{ $skip: skip },

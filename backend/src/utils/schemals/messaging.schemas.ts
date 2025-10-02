@@ -52,6 +52,15 @@ export class MessagingSchemas {
 			})
 			.options({ allowUnknown: false, stripUnknown: true });
 	}
+
+	static initiateConversationBody(): Joi.ObjectSchema {
+		return Joi.object({
+			recipientPublicId: Joi.string().pattern(publicIdPattern).required().messages({
+				"string.pattern.base": "Invalid recipient public ID format",
+				"any.required": "Recipient public ID is required",
+			}),
+		}).options({ allowUnknown: false, stripUnknown: true });
+	}
 }
 
 export class MessagingValidationSchemas {
@@ -75,6 +84,12 @@ export class MessagingValidationSchemas {
 	static sendMessage(): ValidationSchema {
 		return {
 			body: MessagingSchemas.sendMessageBody(),
+		};
+	}
+
+	static initiateConversation(): ValidationSchema {
+		return {
+			body: MessagingSchemas.initiateConversationBody(),
 		};
 	}
 }

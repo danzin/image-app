@@ -1,5 +1,5 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchUserFavorites } from "../../api/favorites";
+import { fetchUserFavorites } from "../../api/favoritesApi";
 import { mapImage } from "../../lib/mappers";
 import { useAuth } from "../context/useAuth";
 import { IImage } from "../../types";

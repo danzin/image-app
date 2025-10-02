@@ -14,11 +14,13 @@
 			"database/*": ["src/database/*"],
 			"di/*": ["src/di/*"],
 			"middleware/*": ["src/middleware/*"],
-			"services/*": ["src/services/*"],
+			"models/*": ["src/models/*"],
 			"repositories/*": ["src/repositories/*"],
-			"utils/*": ["src/utils/*"],
+			"routes/*": ["src/routes/*"],
 			"server/*": ["src/server/*"],
-			"types/*": ["src/types/*"]
+			"services/*": ["src/services/*"],
+			"types/*": ["src/types/*"],
+			"utils/*": ["src/utils/*"]
 		},
 		"moduleResolution": "node",
 		"types": ["node"]

@@ -3,7 +3,6 @@ import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
-// explicit .js so compiled output works (TS maps this to config.ts during build)
 import { config } from "./config.js";
 
 interface ExtendedProxyOptions extends Options<IncomingMessage, ServerResponse> {

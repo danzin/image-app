@@ -35,6 +35,7 @@ export class RealTimeFeedService {
 	 */
 	private async initializePubSubListener(): Promise<void> {
 		try {
+			// Subscribe to feed_updates and messaging_updates channels for real time feed updates and message delivery
 			await this.redisService.subscribe(["feed_updates", "messaging_updates"], (channel: string, message: any) => {
 				// Handle case where message might be a string that needs parsing
 				let parsedMessage: FeedUpdateMessage;

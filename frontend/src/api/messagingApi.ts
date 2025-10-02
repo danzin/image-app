@@ -24,7 +24,14 @@ export interface SendMessageRequest {
 	attachments?: MessageAttachment[];
 }
 
-export const fetchConversations = async (page = 1, limit = 20): Promise<ConversationListResponse> => {
+export interface InitiateConversationResponse {
+	conversation: ConversationSummaryDTO;
+}
+
+export const fetchConversations = async (
+	params: { page?: number; limit?: number } = {}
+): Promise<ConversationListResponse> => {
+	const { page = 1, limit = 20 } = params;
 	const { data } = await axiosClient.get("/api/messaging/conversations", {
 		params: { page, limit },
 	});
@@ -33,9 +40,9 @@ export const fetchConversations = async (page = 1, limit = 20): Promise<Conversa
 
 export const fetchConversationMessages = async (
 	conversationPublicId: string,
-	page = 1,
-	limit = 30
+	params: { page?: number; limit?: number } = {}
 ): Promise<ConversationMessagesResponse> => {
+	const { page = 1, limit = 30 } = params;
 	const { data } = await axiosClient.get(`/api/messaging/conversations/${conversationPublicId}/messages`, {
 		params: { page, limit },
 	});
@@ -48,5 +55,12 @@ export const markConversationRead = async (conversationPublicId: string): Promis
 
 export const sendMessage = async (payload: SendMessageRequest): Promise<{ message: MessageDTO }> => {
 	const { data } = await axiosClient.post("/api/messaging/messages", payload);
+	return data;
+};
+
+export const initiateConversation = async (recipientPublicId: string): Promise<InitiateConversationResponse> => {
+	const { data } = await axiosClient.post("/api/messaging/conversations/initiate", {
+		recipientPublicId,
+	});
 	return data;
 };
