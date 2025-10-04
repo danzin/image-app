@@ -15,8 +15,11 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
 	useEffect(() => {
 		if (!isLoggedIn || !user) return;
+		// in production (nginx), use same origin; in dev, use explicit socket URL or API URL
 		const base = import.meta.env.VITE_SOCKET_URL || import.meta.env.VITE_API_URL || window.location.origin;
 		const socketUrl = base.replace(/\/$/, "");
+
+		console.log("[SocketProvider] Connecting to:", socketUrl);
 
 		const socket = io(socketUrl, {
 			path: "/socket.io",

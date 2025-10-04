@@ -140,7 +140,17 @@ app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
 	console.log(`Gateway listening on port ${config.port}`);
 	console.log(`Forwarding to backend at ${config.backendUrl}`);
+});
+
+// Handle WebSocket upgrade for Socket.IO
+server.on("upgrade", (req, socket, head) => {
+	console.log(`[Gateway] WebSocket upgrade request for ${req.url}`);
+	if (req.url?.startsWith("/socket.io")) {
+		// proxy upgrade handled by http-proxy-middleware
+		// log it for debugging
+		console.log("[Gateway] Proxying WebSocket upgrade to backend");
+	}
 });

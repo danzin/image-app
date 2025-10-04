@@ -31,6 +31,7 @@ export class WebSocketServer {
 			},
 
 			transports: ["websocket", "polling"],
+			path: "/socket.io",
 		});
 
 		/**
