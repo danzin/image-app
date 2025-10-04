@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { useImages, useImagesByTag, usePersonalizedFeed } from "../hooks/images/useImages";
 import Gallery from "../components/Gallery";
 import { Box, Button, Typography, useTheme, Container, alpha } from "@mui/material";
@@ -11,22 +10,13 @@ import { shouldShowDiscoveryFirst } from "../lib/userOnboarding";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
-	const navigate = useNavigate();
 	const { selectedTags, clearTags } = useGallery();
 	const { user, isLoggedIn, loading: authLoading } = useAuth();
 
 	const [authTransitionComplete, setAuthTransitionComplete] = useState(false);
 
-	// Redirect new users to Discovery
-	useEffect(() => {
-		if (!authLoading && shouldShowDiscoveryFirst(user, isLoggedIn)) {
-			// Only redirect if we're actually on the home page and not coming from /discover
-			if (window.location.pathname === "/" && !window.location.search.includes("from=discover")) {
-				navigate("/discover");
-				return;
-			}
-		}
-	}, [authLoading, user, isLoggedIn, navigate]);
+	// no automatic redirect - let new users access Home but show them discovery content
+	// they can navigate between Home and Discovery freely
 
 	useEffect(() => {
 		if (authLoading) {
@@ -48,7 +38,9 @@ const Home: React.FC = () => {
 	console.log("Home - PersonalizedFeed data:", personalizedFeedQuery.data?.pages?.[0]?.data?.[0]);
 	console.log("Home - Images data:", imagesQuery.data?.pages?.[0]?.data?.[0]);
 
-	const shouldUsePersonalizedFeed = isLoggedIn && authTransitionComplete && !authLoading;
+	// show personalized feed only if logged in, auth complete, and NOT a new user
+	const isNewUser = shouldShowDiscoveryFirst(user, isLoggedIn);
+	const shouldUsePersonalizedFeed = isLoggedIn && authTransitionComplete && !authLoading && !isNewUser;
 
 	const mainQuery = shouldUsePersonalizedFeed ? personalizedFeedQuery : imagesQuery;
 

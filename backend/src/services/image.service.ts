@@ -37,7 +37,7 @@ export class ImageService {
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				// Find user by publicId (no internal id from client)
-				const user = await this.userRepository.findByPublicId(userPublicId);
+				const user = await this.userRepository.findByPublicId(userPublicId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}

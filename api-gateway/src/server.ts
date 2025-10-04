@@ -103,15 +103,37 @@ app.use(
 
 // Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
 console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
-app.use(
-	"/socket.io",
-	createProxyMiddleware({
-		target: config.backendUrl,
-		changeOrigin: true,
-		ws: true,
-		...proxyOptions,
-	})
-);
+
+// Store middleware reference for upgrade handling
+const socketIoProxyMiddleware = createProxyMiddleware({
+	target: config.backendUrl,
+	changeOrigin: true,
+	ws: true,
+	timeout: 10000,
+	proxyTimeout: 10000,
+	logLevel: "debug",
+	onProxyReq: (proxyReq: any, req: Request) => {
+		console.log(
+			`[Gateway] Proxying Socket.IO ${req.method} ${req.originalUrl} -> ${config.backendUrl}${proxyReq.path}`
+		);
+		proxyReq.setHeader("X-Forwarded-By", "api-gateway");
+	},
+	onProxyRes: (proxyRes: any, req: Request) => {
+		console.log(`[Gateway] Socket.IO Response ${proxyRes.statusCode} for ${req.originalUrl}`);
+	},
+	onError: (err: Error, req: Request, res: Response) => {
+		console.error("[Gateway] Socket.IO Proxy error:", err.message, {
+			url: req.originalUrl,
+		});
+		if (!res.headersSent) {
+			res.status(504).json({ error: "GatewayTimeout", message: err.message });
+		} else if (!res.writableEnded) {
+			res.end();
+		}
+	},
+} as ExtendedProxyOptions);
+
+app.use("/socket.io", socketIoProxyMiddleware);
 
 // Proxy /uploads with pathRewrite to preserve the prefix
 console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}`);
@@ -145,12 +167,17 @@ const server = app.listen(config.port, () => {
 	console.log(`Forwarding to backend at ${config.backendUrl}`);
 });
 
-// Handle WebSocket upgrade for Socket.IO
+// WebSocket upgrade handling
+// http-proxy-middleware needs explicit upgrade event wiring
 server.on("upgrade", (req, socket, head) => {
 	console.log(`[Gateway] WebSocket upgrade request for ${req.url}`);
+
 	if (req.url?.startsWith("/socket.io")) {
-		// proxy upgrade handled by http-proxy-middleware
-		// log it for debugging
-		console.log("[Gateway] Proxying WebSocket upgrade to backend");
+		console.log("[Gateway] Routing WebSocket upgrade to Socket.IO proxy");
+		// Call the middleware's upgrade handler
+		(socketIoProxyMiddleware as any).upgrade(req, socket as any, head);
+	} else {
+		console.warn(`[Gateway] Unhandled upgrade request for ${req.url}`);
+		socket.destroy();
 	}
 });

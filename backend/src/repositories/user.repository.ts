@@ -108,7 +108,10 @@ export class UserRepository extends BaseRepository<IUser> {
 	}
 
 	// Find user by public id
-	async findByPublicId(publicId: string): Promise<IUser | null> {
+	async findByPublicId(publicId: string, session?: ClientSession): Promise<IUser | null> {
+		if (session) {
+			return this.model.findOne({ publicId }).session(session).exec();
+		}
 		return this.model.findOne({ publicId }).exec();
 	}
 
