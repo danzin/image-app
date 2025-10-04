@@ -4,31 +4,46 @@ import { container } from "tsyringe";
 import User from "../models/user.model";
 import Image, { Tag } from "../models/image.model";
 import { Comment } from "../models/comment.model";
+import Favorite from "../models/favorite.model";
+import Conversation from "../models/conversation.model";
+import Message from "../models/message.model";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { CommentRepository } from "../repositories/comment.repository";
+import { FavoriteRepository } from "../repositories/favorite.repository";
+import { ConversationRepository } from "../repositories/conversation.repository";
+import { MessageRepository } from "../repositories/message.repository";
 import { CloudinaryService } from "../services/cloudinary.service";
 import { UserService } from "../services/user.service";
 import { ImageService } from "../services/image.service";
+import { FavoriteService } from "../services/favorite.service";
 import { CommentService } from "../services/comment.service";
 import { UserController } from "../controllers/user.controller";
 import { ImageController } from "../controllers/image.controller";
+import { FavoriteController } from "../controllers/favorite.controller";
 import { CommentController } from "../controllers/comment.controller";
+import { SearchController } from "../controllers/search.controller";
+import { NotificationController } from "../controllers/notification.controller";
+import { AdminUserController } from "../controllers/admin.controller";
+import { FeedController } from "../controllers/feed.controller";
+import { MessagingController } from "../controllers/messaging.controller";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
 import { CommentRoutes } from "../routes/comment.routes";
+import { SearchRoutes } from "../routes/search.routes";
+import { AdminUserRoutes } from "../routes/admin.routes";
+import { NotificationRoutes } from "../routes/notification.routes";
+import { FeedRoutes } from "../routes/feed.routes";
+import { FavoriteRoutes } from "../routes/favorite.routes";
+import { MessagingRoutes } from "../routes/messaging.routes";
 import { Server } from "../server/server";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { SearchService } from "../services/search.service";
-import { SearchController } from "../controllers/search.controller";
 import { FollowService } from "../services/follow.service";
 import Follow from "../models/follow.model";
-import { NotificationRepository } from "../repositories/notification.respository";
 import Notification from "../models/notification.model";
 import { NotificationService } from "../services/notification.service";
-import { NotificationController } from "../controllers/notification.controller";
-import { SearchRoutes } from "../routes/search.routes";
 import Like from "../models/like.model";
 import { LikeRepository } from "../repositories/like.repository";
 import UserAction from "../models/userAction.model";
@@ -36,13 +51,9 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { WebSocketServer } from "../server/socketServer";
 import { DTOService } from "../services/dto.service";
-import { AdminUserRoutes } from "../routes/admin.routes";
-import { AdminUserController } from "../controllers/admin.controller";
-import { NotificationRoutes } from "../routes/notification.routes";
 import { UserPreference } from "../models/userPreference.model";
 import { FeedService } from "../services/feed.service";
-import { FeedController } from "../controllers/feed.controller";
-import { FeedRoutes } from "../routes/feed.routes";
+import { MessagingService } from "../services/messaging.service";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { RedisService } from "../services/redis.service";
 import { LocalStorageService } from "../services/localStorage.service";
@@ -70,6 +81,9 @@ import { CreateCommentCommand } from "../application/commands/comments/createCom
 import { CreateCommentCommandHandler } from "../application/commands/comments/createComment/createComment.handler";
 import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
 import { DeleteCommentCommandHandler } from "../application/commands/comments/deleteComment/deleteComment.handler";
+import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+import { MessageSentEvent } from "../application/events/message/message.event";
+import { NotificationRepository } from "../repositories/notification.respository";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -81,6 +95,20 @@ export function setupContainer(): void {
 	container.registerSingleton("Server", Server);
 }
 
+// container.register("X", { useValue: value }) binds an existing value and is
+// great for things like models or config objects that are effectively singletons anyway
+
+// container.registerSingleton(...) binds a class as a singleton aka the same instance
+// is returned each time it is resolved.
+// Great for repositories, servvices, buses, controllers etc
+// because these are expensive to create, hold resources/connections/state/cache etc
+// and must be single source of truth across the app
+
+// container.register("Token", { useClass: HandlerClass }) binds a class as transient
+// aka a new instance is created each time it is resolved
+// Great for things like command/query/event handlers that may hold
+// per-request state like sessions
+
 function registerCoreComponents(): void {
 	container.register("UserModel", { useValue: User });
 	container.register("ImageModel", { useValue: Image });
@@ -91,6 +119,9 @@ function registerCoreComponents(): void {
 	container.register("LikeModel", { useValue: Like });
 	container.register("UserActionModel", { useValue: UserAction });
 	container.register("UserPreferenceModel", { useValue: UserPreference });
+	container.register("FavoriteModel", { useValue: Favorite });
+	container.register("ConversationModel", { useValue: Conversation });
+	container.register("MessageModel", { useValue: Message });
 	container.registerSingleton("WebSocketServer", WebSocketServer);
 }
 
@@ -106,6 +137,9 @@ function registerRepositories(): void {
 	container.registerSingleton("NotificationRepository", NotificationRepository);
 	container.registerSingleton("LikeRepository", LikeRepository);
 	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
+	container.registerSingleton("FavoriteRepository", FavoriteRepository);
+	container.registerSingleton("ConversationRepository", ConversationRepository);
+	container.registerSingleton("MessageRepository", MessageRepository);
 }
 
 // Register Services
@@ -130,6 +164,8 @@ function registerServices(): void {
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
+	container.registerSingleton("FavoriteService", FavoriteService);
+	container.registerSingleton("MessagingService", MessagingService);
 }
 
 // Register Controllers as singletons
@@ -141,6 +177,8 @@ function registerControllers(): void {
 	container.registerSingleton("NotificationController", NotificationController);
 	container.registerSingleton("AdminUserController", AdminUserController);
 	container.registerSingleton("FeedController", FeedController);
+	container.registerSingleton("FavoriteController", FavoriteController);
+	container.registerSingleton("MessagingController", MessagingController);
 }
 
 // Register Routes as singletons
@@ -152,6 +190,8 @@ function registerRoutes(): void {
 	container.registerSingleton("AdminUserRoutes", AdminUserRoutes);
 	container.registerSingleton("NotificationRoutes", NotificationRoutes);
 	container.registerSingleton("FeedRoutes", FeedRoutes);
+	container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
+	container.registerSingleton("MessagingRoutes", MessagingRoutes);
 }
 
 // Register CQRS components
@@ -176,6 +216,7 @@ function registerCQRS(): void {
 
 	// Register interaction handlers
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
+	container.register("MessageSentHandler", { useClass: MessageSentHandler });
 
 	// Setup the buses
 	const commandBus = container.resolve<CommandBus>("CommandBus");
@@ -187,6 +228,7 @@ function registerCQRS(): void {
 	eventBus.subscribe(ImageUploadedEvent, container.resolve<ImageUploadHandler>("ImageUploadHandler"));
 	eventBus.subscribe(ImageDeletedEvent, container.resolve<ImageDeleteHandler>("ImageDeleteHandler"));
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
 
 	// Register command handlers with command bus
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
@@ -199,22 +241,7 @@ function registerCQRS(): void {
 		CreateCommentCommand,
 		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
 	);
-	commandBus.register(
-		DeleteCommentCommand,
-		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
-	);
-	commandBus.register(
-		CreateCommentCommand,
-		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
-	);
-	commandBus.register(
-		DeleteCommentCommand,
-		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
-	);
-	commandBus.register(
-		CreateCommentCommand,
-		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
-	);
+
 	commandBus.register(
 		DeleteCommentCommand,
 		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")

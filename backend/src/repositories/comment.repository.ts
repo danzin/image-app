@@ -1,13 +1,13 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { BaseRepository } from "./base.repository";
-import { IComment } from "../models/comment.model";
+import { IComment } from "types/index";
 import { inject, injectable } from "tsyringe";
 
-// Interface for the transformed comment that matches frontend expectations
+// Interface for the transformed comment matching frontend
 export interface TransformedComment {
 	id: string;
 	content: string;
-	imagePublicId: string; // Using image public ID instead of internal ID
+	imagePublicId: string;
 	user: {
 		publicId: string;
 		username: string;

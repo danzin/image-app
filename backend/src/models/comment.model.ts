@@ -1,15 +1,5 @@
 import mongoose, { Schema, Document } from "mongoose";
-
-export interface IComment extends Document {
-	_id: mongoose.Types.ObjectId;
-	content: string;
-	imageId: mongoose.Types.ObjectId;
-	userId: mongoose.Types.ObjectId;
-	createdAt: Date;
-	updatedAt: Date;
-	isEdited: boolean;
-}
-
+import { IComment } from "types/index";
 const commentSchema = new Schema<IComment>(
 	{
 		content: {

@@ -12,7 +12,9 @@ COPY frontend/package.json ./frontend/
 RUN npm ci --include=dev
 
 # Copy rest of the sources
-COPY . .
+COPY backend/src ./backend/src
+COPY backend/tsconfig.json ./backend/
+COPY tsconfig.base.json ./
 
 # Build the specific workspace
 RUN cd backend && npm run build

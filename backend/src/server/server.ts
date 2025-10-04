@@ -12,6 +12,8 @@ import { AdminUserRoutes } from "../routes/admin.routes";
 import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddleware";
 import { NotificationRoutes } from "../routes/notification.routes";
 import { FeedRoutes } from "../routes/feed.routes";
+import { FavoriteRoutes } from "../routes/favorite.routes";
+import { MessagingRoutes } from "../routes/messaging.routes";
 import path from "path";
 import cors from "cors";
 import { corsOptions } from "../config/corsConfig";
@@ -28,6 +30,8 @@ export class Server {
 	 * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
 	 * @param {NotificationRoutes} notificationRoutes - Routes for notifications.
 	 * @param {FeedRoutes} feedRoutes - Routes for managing user feeds.
+	 * @param {FavoriteRoutes} favoriteRoutes - Routes for managing user favorites.
+	 * @param {MessagingRoutes} messagingRoutes - Routes for messaging features.
 	 */
 	constructor(
 		@inject(UserRoutes) private readonly userRoutes: UserRoutes,
@@ -37,7 +41,9 @@ export class Server {
 		@inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
 		@inject(NotificationRoutes)
 		private readonly notificationRoutes: NotificationRoutes,
-		@inject(FeedRoutes) private readonly feedRoutes: FeedRoutes
+		@inject(FeedRoutes) private readonly feedRoutes: FeedRoutes,
+		@inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
+		@inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes
 	) {
 		this.app = express(); // Initialize Express application
 		this.initializeMiddlewares(); // Apply middleware configurations
@@ -94,6 +100,8 @@ export class Server {
 		this.app.use("/admin", this.adminUserRoutes.getRouter());
 		this.app.use("/notifications/", this.notificationRoutes.getRouter());
 		this.app.use("/feed", this.feedRoutes.getRouter());
+		this.app.use("/favorites", this.favoriteRoutes.getRouter());
+		this.app.use("/messaging", this.messagingRoutes.getRouter());
 
 		// Catch-all route for debugging
 		this.app.use("*", (req, res) => {
@@ -110,6 +118,10 @@ export class Server {
 					"/api/admin",
 					"/api/notifications",
 					"/api/feed",
+					"/api/favorites/images/:imageId/ (POST/DELETE)",
+					"/api/favorites/user (GET)",
+					"/api/messaging/conversations",
+					"/api/messaging/messages",
 				],
 			});
 		});

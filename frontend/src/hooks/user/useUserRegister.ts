@@ -9,10 +9,7 @@ export const useRegister = () => {
 	return useMutation<RegisterResponse, Error, { username: string; email: string; password: string }>({
 		mutationFn: registerRequest,
 
-		onSuccess: (data) => {
-			// Store the token in localStorage after successful registration
-			localStorage.setItem("token", data.token);
-
+		onSuccess: () => {
 			// Registration successful - user is automatically logged in
 			toast.success("Registration successful! You are now logged in.");
 		},

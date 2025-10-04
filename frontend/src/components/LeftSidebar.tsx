@@ -21,13 +21,14 @@ import {
 	Add as AddIcon,
 	CameraAlt as CameraAltIcon,
 	Explore as ExploreIcon,
+	Bookmark as BookmarkIcon,
+	ChatBubbleOutline as ChatBubbleOutlineIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import UploadForm from "./UploadForm";
 
 const SIDEBAR_WIDTH = 240;
 const BASE_URL = "/api";
-
 const modalStyle = {
 	position: "absolute",
 	top: "50%",
@@ -84,6 +85,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 		? `${BASE_URL}/${avatarUrl}`
 		: undefined;
 
+	const isRouteActive = (targetPath?: string) => {
+		if (!targetPath) return false;
+		if (targetPath === "/") return location.pathname === "/";
+		return location.pathname === targetPath || location.pathname.startsWith(`${targetPath}/`);
+	};
+
 	const navigationItems: NavigationItem[] = [
 		{
 			label: "Home",
@@ -105,6 +112,16 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 				<PersonIcon />
 			),
 			path: user?.publicId ? `/profile/${user.publicId}` : "/profile",
+		},
+		{
+			label: "Favorites",
+			icon: <BookmarkIcon />,
+			path: "/favorites",
+		},
+		{
+			label: "Messages",
+			icon: <ChatBubbleOutlineIcon />,
+			path: "/messages",
 		},
 	];
 
@@ -178,7 +195,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 										if (item.onClick) item.onClick();
 										if (isMobile && onMobileClose) onMobileClose();
 									}}
-									selected={item.path === location.pathname}
+									selected={isRouteActive(item.path)}
 									sx={{
 										borderRadius: 2,
 										minHeight: 56,
@@ -195,8 +212,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 								>
 									<ListItemIcon
 										sx={{
-											color:
-												item.path === location.pathname ? theme.palette.primary.main : theme.palette.text.secondary,
+											color: isRouteActive(item.path) ? theme.palette.primary.main : theme.palette.text.secondary,
 											minWidth: 40,
 										}}
 									>
@@ -206,9 +222,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 										primary={item.label}
 										sx={{
 											"& .MuiListItemText-primary": {
-												fontWeight: item.path === location.pathname ? 600 : 400,
-												color:
-													item.path === location.pathname ? theme.palette.primary.main : theme.palette.text.primary,
+												fontWeight: isRouteActive(item.path) ? 600 : 400,
+												color: isRouteActive(item.path) ? theme.palette.primary.main : theme.palette.text.primary,
 											},
 										}}
 									/>

@@ -13,6 +13,33 @@ export class ImageRepository extends BaseRepository<IImage> {
 	// TODO: REFACTOR AND REMOVE OLD METHODS
 
 	/**
+	 * Finds an image by its public ID and returns only its internal MongoDB _id.
+	 * This is a lightweight, performant way to get an ID for relationship linking.
+	 *
+	 * @param {string} publicId - The public ID of the image.
+	 * @returns {Promise<string | null>} - The internal _id as a string, or null if not found.
+	 */
+	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
+		try {
+			if (!publicId || typeof publicId !== "string") {
+				return null;
+			}
+
+			const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+			const hasDotOrSlash = publicId.includes(".") || publicId.includes("/");
+			const filter = hasDotOrSlash
+				? { publicId }
+				: { publicId: { $regex: new RegExp(`^${escapeRegex(publicId)}(?:\\.(?:png|jpe?g|webp|gif))?$`, "i") } };
+			const doc = await this.model.findOne(filter).select("_id").lean().exec();
+
+			return doc ? (doc as any)._id.toString() : null;
+		} catch (error) {
+			console.error(`Error in findInternalIdByPublicId for publicId: ${publicId}`, error);
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	/**
 	 * Finds an image by its public ID and populates related fields.
 	 *
 	 * @param {string} publicId - The public ID of the image.
@@ -522,7 +549,9 @@ export class ImageRepository extends BaseRepository<IImage> {
 				// Stage 3: Calculate scores
 				{
 					$addFields: {
+						//Exponential decay favoring newer content
 						recencyScore: {
+							// basically: '1 / ( 1 + days_old)' - creates a decay favoring more recent content
 							$divide: [
 								1,
 								{
@@ -538,7 +567,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 								},
 							],
 						},
+
+						// Logarithmic to prevent super viral content from dominating completely
 						popularityScore: { $ln: { $add: ["$likes", 1] } },
+
 						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
 					},
 				},

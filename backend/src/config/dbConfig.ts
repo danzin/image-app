@@ -36,7 +36,7 @@ export class DatabaseConfig {
 
 		try {
 			await mongoose.connect(this.uri, opts);
-			logger.info("✅ Database connected");
+			logger.info("Database connected");
 			this.registerConnectionEvents();
 		} catch (err: any) {
 			logger.error({ err, attempt }, `Connection attempt ${attempt} failed`);

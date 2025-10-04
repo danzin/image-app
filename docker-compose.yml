@@ -98,7 +98,7 @@ services:
       NODE_ENV: production
       MONGODB_URI: mongodb://root:secret@mongo:27017/image-app?authSource=admin&replicaSet=rs0
       VITE_API_URL: "http://localhost:8000"
-      VITE_SOCKET_URL: "http://localhost:3000"
+      VITE_SOCKET_URL: "http://localhost:8000"
       FRONTEND_URL: http://localhost:5173
       JWT_SECRET: JyPrAXNdGvxbWwm59KUeyiPZXqxlyC6Y
       ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000
@@ -148,8 +148,8 @@ services:
       context: .
       dockerfile: frontend/frontend.Dockerfile
       args:
-        VITE_API_URL: http://localhost:8000
-        VITE_SOCKET_URL: http://localhost:8000
+        VITE_API_URL: /
+        VITE_SOCKET_URL: /
 
     ports:
       - "80:80"

@@ -58,6 +58,7 @@ export interface IImage {
 	commentsCount: number;
 	createdAt: Date;
 	isLikedByViewer?: boolean; // Only when user is authenticated
+	isFavoritedByViewer?: boolean;
 }
 
 export interface IComment {
@@ -130,6 +131,8 @@ export interface GalleryProps {
 	isFetchingNext?: boolean;
 	isLoadingFiltered?: boolean;
 	isLoadingAll?: boolean;
+	emptyTitle?: string;
+	emptyDescription?: string;
 }
 
 export interface Notification {
@@ -141,6 +144,52 @@ export interface Notification {
 	targetId?: string;
 	timestamp: string;
 	isRead: boolean;
+}
+
+export interface MessageAttachment {
+	url: string;
+	type: string;
+	mimeType?: string;
+	thumbnailUrl?: string;
+}
+
+export interface MessageDTO {
+	publicId: string;
+	conversationId: string;
+	body: string;
+	sender: {
+		publicId: string;
+		username: string;
+		avatar: string;
+	};
+	attachments: MessageAttachment[];
+	status: "sent" | "delivered" | "read";
+	createdAt: string;
+	readBy: string[];
+}
+
+export interface ConversationParticipantDTO {
+	publicId: string;
+	username: string;
+	avatar: string;
+}
+
+export interface ConversationSummaryDTO {
+	publicId: string;
+	participants: ConversationParticipantDTO[];
+	lastMessage?: MessageDTO | null;
+	lastMessageAt?: string | null;
+	unreadCount: number;
+	isGroup: boolean;
+	title?: string;
+}
+
+export interface MessagingUpdatePayload {
+	type: "message_sent";
+	conversationId: string;
+	messageId?: string;
+	senderId: string;
+	timestamp: string;
 }
 
 export interface UserUserResult {

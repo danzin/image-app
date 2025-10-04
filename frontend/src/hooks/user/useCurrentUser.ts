@@ -7,6 +7,7 @@ export const useCurrentUser = () => {
 		queryKey: ["currentUser"],
 		queryFn: ({ signal }) => fetchCurrentUser(signal),
 		retry: false,
-		refetchOnWindowFocus: false,
+		refetchOnWindowFocus: true,
+		staleTime: 30000, // 30 seconds
 	});
 };
