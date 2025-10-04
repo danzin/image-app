@@ -13,3 +13,5 @@ frontend/.env
 /uploads
 dist
 .github
+notes.txt
+tsconfig.tsbuildinfo

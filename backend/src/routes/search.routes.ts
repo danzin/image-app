@@ -1,28 +1,21 @@
-import express from 'express';
-import { SearchController } from '../controllers/search.controller';
-import { inject, injectable } from 'tsyringe';
+import express from "express";
+import { SearchController } from "../controllers/search.controller";
+import { inject, injectable } from "tsyringe";
 
 @injectable()
 export class SearchRoutes {
-  public router: express.Router; 
+	public router: express.Router;
 
+	constructor(@inject("SearchController") private controller: SearchController) {
+		this.router = express.Router();
+		this.initializeRoutes();
+	}
 
-   constructor(@inject('SearchController') private controller: SearchController){
-      this.router = express.Router();
-      this.initializeRoutes();
-    }
- 
-    private initializeRoutes(): void {
+	private initializeRoutes(): void {
+		this.router.get("/", this.controller.searchAll);
+	}
 
-      this.router.get('/', this.controller.searchAll)
-
-    }
-
-    public getRouter(): express.Router {
-      return this.router;
-    }
-
-
-
+	public getRouter(): express.Router {
+		return this.router;
+	}
 }
-

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Box, Typography, Tabs, Tab, useTheme, Container, alpha } from "@mui/material";
+import { Box, Typography, Tabs, Tab, useTheme, alpha } from "@mui/material";
 import { TrendingUp, FiberNew, Favorite } from "@mui/icons-material";
 
 import Gallery from "../components/Gallery";
@@ -82,31 +82,6 @@ const Discovery: React.FC = () => {
 					alignItems: "center",
 				}}
 			>
-				{/* Header */}
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.5 }}
-					style={{ width: "100%", maxWidth: "1200px", marginBottom: "2rem" }}
-				>
-					<Container maxWidth="lg" sx={{ textAlign: "center", py: 3 }}>
-						<Typography
-							variant="h3"
-							sx={{
-								mb: 2,
-								background: "linear-gradient(45deg, #6366f1, #ec4899)",
-								backgroundClip: "text",
-								WebkitBackgroundClip: "text",
-								color: "transparent",
-								fontWeight: 700,
-								fontSize: { xs: "2rem", md: "2.5rem" },
-							}}
-						>
-							Discover
-						</Typography>
-					</Container>
-				</motion.div>
-
 				{/* Tabs */}
 				<Box sx={{ width: "100%", maxWidth: "1200px" }}>
 					<Tabs

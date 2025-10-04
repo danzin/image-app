@@ -22,6 +22,7 @@ import {
 	CameraAlt as CameraAltIcon,
 	Explore as ExploreIcon,
 	Bookmark as BookmarkIcon,
+	ChatBubbleOutline as ChatBubbleOutlineIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import UploadForm from "./UploadForm";
@@ -116,6 +117,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			label: "Favorites",
 			icon: <BookmarkIcon />,
 			path: "/favorites",
+		},
+		{
+			label: "Messages",
+			icon: <ChatBubbleOutlineIcon />,
+			path: "/messages",
 		},
 	];
 

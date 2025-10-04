@@ -196,12 +196,21 @@ export const useUploadImage = () => {
 
 	return useMutation<IImage, Error, FormData>({
 		mutationFn: uploadImage,
-		onSuccess: () => {
+		onSuccess: async () => {
+			// invalidate and refetch current user to update imageCount immediately
+			await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+			await queryClient.refetchQueries({ queryKey: ["currentUser"] });
+
+			// invalidate all image-related queries
 			queryClient.invalidateQueries({ queryKey: ["images"] });
 			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["userImages"] });
 			queryClient.invalidateQueries({ queryKey: ["tags"] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+
+			// refetch active queries to show the new image immediately
+			queryClient.refetchQueries({ queryKey: ["images"], type: "active" });
+			queryClient.refetchQueries({ queryKey: ["personalizedFeed"], type: "active" });
 		},
 		onError: (error: Error) => {
 			console.error("Error uploading image:", error);

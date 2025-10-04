@@ -1,5 +1,4 @@
 import { Box, Typography } from "@mui/material";
-import { motion } from "framer-motion";
 import Gallery from "../components/Gallery";
 import { useFavorites } from "../hooks/favorites/useFavorites";
 import { useAuth } from "../hooks/context/useAuth";
@@ -42,27 +41,6 @@ const Favorites = () => {
 					alignItems: "center",
 				}}
 			>
-				<motion.div
-					initial={{ opacity: 0, y: 20 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={{ duration: 0.4 }}
-					style={{ width: "100%", maxWidth: "800px" }}
-				>
-					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-						<Typography
-							variant="h4"
-							sx={{
-								fontWeight: 700,
-								background: "linear-gradient(45deg, #6366f1, #ec4899)",
-								WebkitBackgroundClip: "text",
-								color: "transparent",
-							}}
-						>
-							Your Favorites
-						</Typography>
-					</Box>
-				</motion.div>
-
 				{error ? (
 					<Box sx={{ textAlign: "center", mt: 6 }}>
 						<Typography variant="body1" color="error">

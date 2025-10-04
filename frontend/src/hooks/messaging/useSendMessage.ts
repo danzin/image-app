@@ -1,0 +1,35 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { sendMessage, SendMessageRequest } from "../../api/messagingApi";
+
+export function useSendMessage() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (payload: SendMessageRequest) => sendMessage(payload),
+		onSuccess: ({ message }) => {
+			const conversationId = message.conversationId;
+
+			queryClient.invalidateQueries({ queryKey: ["messaging", "conversations"], exact: false });
+
+			if (conversationId) {
+				queryClient.invalidateQueries({
+					predicate: (query) => {
+						const key = query.queryKey;
+						return (
+							Array.isArray(key) && key[0] === "messaging" && key[1] === "conversation" && key[2] === conversationId
+						);
+					},
+				});
+				queryClient.refetchQueries({
+					predicate: (query) => {
+						const key = query.queryKey;
+						return (
+							Array.isArray(key) && key[0] === "messaging" && key[1] === "conversation" && key[2] === conversationId
+						);
+					},
+					type: "active",
+				});
+			}
+		},
+	});
+}

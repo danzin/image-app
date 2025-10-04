@@ -13,7 +13,9 @@ RUN npm ci --include=dev
 
 
 # Copy rest of the sources
-COPY . .
+COPY api-gateway/src ./api-gateway/src
+COPY api-gateway/tsconfig.json ./api-gateway/
+COPY tsconfig.base.json ./
 
 # Build the specific workspace
 RUN npm run build --workspace=api-gateway

@@ -27,7 +27,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import DeleteIcon from "@mui/icons-material/Delete";
 import CommentSection from "../components/comments/CommentSection";
-import { addFavorite, removeFavorite } from "../api/favorites";
+import { addFavorite, removeFavorite } from "../api/favoritesApi";
 import { IImage } from "../types";
 
 const BASE_URL = "/api";

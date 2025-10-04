@@ -5,7 +5,7 @@ import {
 	updateComment,
 	deleteComment,
 	getCommentsByUserId,
-} from "../../api/comments";
+} from "../../api/commentsApi";
 import { IComment, CommentCreateDto, CommentUpdateDto, CommentsPaginationResponse } from "../../types";
 
 /**

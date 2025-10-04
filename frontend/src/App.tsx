@@ -18,6 +18,7 @@ import { SocketProvider } from "./context/Socket/SocketProvider";
 import AuthProvider from "./context/Auth/AuthProvider";
 import ImageView from "./screens/ImageView";
 import Favorites from "./screens/Favorites";
+import Messages from "./screens/Messages";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 function App() {
@@ -42,6 +43,7 @@ function App() {
 										<Route path="/results" element={<SearchResults />} />
 										<Route path="images/:id" element={<ImageView />} />
 										<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
+										<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
 									</Route>
 								</Routes>
 								<ReactQueryDevtools initialIsOpen={false} />

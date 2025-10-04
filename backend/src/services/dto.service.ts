@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IImage } from "../types";
+import { IUser, IImage, IMessage, MessageDTO } from "../types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -102,6 +102,44 @@ export class DTOService {
 			createdAt: image.createdAt,
 			isLikedByViewer: (image as any).isLikedByViewer || false,
 			isFavoritedByViewer: (image as any).isFavoritedByViewer || false,
+		};
+	}
+
+	toPublicMessageDTO(message: IMessage, conversationPublicId: string): MessageDTO {
+		const sender: any = (message as any).sender || {};
+
+		const readBy = Array.isArray((message as any).readBy)
+			? (message as any).readBy.map((entry: any) => {
+					if (!entry) return "";
+					if (typeof entry === "string") return entry;
+					if (typeof entry === "object" && "publicId" in entry) {
+						return (entry as any).publicId;
+					}
+					if (typeof entry === "object" && typeof entry.toString === "function") {
+						return entry.toString();
+					}
+					return String(entry);
+			  })
+			: [];
+
+		const attachments = Array.isArray((message as any).attachments) ? (message as any).attachments : [];
+
+		const createdAtValue = (message as any).createdAt;
+		const createdAt = createdAtValue instanceof Date ? createdAtValue : new Date(createdAtValue);
+
+		return {
+			publicId: (message as any).publicId,
+			conversationId: conversationPublicId,
+			body: (message as any).body,
+			sender: {
+				publicId: sender?.publicId ?? "",
+				username: sender?.username ?? "",
+				avatar: sender?.avatar ?? "",
+			},
+			attachments,
+			status: (message as any).status,
+			createdAt: createdAt.toISOString(),
+			readBy: readBy.filter((value: string) => Boolean(value)),
 		};
 	}
 }

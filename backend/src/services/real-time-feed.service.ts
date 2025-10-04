@@ -3,7 +3,7 @@ import { RedisService } from "./redis.service";
 import { WebSocketServer } from "../server/socketServer";
 
 export interface FeedUpdateMessage {
-	type: "new_image" | "new_image_global" | "interaction" | "like_update" | "avatar_changed";
+	type: "new_image" | "new_image_global" | "interaction" | "like_update" | "avatar_changed" | "message_sent";
 	userId?: string;
 	uploaderId?: string;
 	imageId?: string;
@@ -15,6 +15,10 @@ export interface FeedUpdateMessage {
 	oldAvatar?: string;
 	newAvatar?: string;
 	timestamp: string;
+	conversationId?: string;
+	senderId?: string;
+	recipients?: string[];
+	messageId?: string;
 }
 
 @injectable()
@@ -31,7 +35,8 @@ export class RealTimeFeedService {
 	 */
 	private async initializePubSubListener(): Promise<void> {
 		try {
-			await this.redisService.subscribe(["feed_updates"], (channel: string, message: any) => {
+			// Subscribe to feed_updates and messaging_updates channels for real time feed updates and message delivery
+			await this.redisService.subscribe(["feed_updates", "messaging_updates"], (channel: string, message: any) => {
 				// Handle case where message might be a string that needs parsing
 				let parsedMessage: FeedUpdateMessage;
 				if (typeof message === "string") {
@@ -44,7 +49,7 @@ export class RealTimeFeedService {
 				} else {
 					parsedMessage = message;
 				}
-				this.handleFeedUpdate(parsedMessage);
+				this.handleFeedUpdate(parsedMessage, channel);
 			});
 			console.log("Real-time feed update listener initialized");
 		} catch (error) {
@@ -55,7 +60,7 @@ export class RealTimeFeedService {
 	/**
 	 * Handle incoming feed update messages
 	 */
-	private async handleFeedUpdate(message: FeedUpdateMessage): Promise<void> {
+	private async handleFeedUpdate(message: FeedUpdateMessage, channel?: string): Promise<void> {
 		try {
 			console.log("Real-time service received message:", JSON.stringify(message, null, 2));
 			const io = this.webSocketServer.getIO();
@@ -75,6 +80,9 @@ export class RealTimeFeedService {
 					break;
 				case "avatar_changed":
 					await this.handleAvatarUpdate(io, message);
+					break;
+				case "message_sent":
+					await this.handleMessageSent(io, message, channel);
 					break;
 				default:
 					console.warn("Unknown feed update type:", message.type);
@@ -207,6 +215,31 @@ export class RealTimeFeedService {
 		});
 
 		console.log(`Real-time avatar update sent for user ${message.userId}`);
+	}
+
+	/**
+	 * Handle message sent
+	 */
+	private async handleMessageSent(io: any, message: FeedUpdateMessage, channel?: string): Promise<void> {
+		if (!message.conversationId || !message.senderId) return;
+
+		const recipients = Array.isArray(message.recipients) ? message.recipients : [];
+		const uniqueRecipients = new Set<string>([message.senderId, ...recipients]);
+		uniqueRecipients.delete("");
+
+		for (const userId of uniqueRecipients) {
+			io.to(userId).emit("messaging_update", {
+				type: "message_sent",
+				conversationId: message.conversationId,
+				messageId: message.messageId,
+				senderId: message.senderId,
+				timestamp: message.timestamp,
+			});
+		}
+
+		console.log(
+			`Real-time messaging update sent via ${channel || "feed_updates"} for conversation ${message.conversationId}`
+		);
 	}
 
 	/**
