@@ -405,91 +405,89 @@ export class ImageRepository extends BaseRepository<IImage> {
 			const followingIdsObj = followingIds.map((id) => new mongoose.Types.ObjectId(id));
 			const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
 
+			const aggregationPipeline: any[] = [
+				{
+					$lookup: {
+						from: "tags",
+						localField: "tags",
+						foreignField: "_id",
+						as: "tagObjects",
+					},
+				},
+				// Stage 2: Extract tag names
+				{
+					$addFields: {
+						tagNames: {
+							$map: {
+								input: "$tagObjects",
+								as: "tag",
+								in: "$$tag.tag",
+							},
+						},
+					},
+				},
+				// Stage 3: Determine personalization
+				{
+					$addFields: {
+						isPersonalized: hasPreferences
+							? {
+									$or: [
+										{ $in: ["$user", followingIdsObj] },
+										{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] },
+									],
+							  }
+							: false,
+					},
+				},
+				// Stage 4: Sort
+				{
+					$sort: {
+						isPersonalized: -1,
+						createdAt: -1,
+					},
+				},
+				// Stage 5: Pagination
+				{ $skip: skip },
+				{ $limit: limit },
+
+				// Stage 6: Lookup user and get publicId
+				{
+					$lookup: {
+						from: "users",
+						localField: "user",
+						foreignField: "_id",
+						as: "userInfo",
+					},
+				},
+				{ $unwind: "$userInfo" },
+
+				// Stage 7: Project
+				{
+					$project: {
+						_id: 0,
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: {
+								input: "$tagObjects",
+								as: "tagObj",
+								in: {
+									tag: "$$tagObj.tag",
+									publicId: "$$tagObj.publicId",
+								},
+							},
+						},
+						isPersonalized: 1,
+					},
+				},
+			];
+
 			const [results, total] = await Promise.all([
-				this.model
-					.aggregate([
-						// Stage 1: Lookup tags
-						{
-							$lookup: {
-								from: "tags",
-								localField: "tags",
-								foreignField: "_id",
-								as: "tagObjects",
-							},
-						},
-						// Stage 2: Extract tag names
-						{
-							$addFields: {
-								tagNames: {
-									$map: {
-										input: "$tagObjects",
-										as: "tag",
-										in: "$$tag.tag",
-									},
-								},
-							},
-						},
-						// Stage 3: Determine personalization
-						{
-							$addFields: {
-								isPersonalized: hasPreferences
-									? {
-											$or: [
-												{ $in: ["$user", followingIdsObj] },
-												{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] },
-											],
-									  }
-									: false,
-							},
-						},
-						// Stage 4: Sort
-						{
-							$sort: {
-								isPersonalized: -1,
-								createdAt: -1,
-							},
-						},
-						// Stage 5: Pagination
-						{ $skip: skip },
-						{ $limit: limit },
-
-						// Stage 6: Lookup user and get publicId
-						{
-							$lookup: {
-								from: "users",
-								localField: "user",
-								foreignField: "_id",
-								as: "userInfo",
-							},
-						},
-						{ $unwind: "$userInfo" },
-
-						// Stage 7: Project
-						{
-							$project: {
-								_id: 0,
-								publicId: 1,
-								url: 1,
-								createdAt: 1,
-								likes: 1,
-								commentsCount: 1,
-								userPublicId: "$userInfo.publicId",
-								tags: {
-									$map: {
-										input: "$tagObjects",
-										as: "tagObj",
-										in: {
-											tag: "$$tagObj.tag",
-											publicId: "$$tagObj.publicId",
-										},
-									},
-								},
-								isPersonalized: 1,
-							},
-						},
-					])
-					.exec(),
-
+				this.model.aggregate(aggregationPipeline).exec(),
 				this.model.countDocuments({}),
 			]);
 
@@ -569,6 +567,8 @@ export class ImageRepository extends BaseRepository<IImage> {
 						},
 
 						// Logarithmic to prevent super viral content from dominating completely
+						// causes deminishing returns, going from 1 to 20 likes matters more than going from 10k to 20k
+						// using natural logarithm with { $add: ["$likes", 1] } to avoid log(0)
 						popularityScore: { $ln: { $add: ["$likes", 1] } },
 
 						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
@@ -670,7 +670,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 
 			const sinceDate = new Date(Date.now() - timeWindowDays * 24 * 60 * 60 * 1000);
 
-			const pipeline: any[] = [
+			const aggregationPipeline: any[] = [
 				// Restrict to recent window and minimal likes
 				{ $match: { createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } } },
 				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
@@ -723,7 +723,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			];
 
 			const [results, total] = await Promise.all([
-				this.model.aggregate(pipeline).exec(),
+				this.model.aggregate(aggregationPipeline).exec(),
 				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likes: { $gte: minLikes } }),
 			]);
 
@@ -743,7 +743,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 	 */
 	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
-			const pipeline: any[] = [
+			const aggregationPipeline: any[] = [
 				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
 				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
 				{ $unwind: "$userInfo" },
@@ -771,7 +771,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			];
 
 			const [results, total] = await Promise.all([
-				this.model.aggregate(pipeline).exec(),
+				this.model.aggregate(aggregationPipeline).exec(),
 				this.model.countDocuments({}),
 			]);
 
