@@ -569,6 +569,8 @@ export class ImageRepository extends BaseRepository<IImage> {
 						},
 
 						// Logarithmic to prevent super viral content from dominating completely
+						// causes deminishing returns, going from 1 to 20 likes matters more than going from 10k to 20k
+						// using natural logarithm with { $add: ["$likes", 1] } to avoid log(0)
 						popularityScore: { $ln: { $add: ["$likes", 1] } },
 
 						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
