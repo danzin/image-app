@@ -22,7 +22,7 @@ Tech stack:
 ### Feed system
  - **Personalized (Home) Feed**: user-specific partitioned feed - follows + growing personalization signals. Fast, cached per-user, primary home view for active users.
  - **ForYou Feed**:
-   -  `For You` feed is an algorithmic feed created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
+   -  `For You` feed is created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
     ``` 
     recency: 0.5,
    popularity: 0.3,
