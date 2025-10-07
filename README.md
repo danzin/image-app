@@ -28,7 +28,6 @@ Tech stack:
    popularity: 0.3,
    tagMatch: 0.2,
    ```
- - New frontend hook `useFeedSocketIntegration.ts` to handle real-time feed updates through WebSocket integrating socket events with React Query cache invalidation.
  - **Trending / New**: discovery feeds. Trending = popularity + recency within time window; New = strict recency.
  - **Core feed**: internal cached structure (IDs + ordering). Not a UI feed — used to enrich and serve many view variants without recomputing rankings.
 
