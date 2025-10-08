@@ -238,7 +238,7 @@ await redis.invalidateByTags([`user_feed:${userId}`, `user_for_you_feed:${userId
 
 ### Pattern-Based Invalidation (OLD - DEPRECATED)
 
-**Don't use**: `redis.del("core_feed:*")` or `deletePatterns(["core_feed:*"])`
+**Bad practice:**: `redis.del("core_feed:*")` or `deletePatterns(["core_feed:*"])`
 
 Problems:
 
