@@ -23,6 +23,30 @@ import { Server } from "./server/server";
 import { setupContainer } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
 import { RealTimeFeedService } from "./services/real-time-feed.service";
+import { errorLogger } from "./utils/winston";
+
+// Global error handlers for uncaught exceptions
+process.on("uncaughtException", (error: Error) => {
+	errorLogger.error({
+		type: "UncaughtException",
+		message: error.message,
+		stack: error.stack,
+		timestamp: new Date().toISOString(),
+	});
+	console.error("Uncaught Exception:", error);
+	process.exit(1); // Exit process after logging
+});
+
+process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
+	errorLogger.error({
+		type: "UnhandledRejection",
+		reason: reason?.message || reason,
+		stack: reason?.stack,
+		promise: String(promise),
+		timestamp: new Date().toISOString(),
+	});
+	console.error("Unhandled Rejection:", reason);
+});
 
 async function bootstrap(): Promise<void> {
 	try {

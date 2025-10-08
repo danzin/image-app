@@ -15,7 +15,17 @@ export const behaviourLogger = winston.createLogger({
 export const errorLogger = winston.createLogger({
 	level: "error",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "errors.log" })],
+	transports: [
+		new winston.transports.File({ filename: "errors.log" }),
+		// Also log to console in development
+		...(process.env.NODE_ENV !== "production"
+			? [
+					new winston.transports.Console({
+						format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
+					}),
+			  ]
+			: []),
+	],
 });
 
 export const detailedRequestLogger = winston.createLogger({

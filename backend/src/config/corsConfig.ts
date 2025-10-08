@@ -15,7 +15,7 @@ export function buildCorsOptions() {
 			// Check if the incoming origin is on the slist
 			if (allowList.includes(origin)) return cb(null, true);
 
-			// If not, block it
+			// If not - block it
 			console.warn("[CORS] Blocked origin:", origin, "Allowed list:", allowList);
 			cb(new Error("Not allowed by CORS"));
 		},
