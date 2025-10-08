@@ -46,6 +46,48 @@ Tech stack:
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
   - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users. New users are exposed to the new and trending feeds first.
   - **Redis caching: The app uses a partitioned user feed caching strategy. Parts of the user feed are cached and invalidated when certain actions are taken by the user or other users. User cache invalidation only applies for certain actions and only the relevant users' cache is enriched/invalidated depending on the action.**
+  - Event flow diagram: 
+  ``` 
+  ┌─────────────────┐
+│  User Action    │
+│  (Upload/Like/  │
+│   Comment/etc)  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Command Handler │
+│ (DB Transaction)│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ EventBus.queue  │
+│ Transactional   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Event Handler  │
+│ (Post-Commit)   │
+└────────┬────────┘
+         │
+         ├─────────────────┐
+         │                 │
+         ▼                 ▼
+┌──────────────┐   ┌──────────────┐
+│Tag-Based     │   │Pattern-Based │
+│Invalidation  │   │Cleanup       │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       └─────────┬────────┘
+                 │
+                 ▼
+        ┌────────────────┐
+        │ Redis.publish  │
+        │ (WebSocket)    │
+        └────────────────┘
+ ```
     
 ### CQRS: Working on gradually switching from the classic modular architecture to CQRS
   - Command, Query and Event buses are implemented and fully functional.
