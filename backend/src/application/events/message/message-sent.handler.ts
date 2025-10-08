@@ -8,13 +8,16 @@ export class MessageSentHandler implements IEventHandler<MessageSentEvent> {
 	constructor(@inject("RedisService") private readonly redisService: RedisService) {}
 
 	async handle(event: MessageSentEvent): Promise<void> {
-		await this.redisService.publish("messaging_updates", {
-			type: "message_sent",
-			conversationId: event.conversationPublicId,
-			senderId: event.senderPublicId,
-			recipients: event.recipientPublicIds,
-			messageId: event.messagePublicId,
-			timestamp: event.timestamp.toISOString(),
-		});
+		await this.redisService.publish(
+			"messaging_updates",
+			JSON.stringify({
+				type: "message_sent",
+				conversationId: event.conversationPublicId,
+				senderId: event.senderPublicId,
+				recipients: event.recipientPublicIds,
+				messageId: event.messagePublicId,
+				timestamp: event.timestamp.toISOString(),
+			})
+		);
 	}
 }

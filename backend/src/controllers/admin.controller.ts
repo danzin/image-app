@@ -15,7 +15,13 @@ export class AdminUserController {
 
 	getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const options = { ...req.query } as any;
+			const { page, limit, sortBy, sortOrder } = req.query;
+			const options = {
+				page: page ? parseInt(page as string, 10) : 1,
+				limit: limit ? parseInt(limit as string, 10) : 20,
+				sortBy: sortBy as string | undefined,
+				sortOrder: sortOrder as "asc" | "desc" | undefined,
+			};
 			const result = await this.userService.getAllUsersAdmin(options);
 			res.status(200).json(result);
 		} catch (error) {
@@ -91,7 +97,13 @@ export class AdminUserController {
 	// === IMAGE MANAGEMENT ===
 	getAllImages = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const options = { ...req.query } as any;
+			const { page, limit, sortBy, sortOrder } = req.query;
+			const options = {
+				page: page ? parseInt(page as string, 10) : 1,
+				limit: limit ? parseInt(limit as string, 10) : 20,
+				sortBy: sortBy as string | undefined,
+				sortOrder: sortOrder as "asc" | "desc" | undefined,
+			};
 			const result = await this.imageService.getAllImagesAdmin(options);
 			res.status(200).json(result);
 		} catch (error) {
@@ -127,7 +139,11 @@ export class AdminUserController {
 	// === RECENT ACTIVITY ===
 	getRecentActivity = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const options = { ...req.query } as any;
+			const { page, limit } = req.query;
+			const options = {
+				page: page ? parseInt(page as string, 10) : 1,
+				limit: limit ? parseInt(limit as string, 10) : 10,
+			};
 			const activity = await this.userService.getRecentActivity(options);
 			res.status(200).json(activity);
 		} catch (error) {
@@ -151,6 +167,39 @@ export class AdminUserController {
 			const { publicId } = req.params;
 			const result = await this.userService.demoteFromAdminByPublicId(publicId);
 			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	// === CACHE MANAGEMENT ===
+	clearCache = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { pattern } = req.query;
+			const patternToDelete = (pattern as string) || "all_feeds";
+
+			// use Redis service to clear cache
+			const RedisService = (await import("../services/redis.service")).RedisService;
+			const redis = new RedisService();
+
+			let deletedCount = 0;
+
+			if (patternToDelete === "all_feeds") {
+				// clear all feed-related cache patterns
+				const patterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*", "tag:*", "key_tags:*"];
+
+				for (const p of patterns) {
+					deletedCount += await redis.del(p);
+				}
+			} else {
+				deletedCount = await redis.del(patternToDelete);
+			}
+
+			res.status(200).json({
+				message: "Cache cleared successfully",
+				pattern: patternToDelete,
+				deletedKeys: deletedCount,
+			});
 		} catch (error) {
 			next(error);
 		}

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient, UseQueryOptions } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, UseQueryOptions, InfiniteData } from "@tanstack/react-query";
 import { followUser, likeImage } from "../../api/userActions";
 import { fetchIsFollowing } from "../../api/userApi";
 import { IImage, PaginatedResponse } from "../../types";
@@ -37,11 +37,11 @@ export const useLikeImage = () => {
 			await queryClient.cancelQueries({ queryKey: ["image"] }); // Cancel all image queries
 
 			// Get current data
-			const previousFeed = queryClient.getQueryData(["personalizedFeed"]);
-			const previousImage = queryClient.getQueryData(["image", imagePublicId]);
+			const previousFeed = queryClient.getQueryData<InfiniteData<PaginatedResponse<IImage>>>(["personalizedFeed"]);
+			const previousImage = queryClient.getQueryData<IImage>(["image", imagePublicId]);
 
 			// Update individual image cache - toggle both likes count and isLikedByViewer
-			queryClient.setQueryData(["image", imagePublicId], (oldImage: IImage) => {
+			queryClient.setQueryData<IImage>(["image", imagePublicId], (oldImage) => {
 				if (!oldImage) return oldImage;
 				const currentlyLiked = oldImage.isLikedByViewer;
 				return {
@@ -52,7 +52,7 @@ export const useLikeImage = () => {
 			});
 
 			// Update the general image query (for useImageById)
-			queryClient.setQueriesData({ queryKey: ["image"] }, (oldImage: IImage | undefined) => {
+			queryClient.setQueriesData<IImage>({ queryKey: ["image"] }, (oldImage) => {
 				if (!oldImage || oldImage.publicId !== imagePublicId) return oldImage;
 				const currentlyLiked = oldImage.isLikedByViewer;
 				return {
@@ -62,9 +62,9 @@ export const useLikeImage = () => {
 				};
 			});
 
-			// Only update feed if it exists
+			// only update feed if it exists
 			if (previousFeed) {
-				queryClient.setQueryData(["personalizedFeed"], (oldData: PaginatedResponse | undefined) => {
+				queryClient.setQueryData<InfiniteData<PaginatedResponse<IImage>>>(["personalizedFeed"], (oldData) => {
 					if (!oldData) return oldData;
 					return {
 						...oldData,
