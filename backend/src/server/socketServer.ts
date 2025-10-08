@@ -17,21 +17,18 @@ export class WebSocketServer {
 	initialize(server: HttpServer): void {
 		this.io = new SocketIOServer(server, {
 			cors: {
-				origin: (origin, callback) => {
-					const allow = (process.env.ALLOWED_ORIGINS || "http://localhost:5173,http://localhost,http://localhost:80")
-						.split(/[,\s]+/)
-						.filter(Boolean);
-					if (!origin || allow.includes(origin)) {
-						return callback(null, true);
-					}
-					console.warn("[Socket CORS] Blocked origin", origin);
-					callback(new Error("Not allowed by CORS"));
-				},
-				credentials: true, // Allows credentials (cookies etc...)
+				origin: [
+					"http://localhost:5173", // Vite dev
+					"http://localhost:80", // Nginx in Docker
+					"http://localhost", // Browser default
+					"http://localhost:8000", // API Gateway
+				],
+				credentials: true,
+				methods: ["GET", "POST"],
 			},
-
 			transports: ["websocket", "polling"],
 			path: "/socket.io",
+			allowEIO3: true, // Allow older clients if needed
 		});
 
 		/**
