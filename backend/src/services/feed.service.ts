@@ -270,14 +270,17 @@ export class FeedService {
 		await this.redisService.invalidateByTags(invalidationTags);
 
 		// Publish to Redis pub/sub for real-time updates
-		await this.redisService.publish("feed_updates", {
-			type: "interaction",
-			userId: userPublicId,
-			actionType,
-			targetId: targetIdentifier,
-			tags,
-			timestamp: new Date().toISOString(),
-		});
+		await this.redisService.publish(
+			"feed_updates",
+			JSON.stringify({
+				type: "interaction",
+				userId: userPublicId,
+				actionType,
+				targetId: targetIdentifier,
+				tags,
+				timestamp: new Date().toISOString(),
+			})
+		);
 
 		console.log("Smart cache invalidation completed for user interaction");
 	}
@@ -293,12 +296,15 @@ export class FeedService {
 		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
 
 		// Broadcast to all connected clients
-		await this.redisService.publish("feed_updates", {
-			type: "like_update",
-			imageId: imagePublicId,
-			newLikes: newTotalLikes,
-			timestamp: new Date().toISOString(),
-		});
+		await this.redisService.publish(
+			"feed_updates",
+			JSON.stringify({
+				type: "like_update",
+				imageId: imagePublicId,
+				newLikes: newTotalLikes,
+				timestamp: new Date().toISOString(),
+			})
+		);
 	}
 
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {

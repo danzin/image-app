@@ -26,7 +26,11 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 				throw createError("PathError", "User not found");
 			}
 			const token = this.generateToken(user);
-			return { user: this.dtoService.toPublicDTO(user), token };
+
+			// return admin DTO for admin users, authenticated DTO for regular users
+			const userDTO = user.isAdmin ? this.dtoService.toAdminDTO(user) : this.dtoService.toAuthenticatedUserDTO(user);
+
+			return { user: userDTO, token };
 		} catch (error) {
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);

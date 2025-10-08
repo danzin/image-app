@@ -7,12 +7,12 @@ import Register from "./screens/Register";
 import Profile from "./screens/Profile";
 import Discovery from "./screens/Discovery";
 import Layout from "./components/Layout";
+import { AdminDashboard } from "./screens/Admin";
 import FeedSocketManager from "./components/FeedSocketManager";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { GalleryProvider } from "./context/GalleryContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { theme } from "./theme/theme";
-
 import SearchResults from "./screens/SearchResults";
 import { SocketProvider } from "./context/Socket/SocketProvider";
 import AuthProvider from "./context/Auth/AuthProvider";
@@ -20,6 +20,7 @@ import ImageView from "./screens/ImageView";
 import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { AdminRoute } from "./components/AdminRoute";
 
 function App() {
 	const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function App() {
 										<Route path="images/:id" element={<ImageView />} />
 										<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
 										<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
+										<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
 									</Route>
 								</Routes>
 								<ReactQueryDevtools initialIsOpen={false} />

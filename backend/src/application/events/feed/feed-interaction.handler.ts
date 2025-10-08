@@ -22,7 +22,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 			await this.feedService.recordInteraction(event.userId, event.interactionType, event.imageId, event.tags);
 
 			await this.invalidateRelevantFeeds(event);
-			
+
 			// Publish real-time interaction event for WebSocket notifications
 			await this.publishInteractionEvent(event);
 		} catch (error) {
@@ -50,21 +50,25 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 			} catch (e) {
 				console.warn("Failed to update image like meta during like/unlike event", e);
 			}
-			// Invalidate only actor's structural feed so their personalization (tag score changes) can reorder
-			await this.redis.deletePatterns([`core_feed:${event.userId}:*`, `feed:${event.userId}:*`]);
+			// Invalidate only actor's structural feed using tags
+			await this.redis.invalidateByTags([`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`]);
 			console.log("Selective invalidation done (actor only) for like/unlike; others rely on meta overlay");
 			return;
 		}
 
-		// Non-like events (e.g., comments) may affect counts not covered by meta yet; perform broader invalidation
-		await this.redis.deletePatterns([`feed:${event.userId}:*`, `core_feed:${event.userId}:*`]);
+		// Non-like events: invalidate actor's feeds and affected users' feeds using tags
+		const tagsToInvalidate: string[] = [`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`];
+
 		const affectedUsers = await this.getAffectedUsers(event);
 		if (affectedUsers.length > 0) {
-			const cachePatternsLegacy = affectedUsers.map((publicId) => `feed:${publicId}:*`);
-			const cachePatternsCore = affectedUsers.map((publicId) => `core_feed:${publicId}:*`);
-			await Promise.all([...cachePatternsLegacy, ...cachePatternsCore].map((pattern) => this.redis.del(pattern)));
-			console.log(`Invalidated feeds (legacy + core) for ${affectedUsers.length} users (non-like event)`);
+			affectedUsers.forEach((publicId) => {
+				tagsToInvalidate.push(`user_feed:${publicId}`);
+				tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
+			});
+			console.log(`Invalidating feeds for ${affectedUsers.length} affected users (non-like event)`);
 		}
+
+		await this.redis.invalidateByTags(tagsToInvalidate);
 	}
 	/**
 	 * Determine which users would see this image in their personalized feeds
@@ -89,8 +93,8 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 			return [...new Set(affectedUsers)].filter((id) => id !== event.userId);
 		} catch (error) {
 			console.error("Error determining affected users:", error);
-			// Fallback: invalidate all feeds (nuclear option)
-			await this.redis.deletePatterns(["feed:*", "core_feed:*"]);
+			// Fallback: invalidate global feeds using tags
+			await this.redis.invalidateByTags(["trending_feed", "new_feed", "for_you_feed"]);
 			return [];
 		}
 	}
@@ -130,7 +134,9 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 			};
 
 			await this.redis.publish("feed_updates", JSON.stringify(interactionMessage));
-			console.log(`Published real-time interaction event: ${event.interactionType} on image ${event.imageId} by user ${event.userId}`);
+			console.log(
+				`Published real-time interaction event: ${event.interactionType} on image ${event.imageId} by user ${event.userId}`
+			);
 		} catch (error) {
 			console.error("Failed to publish interaction event:", error);
 		}

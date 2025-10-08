@@ -4,9 +4,10 @@ import { useAuth } from "../hooks/context/useAuth";
 import { AppBar, Toolbar, Button, InputBase, alpha, Box, Container, useTheme } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationBell from "./NotificationBell";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 
 const Navbar = () => {
-	const { isLoggedIn } = useAuth();
+	const { isLoggedIn, user } = useAuth();
 	const navigate = useNavigate();
 	const theme = useTheme();
 	const [searchTerm, setSearchTerm] = useState("");
@@ -18,6 +19,8 @@ const Navbar = () => {
 			setSearchTerm("");
 		}
 	};
+
+	const isAdmin = user && "isAdmin" in user && user.isAdmin === true;
 
 	return (
 		<AppBar
@@ -94,7 +97,28 @@ const Navbar = () => {
 					{/* Auth & Notifications */}
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
 						{isLoggedIn ? (
-							<NotificationBell />
+							<>
+								{isAdmin && (
+									<Button
+										component={RouterLink}
+										to="/admin"
+										variant="outlined"
+										size="small"
+										startIcon={<AdminPanelSettingsIcon />}
+										sx={{
+											borderColor: alpha(theme.palette.warning.main, 0.5),
+											color: theme.palette.warning.light,
+											"&:hover": {
+												borderColor: theme.palette.warning.main,
+												backgroundColor: alpha(theme.palette.warning.main, 0.1),
+											},
+										}}
+									>
+										admin tools
+									</Button>
+								)}
+								<NotificationBell />
+							</>
 						) : (
 							<>
 								<Button

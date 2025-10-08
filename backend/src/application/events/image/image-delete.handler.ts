@@ -12,25 +12,56 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 	) {}
 
 	async handle(event: ImageDeletedEvent): Promise<void> {
-		console.log(`Image deleted by ${event.uploaderPublicId}, invalidating relevant feeds`);
+		console.log(`Image deleted: ${event.imageId} by ${event.uploaderPublicId}, invalidating relevant feeds`);
 
 		try {
-			console.log(`Invalidating deleter's own feed: ${event.uploaderPublicId}`);
-			await this.redis.del(`feed:${event.uploaderPublicId}:*`);
+			// use tag-based invalidation for active cache entries
+			const tagsToInvalidate: string[] = [];
 
-			// Get followers of the uploader (they might have seen this image)
+			// invalidate global feed tags
+			tagsToInvalidate.push("trending_feed", "new_feed");
+
+			// invalidate uploader's personalized feeds
+			tagsToInvalidate.push(`user_feed:${event.uploaderPublicId}`);
+			tagsToInvalidate.push(`user_for_you_feed:${event.uploaderPublicId}`);
+
+			// get followers and invalidate their feeds
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
-
 			if (followers.length > 0) {
-				const cachePatterns = followers.map((publicId) => `feed:${publicId}:*`);
-				await Promise.all(cachePatterns.map((pattern) => this.redis.del(pattern)));
-
-				console.log(`Invalidated feeds for ${followers.length} followers due to image deletion`);
+				console.log(`Invalidating feeds for ${followers.length} followers`);
+				followers.forEach((publicId) => {
+					tagsToInvalidate.push(`user_feed:${publicId}`);
+					tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
+				});
 			}
+
+			// use tag-based invalidation (efficient - only deletes keys with these tags)
+			console.log(`Invalidating cache with ${tagsToInvalidate.length} tags`);
+			await this.redis.invalidateByTags(tagsToInvalidate);
+
+			// also do pattern-based cleanup for any keys that might not have tag metadata
+			// (e.g., if tags expired but cache keys haven't yet)
+			const patterns = [
+				`core_feed:${event.uploaderPublicId}:*`,
+				`for_you_feed:${event.uploaderPublicId}:*`,
+				"trending_feed:*",
+				"new_feed:*",
+			];
+
+			// add follower patterns
+			followers.forEach((publicId) => {
+				patterns.push(`core_feed:${publicId}:*`);
+				patterns.push(`for_you_feed:${publicId}:*`);
+			});
+
+			await this.redis.deletePatterns(patterns);
+
+			console.log(`Feed invalidation complete for image deletion`);
 		} catch (error) {
 			console.error("Error handling image deletion:", error);
-			// Fallback: invalidate all feeds
-			await this.redis.del("feed:*");
+			// fallback: invalidate all feed patterns
+			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*"];
+			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}
 

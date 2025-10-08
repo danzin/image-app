@@ -571,6 +571,51 @@ export class UserService {
 		};
 	}
 
+	/**
+	 * Gets recent user activity for admin dashboard
+	 */
+	async getRecentActivity(options: PaginationOptions) {
+		const activities = await this.userActionRepository.findWithPagination({
+			...options,
+			sortBy: "timestamp",
+			sortOrder: "desc",
+		});
+
+		// transform the data to match frontend expectations
+		const transformedData = activities.data.map((activity: any) => ({
+			userId: activity.userId?._id?.toString() || activity.userId?.toString() || "",
+			username: activity.userId?.username || "Unknown",
+			action: activity.actionType || "unknown",
+			targetType: this.getTargetType(activity.actionType),
+			targetId: activity.targetId?.toString() || "",
+			timestamp: activity.timestamp || new Date(),
+		}));
+
+		return {
+			data: transformedData,
+			total: activities.total,
+			page: activities.page,
+			limit: activities.limit,
+			totalPages: activities.totalPages,
+		};
+	}
+
+	/**
+	 * Helper to determine target type from action type
+	 */
+	private getTargetType(actionType: string): string {
+		const actionMap: Record<string, string> = {
+			upload: "image",
+			like: "image",
+			comment: "image",
+			follow: "user",
+			unfollow: "user",
+			favorite: "image",
+			unfavorite: "image",
+		};
+		return actionMap[actionType] || "unknown";
+	}
+
 	async getUserStats(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -683,19 +728,6 @@ export class UserService {
 				images: recentImages,
 			},
 		};
-	}
-
-	/**
-	 * Gets recent activity across the platform
-	 */
-	async getRecentActivity(options: PaginationOptions) {
-		const activities = await this.userActionRepository.findWithPagination({
-			...options,
-			sortBy: "timestamp",
-			sortOrder: "desc",
-		});
-
-		return activities;
 	}
 
 	/**
