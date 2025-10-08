@@ -230,6 +230,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 						publicId: 1,
 						url: 1,
 						slug: 1,
+						title: 1,
 						originalName: 1,
 						createdAt: 1,
 						likes: 1,
@@ -238,10 +239,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 							$map: {
 								input: "$tagObjects",
 								as: "tagObj",
-								in: {
-									tag: "$$tagObj.tag",
-									publicId: "$$tagObj.publicId",
-								},
+								in: "$$tagObj.tag",
 							},
 						},
 						user: {

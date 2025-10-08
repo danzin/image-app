@@ -239,15 +239,15 @@ export class ImageService {
 	 * Gets all images for admin dashboard with pagination
 	 */
 	async getAllImagesAdmin(options: {
-		page?: number;
-		limit?: number;
+		page?: number | string;
+		limit?: number | string;
 		sortBy?: string;
 		sortOrder?: "asc" | "desc";
 	}): Promise<PaginationResult<IImage>> {
 		try {
 			const paginationOptions = {
-				page: options.page || 1,
-				limit: options.limit || 20,
+				page: parseInt(String(options.page || 1), 10),
+				limit: parseInt(String(options.limit || 20), 10),
 				sortBy: options.sortBy || "createdAt",
 				sortOrder: (options.sortOrder || "desc") as "asc" | "desc",
 			};

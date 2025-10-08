@@ -23,13 +23,16 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 			await this.redis.invalidateByTags(followerTags);
 
 			// Publish real-time avatar update
-			await this.redis.publish("feed_updates", {
-				type: "avatar_changed",
-				userId: event.userPublicId,
-				oldAvatar: event.oldAvatarUrl,
-				newAvatar: event.newAvatarUrl,
-				timestamp: new Date().toISOString(),
-			});
+			await this.redis.publish(
+				"feed_updates",
+				JSON.stringify({
+					type: "avatar_changed",
+					userId: event.userPublicId,
+					oldAvatar: event.oldAvatarUrl,
+					newAvatar: event.newAvatarUrl,
+					timestamp: new Date().toISOString(),
+				})
+			);
 
 			console.log(`Smart cache invalidation completed for avatar change of user ${event.userPublicId}`);
 		} catch (error) {

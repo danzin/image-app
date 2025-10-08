@@ -101,21 +101,23 @@ export type ImagePageData = {
 	totalPages: number;
 };
 
-export interface PaginatedResponse {
-	pages: {
-		data: IImage[];
-		total: number;
-		page: number;
-		limit: number;
-		totalPages: number;
-	}[];
+export interface PaginatedResponse<T> {
+	data: T[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
 }
 export interface UseImagesResult {
-	imagesQuery: UseInfiniteQueryResult<PaginatedResponse, Error>;
-	imageByIdQuery: (id: string) => UseInfiniteQueryResult<IImage, Error>;
+	imagesQuery: UseInfiniteQueryResult<InfiniteData<PaginatedResponse<IImage>>, Error>;
+	imageByIdQuery: (id: string) => UseQueryResult<IImage, Error>;
 	uploadImageMutation: UseMutationResult<unknown, Error, unknown, unknown>;
 	tagsQuery: UseQueryResult<string[], Error>;
-	imagesByTagQuery: (tags: string[], page: number, limit: number) => UseInfiniteQueryResult<PaginatedResponse, Error>;
+	imagesByTagQuery: (
+		tags: string[],
+		page: number,
+		limit: number
+	) => UseInfiniteQueryResult<InfiniteData<PaginatedResponse<IImage>>, Error>;
 	deleteImage: (id: string) => Promise<void>;
 }
 

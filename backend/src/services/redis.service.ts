@@ -40,11 +40,35 @@ export class RedisService {
 		}
 	}
 
-	async del(keyPattern: string): Promise<void> {
-		const keys = await this.client.keys(keyPattern);
-		if (keys.length > 0) {
-			await this.client.del(keys);
-		}
+	/**
+	 * Deletes keys matching a pattern
+	 * note: uses SCAN instead of KEYS to avoid blocking Redis
+	 * @param keyPattern - Pattern to match (e.g., "feed:*", "feed:user123:*")
+	 * @returns Number of keys deleted
+	 */
+	async del(keyPattern: string): Promise<number> {
+		let cursor = 0;
+		let deletedCount = 0;
+		const batchSize = 100; // delete in batches to avoid memory issues
+
+		do {
+			// use SCAN instead of KEYS to avoid blocking Redis
+			const result = await this.client.scan(cursor, {
+				MATCH: keyPattern,
+				COUNT: batchSize,
+			});
+
+			cursor = result.cursor;
+			const keys = result.keys;
+
+			if (keys.length > 0) {
+				await this.client.del(keys);
+				deletedCount += keys.length;
+			}
+		} while (cursor !== 0);
+
+		console.log(`[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`);
+		return deletedCount;
 	}
 
 	/**
@@ -94,18 +118,21 @@ export class RedisService {
 	async setWithTags(key: string, value: any, tags: string[], ttl?: number): Promise<void> {
 		await this.set(key, value, ttl);
 
+		// store tag metadata with same TTL as cache key to prevent orphaned tags
+		const tagTTL = ttl || 600; // default 10 minutes if no TTL specified
+
 		// Store tag-to-key mapping
 		for (const tag of tags) {
 			const tagKey = `tag:${tag}`;
 			const existingKeys = (await this.get<string[]>(tagKey)) || [];
 			if (!existingKeys.includes(key)) {
 				existingKeys.push(key);
-				await this.set(tagKey, existingKeys);
+				await this.set(tagKey, existingKeys, tagTTL);
 			}
 		}
 
 		// Store key-to-tags mapping for cleanup
-		await this.set(`key_tags:${key}`, tags);
+		await this.set(`key_tags:${key}`, tags, tagTTL);
 	}
 
 	/**
@@ -113,21 +140,34 @@ export class RedisService {
 	 */
 	async invalidateByTags(tags: string[]): Promise<void> {
 		const keysToDelete = new Set<string>();
+		const tagKeysToDelete: string[] = [];
 
 		for (const tag of tags) {
 			const tagKey = `tag:${tag}`;
 			const keys = (await this.get<string[]>(tagKey)) || [];
 
 			keys.forEach((key) => keysToDelete.add(key));
-
-			// Clean up tag mapping
-			await this.client.del(tagKey);
+			tagKeysToDelete.push(tagKey);
 		}
 
-		// Delete all affected keys and their tag mappings
+		// batch delete for performance
+		const allKeysToDelete: string[] = [];
+
+		// add main keys and their tag mappings
 		for (const key of keysToDelete) {
-			await this.client.del(key);
-			await this.client.del(`key_tags:${key}`);
+			allKeysToDelete.push(key, `key_tags:${key}`);
+		}
+
+		// add tag keys
+		allKeysToDelete.push(...tagKeysToDelete);
+
+		// delete all in batches of 100
+		const batchSize = 100;
+		for (let i = 0; i < allKeysToDelete.length; i += batchSize) {
+			const batch = allKeysToDelete.slice(i, i + batchSize);
+			if (batch.length > 0) {
+				await this.client.del(batch);
+			}
 		}
 
 		console.log(`Invalidated ${keysToDelete.size} cache entries for tags: ${tags.join(", ")}`);
