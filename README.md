@@ -22,13 +22,12 @@ Tech stack:
 ### Feed system
  - **Personalized (Home) Feed**: user-specific partitioned feed - follows + growing personalization signals. Fast, cached per-user, primary home view for active users.
  - **ForYou Feed**:
-   -  `For You` feed is an algorithmic feed created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
+   -  `For You` feed is created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
     ``` 
     recency: 0.5,
    popularity: 0.3,
    tagMatch: 0.2,
    ```
- - New frontend hook `useFeedSocketIntegration.ts` to handle real-time feed updates through WebSocket integrating socket events with React Query cache invalidation.
  - **Trending / New**: discovery feeds. Trending = popularity + recency within time window; New = strict recency.
  - **Core feed**: internal cached structure (IDs + ordering). Not a UI feed — used to enrich and serve many view variants without recomputing rankings.
 
@@ -47,6 +46,48 @@ Tech stack:
   - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
   - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users. New users are exposed to the new and trending feeds first.
   - **Redis caching: The app uses a partitioned user feed caching strategy. Parts of the user feed are cached and invalidated when certain actions are taken by the user or other users. User cache invalidation only applies for certain actions and only the relevant users' cache is enriched/invalidated depending on the action.**
+  - Event flow diagram: 
+  ``` 
+  ┌─────────────────┐
+│  User Action    │
+│  (Upload/Like/  │
+│   Comment/etc)  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Command Handler │
+│ (DB Transaction)│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ EventBus.queue  │
+│ Transactional   │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Event Handler  │
+│ (Post-Commit)   │
+└────────┬────────┘
+         │
+         ├─────────────────┐
+         │                 │
+         ▼                 ▼
+┌──────────────┐   ┌──────────────┐
+│Tag-Based     │   │Pattern-Based │
+│Invalidation  │   │Cleanup       │
+└──────┬───────┘   └──────┬───────┘
+       │                  │
+       └─────────┬────────┘
+                 │
+                 ▼
+        ┌────────────────┐
+        │ Redis.publish  │
+        │ (WebSocket)    │
+        └────────────────┘
+ ```
     
 ### CQRS: Working on gradually switching from the classic modular architecture to CQRS
   - Command, Query and Event buses are implemented and fully functional.
