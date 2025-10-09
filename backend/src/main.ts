@@ -59,7 +59,8 @@ async function bootstrap(): Promise<void> {
 		await dbConfig.connect();
 
 		// Setup dependency injection
-		setupContainer();
+
+		setupContainer(); // Registers all deps in the DI container
 
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);
