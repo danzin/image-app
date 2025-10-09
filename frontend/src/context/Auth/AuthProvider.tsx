@@ -22,14 +22,24 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 		const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
 			if (event?.query.queryKey[0] === "currentUser" && event.type === "updated") {
 				const data = event.query.state.data as IUser | undefined;
-				if (data && data.publicId !== user?.publicId) {
-					console.log("[AuthProvider] Syncing user from React Query cache:", data);
-					setUser(data);
+				if (data && data.publicId) {
+					if (data.publicId !== user?.publicId) {
+						console.log("[AuthProvider] Syncing user from React Query cache:", data);
+						setUser(data);
+					}
+				} else if (data === undefined && user !== null) {
+					// Only clear user if the data is explicitly undefined (not during refetch)
+					// and the query is not currently fetching
+					const query = queryClient.getQueryCache().find({ queryKey: ["currentUser"] });
+					if (query && !query.state.fetchStatus) {
+						console.log("[AuthProvider] Clearing user (data undefined, not fetching)");
+						setUser(null);
+					}
 				}
 			}
 		});
 		return unsubscribe;
-	}, [queryClient, user?.publicId]);
+	}, [queryClient, user]);
 
 	const checkAuthState = useCallback(async () => {
 		// Cancel any previous /me request

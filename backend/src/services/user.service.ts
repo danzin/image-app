@@ -326,17 +326,22 @@ export class UserService {
 				}
 				userPublicId = user.publicId;
 				oldAvatarUrl = user.avatar;
-				const newAvatar = await this.imageStorageService.uploadImage(file, user.id);
+				const newAvatar = await this.imageStorageService.uploadImage(file, user.publicId);
 				newAvatarUrl = newAvatar.url;
 				userId = user.id;
 				await this.userRepository.updateAvatar(userId, newAvatar.url, session);
 			});
 
 			// Delete old avatar if it exists
-			if (oldAvatarUrl) {
-				const deleteResult = await this.imageStorageService.deleteAssetByUrl(userId, oldAvatarUrl);
-				if (deleteResult.result !== "ok") {
-					console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
+			if (oldAvatarUrl && userPublicId) {
+				try {
+					const deleteResult = await this.imageStorageService.deleteAssetByUrl(userPublicId, oldAvatarUrl);
+					if (deleteResult.result !== "ok") {
+						console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
+					}
+				} catch (deleteError) {
+					// Don't fail the entire operation if old avatar deletion fails
+					console.warn(`Failed to delete old avatar (non-critical): ${oldAvatarUrl}`, deleteError);
 				}
 			}
 
@@ -345,10 +350,9 @@ export class UserService {
 			await this.eventBus.publish(new UserAvatarChangedEvent(userPublicId!, oldAvatarUrl || undefined, newAvatarUrl!));
 		} catch (error) {
 			// Clean up the only if the transaction or upload failed
-			if (newAvatarUrl && !userId) {
-				// username is set only if transaction succeeds
+			if (newAvatarUrl && userPublicId) {
 				try {
-					await this.imageStorageService.deleteAssetByUrl(userId, newAvatarUrl);
+					await this.imageStorageService.deleteAssetByUrl(userPublicId, newAvatarUrl);
 				} catch (deleteError) {
 					console.error("Failed to clean up new avatar:", deleteError);
 				}
@@ -376,6 +380,7 @@ export class UserService {
 	 * @param file - The new cover image file.
 	 */
 	async updateCover(userId: string, file: Buffer): Promise<void> {
+		let userPublicId: string | null = null;
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const user = await this.userRepository.findById(userId, session);
@@ -383,13 +388,20 @@ export class UserService {
 					throw createError("NotFoundError", "User not found");
 				}
 
+				userPublicId = user.publicId;
 				const oldCoverUrl = user.cover;
-				const cloudImage = await this.imageStorageService.uploadImage(file, user.id);
+				// Use user.publicId (UUID) instead of user.id (MongoDB ObjectId) for localStorage
+				const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
 
 				await this.userRepository.updateCover(userId, cloudImage.url, session);
 
-				if (oldCoverUrl) {
-					await this.imageStorageService.deleteAssetByUrl(userId, oldCoverUrl);
+				// Delete old cover if it exists (non-critical, don't fail transaction)
+				if (oldCoverUrl && userPublicId) {
+					try {
+						await this.imageStorageService.deleteAssetByUrl(userPublicId, oldCoverUrl);
+					} catch (deleteError) {
+						console.warn(`Failed to delete old cover (non-critical): ${oldCoverUrl}`, deleteError);
+					}
 				}
 			});
 		} catch (error) {
@@ -424,7 +436,8 @@ export class UserService {
 				}
 
 				if (user.images.length > 0) {
-					const cloudResult = await this.imageStorageService.deleteMany(user.username);
+					// Use user.publicId (UUID) instead of user.username for localStorage
+					const cloudResult = await this.imageStorageService.deleteMany(user.publicId);
 					if (cloudResult.result !== "ok") {
 						throw createError("CloudinaryError", cloudResult.message || "Error deleting cloudinary data");
 					}
