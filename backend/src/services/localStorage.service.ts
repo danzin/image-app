@@ -8,55 +8,14 @@ import { createError } from "../utils/errors";
 @injectable()
 export class LocalStorageService implements IImageStorageService {
 	private uploadsDir: string;
-
+	private isAdminFlag: boolean;
 	constructor() {
+		this.isAdminFlag = false;
 		this.uploadsDir = path.join(process.cwd(), "uploads");
 		if (!fs.existsSync(this.uploadsDir)) {
 			fs.mkdirSync(this.uploadsDir, { recursive: true });
 		}
 		console.log("LocalStorageService: Uploads directory path inside container:", this.uploadsDir);
-	}
-
-	private validateUserId(userId: string): string {
-		// remove null bytes and trim
-		const cleaned = String(userId).replace(/\0/g, "").trim();
-
-		const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-		if (!uuidV4Regex.test(cleaned)) {
-			throw createError("SecurityError", "Invalid user identifier format");
-		}
-
-		return cleaned;
-	}
-
-	// validate filename format (UUID v4 + .png extension)
-	private validateFileName(fileName: string): string {
-		// remove null bytes and use basename to prevent directory traversal
-		const cleaned = path.basename(String(fileName).replace(/\0/g, "").trim());
-
-		// expected format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx.png
-		const fileNameRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpg|jpeg|webp)$/i;
-
-		if (!fileNameRegex.test(cleaned)) {
-			throw createError("SecurityError", "Invalid file name format");
-		}
-
-		return cleaned;
-	}
-
-	// safe path join that prevents directory traversal
-	private safeJoin(base: string, ...segments: string[]): string {
-		const resolvedBase = path.resolve(base);
-		const resolvedPath = path.resolve(resolvedBase, ...segments);
-		const relativePath = path.relative(resolvedBase, resolvedPath);
-
-		// check if resolved path escapes base directory
-		if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-			throw createError("SecurityError", "Path traversal attempt detected");
-		}
-
-		return resolvedPath;
 	}
 
 	async uploadImage(file: Buffer, userId: string): Promise<{ url: string; publicId: string }> {
@@ -123,40 +82,81 @@ export class LocalStorageService implements IImageStorageService {
 		}
 	}
 
-	async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
-		if (!this.isLocalUrl(url)) {
-			console.log(`Skipping deletion of non-local URL: ${url}`);
+	// async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
+	// 	if (!this.isLocalUrl(url)) {
+	// 		console.log(`Skipping deletion of non-local URL: ${url}`);
+	// 		return { result: "skipped" };
+	// 	}
+
+	// 	try {
+	// 		console.log("URL of image about to delete:", url);
+
+	// 		// validate username is a proper UUID v4
+	// 		const safeUsername = this.validateUserId(username);
+
+	// 		// extract publicId from URL
+	// 		const publicId = this.extractPublicId(url);
+	// 		if (!publicId) {
+	// 			throw createError("StorageError", "Could not extract publicId from URL");
+	// 		}
+
+	// 		// validate filename format
+	// 		const safeFileName = this.validateFileName(publicId);
+
+	// 		// safely join paths with traversal protection
+	// 		const assetPath = this.safeJoin(this.uploadsDir, safeUsername, safeFileName);
+
+	// 		await fs.promises.unlink(assetPath);
+	// 		return { result: "ok" };
+	// 	} catch (error) {
+	// 		console.error("Error deleting asset:", error);
+	// 		if (error instanceof Error) {
+	// 			throw createError("StorageError", error.message);
+	// 		} else {
+	// 			throw createError("StorageError", String(error));
+	// 		}
+	// 	}
+	// }
+
+	async deleteAssetByUrl(requesterPublicId: string, ownerPublicId: string, url: string): Promise<{ result: string }> {
+		if (!requesterPublicId) throw createError("AuthError", "Missing requester identity");
+
+		// ownership enforcement: allow if requester == owner OR requester is admin
+		if (requesterPublicId !== ownerPublicId && !this.isAdmin(requesterPublicId)) {
+			throw createError("ForbiddenError", "Not allowed to delete another user's asset");
+		}
+
+		// parse & decode URL robustly
+		const parsed = (() => {
+			try {
+				return new URL(url, "http://localhost");
+			} catch {
+				return null;
+			}
+		})();
+		if (!parsed) throw createError("StorageError", "Invalid URL");
+		const pathname = decodeURIComponent(parsed.pathname);
+
+		const publicId = this.extractPublicId(pathname); // reuse your regex on decoded pathname
+		if (!publicId) throw createError("StorageError", "Could not extract publicId from URL");
+
+		// validate filename and ownerPublicId
+		const safeFileName = this.validateFileName(publicId);
+		const safeOwner = this.validateUserId(ownerPublicId);
+
+		const assetPath = this.safeJoin(this.uploadsDir, safeOwner, safeFileName);
+
+		// lstat + symlink/file check
+		const stat = await fs.promises.lstat(assetPath).catch(() => null);
+		if (!stat || !stat.isFile()) {
 			return { result: "skipped" };
 		}
-
-		try {
-			console.log("URL of image about to delete:", url);
-
-			// validate username is a proper UUID v4
-			const safeUsername = this.validateUserId(username);
-
-			// extract publicId from URL
-			const publicId = this.extractPublicId(url);
-			if (!publicId) {
-				throw createError("StorageError", "Could not extract publicId from URL");
-			}
-
-			// validate filename format
-			const safeFileName = this.validateFileName(publicId);
-
-			// safely join paths with traversal protection
-			const assetPath = this.safeJoin(this.uploadsDir, safeUsername, safeFileName);
-
-			await fs.promises.unlink(assetPath);
-			return { result: "ok" };
-		} catch (error) {
-			console.error("Error deleting asset:", error);
-			if (error instanceof Error) {
-				throw createError("StorageError", error.message);
-			} else {
-				throw createError("StorageError", String(error));
-			}
+		if (stat.isSymbolicLink()) {
+			throw createError("StorageError", "Refusing to remove symlink");
 		}
+
+		await fs.promises.unlink(assetPath);
+		return { result: "ok" };
 	}
 
 	async deleteMany(username: string): Promise<{ result: "ok" | "error"; message?: string }> {
@@ -213,10 +213,64 @@ export class LocalStorageService implements IImageStorageService {
 		}
 	}
 
+	/* Methods to validate inputs in order to prevent directory traversal attacks */
+	private validateUserId(userId: string): string {
+		// remove null bytes and trim
+		const cleaned = String(userId).replace(/\0/g, "").trim();
+
+		const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+		if (!uuidV4Regex.test(cleaned)) {
+			throw createError("SecurityError", "Invalid user identifier format");
+		}
+
+		return cleaned;
+	}
+
+	// validate filename format (UUID v4 + .png extension)
+	private validateFileName(fileName: string): string {
+		// remove null bytes and use basename to prevent directory traversal
+		const cleaned = path.basename(String(fileName).replace(/\0/g, "").trim());
+
+		// expected format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx.png
+		const fileNameRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpg|jpeg|webp)$/i;
+
+		if (!fileNameRegex.test(cleaned)) {
+			throw createError("SecurityError", "Invalid file name format");
+		}
+
+		return cleaned;
+	}
+
+	// safe path join that prevents directory traversal
+	private safeJoin(base: string, ...segments: string[]): string {
+		const resolvedBase = path.resolve(base);
+		const resolvedPath = path.resolve(resolvedBase, ...segments);
+		const relativePath = path.relative(resolvedBase, resolvedPath);
+
+		// check if resolved path escapes base directory
+		if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+			throw createError("SecurityError", "Path traversal attempt detected");
+		}
+
+		return resolvedPath;
+	}
+
+	private isAdmin(userId: string): boolean {
+		// placeholder admin check; replace with real role lookup if needed
+		return this.isAdminFlag;
+	}
+
 	private extractPublicId(url: string): string | null {
-		const regex = /\/uploads\/(?:[^\/]+)\/([^\/]+)$/;
-		const matches = url.match(regex);
-		return matches ? matches[1] : null;
+		try {
+			// If url is absolute, parse; if relative, prepend origin so URL works
+			const parsed = new URL(url, "http://localhost");
+			const pathname = decodeURIComponent(parsed.pathname);
+			const match = pathname.match(/\/uploads\/[^\/]+\/([^\/]+)$/);
+			return match ? match[1] : null;
+		} catch {
+			return null;
+		}
 	}
 
 	private isLocalUrl(url: string): boolean {

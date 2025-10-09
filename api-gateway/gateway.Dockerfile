@@ -47,5 +47,5 @@ USER nodejs
 # The gateway listens on 8000 externally; expose same internally for clarity
 EXPOSE 8000
 
-# Use the built server.js (compiled from src/server.ts)
+# Use the built server.js
 CMD ["node", "api-gateway/dist/server.js"]

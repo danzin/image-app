@@ -318,45 +318,54 @@ export class UserService {
 		let username: string | null = null;
 		let oldAvatarUrl: string | null = null;
 		let userPublicId: string | null = null;
+
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const user = await this.userRepository.findById(userId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}
+
 				userPublicId = user.publicId;
 				oldAvatarUrl = user.avatar;
+
+				// upload uses ownerPublicId as before
 				const newAvatar = await this.imageStorageService.uploadImage(file, user.publicId);
 				newAvatarUrl = newAvatar.url;
+
 				userId = user.id;
 				await this.userRepository.updateAvatar(userId, newAvatar.url, session);
 			});
 
-			// Delete old avatar if it exists
+			// Delete old avatar if it exists (actor is the same userPublicId)
 			if (oldAvatarUrl && userPublicId) {
 				try {
-					const deleteResult = await this.imageStorageService.deleteAssetByUrl(userPublicId, oldAvatarUrl);
+					// pass requesterPublicId first, then ownerPublicId
+					const deleteResult = await this.imageStorageService.deleteAssetByUrl(
+						userPublicId,
+						userPublicId,
+						oldAvatarUrl
+					);
 					if (deleteResult.result !== "ok") {
 						console.log(`Old avatar deletion not successful: ${oldAvatarUrl}, result: ${deleteResult.result}`);
 					}
 				} catch (deleteError) {
-					// Don't fail the entire operation if old avatar deletion fails
 					console.warn(`Failed to delete old avatar (non-critical): ${oldAvatarUrl}`, deleteError);
 				}
 			}
 
-			// Always publish the event when avatar is updated, regardless of whether there was a previous avatar
 			console.log("Publishing UserAvatarChangedEvent");
 			await this.eventBus.publish(new UserAvatarChangedEvent(userPublicId!, oldAvatarUrl || undefined, newAvatarUrl!));
 		} catch (error) {
 			// Clean up the only if the transaction or upload failed
 			if (newAvatarUrl && userPublicId) {
 				try {
-					await this.imageStorageService.deleteAssetByUrl(userPublicId, newAvatarUrl);
+					await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, newAvatarUrl);
 				} catch (deleteError) {
 					console.error("Failed to clean up new avatar:", deleteError);
 				}
 			}
+
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(
 					(error as { name: string; message: string }).name,
@@ -381,6 +390,7 @@ export class UserService {
 	 */
 	async updateCover(userId: string, file: Buffer): Promise<void> {
 		let userPublicId: string | null = null;
+
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const user = await this.userRepository.findById(userId, session);
@@ -390,15 +400,15 @@ export class UserService {
 
 				userPublicId = user.publicId;
 				const oldCoverUrl = user.cover;
-				// Use user.publicId (UUID) instead of user.id (MongoDB ObjectId) for localStorage
-				const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
 
+				const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
 				await this.userRepository.updateCover(userId, cloudImage.url, session);
 
-				// Delete old cover if it exists (non-critical, don't fail transaction)
+				// Delete old cover if it exists (non-critical, keep inside same transaction scope)
+				// But deletion can be outside transaction too — attempt immediate, non-fatal cleanup.
 				if (oldCoverUrl && userPublicId) {
 					try {
-						await this.imageStorageService.deleteAssetByUrl(userPublicId, oldCoverUrl);
+						await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldCoverUrl);
 					} catch (deleteError) {
 						console.warn(`Failed to delete old cover (non-critical): ${oldCoverUrl}`, deleteError);
 					}

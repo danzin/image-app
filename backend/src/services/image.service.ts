@@ -400,18 +400,23 @@ export class ImageService {
 					throw createError("PathError", "Image not found");
 				}
 
+				let ownerPublicId: string | undefined;
 				// Only check ownership if not admin
 				if (!isAdmin) {
-					// Check if user owns the image - compare with user._id if it's populated, otherwise use user directly
-					const imageUserId =
-						typeof image.user === "object" && (image.user as any)._id
-							? (image.user as any)._id.toString()
-							: image.user.toString();
-					// Resolve user internal id by publicId
-					const ownerInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
-					if (!ownerInternalId) throw createError("AuthenticationError", "User not found");
-					if (imageUserId !== ownerInternalId) {
-						throw createError("ForbiddenError", "You can only delete your own images");
+					if (typeof image.user === "object" && (image.user as any).publicId) {
+						ownerPublicId = (image.user as any).publicId.toString();
+					} else {
+						// image.user is likely an internal id string
+						const imageUserId =
+							typeof image.user === "object" && (image.user as any)._id
+								? (image.user as any)._id.toString()
+								: image.user.toString();
+
+						const ownerUser = await this.userRepository.findById(imageUserId, session);
+						if (!ownerUser) {
+							throw createError("PathError", "Owner user not found");
+						}
+						ownerPublicId = ownerUser.publicId;
 					}
 				}
 				// Delete the image from database using internal _id
@@ -419,6 +424,7 @@ export class ImageService {
 
 				const deletionResult = await this.imageStorageService.deleteAssetByUrl(
 					image.user.publicId.toString(),
+					ownerPublicId!,
 					image.url
 				);
 				console.log(`result of await this.imageStorageService.deleteAssetByUrl: ${deletionResult}`);
