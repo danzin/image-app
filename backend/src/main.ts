@@ -51,6 +51,10 @@ process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
 async function bootstrap(): Promise<void> {
 	try {
 		// Connect to database
+
+		// containter.resolve() asks the tsyringe DI container
+		// to construct the instance and automatically inject dependencies
+		// instead of new-ing it and injecting manually
 		const dbConfig = container.resolve(DatabaseConfig);
 		await dbConfig.connect();
 
