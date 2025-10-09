@@ -119,11 +119,6 @@ Tech stack:
 - **Transaction Management:**
   - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
         
-- **Planned Enhancements:**
-  - **Redis:** Expanding Redis coverage for the app. 
-  - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
-  - **Decoupling:** Planning on decoupling functionality from the monolith into microservices
-
 
 
 ## Architecture & Implementation
@@ -148,18 +143,24 @@ The project is built on solid architectural principles:
 ## Future Improvements
  - **Redis Caching:**
     Planned integration - cache frequently accessed data, greatly enhancing performance and scalability.
-      - User feed - Done ✅
+      - Trending/For you/New/Home user partitioned feeds. ✅ Done
+        
  - **Enhanced Security Features:**
-    Continued enhancements to authentication, authorization, and data protection.
-      - Done ✅ 
+   
+    Enhancements to authentication, authorization, and data protection. ✅ Done
+   
  - **Expanded Search Capabilities:**
-    Refining the universal search to support advanced queries and more refined result filtering.
-      - Done ✅
- - **Additional API Endpoints:** 
-    Further expansion of administrative, notification, and real-time features.
- - **Polishing the frontend**:
-    So far the backend has been my primary focus and frontend has been falling behind.
-      - Done ✅
+
+    Refining the universal search to support advanced queries and more refined result filtering. ✅ Done
+   
+ - **Additional API Endpoints:**
+   
+    Further expansion of administrative, notification, and real-time features. ✅ Done 
+ - **Polishing the frontend** ✅ Done
+ - **Admin panel**
+ 
+    Dashboard allowing admins to monitor site statistics, change user status(ban/promote), remove images etc. ✅ Done
+
  - **Full monitoring suite**
    
 ## Installation & Setup
