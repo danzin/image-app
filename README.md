@@ -53,40 +53,40 @@ Tech stack:
 │  (Upload/Like/  │
 │   Comment/etc)  │
 └────────┬────────┘
-         │
-         ▼
+           │
+           ▼
 ┌─────────────────┐
 │ Command Handler │
 │ (DB Transaction)│
 └────────┬────────┘
-         │
-         ▼
+           │
+           ▼
 ┌─────────────────┐
 │ EventBus.queue  │
 │ Transactional   │
 └────────┬────────┘
-         │
-         ▼
+           │
+           ▼
 ┌─────────────────┐
 │  Event Handler  │
 │ (Post-Commit)   │
 └────────┬────────┘
-         │
-         ├─────────────────┐
-         │                 │
-         ▼                 ▼
+           │
+           ├─────────────────┐
+           │                 │
+           ▼                 ▼
 ┌──────────────┐   ┌──────────────┐
 │Tag-Based     │   │Pattern-Based │
 │Invalidation  │   │Cleanup       │
 └──────┬───────┘   └──────┬───────┘
-       │                  │
-       └─────────┬────────┘
-                 │
-                 ▼
-        ┌────────────────┐
-        │ Redis.publish  │
-        │ (WebSocket)    │
-        └────────────────┘
+         │                  │
+         └─────────┬────────┘
+                   │
+                   ▼
+          ┌────────────────┐
+          │ Redis.publish  │
+          │ (WebSocket)    │
+          └────────────────┘
  ```
     
 ### CQRS: Working on gradually switching from the classic modular architecture to CQRS
