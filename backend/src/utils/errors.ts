@@ -1,4 +1,5 @@
 import express from "express";
+import { errorLogger } from "./winston";
 
 //improved err factory
 class AppError extends Error {
@@ -126,6 +127,21 @@ export class ErrorHandler {
 		if (err.context) {
 			response.context = err.context;
 		}
+
+		// Log all errors to winston
+		errorLogger.error({
+			type: err.name,
+			message: err.message,
+			statusCode: err.statusCode || 500,
+			context: err.context,
+			stack: err.stack,
+			method: req.method,
+			url: req.originalUrl,
+			ip: req.ip,
+			userAgent: req.get("user-agent"),
+			timestamp: new Date().toISOString(),
+		});
+
 		//Return stack trace when not in production
 		if (process.env.NODE_ENV !== "production") {
 			response.stack = err.stack;
