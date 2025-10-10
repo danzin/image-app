@@ -34,11 +34,18 @@ COPY frontend/package.json ./frontend/
 # Install ONLY production dependencies for all workspaces
 RUN npm ci --omit=dev
 
-# Copy ONLY the compiled api-gateway code from the builder stage
-COPY --from=builder /app/api-gateway/dist ./api-gateway/dist
+# Create a non-root user 
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Copy compiled code with ownership
+COPY --from=builder --chown=nodejs:nodejs /app/api-gateway/dist ./api-gateway/dist
+
+# Switch to non-root user
+USER nodejs
 
 # The gateway listens on 8000 externally; expose same internally for clarity
 EXPOSE 8000
 
-# Use the built server.js (compiled from src/server.ts)
+# Use the built server.js
 CMD ["node", "api-gateway/dist/server.js"]

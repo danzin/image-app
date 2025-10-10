@@ -97,17 +97,6 @@ export class UserRoutes {
 
 		// Account deletion (self-deletion only, admins use separate endpoints)
 		this.router.delete("/me", this.userController.deleteMyAccount);
-
-		// === Deprecated Routes (mark for removal after frontend migration) ===
-		/**
-		 * @deprecated Use /profile/:username instead
-		 */
-		this.router.get("/:userId", this.userController.getUserById);
-
-		/**
-		 * @deprecated Use /follow/:publicId instead
-		 */
-		this.router.post("/follow/:followeeId", this.userController.followAction);
 	}
 
 	public getRouter(): express.Router {

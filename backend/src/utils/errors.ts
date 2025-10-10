@@ -49,6 +49,12 @@ class ForbiddenError extends AppError {
 	}
 }
 
+class SecurityError extends AppError {
+	constructor(message: string) {
+		super("SecurityError", message, 403);
+	}
+}
+
 class DuplicateError extends AppError {
 	constructor(message: string) {
 		super("DuplicateError", message, 409);
@@ -105,6 +111,7 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
 	TransactionError,
 	UoWError,
 	DatabaseError,
+	SecurityError,
 };
 
 export function createError(type: string, message: string, context?: any): AppError {

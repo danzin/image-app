@@ -111,9 +111,19 @@ export class WebSocketServer {
 			socket.on("join", (userId: string) => {
 				if (!socket.data.user) {
 					console.warn("Unauthorized join attempt. Disconnecting socket.");
-					return socket.disconnect(); // Disconnect unauthjorized users
+					return socket.disconnect(); // Disconnect unauthorized users
 				}
 
+				if (!userId || typeof userId !== "string") {
+					console.warn("Invalid userId in join event:", userId);
+					socket.emit("join_response", {
+						success: false,
+						error: "Invalid userId",
+					});
+					return;
+				}
+
+				console.log(`User join room request received`);
 				const trimmedUserId = userId.trim();
 				console.log(`Received a join event with data: ${trimmedUserId}`);
 				socket.join(trimmedUserId);

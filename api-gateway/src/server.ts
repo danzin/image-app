@@ -118,11 +118,16 @@ app.use((req, res, next) => {
 
 app.use(limiter);
 
+console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}/uploads`);
+app.use("/uploads", (req, res, next) => {
+	req.url = "/uploads" + req.url;
+	apiProxy(req, res, next);
+});
+
 // Proxy /api
 console.log(`[Gateway] Proxy /api -> ${config.backendUrl}`);
 app.use("/api", apiProxy);
-console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}`);
-app.use("/uploads", apiProxy);
+
 // Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
 console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
 app.use("/socket.io", apiProxy);

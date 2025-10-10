@@ -110,9 +110,9 @@ export class ImageController {
 			console.log(`[IMAGE CONTROLLER] Sanitized slug: ${sanitizedSlug}, looks like UUID: ${looksLikeUUIDv4}`);
 
 			const image = looksLikeUUIDv4
-				? await this.imageService.getImageByPublicId(sanitizedSlug, viewerPublicId)
+				? await this.imageService.getImage(sanitizedSlug, viewerPublicId)
 				: await this.imageService.getImageBySlug(sanitizedSlug, viewerPublicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, viewerPublicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image);
 			console.log(`[IMAGE CONTROLLER] Returning imageDTO with isLikedByViewer: ${imageDTO.isLikedByViewer}`);
 
 			res.status(200).json(imageDTO);
@@ -132,11 +132,11 @@ export class ImageController {
 			const limit = parseInt(req.query.limit as string) || 20;
 
 			const user = await this.userService.getUserByUsername(username);
-			const images = await this.imageService.getUserImagesByPublicId(user.publicId, page, limit);
+			const images = await this.imageService.getUserImages(user.publicId, page, limit);
 
 			const imagesDTOs = {
 				...images,
-				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.publicId)),
+				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img)),
 			};
 
 			res.status(200).json(imagesDTOs);
@@ -152,8 +152,8 @@ export class ImageController {
 	getImageByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const image = await this.imageService.getImageByPublicId(publicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
+			const image = await this.imageService.getImage(publicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image);
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {

@@ -23,6 +23,10 @@ RUN cd backend && npm run build
 FROM node:23.11.0-alpine
 WORKDIR /app
 
+# Create a non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
 # Copy the root package files again
 COPY package.json package-lock.json ./
 
@@ -34,8 +38,15 @@ COPY frontend/package.json ./frontend/
 # Install ONLY production dependencies for all workspaces
 RUN npm ci --omit=dev
 
-# Copy ONLY the compiled backend code from the builder stage
-COPY --from=builder /app/backend/dist ./backend/dist
+# Copy compiled code with ownership
+COPY --from=builder --chown=nodejs:nodejs /app/backend/dist ./backend/dist
+
+# Create uploads directory and give nodejs user ownership of necessary directories
+RUN mkdir -p /app/uploads && \
+    chown -R nodejs:nodejs /app/uploads /app/backend
+
+# Switch to non-root user
+USER nodejs
 
 EXPOSE 3000
 

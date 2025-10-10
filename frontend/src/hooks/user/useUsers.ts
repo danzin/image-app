@@ -86,13 +86,11 @@ export const useUpdateUserAvatar = () => {
 	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, Blob>({
 		mutationFn: updateUserAvatarApi,
 		onSuccess: (data) => {
-			// Update current user cache
-			// Invalidate user-related queries
-			queryClient.invalidateQueries({ queryKey: ["user"] });
-			queryClient.invalidateQueries({ queryKey: ["userImages"] });
-			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-
+			// Update current user cache directly with the response data
 			queryClient.setQueryData(["currentUser"], data);
+
+			queryClient.invalidateQueries({ queryKey: ["user"], exact: false, refetchType: "none" });
+			queryClient.invalidateQueries({ queryKey: ["userImages"] });
 		},
 		onError(error) {
 			console.error("Avatar update failed:", error);
@@ -105,10 +103,9 @@ export const useUpdateUserCover = () => {
 	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, Blob>({
 		mutationFn: updateUserCoverApi,
 		onSuccess: (data) => {
-			// Update current user cache
 			queryClient.setQueryData(["currentUser"], data);
-			// Invalidate user-related queries
-			queryClient.invalidateQueries({ queryKey: ["user"] });
+
+			queryClient.invalidateQueries({ queryKey: ["user"], exact: false, refetchType: "none" });
 		},
 		onError: (error) => {
 			console.error("Cover update failed:", error);
