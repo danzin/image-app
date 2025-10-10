@@ -112,7 +112,7 @@ export class ImageController {
 			const image = looksLikeUUIDv4
 				? await this.imageService.getImage(sanitizedSlug, viewerPublicId)
 				: await this.imageService.getImageBySlug(sanitizedSlug, viewerPublicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, viewerPublicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image);
 			console.log(`[IMAGE CONTROLLER] Returning imageDTO with isLikedByViewer: ${imageDTO.isLikedByViewer}`);
 
 			res.status(200).json(imageDTO);
@@ -136,7 +136,7 @@ export class ImageController {
 
 			const imagesDTOs = {
 				...images,
-				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img, req.decodedUser?.publicId)),
+				data: images.data.map((img) => this.dtoService.toPublicImageDTO(img)),
 			};
 
 			res.status(200).json(imagesDTOs);
@@ -153,7 +153,7 @@ export class ImageController {
 		try {
 			const { publicId } = req.params;
 			const image = await this.imageService.getImage(publicId);
-			const imageDTO = this.dtoService.toPublicImageDTO(image, req.decodedUser?.publicId);
+			const imageDTO = this.dtoService.toPublicImageDTO(image);
 			res.status(200).json(imageDTO);
 		} catch (error) {
 			if (error instanceof Error) {
