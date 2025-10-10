@@ -313,27 +313,26 @@ export class UserService {
 	 * @param userId - The ID of the user updating their avatar.
 	 * @param file - The new avatar image file.
 	 */
-	async updateAvatar(userId: string, file: Buffer): Promise<void> {
+	async updateAvatar(userPublicId: string, file: Buffer): Promise<void> {
 		let newAvatarUrl: string | null = null;
-		let username: string | null = null;
 		let oldAvatarUrl: string | null = null;
-		let userPublicId: string | null = null;
 
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const user = await this.userRepository.findById(userId, session);
+				const user = await this.userRepository.findByPublicId(userPublicId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}
-
+				const userId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+				if (!userId) {
+					throw createError("NotFoundError", "User not found");
+				}
 				userPublicId = user.publicId;
 				oldAvatarUrl = user.avatar;
 
-				// upload uses ownerPublicId as before
 				const newAvatar = await this.imageStorageService.uploadImage(file, user.publicId);
 				newAvatarUrl = newAvatar.url;
 
-				userId = user.id;
 				await this.userRepository.updateAvatar(userId, newAvatar.url, session);
 			});
 
@@ -377,28 +376,23 @@ export class UserService {
 		}
 	}
 
-	async updateAvatarByPublicId(publicId: string, file: Buffer): Promise<void> {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.updateAvatar(user.id, file);
-	}
-
 	/**
 	 * Updates a user's cover image.
 	 * @param userId - The ID of the user updating their cover.
 	 * @param file - The new cover image file.
 	 */
-	async updateCover(userId: string, file: Buffer): Promise<void> {
-		let userPublicId: string | null = null;
-
+	async updateCover(userPublicId: string, file: Buffer): Promise<void> {
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const user = await this.userRepository.findById(userId, session);
+				const user = await this.userRepository.findByPublicId(userPublicId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}
+				const userId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+				if (!userId) {
+					throw createError("NotFoundError", "User not found");
+				}
 
-				userPublicId = user.publicId;
 				const oldCoverUrl = user.cover;
 
 				const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
@@ -424,12 +418,6 @@ export class UserService {
 				throw createError("InternalServerError", "An unknown error occurred.");
 			}
 		}
-	}
-
-	async updateCoverByPublicId(publicId: string, file: Buffer): Promise<void> {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.updateCover(user.id, file);
 	}
 
 	/**
@@ -564,10 +552,12 @@ export class UserService {
 	}
 
 	// Adapter: follow action where follower is provided as publicId (legacy followeeId remains internal id)
-	async followActionByInternalId(followerPublicId: string, followeeInternalId: string): Promise<void> {
+	async followActionByPublicId(followerPublicId: string, followeePublicId: string): Promise<void> {
 		const follower = await this.userRepository.findByPublicId(followerPublicId);
+		const followee = await this.userRepository.findByPublicId(followeePublicId);
 		if (!follower) throw createError("NotFoundError", "Follower not found");
-		return this.followAction(follower.id, followeeInternalId);
+		if (!followee) throw createError("NotFoundError", "Followee not found");
+		return this.followAction(follower.id, followee.id);
 	}
 
 	// === ADMIN METHODS ===
@@ -804,59 +794,31 @@ export class UserService {
 	// === SECURE PUBLIC ID METHODS ===
 
 	/**
-	 * Follows a user by their public ID
+	 * Public adapter: Toggles follow status using public IDs
+	 * This is the method the controller should call
 	 */
-	async followUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
-		try {
-			// Convert public IDs to internal IDs
-			const [followerUser, targetUser] = await Promise.all([
-				this.userRepository.findByPublicId(followerPublicId),
-				this.userRepository.findByPublicId(targetPublicId),
-			]);
+	async toggleFollow(
+		followerPublicId: string,
+		followeePublicId: string
+	): Promise<{ action: "followed" | "unfollowed" }> {
+		const [follower, followee] = await Promise.all([
+			this.userRepository.findByPublicId(followerPublicId),
+			this.userRepository.findByPublicId(followeePublicId),
+		]);
 
-			if (!followerUser || !targetUser) {
-				throw createError("NotFoundError", "One or both users not found");
-			}
-
-			const followerInternalId = (followerUser as any)._id.toString();
-			const targetInternalId = (targetUser as any)._id.toString();
-
-			if (followerInternalId === targetInternalId) {
-				throw createError("ValidationError", "Cannot follow yourself");
-			}
-
-			await this.followAction(followerInternalId, targetInternalId);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
+		if (!follower || !followee) {
+			throw createError("NotFoundError", "One or both users not found");
 		}
-	}
 
-	/**
-	 * Unfollows a user by their public ID
-	 */
-	async unfollowUserByPublicId(followerPublicId: string, targetPublicId: string): Promise<void> {
-		try {
-			// Convert public IDs to internal IDs
-			const [followerUser, targetUser] = await Promise.all([
-				this.userRepository.findByPublicId(followerPublicId),
-				this.userRepository.findByPublicId(targetPublicId),
-			]);
-
-			if (!followerUser || !targetUser) {
-				throw createError("NotFoundError", "One or both users not found");
-			}
-
-			const followerInternalId = (followerUser as any)._id.toString();
-			const targetInternalId = (targetUser as any)._id.toString();
-
-			await this.followAction(followerInternalId, targetInternalId);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
+		if (follower.id === followee.id) {
+			throw createError("ValidationError", "Cannot follow yourself");
 		}
-	}
 
+		const wasFollowing = await this.followRepository.isFollowing(follower.id, followee.id);
+		await this.followAction(follower.id, followee.id);
+
+		return { action: wasFollowing ? "unfollowed" : "followed" };
+	}
 	/**
 	 * Checks if current user is following another user by public ID
 	 */

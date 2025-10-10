@@ -406,7 +406,6 @@ export class ImageService {
 					if (typeof image.user === "object" && (image.user as any).publicId) {
 						ownerPublicId = (image.user as any).publicId.toString();
 					} else {
-						// image.user is likely an internal id string
 						const imageUserId =
 							typeof image.user === "object" && (image.user as any)._id
 								? (image.user as any)._id.toString()
