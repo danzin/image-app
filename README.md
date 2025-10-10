@@ -88,6 +88,8 @@ Tech stack:
           │ (WebSocket)    │
           └────────────────┘
  ```
+### Real-time messaging 
+  - Users can start conversations and send messages in real time
     
 ### CQRS: Working on gradually switching from the classic modular architecture to CQRS
   - Command, Query and Event buses are implemented and fully functional.
@@ -157,6 +159,7 @@ The project is built on solid architectural principles:
    
     Further expansion of administrative, notification, and real-time features. ✅ Done 
  - **Polishing the frontend** ✅ Done
+ - **Messaging functionality** ✅ Done
  - **Admin panel**
  
     Dashboard allowing admins to monitor site statistics, change user status(ban/promote), remove images etc. ✅ Done
