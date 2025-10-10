@@ -1,32 +1,11 @@
 import axiosClient from "./axiosClient";
-import { ConversationSummaryDTO, MessageDTO, MessageAttachment } from "../types";
-
-export interface ConversationListResponse {
-	conversations: ConversationSummaryDTO[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}
-
-export interface ConversationMessagesResponse {
-	messages: MessageDTO[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}
-
-export interface SendMessageRequest {
-	conversationPublicId?: string;
-	recipientPublicId?: string;
-	body: string;
-	attachments?: MessageAttachment[];
-}
-
-export interface InitiateConversationResponse {
-	conversation: ConversationSummaryDTO;
-}
+import {
+	SendMessageRequest,
+	MessageDTO,
+	InitiateConversationResponse,
+	ConversationListResponse,
+	ConversationMessagesResponse,
+} from "@/types";
 
 export const fetchConversations = async (
 	params: { page?: number; limit?: number } = {}

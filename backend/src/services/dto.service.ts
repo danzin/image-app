@@ -85,7 +85,7 @@ export class DTOService {
 		};
 	}
 
-	toPublicImageDTO(image: IImage, viewerUserId?: string): PublicImageDTO {
+	toPublicImageDTO(image: IImage): PublicImageDTO {
 		return {
 			publicId: image.publicId,
 			slug: image.slug,

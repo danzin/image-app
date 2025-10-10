@@ -67,68 +67,58 @@ const getConversationAvatar = (conversation: ConversationSummaryDTO, currentUser
 
 const Messages = () => {
 	const theme = useTheme();
-	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-	const { user } = useAuth();
 	const location = useLocation();
 	const navigate = useNavigate();
-	const conversationParam = useMemo(() => {
+	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+	const [draftBody, setDraftBody] = useState("");
+	const { user } = useAuth();
+	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+	const [showConversationsOnMobile, setShowConversationsOnMobile] = useState(true);
+	const lastMessageCountRef = useRef<number>(0);
+	const markedAsReadRef = useRef<Set<string>>(new Set());
+	const conversationsQuery = useConversations();
+
+	const conversations = useMemo(
+		() => conversationsQuery.data?.pages.flatMap((p) => p.conversations) ?? [],
+		[conversationsQuery.data]
+	);
+
+	const selectedConversationId = useMemo(() => {
 		const params = new URLSearchParams(location.search);
 		return params.get("conversation");
 	}, [location.search]);
 
-	const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-	const [draftBody, setDraftBody] = useState("");
-	const [showConversationsOnMobile, setShowConversationsOnMobile] = useState(true);
-	const lastReadRef = useRef<string | null>(null);
-	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-	const lastMessageCountRef = useRef<number>(0);
-
-	const conversationsQuery = useConversations();
-	const conversations = useMemo(() => {
-		const pages = conversationsQuery.data?.pages ?? [];
-		return pages.flatMap((page) => page.conversations);
-	}, [conversationsQuery.data?.pages]);
+	const firstConversationId = conversations[0]?.publicId;
 
 	useEffect(() => {
-		if (conversationParam) {
-			if (conversationParam !== selectedConversationId) {
-				setSelectedConversationId(conversationParam);
-			}
-			if (isMobile) {
-				setShowConversationsOnMobile(false);
-			}
-			return;
+		if (!selectedConversationId && firstConversationId) {
+			navigate(`?conversation=${firstConversationId}`, { replace: true });
 		}
-
-		if (!selectedConversationId && conversations.length > 0) {
-			setSelectedConversationId(conversations[0].publicId);
-		}
-	}, [conversationParam, conversations, selectedConversationId, isMobile]);
-
-	useEffect(() => {
-		if (!selectedConversationId && !conversationParam) {
-			return;
-		}
-
-		if (selectedConversationId === conversationParam) {
-			return;
-		}
-
-		const search = selectedConversationId ? `?conversation=${selectedConversationId}` : "";
-		navigate({ pathname: location.pathname, search }, { replace: true });
-	}, [selectedConversationId, conversationParam, navigate, location.pathname]);
+	}, [firstConversationId, selectedConversationId, navigate]);
 
 	const markConversationRead = useMarkConversationRead();
+	const selectedConversation = useMemo(() => {
+		return conversations.find((c) => c.publicId === selectedConversationId);
+	}, [conversations, selectedConversationId]);
 
 	useEffect(() => {
-		if (!selectedConversationId) return;
-		if (lastReadRef.current === selectedConversationId) return;
-
-		markConversationRead.mutate(selectedConversationId);
-		lastReadRef.current = selectedConversationId;
-	}, [selectedConversationId, markConversationRead]);
+		if (
+			selectedConversation &&
+			selectedConversation.unreadCount > 0 &&
+			!markedAsReadRef.current.has(selectedConversation.publicId)
+		) {
+			markedAsReadRef.current.add(selectedConversation.publicId);
+			markConversationRead.mutate(selectedConversation.publicId);
+		}
+		// reset tracking when conversation changes or unread count goes to 0
+		if (selectedConversation && selectedConversation.unreadCount === 0) {
+			markedAsReadRef.current.delete(selectedConversation.publicId);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedConversation?.publicId, selectedConversation?.unreadCount]);
 
 	const messagesQuery = useConversationMessages(selectedConversationId);
+
 	const messages = useMemo(() => {
 		const pages = messagesQuery.data?.pages ?? [];
 		const flattened = pages.flatMap((page) => page.messages);
@@ -150,6 +140,12 @@ const Messages = () => {
 
 	const sendMessage = useSendMessage();
 
+	const handleSelectConversation = (conversationId: string) => {
+		navigate(`?conversation=${conversationId}`);
+		if (isMobile) {
+			setShowConversationsOnMobile(false);
+		}
+	};
 	const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
 		if (!draftBody.trim() || !selectedConversationId) return;
@@ -168,13 +164,6 @@ const Messages = () => {
 				});
 			}
 		});
-	};
-
-	const handleSelectConversation = (conversationId: string) => {
-		setSelectedConversationId(conversationId);
-		if (isMobile) {
-			setShowConversationsOnMobile(false);
-		}
 	};
 
 	const handleBackToList = () => {

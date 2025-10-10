@@ -6,6 +6,7 @@ export const cookieOptions = {
 	httpOnly: true,
 	secure: secureFlag,
 	sameSite: secureFlag ? ("none" as const) : ("lax" as const),
-	maxAge: 1000 * 60 * 60 * 24,
+	maxAge: 1000 * 60 * 60 * 12,
 	path: "/",
+	...(process.env.NODE_ENV === "production" && process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };

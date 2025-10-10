@@ -91,7 +91,7 @@ export class FavoriteController {
 				return img;
 			});
 
-			const imageDTOs = dataWithFlag.map((img) => this.dtoService.toPublicImageDTO(img, viewerPublicId));
+			const imageDTOs = dataWithFlag.map((img) => this.dtoService.toPublicImageDTO(img));
 
 			res.status(200).json({
 				data: imageDTOs,

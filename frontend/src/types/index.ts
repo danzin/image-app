@@ -279,3 +279,30 @@ export interface AuthFormProps<T> {
 	linkTo?: string;
 	initialValues?: Partial<T>;
 }
+
+export interface ConversationListResponse {
+	conversations: ConversationSummaryDTO[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+export interface ConversationMessagesResponse {
+	messages: MessageDTO[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+export interface SendMessageRequest {
+	conversationPublicId?: string;
+	recipientPublicId?: string;
+	body: string;
+	attachments?: MessageAttachment[];
+}
+
+export interface InitiateConversationResponse {
+	conversation: ConversationSummaryDTO;
+}

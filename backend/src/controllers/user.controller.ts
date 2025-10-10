@@ -143,7 +143,7 @@ export class UserController {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.updateAvatarByPublicId(decodedUser.publicId, file);
+			await this.userService.updateAvatar(decodedUser.publicId, file);
 			res.status(200).json({ message: "Avatar updated successfully" });
 		} catch (error) {
 			next(error);
@@ -161,7 +161,7 @@ export class UserController {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.updateCoverByPublicId(decodedUser.publicId, file);
+			await this.userService.updateCover(decodedUser.publicId, file);
 			res.status(200).json({ message: "Cover updated successfully" });
 		} catch (error) {
 			next(error);
@@ -227,7 +227,7 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.followUserByPublicId(followerPublicId, publicId);
+			const result = await this.userService.toggleFollow(followerPublicId, publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -257,7 +257,7 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.unfollowUserByPublicId(followerPublicId, publicId);
+			const result = await this.userService.toggleFollow(followerPublicId, publicId);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -350,22 +350,6 @@ export class UserController {
 			}
 			const command = new LikeActionByPublicIdCommand(userPublicId, publicId);
 			const result = await this.commandBus.dispatch(command);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
-
-	followAction = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { decodedUser } = req;
-			const { followeeId } = req.params;
-			console.log(followeeId);
-			if (!decodedUser) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
-			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			const result = await this.userService.followActionByInternalId(decodedUser.publicId, followeeId);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);

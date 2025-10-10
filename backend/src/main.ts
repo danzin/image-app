@@ -51,11 +51,16 @@ process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
 async function bootstrap(): Promise<void> {
 	try {
 		// Connect to database
+
+		// containter.resolve() asks the tsyringe DI container
+		// to construct the instance and automatically inject dependencies
+		// instead of new-ing it and injecting manually
 		const dbConfig = container.resolve(DatabaseConfig);
 		await dbConfig.connect();
 
 		// Setup dependency injection
-		setupContainer();
+
+		setupContainer(); // Registers all deps in the DI container
 
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);

@@ -199,7 +199,7 @@ describe("FavoriteController", () => {
 
 			expect(mockUserRepository.findInternalIdByPublicId.calledWith(viewerPublicId)).to.be.true;
 			expect(mockFavoriteRepository.findFavoritesByUserId.calledWith(internalUserId, 1, 20)).to.be.true;
-			expect(mockDTOService.toPublicImageDTO.calledWith(mockImages[0], viewerPublicId)).to.be.true;
+			expect(mockDTOService.toPublicImageDTO.calledWith(mockImages[0])).to.be.true;
 			expect((mockRes.status as SinonStub).calledWith(200)).to.be.true;
 			expect(
 				(mockRes.json as SinonStub).calledWith({
