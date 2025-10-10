@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { fetchConversationMessages, ConversationMessagesResponse } from "../../api/messagingApi";
+import { fetchConversationMessages } from "../../api/messagingApi";
+import { ConversationMessagesResponse } from "@/types";
 
 const DEFAULT_PAGE_SIZE = 30;
 

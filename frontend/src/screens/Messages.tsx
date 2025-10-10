@@ -75,6 +75,7 @@ const Messages = () => {
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 	const [showConversationsOnMobile, setShowConversationsOnMobile] = useState(true);
 	const lastMessageCountRef = useRef<number>(0);
+	const markedAsReadRef = useRef<Set<string>>(new Set());
 	const conversationsQuery = useConversations();
 
 	const conversations = useMemo(
@@ -87,23 +88,34 @@ const Messages = () => {
 		return params.get("conversation");
 	}, [location.search]);
 
+	const firstConversationId = conversations[0]?.publicId;
+
 	useEffect(() => {
-		if (!selectedConversationId && conversations.length > 0) {
-			navigate(`?conversation=${conversations[0].publicId}`, { replace: true });
+		if (!selectedConversationId && firstConversationId) {
+			navigate(`?conversation=${firstConversationId}`, { replace: true });
 		}
-	}, [conversations, selectedConversationId, navigate]);
+	}, [firstConversationId, selectedConversationId, navigate]);
 
 	const markConversationRead = useMarkConversationRead();
 	const selectedConversation = useMemo(() => {
 		return conversations.find((c) => c.publicId === selectedConversationId);
 	}, [conversations, selectedConversationId]);
 
-	// This effect for marking as read remains.
 	useEffect(() => {
-		if (selectedConversation && selectedConversation.unreadCount > 0) {
+		if (
+			selectedConversation &&
+			selectedConversation.unreadCount > 0 &&
+			!markedAsReadRef.current.has(selectedConversation.publicId)
+		) {
+			markedAsReadRef.current.add(selectedConversation.publicId);
 			markConversationRead.mutate(selectedConversation.publicId);
 		}
-	}, [selectedConversation, markConversationRead]);
+		// reset tracking when conversation changes or unread count goes to 0
+		if (selectedConversation && selectedConversation.unreadCount === 0) {
+			markedAsReadRef.current.delete(selectedConversation.publicId);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedConversation?.publicId, selectedConversation?.unreadCount]);
 
 	const messagesQuery = useConversationMessages(selectedConversationId);
 
