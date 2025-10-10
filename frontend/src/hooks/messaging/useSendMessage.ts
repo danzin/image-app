@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { sendMessage, SendMessageRequest } from "../../api/messagingApi";
+import { sendMessage } from "../../api/messagingApi";
+import { SendMessageRequest } from "@/types";
 
 export function useSendMessage() {
 	const queryClient = useQueryClient();

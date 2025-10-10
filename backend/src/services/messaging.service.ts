@@ -181,7 +181,6 @@ export class MessagingService {
 		if (!senderInternalId) {
 			throw createError("NotFoundError", "Sender not found");
 		}
-
 		let targetConversation = payload.conversationPublicId
 			? await this.conversationRepository.findByPublicId(payload.conversationPublicId, undefined, {
 					populateParticipants: true,
@@ -195,6 +194,17 @@ export class MessagingService {
 		const messageDoc = await this.unitOfWork.executeInTransaction(async (session) => {
 			let conversationDoc = targetConversation;
 
+			await this.messageRepository.markConversationMessagesAsRead(
+				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
+				senderInternalId,
+				session
+			);
+
+			await this.conversationRepository.resetUnreadCount(
+				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
+				senderInternalId,
+				session
+			);
 			if (!conversationDoc) {
 				const recipientInternalId = await this.userRepository.findInternalIdByPublicId(payload.recipientPublicId!);
 				if (!recipientInternalId) {

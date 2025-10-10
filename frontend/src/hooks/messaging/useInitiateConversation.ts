@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { initiateConversation, InitiateConversationResponse } from "../../api/messagingApi";
+import { initiateConversation } from "../../api/messagingApi";
+import { InitiateConversationResponse } from "@/types";
 
 export function useInitiateConversation() {
 	const queryClient = useQueryClient();
