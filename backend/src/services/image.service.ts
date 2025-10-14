@@ -47,10 +47,6 @@ export class ImageService {
 		originalName: string,
 		session?: ClientSession
 	): Promise<IImage> {
-		// Your existing upload logic, but simplified
-		// All the tag processing, cloudinary upload, DB creation
-		// Returns the created image document
-
 		const user = await this.userRepository.findById(userInternalId, session);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");

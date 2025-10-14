@@ -17,8 +17,6 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 			const avatarTags = [`user_data:${event.userPublicId}`];
 			await this.redis.invalidateByTags(avatarTags);
 
-			// For feeds, we need to invalidate feeds of users who follow this user
-			// and feeds that contain posts from this user
 			const followerTags = [`user_feed:${event.userPublicId}`]; // User's own feed
 			await this.redis.invalidateByTags(followerTags);
 
