@@ -1,5 +1,4 @@
-import mongoose, { ClientSession, Model } from "mongoose";
-import { Tag } from "../models/image.model";
+import { ClientSession, Model } from "mongoose";
 import { ITag } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";

@@ -69,7 +69,6 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 
 			const userIds = [...new Set(preferences.map((pref) => pref.userId))];
 
-			// You'll need to inject UserRepository or use a different approach
 			return await this.userRepository
 				.find({
 					_id: { $in: userIds },

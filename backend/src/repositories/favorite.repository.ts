@@ -1,7 +1,6 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import Favorite from "src/models/favorite.model";
 import { IFavorite, IImage } from "types/index";
 
 @injectable()

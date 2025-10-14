@@ -1,4 +1,4 @@
-import mongoose, { Model, ClientSession } from "mongoose";
+import { Model, ClientSession } from "mongoose";
 import { BaseRepository } from "./base.repository";
 import { IComment } from "types/index";
 import { inject, injectable } from "tsyringe";

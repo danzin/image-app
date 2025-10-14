@@ -1,4 +1,4 @@
-import express, { RequestHandler } from "express";
+import express from "express";
 import { AdminUserController } from "../controllers/admin.controller";
 import { adminRateLimit, AuthFactory, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";

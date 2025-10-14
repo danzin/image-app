@@ -144,7 +144,6 @@ export class RealTimeFeedService {
 
 		// Notify the content owner about the interaction
 		// This would require looking up the owner of the target content
-		// For now, we'll broadcast to followers or interested users
 
 		io.emit("feed_interaction", {
 			type: "user_interaction",

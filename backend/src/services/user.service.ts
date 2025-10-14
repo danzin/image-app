@@ -1,6 +1,6 @@
 import { Model } from "mongoose";
 import { UserRepository } from "../repositories/user.repository";
-import type { IImage, IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
+import type { IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
 import { ImageRepository } from "../repositories/image.repository";
 import { createError } from "../utils/errors";
 import jwt from "jsonwebtoken";

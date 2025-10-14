@@ -6,7 +6,7 @@ import { injectable, inject } from "tsyringe";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
 import { CommentRoutes } from "../routes/comment.routes";
-import { createError, ErrorHandler } from "../utils/errors";
+import { ErrorHandler } from "../utils/errors";
 import { SearchRoutes } from "../routes/search.routes";
 import { AdminUserRoutes } from "../routes/admin.routes";
 import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddleware";
@@ -15,8 +15,7 @@ import { FeedRoutes } from "../routes/feed.routes";
 import { FavoriteRoutes } from "../routes/favorite.routes";
 import { MessagingRoutes } from "../routes/messaging.routes";
 import path from "path";
-import cors from "cors";
-import { corsOptions } from "../config/corsConfig";
+
 @injectable()
 export class Server {
 	private app: Application;

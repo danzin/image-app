@@ -15,9 +15,7 @@ export class SearchService {
 	) {}
 
 	/** Universal search function. It uses a query and search throughout the database
-	 * It returns anything it finds with that query. That way users can search for anything.
-	 * Still need to implement this functionality to the frontend. Need to build a search result component to serve results into,
-	 * as well as a usercard component.
+
 	 */
 	async searchAll(query: string[]): Promise<{ users: IUser[] | null; images: IImage[] | null; tags: ITag[] | null }> {
 		try {

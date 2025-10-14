@@ -20,7 +20,6 @@ describe("Favorite Feature Integration", () => {
 	it("should have proper error types available", () => {
 		const { createError } = require("../../utils/errors");
 
-		// Test that our new error types work
 		const notFoundError = createError("NotFoundError", "Test message");
 		const forbiddenError = createError("ForbiddenError", "Test message");
 

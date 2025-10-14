@@ -4,7 +4,7 @@ import { DTOService } from "../services/dto.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { FollowService } from "../services/follow.service";
-import { IUser, IImage } from "../types";
+import { IUser } from "../types";
 import { cookieOptions } from "../config/cookieConfig";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
@@ -12,7 +12,6 @@ import { RegisterUserCommand } from "../application/commands/users/register/regi
 import { RegisterUserResult } from "../application/commands/users/register/register.handler";
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetMeResult } from "../application/queries/users/getMe/getMe.handler";
-import { LikeActionCommand } from "../application/commands/users/likeAction/likeAction.command";
 import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 
 /**
