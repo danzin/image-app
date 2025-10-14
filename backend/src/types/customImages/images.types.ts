@@ -1,4 +1,4 @@
-import mongoose, { Document } from "mongoose";
+import { Document } from "mongoose";
 
 export interface IImage extends Document {
 	url: string;

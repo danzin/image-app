@@ -1,5 +1,4 @@
-import mongoose, { ClientSession, Model } from "mongoose";
-import UserAction from "../models/userAction.model";
+import { ClientSession, Model } from "mongoose";
 import { IUserAction, PaginationOptions, PaginationResult } from "../types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
