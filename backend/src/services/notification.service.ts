@@ -4,7 +4,6 @@ import { INotification } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
-import { Client } from "socket.io/dist/client";
 import { WebSocketServer } from "../server/socketServer";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";

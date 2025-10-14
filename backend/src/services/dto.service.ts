@@ -68,8 +68,8 @@ export class DTOService {
 	}
 
 	// Convenience methods with shorter names for backward compatibility
-	toPublicDTO(user: IUser, viewerUserId?: string): PublicUserDTO {
-		return this.toPublicUserDTO(user, viewerUserId);
+	toPublicDTO(user: IUser): PublicUserDTO {
+		return this.toPublicUserDTO(user);
 	}
 
 	toAdminDTO(user: IUser): AdminUserDTO {
@@ -119,7 +119,7 @@ export class DTOService {
 						return entry.toString();
 					}
 					return String(entry);
-			  })
+				})
 			: [];
 
 		const attachments = Array.isArray((message as any).attachments) ? (message as any).attachments : [];

@@ -1,4 +1,4 @@
-import mongoose, { Schema, Document } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { IComment } from "types/index";
 const commentSchema = new Schema<IComment>(
 	{
@@ -12,7 +12,7 @@ const commentSchema = new Schema<IComment>(
 			type: Schema.Types.ObjectId,
 			ref: "Image",
 			required: true,
-			index: true, // Index for fast queries by image
+			index: true, // Index for fast queries by imagem
 		},
 		userId: {
 			type: Schema.Types.ObjectId,

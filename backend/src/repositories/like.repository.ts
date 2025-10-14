@@ -1,4 +1,4 @@
-import mongoose, { Model, ClientSession } from "mongoose";
+import { Model, ClientSession } from "mongoose";
 import { createError } from "../utils/errors";
 import { ILike } from "../types";
 import { inject, injectable } from "tsyringe";

@@ -68,7 +68,7 @@ export class LocalStorageService implements IImageStorageService {
 						return;
 					}
 				} catch (err) {
-					// skip invalid directory names
+					console.warn(`Skipping invalid user directory: ${userDir}, error: ${err}`);
 					continue;
 				}
 			}
@@ -137,7 +137,7 @@ export class LocalStorageService implements IImageStorageService {
 		if (!parsed) throw createError("StorageError", "Invalid URL");
 		const pathname = decodeURIComponent(parsed.pathname);
 
-		const publicId = this.extractPublicId(pathname); // reuse your regex on decoded pathname
+		const publicId = this.extractPublicId(pathname);
 		if (!publicId) throw createError("StorageError", "Could not extract publicId from URL");
 
 		// validate filename and ownerPublicId
@@ -179,7 +179,7 @@ export class LocalStorageService implements IImageStorageService {
 				return { result: "ok", message: "User folder is already empty." };
 			}
 
-			// only delete files that match our expected format
+			// only delete files that match the expected format
 			await Promise.all(
 				files.map(async (file) => {
 					try {
@@ -189,7 +189,7 @@ export class LocalStorageService implements IImageStorageService {
 						await fs.promises.unlink(filePath);
 					} catch (err) {
 						// skip files that don't match expected format
-						console.warn(`Skipping invalid file: ${file}`);
+						console.warn(`Skipping invalid file: ${file}, error: ${err}`);
 					}
 				})
 			);
@@ -257,7 +257,6 @@ export class LocalStorageService implements IImageStorageService {
 	}
 
 	private isAdmin(userId: string): boolean {
-		// placeholder admin check; replace with real role lookup if needed
 		return this.isAdminFlag;
 	}
 

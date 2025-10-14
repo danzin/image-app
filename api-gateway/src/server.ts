@@ -1,4 +1,4 @@
-import { IncomingMessage, ServerResponse } from "http";
+import { IncomingMessage } from "http";
 import { Socket } from "net";
 import http from "http";
 import express, { Request, Response, NextFunction } from "express";
@@ -6,15 +6,6 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { createProxyMiddleware, Options } from "http-proxy-middleware";
 import { config } from "./config.js";
-import { countReset } from "console";
-
-interface ExtendedProxyOptions extends Options<IncomingMessage, ServerResponse> {
-	onProxyReq?: (proxyReq: any, req: Request, res: Response) => void;
-	onProxyRes?: (proxyRes: any, req: Request, res: Response) => void;
-	onError?: (err: Error, req: Request, res: Response) => void;
-	logLevel?: string;
-	logProvider?: (provider: any) => any;
-}
 
 const app = express();
 app.set("trust proxy", 1); // Trust the first hop (Nginx)

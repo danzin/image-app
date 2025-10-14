@@ -1,7 +1,7 @@
-import { v2 as cloudinary, UploadApiResponse, UploadApiErrorResponse, ConfigOptions } from "cloudinary";
+import { v2 as cloudinary } from "cloudinary";
 import { createError } from "../utils/errors";
-import { CloudinaryDeleteResponse, CloudinaryResponse, DeletionResult } from "../types";
-import { inject, injectable } from "tsyringe";
+import { CloudinaryDeleteResponse, DeletionResult } from "../types";
+import { injectable } from "tsyringe";
 import { IImageStorageService } from "../types/customImageStorage/imageStorage.types";
 
 @injectable()

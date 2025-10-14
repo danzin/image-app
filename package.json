@@ -1,42 +1,46 @@
 {
-  "name": "typescriptphotoapp",
-  "version": "1.0.0",
-  "main": "index.js",
-  "workspaces": [
-    "frontend",
-    "backend",
-    "api-gateway"
-  ],
-  "scripts": {
-    "update:backend": "cd backend && npm update --no-workspaces",
-    "update:frontend": "cd frontend && npm update --no-workspaces",
-    "update:api-gateway": "cd api-gateway && npm update --no-workspaces",
-    "update:all": "npm run update:backend && npm run update:frontend && npm run update:api-gateway",
-    "build": "tsc -b backend api-gateway frontend",
-    "build:backend": "tsc -b backend",
-    "build:frontend": "tsc --build frontend && vite build --config frontend/vite.config.ts --root frontend",
-    "build:api-gateway": "tsc -b api-gateway",
-    "install-all": "npm install",
-    "start-frontend": "npm run dev --workspace=frontend",
-    "start-backend": "npm run start:dev --workspace=backend",
-    "start-gateway": "npm run dev --workspace=api-gateway",
-    "test-backend": "npm run test --workspace=backend",
-    "build-all": "npm run build --workspace=backend && npm run build --workspace=api-gateway && npm run build --workspace=frontend",
-    "dev": "concurrently \"npm run start-backend\" \"npm run start-gateway\" \"npm run start-frontend\"",
-    "clean": "rimraf node_modules frontend/node_modules backend/node_modules api-gateway/node_modules package-lock.json"
-  },
-  "author": "",
-  "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "concurrently": "^9.1.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.2",
-    "cypress-file-upload": "^5.0.8",
-    "nodemon": "^3.1.9",
-    "rimraf": "^6.0.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
-  }
+	"name": "typescriptphotoapp",
+	"version": "1.0.0",
+	"main": "index.js",
+	"workspaces": [
+		"frontend",
+		"backend",
+		"api-gateway"
+	],
+	"type": "module",
+	"scripts": {
+		"update:backend": "cd backend && npm update --no-workspaces",
+		"update:frontend": "cd frontend && npm update --no-workspaces",
+		"update:api-gateway": "cd api-gateway && npm update --no-workspaces",
+		"update:all": "npm run update:backend && npm run update:frontend && npm run update:api-gateway",
+		"build": "tsc -b backend api-gateway frontend",
+		"build:backend": "tsc -b backend",
+		"build:frontend": "tsc --build frontend && vite build --config frontend/vite.config.ts --root frontend",
+		"build:api-gateway": "tsc -b api-gateway",
+		"install-all": "npm install",
+		"start-frontend": "npm run dev --workspace=frontend",
+		"start-backend": "npm run start:dev --workspace=backend",
+		"start-gateway": "npm run dev --workspace=api-gateway",
+		"test-backend": "npm run test --workspace=backend",
+		"build-all": "npm run build --workspace=backend && npm run build --workspace=api-gateway && npm run build --workspace=frontend",
+		"dev": "concurrently \"npm run start-backend\" \"npm run start-gateway\" \"npm run start-frontend\"",
+		"clean": "rimraf node_modules frontend/node_modules backend/node_modules api-gateway/node_modules package-lock.json"
+	},
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"dependencies": {
+		"concurrently": "^9.1.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.10.2",
+		"cypress-file-upload": "^5.0.8",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.4",
+		"eslint-plugin-react": "^7.37.5",
+		"nodemon": "^3.1.9",
+		"rimraf": "^6.0.1",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.9.2"
+	}
 }

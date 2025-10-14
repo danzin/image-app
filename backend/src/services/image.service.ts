@@ -5,7 +5,6 @@ import { LikeRepository } from "../repositories/like.repository";
 import { FavoriteRepository } from "../repositories/favorite.repository";
 import { createError } from "../utils/errors";
 import type { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
-import { errorLogger } from "../utils/winston";
 import { TagRepository } from "../repositories/tag.repository";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
@@ -110,13 +109,19 @@ export class ImageService {
 			throw createError("NotFoundError", "Image not found");
 		}
 
+		// Extract user ID - handle both populated and non-populated cases
+		const userIdValue =
+			typeof image.user === "object" && image.user !== null && "_id" in image.user
+				? (image.user as any)._id.toString()
+				: image.user.toString();
+
 		// Authorization check
-		if (!isAdmin && image.user.toString() !== requesterInternalId) {
+		if (!isAdmin && userIdValue !== requesterInternalId) {
 			throw createError("ForbiddenError", "You don't have permission to delete this image");
 		}
 
 		// Delete from storage
-		const ownerUser = await this.userRepository.findById(image.user.toString(), session);
+		const ownerUser = await this.userRepository.findById(userIdValue, session);
 		if (!ownerUser) {
 			throw createError("NotFoundError", "Image owner not found");
 		}

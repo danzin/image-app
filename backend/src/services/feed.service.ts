@@ -81,10 +81,8 @@ export class FeedService {
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
-		// Cold-start: no signals -> discovery-oriented feed
 		if (followingIds.length === 0 && favoriteTags.length === 0) {
 			if (page === 1) {
-				// Fire an event we can later use for analytics or onboarding tweaks
 				try {
 					await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userId));
 				} catch (_) {
@@ -95,7 +93,6 @@ export class FeedService {
 			return this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
 		}
 
-		// Use the personalized core method when we have signals
 		return this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
 
