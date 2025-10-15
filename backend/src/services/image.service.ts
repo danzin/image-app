@@ -378,6 +378,7 @@ export class ImageService {
 
 	/**
 	 * Private helper method to check if a user has liked a specific image
+	 * @private
 	 */
 	private async checkIfUserLikedImage(userPublicId: string, imageId: string): Promise<boolean> {
 		try {

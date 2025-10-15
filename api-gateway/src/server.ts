@@ -4,7 +4,7 @@ import http from "http";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import { createProxyMiddleware, Options } from "http-proxy-middleware";
+import { createProxyMiddleware } from "http-proxy-middleware";
 import { config } from "./config.js";
 
 const app = express();
