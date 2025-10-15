@@ -1,4 +1,4 @@
-import mongoose, { Model, ClientSession, SortOrder } from "mongoose";
+import mongoose, { Model, ClientSession, SortOrder, PipelineStage } from "mongoose";
 import { BaseRepository } from "./base.repository";
 import { IImage, PaginationOptions, PaginationResult } from "../types";
 import { createError } from "../utils/errors";
@@ -8,6 +8,24 @@ import { inject, injectable } from "tsyringe";
 export class ImageRepository extends BaseRepository<IImage> {
 	constructor(@inject("ImageModel") model: Model<IImage>) {
 		super(model);
+	}
+
+	/**
+	 * Helkper method to load tag IDs for a list of tag names
+	 * @private
+	 */
+	private async loadFavoriteTagIds(tagNames: string[]): Promise<mongoose.Types.ObjectId[]> {
+		if (tagNames.length === 0) {
+			return [];
+		}
+
+		const tagDocs = await this.model.db
+			.collection("tags")
+			.find({ tag: { $in: tagNames } })
+			.project({ _id: 1 })
+			.toArray();
+
+		return tagDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id));
 	}
 
 	// TODO: REFACTOR AND REMOVE OLD METHODS
@@ -193,6 +211,12 @@ export class ImageRepository extends BaseRepository<IImage> {
 			const sort: Record<string, 1 | -1> = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
 
 			const aggregationPipeline = [
+				// Stage 4: Sort images
+				{ $sort: sort },
+
+				// Stage 5: Pagination (skip and limit)
+				{ $skip: skip },
+				{ $limit: limit },
 				// Stage 1: Lookup tags associated with each image
 				{
 					$lookup: {
@@ -216,17 +240,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 				// Stage 3: Unwind the user info array
 				{ $unwind: "$userInfo" },
 
-				// Stage 4: Sort images
-				{ $sort: sort },
-
-				// Stage 5: Pagination (skip and limit)
-				{ $skip: skip },
-				{ $limit: limit },
-
 				// Stage 6: Project the structure using public IDs
 				{
 					$project: {
-						_id: 0, // Exclude MongoDB _id
+						_id: 0,
 						publicId: 1,
 						url: 1,
 						slug: 1,
@@ -260,7 +277,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 			if (session) countQuery.session(session);
 
 			const [results, total] = await Promise.all([aggregationQuery.exec(), countQuery.exec()]);
-
 			return {
 				data: results,
 				total,
@@ -402,8 +418,28 @@ export class ImageRepository extends BaseRepository<IImage> {
 		try {
 			const followingIdsObj = followingIds.map((id) => new mongoose.Types.ObjectId(id));
 			const hasPreferences = followingIds.length > 0 || favoriteTags.length > 0;
+			const favoriteTagIds = await this.loadFavoriteTagIds(favoriteTags);
 
-			const aggregationPipeline: any[] = [
+			// Resolve favorite tag names to object ids up front
+			// so that the aggregation pipeline can use them directly
+			const personalizedMatch: PipelineStage.Match | undefined =
+				followingIdsObj.length || favoriteTagIds.length
+					? {
+							$match: {
+								$or: [
+									followingIdsObj.length ? { user: { $in: followingIdsObj } } : undefined,
+									favoriteTagIds.length ? { tags: { $in: favoriteTagIds } } : undefined,
+								].filter(Boolean) as Record<string, unknown>[],
+							},
+						}
+					: undefined;
+
+			const aggregationPipeline: PipelineStage[] = [];
+			if (personalizedMatch) {
+				aggregationPipeline.push(personalizedMatch);
+			}
+
+			aggregationPipeline.push(
 				{
 					$lookup: {
 						from: "tags",
@@ -412,7 +448,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 						as: "tagObjects",
 					},
 				},
-				// Stage 2: Extract tag names
 				{
 					$addFields: {
 						tagNames: {
@@ -424,7 +459,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 						},
 					},
 				},
-				// Stage 3: Determine personalization
 				{
 					$addFields: {
 						isPersonalized: hasPreferences
@@ -433,22 +467,13 @@ export class ImageRepository extends BaseRepository<IImage> {
 										{ $in: ["$user", followingIdsObj] },
 										{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] },
 									],
-							  }
+								}
 							: false,
 					},
 				},
-				// Stage 4: Sort
-				{
-					$sort: {
-						isPersonalized: -1,
-						createdAt: -1,
-					},
-				},
-				// Stage 5: Pagination
+				{ $sort: { isPersonalized: -1, createdAt: -1 } },
 				{ $skip: skip },
 				{ $limit: limit },
-
-				// Stage 6: Lookup user and get publicId
 				{
 					$lookup: {
 						from: "users",
@@ -459,7 +484,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 				},
 				{ $unwind: "$userInfo" },
 
-				// Stage 7: Project
 				{
 					$project: {
 						_id: 0,
@@ -481,8 +505,8 @@ export class ImageRepository extends BaseRepository<IImage> {
 						},
 						isPersonalized: 1,
 					},
-				},
-			];
+				}
+			);
 
 			const [results, total] = await Promise.all([
 				this.model.aggregate(aggregationPipeline).exec(),
@@ -491,7 +515,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-
 			return {
 				data: results,
 				total,
@@ -511,68 +534,38 @@ export class ImageRepository extends BaseRepository<IImage> {
 	 */
 	async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
-			const hasPreferences = favoriteTags.length > 0;
-
-			// Define weights for ranking
 			const weights = {
 				recency: 0.5,
 				popularity: 0.3,
 				tagMatch: 0.2,
 			};
 
-			const aggregationPipeline: any[] = [
-				// Stage 1: Lookup tags
-				{
-					$lookup: {
-						from: "tags",
-						localField: "tags",
-						foreignField: "_id",
-						as: "tagObjects",
-					},
-				},
-				// Stage 2: Extract tag names
-				{
-					$addFields: {
-						tagNames: {
-							$map: {
-								input: "$tagObjects",
-								as: "tag",
-								in: "$$tag.tag",
+			const favoriteTagIds = await this.loadFavoriteTagIds(favoriteTags);
+
+			const hasTagPreferences = favoriteTagIds.length > 0;
+
+			const scoreStage: PipelineStage.AddFields = {
+				$addFields: {
+					recencyScore: {
+						$divide: [
+							1,
+							{
+								$add: [
+									1,
+									{
+										$divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24],
+									},
+								],
 							},
-						},
+						],
 					},
+					popularityScore: { $ln: { $add: ["$likes", 1] } },
+					tagMatchScore: hasTagPreferences ? { $size: { $setIntersection: ["$tags", favoriteTagIds] } } : 0,
 				},
-				// Stage 3: Calculate scores
-				{
-					$addFields: {
-						//Exponential decay favoring newer content
-						recencyScore: {
-							// basically: '1 / ( 1 + days_old)' - creates a decay favoring more recent content
-							$divide: [
-								1,
-								{
-									$add: [
-										1,
-										{
-											$divide: [
-												{ $subtract: [new Date(), "$createdAt"] },
-												1000 * 60 * 60 * 24, // milliseconds in a day
-											],
-										},
-									],
-								},
-							],
-						},
+			};
 
-						// Logarithmic to prevent super viral content from dominating completely
-						// causes deminishing returns, going from 1 to 20 likes matters more than going from 10k to 20k
-						// using natural logarithm with { $add: ["$likes", 1] } to avoid log(0)
-						popularityScore: { $ln: { $add: ["$likes", 1] } },
-
-						tagMatchScore: hasPreferences ? { $size: { $setIntersection: ["$tagNames", favoriteTags] } } : 0,
-					},
-				},
-				// Stage 4: Calculate final rank score
+			const aggregationPipeline: PipelineStage[] = [
+				scoreStage,
 				{
 					$addFields: {
 						rankScore: {
@@ -584,12 +577,24 @@ export class ImageRepository extends BaseRepository<IImage> {
 						},
 					},
 				},
-				// Stage 5: Sort by rank score
+				{
+					$project: {
+						publicId: 1,
+						url: 1,
+						createdAt: 1,
+						likes: 1,
+						commentsCount: 1,
+						tags: 1,
+						user: 1,
+						recencyScore: 1,
+						popularityScore: 1,
+						tagMatchScore: 1,
+						rankScore: 1,
+					},
+				},
 				{ $sort: { rankScore: -1 } },
-				// Stage 6: Pagination
 				{ $skip: skip },
 				{ $limit: limit },
-				// Stage 7: Lookup user and get publicId
 				{
 					$lookup: {
 						from: "users",
@@ -599,7 +604,14 @@ export class ImageRepository extends BaseRepository<IImage> {
 					},
 				},
 				{ $unwind: "$userInfo" },
-				// Stage 8: Project final shape
+				{
+					$lookup: {
+						from: "tags",
+						localField: "tags",
+						foreignField: "_id",
+						as: "tagObjects",
+					},
+				},
 				{
 					$project: {
 						_id: 0,
@@ -613,13 +625,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 							$map: {
 								input: "$tagObjects",
 								as: "tagObj",
-								in: {
-									tag: "$$tagObj.tag",
-									publicId: "$$tagObj.publicId",
-								},
+								in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" },
 							},
 						},
-						rankScore: 1, // for debugging
+						rankScore: 1,
 					},
 				},
 			];
@@ -631,7 +640,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-
 			return {
 				data: results,
 				total,

@@ -13,7 +13,6 @@ const conversationSchema = new Schema<IConversation>(
 		participantHash: {
 			type: String,
 			required: true,
-			index: true,
 		},
 		participants: [
 			{
