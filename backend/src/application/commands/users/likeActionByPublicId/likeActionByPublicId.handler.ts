@@ -138,14 +138,16 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		await this.userActionRepository.logAction(userMongoId, "like", image.id, session);
 
 		// Send a notification to the image owner about the like action (use public ID for notifications)
-		await this.notificationService.createNotification({
-			receiverId: image.user.publicId.toString(),
-			actionType: "like",
-			actorId: command.userPublicId, // Use public ID for notifications
-			actorUsername: (await this.userRepository.findByPublicId(command.userPublicId))?.username, // denormalize username
-			targetId: image.publicId, // Use public ID instead of MongoDB ID
-			session,
-		});
+		if (image.user.publicId.toString() !== command.userPublicId) {
+			await this.notificationService.createNotification({
+				receiverId: image.user.publicId.toString(),
+				actionType: "like",
+				actorId: command.userPublicId, // Use public ID for notifications
+				actorUsername: (await this.userRepository.findByPublicId(command.userPublicId))?.username, // denormalize username
+				targetId: image.publicId, // Use public ID instead of MongoDB ID
+				session,
+			});
+		}
 	}
 
 	/**
