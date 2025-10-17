@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import { ImageRepository } from "../repositories/image.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { UserRepository } from "../repositories/user.repository";
