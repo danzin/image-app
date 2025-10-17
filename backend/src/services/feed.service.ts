@@ -142,7 +142,6 @@ export class FeedService {
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
-		// This will be a new method in the image repository for fetching a ranked feed
 		const feed = await this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
 
 		return feed;

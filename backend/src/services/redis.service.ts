@@ -7,7 +7,7 @@ export class RedisService {
 	private client: RedisClientType;
 
 	constructor() {
-		const runningInDocker = fs.existsSync("/.dockerenv");
+		const runningInDocker = fs.existsSync("/.dockerenv"); // check if inside docker environment
 		const redisUrl = process.env.REDIS_URL || (runningInDocker ? "redis://redis:6379" : "redis://127.0.0.1:6379");
 
 		this.client = createClient({ url: redisUrl });

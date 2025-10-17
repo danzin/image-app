@@ -56,11 +56,11 @@ const apiProxy = createProxyMiddleware({
 	ws: true,
 	pathRewrite: (path) => (path.startsWith("/api") ? path.replace("/api", "") : path),
 	on: {
-		proxyReq: (proxyReq, req, res) => {
+		proxyReq: (proxyReq, req, _res) => {
 			const origin = (req as Request).headers.origin;
 			console.log(`[Gateway] Proxying ${(req as Request).method} ${(req as Request).originalUrl} | Origin: ${origin}`);
 		},
-		proxyRes: (proxyRes, req, res) => {
+		proxyRes: (proxyRes, req, _res) => {
 			const origin = (req as Request).headers.origin;
 
 			if (origin && allowedOrigins.includes(origin)) {
