@@ -45,14 +45,29 @@ export class TagRepository extends BaseRepository<ITag> {
 	 * @returns {Promise<ITag[]>} - A promise that resolves to an array of matching tags.
 	 * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
 	 */
-	async searchTags(searchQueries: string[], session?: ClientSession): Promise<ITag[]> {
+
+	async searchTags(
+		searchQueries: string[],
+		options?: { limit?: number; minCount?: number },
+		session?: ClientSession
+	): Promise<ITag[]> {
 		try {
-			// Builds a search query using $or to match any of the search terms
-			const query = this.model.find({
-				$or: searchQueries.map((term: string) => {
-					return { tag: { $regex: term, $options: "i" } };
-				}),
-			});
+			const { limit = 50, minCount = 0 } = options || {};
+			const searchText = searchQueries.join(" ");
+
+			const query = this.model
+				.find(
+					{
+						$text: { $search: searchText },
+						count: { $gte: minCount }, //filter unpopular tags
+					},
+					{ score: { $meta: "textScore" } }
+				)
+				.sort({
+					score: { $meta: "textScore" }, // relevance
+					count: -1, // popularity
+				})
+				.limit(limit);
 
 			if (session) query.session(session);
 			return await query.exec();

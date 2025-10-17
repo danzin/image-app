@@ -2,7 +2,6 @@ import mongoose, { Schema } from "mongoose";
 import { IImage, ITag } from "../types";
 import User from "./user.model";
 import { v4 as uuidv4 } from "uuid";
-import { create } from "domain";
 
 const imageSchema = new Schema<IImage>({
 	url: { type: String, required: true },
@@ -191,15 +190,23 @@ imageSchema.pre("deleteMany", async function (next) {
 });
 
 imageSchema.index({ user: 1 });
-imageSchema.index({ createdAt: -1 });
-imageSchema.index({ tags: 1 });
+imageSchema.index({ tags: 1 }); // index for findByTags with $in operator
 imageSchema.index({ user: 1, createdAt: -1 }); // compound index for querying images by user and sorting by most recent
+imageSchema.index({ createdAt: -1, likes: -1 }); // index for the trending feed
+
+imageSchema.index(
+	{ createdAt: -1, likes: -1 },
+	{
+		partialFilterExpression: { likes: { $gte: 1 } },
+	}
+); // compound index for trending feed (only images with at least 1 like)
 
 imageSchema.index({ tags: "text", user: "text" });
 
 tagSchema.index({ tag: "text" });
-tagSchema.index({ tags: 1, modifiedAt: -1 }); // compound index to efficiently query for images by tag, sorted by most recent
-console.log("Defining Image model");
+tagSchema.index({ count: -1 });
+tagSchema.index({ modifiedAt: -1 });
+
 const Image = mongoose.model<IImage>("Image", imageSchema);
 export const Tag = mongoose.model("Tag", tagSchema);
 export default Image;

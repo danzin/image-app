@@ -187,7 +187,6 @@ export class RealTimeFeedService {
 		if (!message.imageId || message.newLikes === undefined) return;
 
 		// Broadcast like count update to all connected users
-		// In a more sophisticated implementation, you might track which users have this image in their feed
 		io.emit("like_update", {
 			type: "like_count_changed",
 			imageId: message.imageId,
