@@ -42,7 +42,6 @@ export class TagRepository extends BaseRepository<ITag> {
 	 * Uses case-insensitive regex matching for partial matches.
 	 * @param {string[]} searchQueries - An array of search terms.
 	 * @param {ClientSession} [session] - Optional Mongoose session for transactions.
-	 * @param {Object} [options] - Optional search options.
 	 * @returns {Promise<ITag[]>} - A promise that resolves to an array of matching tags.
 	 * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
 	 */
