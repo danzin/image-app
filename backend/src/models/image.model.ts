@@ -207,7 +207,6 @@ tagSchema.index({ tag: "text" });
 tagSchema.index({ count: -1 });
 tagSchema.index({ modifiedAt: -1 });
 
-console.log("Defining Image model");
 const Image = mongoose.model<IImage>("Image", imageSchema);
 export const Tag = mongoose.model("Tag", tagSchema);
 export default Image;
