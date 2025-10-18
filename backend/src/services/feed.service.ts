@@ -127,6 +127,7 @@ export class FeedService {
 			throw createError("FeedError", "Could not generate For You feed.");
 		}
 	}
+
 	private async generateForYouFeed(userId: string, page: number, limit: number) {
 		const [user, topTags] = await Promise.all([
 			this.userRepository.findByPublicId(userId),

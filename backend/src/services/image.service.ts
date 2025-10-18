@@ -182,6 +182,7 @@ export class ImageService {
 				const image = await this.executeUpload(user.id, file, tags, originalName, session);
 
 				cloudImagePublicId = image.publicId;
+				await this.eventBus.publish(new ImageUploadedEvent(image.publicId, userPublicId, tags));
 
 				// Return public-facing data (no internal IDs!)
 				return {
@@ -198,7 +199,6 @@ export class ImageService {
 			});
 
 			// Publish event
-			await this.eventBus.publish(new ImageUploadedEvent(result.id, userPublicId, tags));
 
 			return result;
 		} catch (error) {
