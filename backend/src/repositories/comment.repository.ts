@@ -7,7 +7,7 @@ import { inject, injectable } from "tsyringe";
 export interface TransformedComment {
 	id: string;
 	content: string;
-	imagePublicId: string;
+	postPublicId: string;
 	user: {
 		publicId: string;
 		username: string;
@@ -25,10 +25,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 	}
 
 	/**
-	 * Get comments for a specific image with pagination
+	 * Get comments for a specific post with pagination
 	 */
-	async getCommentsByImageId(
-		imageId: string,
+	async getCommentsByPostId(
+		postId: string,
 		page: number = 1,
 		limit: number = 10
 	): Promise<{
@@ -42,21 +42,21 @@ export class CommentRepository extends BaseRepository<IComment> {
 
 		const [comments, total] = await Promise.all([
 			this.model
-				.find({ imageId })
+				.find({ postId })
 				.populate("userId", "publicId username avatar")
-				.populate("imageId", "publicId")
+				.populate("postId", "publicId")
 				.sort({ createdAt: -1 }) // Newest first
 				.skip(skip)
 				.limit(limit)
 				.lean(),
-			this.model.countDocuments({ imageId }),
+			this.model.countDocuments({ postId }),
 		]);
 
 		// Transform the data to match frontend interface
 		const transformedComments = comments.map((comment: any) => ({
 			id: comment._id.toString(),
 			content: comment.content,
-			imagePublicId: comment.imageId.publicId,
+			postPublicId: comment.postId.publicId,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -95,7 +95,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const [comments, total] = await Promise.all([
 			this.model
 				.find({ userId })
-				.populate("imageId", "url publicId")
+				.populate("postId", "slug publicId")
 				.populate("userId", "publicId username avatar")
 				.sort({ createdAt: -1 })
 				.skip(skip)
@@ -108,7 +108,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const transformedComments = comments.map((comment: any) => ({
 			id: comment._id.toString(),
 			content: comment.content,
-			imagePublicId: comment.imageId.publicId,
+			postPublicId: comment.postId.publicId,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -143,7 +143,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 				{ new: true, session }
 			)
 			.populate("userId", "publicId username avatar")
-			.populate("imageId", "publicId")
+			.populate("postId", "publicId")
 			.lean();
 
 		if (!comment) return null;
@@ -152,7 +152,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		return {
 			id: (comment as any)._id.toString(),
 			content: (comment as any).content,
-			imagePublicId: (comment as any).imageId.publicId,
+			postPublicId: (comment as any).postId.publicId,
 			user: {
 				publicId: (comment as any).userId.publicId,
 				username: (comment as any).userId.username,
@@ -171,7 +171,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const comment = await this.model
 			.findById(commentId)
 			.populate("userId", "publicId username avatar")
-			.populate("imageId", "publicId")
+			.populate("postId", "publicId")
 			.lean();
 
 		if (!comment) return null;
@@ -180,7 +180,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		return {
 			id: (comment as any)._id.toString(),
 			content: (comment as any).content,
-			imagePublicId: (comment as any).imageId.publicId,
+			postPublicId: (comment as any).postId.publicId,
 			user: {
 				publicId: (comment as any).userId.publicId,
 				username: (comment as any).userId.username,
@@ -204,10 +204,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 	}
 
 	/**
-	 * Delete all comments for an image (when image is deleted)
+	 * Delete all comments for a post (when post is deleted)
 	 */
-	async deleteCommentsByImageId(imageId: string, session?: ClientSession): Promise<number> {
-		const result = await this.model.deleteMany({ imageId }, { session });
+	async deleteCommentsByPostId(postId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model.deleteMany({ postId }, { session });
 		return result.deletedCount || 0;
 	}
 }

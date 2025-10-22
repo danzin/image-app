@@ -56,6 +56,7 @@ export class UserRoutes {
 
 		// Current user operations
 		this.router.get("/me", this.userController.getMe);
+		this.router.get("/suggestions/who-to-follow", this.userController.getWhoToFollow);
 		this.router.put(
 			"/me/edit",
 			new ValidationMiddleware({ body: UserSchemas.updateProfile() }).validate(),
@@ -88,9 +89,9 @@ export class UserRoutes {
 			this.userController.checkFollowStatus
 		);
 
-		// Image interactions (using public IDs)
+		// Post interactions (using public IDs)
 		this.router.post(
-			"/like/image/:publicId",
+			"/like/post/:publicId",
 			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
 			this.userController.likeActionByPublicId
 		);

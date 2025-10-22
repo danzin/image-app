@@ -3,7 +3,7 @@ import { ILike } from "../types";
 
 const likeSchema = new Schema<ILike>({
 	userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-	imageId: { type: Schema.Types.ObjectId, ref: "Image", required: true },
+	postId: { type: Schema.Types.ObjectId, ref: "Post", required: true },
 	timestamp: { type: Date, default: Date.now },
 	// more fields later if necessary
 });

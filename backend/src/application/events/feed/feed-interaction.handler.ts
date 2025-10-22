@@ -1,25 +1,25 @@
 import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { UserInteractedWithImageEvent } from "../user/user-interaction.event";
+import { UserInteractedWithPostEvent } from "../user/user-interaction.event";
 import { FeedService } from "../../../services/feed.service";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
-import { ImageRepository } from "../../../repositories/image.repository";
+import { PostRepository } from "../../../repositories/post.repository";
 
 @injectable()
-export class FeedInteractionHandler implements IEventHandler<UserInteractedWithImageEvent> {
+export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
 	constructor(
 		@inject("FeedService") private readonly feedService: FeedService,
 		@inject("RedisService") private readonly redis: RedisService,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository
+		@inject("PostRepository") private readonly postRepository: PostRepository
 	) {}
 
-	async handle(event: UserInteractedWithImageEvent): Promise<void> {
+	async handle(event: UserInteractedWithPostEvent): Promise<void> {
 		try {
-			await this.feedService.recordInteraction(event.userId, event.interactionType, event.imageId, event.tags);
+			await this.feedService.recordInteraction(event.userId, event.interactionType, event.postId, event.tags);
 
 			await this.invalidateRelevantFeeds(event);
 
@@ -34,21 +34,21 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 	/**
 	 * Invalidate feeds for users who would see this interaction change
 	 */
-	private async invalidateRelevantFeeds(event: UserInteractedWithImageEvent): Promise<void> {
-		console.log(`Smart cache handling for interaction: ${event.interactionType} on image ${event.imageId}`);
+	private async invalidateRelevantFeeds(event: UserInteractedWithPostEvent): Promise<void> {
+		console.log(`Smart cache handling for interaction: ${event.interactionType} on post ${event.postId}`);
 
 		const isLikeEvent = event.interactionType === "like" || event.interactionType === "unlike";
 
 		if (isLikeEvent) {
 			// Update per-image meta so all users see new like count without structural invalidation
 			try {
-				console.log(`event.imageId in invalidateRelevantFeeds: ${event.imageId}`);
-				const image = await this.imageRepository.findByPublicId(event.imageId);
-				if (image && (image as any).publicId) {
-					await this.feedService.updateImageLikeMeta((image as any).publicId, (image as any).likes || 0);
+				console.log(`event.postId in invalidateRelevantFeeds: ${event.postId}`);
+				const post = await this.postRepository.findByPublicId(event.postId);
+				if (post && (post as any).publicId) {
+					await this.feedService.updatePostLikeMeta((post as any).publicId, (post as any).likesCount || 0);
 				}
 			} catch (e) {
-				console.warn("Failed to update image like meta during like/unlike event", e);
+				console.warn("Failed to update post like meta during like/unlike event", e);
 			}
 			// Invalidate only actor's structural feed using tags
 			await this.redis.invalidateByTags([`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`]);
@@ -73,13 +73,13 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 	/**
 	 * Determine which users would see this image in their personalized feeds
 	 */
-	private async getAffectedUsers(event: UserInteractedWithImageEvent): Promise<string[]> {
+	private async getAffectedUsers(event: UserInteractedWithPostEvent): Promise<string[]> {
 		const affectedUsers: string[] = [];
 
 		try {
-			// get image owner followers
-			if (event.imageOwnerId) {
-				const followers = await this.getFollowersOfUser(event.imageOwnerId);
+			// get post owner followers
+			if (event.postOwnerId) {
+				const followers = await this.getFollowersOfUser(event.postOwnerId);
 				affectedUsers.push(...followers);
 			}
 
@@ -122,20 +122,20 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithI
 	/**
 	 * Publish real-time interaction event to Redis for WebSocket broadcasting
 	 */
-	private async publishInteractionEvent(event: UserInteractedWithImageEvent): Promise<void> {
+	private async publishInteractionEvent(event: UserInteractedWithPostEvent): Promise<void> {
 		try {
 			const interactionMessage = {
 				type: "interaction" as const,
 				userId: event.userId,
 				actionType: event.interactionType,
-				targetId: event.imageId,
+				targetId: event.postId,
 				tags: event.tags,
 				timestamp: new Date().toISOString(),
 			};
 
 			await this.redis.publish("feed_updates", JSON.stringify(interactionMessage));
 			console.log(
-				`Published real-time interaction event: ${event.interactionType} on image ${event.imageId} by user ${event.userId}`
+				`Published real-time interaction event: ${event.interactionType} on post ${event.postId} by user ${event.userId}`
 			);
 		} catch (error) {
 			console.error("Failed to publish interaction event:", error);

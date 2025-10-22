@@ -10,20 +10,20 @@ export class FavoriteService {
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
 	) {}
 
-	async addFavorite(userId: string, imageId: string): Promise<void> {
+	async addFavorite(userId: string, postId: string): Promise<void> {
 		return this.unitOfWork.executeInTransaction(async (session) => {
-			const existing = await this.favoriteRepository.findByUserAndImage(userId, imageId, session);
+			const existing = await this.favoriteRepository.findByUserAndPost(userId, postId, session);
 			if (existing) {
-				throw createError("DuplicateError", "Image already in favorites");
+				throw createError("DuplicateError", "Post already in favorites");
 			}
 
-			await this.favoriteRepository.create({ userId, imageId } as any, session);
+			await this.favoriteRepository.create({ userId, postId } as any, session);
 		});
 	}
 
-	async removeFavorite(userId: string, imageId: string): Promise<void> {
+	async removeFavorite(userId: string, postId: string): Promise<void> {
 		return this.unitOfWork.executeInTransaction(async (session) => {
-			const wasRemoved = await this.favoriteRepository.remove(userId, imageId, session);
+			const wasRemoved = await this.favoriteRepository.remove(userId, postId, session);
 			if (!wasRemoved) {
 				throw createError("NotFoundError", "Favorite not found");
 			}

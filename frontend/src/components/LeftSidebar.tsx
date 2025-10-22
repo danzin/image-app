@@ -27,6 +27,8 @@ import {
 import { useAuth } from "../hooks/context/useAuth";
 import UploadForm from "./UploadForm";
 
+// TODO: Probably instead of a drawer sidebar for mobile, use a bottom navbar? That'd
+// defenitely be better
 const SIDEBAR_WIDTH = 240;
 const BASE_URL = "/api";
 const modalStyle = {
@@ -80,10 +82,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 	const fullAvatarUrl = avatarUrl.startsWith("http")
 		? avatarUrl
 		: avatarUrl.startsWith("/")
-		? `${BASE_URL}${avatarUrl}`
-		: avatarUrl
-		? `${BASE_URL}/${avatarUrl}`
-		: undefined;
+			? `${BASE_URL}${avatarUrl}`
+			: avatarUrl
+				? `${BASE_URL}/${avatarUrl}`
+				: undefined;
 
 	const isRouteActive = (targetPath?: string) => {
 		if (!targetPath) return false;
@@ -131,7 +133,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 				height: "100%",
 				display: "flex",
 				flexDirection: "column",
-				background: "linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)",
 			}}
 		>
 			{/* Logo Section */}
@@ -140,7 +141,6 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 					p: 3,
 					display: "flex",
 					alignItems: "center",
-					borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
 				}}
 			>
 				<Avatar
@@ -334,13 +334,16 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 				open={mobileOpen}
 				onClose={onMobileClose}
 				ModalProps={{
-					keepMounted: true, // Better open performance on mobile
+					keepMounted: true,
 				}}
 				sx={{
 					display: { xs: "block", md: "none" },
 					"& .MuiDrawer-paper": {
 						boxSizing: "border-box",
 						width: SIDEBAR_WIDTH,
+						backgroundColor: theme.palette.background.default,
+						backgroundImage: "none",
+						border: "none",
 					},
 				}}
 			>
@@ -359,6 +362,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 					boxSizing: "border-box",
 					width: SIDEBAR_WIDTH,
 					position: "relative",
+					borderRight: "none",
+					backgroundColor: "transparent",
+					backgroundImage: "none",
 				},
 			}}
 		>

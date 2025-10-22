@@ -4,6 +4,7 @@ import { Box, useTheme, useMediaQuery, IconButton } from "@mui/material";
 import { Menu as MenuIcon } from "@mui/icons-material";
 import Navbar from "./Navbar";
 import LeftSidebar from "./LeftSidebar";
+import RightSidebar from "./RightSidebar";
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -22,57 +23,66 @@ const Layout: React.FC = () => {
 				bgcolor: "background.default",
 			}}
 		>
-			{/* Left Sidebar */}
-			<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-
-			{/* Main Content Area */}
 			<Box
 				sx={{
-					flex: 1,
 					display: "flex",
-					flexDirection: "column",
-					overflow: "hidden",
+					width: "100%",
+					maxWidth: "1650px",
+					ml: 1,
 				}}
 			>
-				{/* Navbar with mobile menu button */}
-				<Box sx={{ position: "relative" }}>
-					{isMobile && (
-						<IconButton
-							color="inherit"
-							aria-label="open drawer"
-							edge="start"
-							onClick={handleDrawerToggle}
-							sx={{
-								position: "absolute",
-								left: 8,
-								top: "50%",
-								transform: "translateY(-50%)",
-								zIndex: theme.zIndex.appBar + 1,
-								backgroundColor: "rgba(26, 26, 46, 0.8)",
-								"&:hover": {
-									backgroundColor: "rgba(26, 26, 46, 0.9)",
-								},
-							}}
-						>
-							<MenuIcon />
-						</IconButton>
-					)}
-					<Navbar />
-				</Box>
+				{/* --- Left Sidebar --- */}
+				<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
 
-				{/* Main Content */}
+				{/* --- Main Content Area --- */}
 				<Box
-					component="main"
 					sx={{
 						flex: 1,
-						overflowY: "auto",
 						display: "flex",
 						flexDirection: "column",
-						width: "100%",
+						overflow: "hidden",
+						borderLeft: `1px solid ${theme.palette.divider}`,
+						borderRight: `1px solid ${theme.palette.divider}`,
 					}}
 				>
-					<Outlet />
+					{/* Top Navbar Area */}
+					<Box sx={{ position: "relative" }}>
+						{isMobile && (
+							<IconButton
+								color="inherit"
+								aria-label="open drawer"
+								edge="start"
+								onClick={handleDrawerToggle}
+								sx={{
+									position: "absolute",
+									left: 8,
+									top: "50%",
+									transform: "translateY(-50%)",
+									zIndex: theme.zIndex.appBar + 1,
+								}}
+							>
+								<MenuIcon />
+							</IconButton>
+						)}
+						<Navbar />
+					</Box>
+
+					{/* Scrollable Main Content */}
+					<Box
+						component="main"
+						sx={{
+							flex: 1,
+							overflowY: "auto",
+							display: "flex",
+							flexDirection: "column",
+						}}
+					>
+						<Outlet />
+					</Box>
 				</Box>
+
+				{/* --- Right Sidebar --- */}
+				<RightSidebar />
 			</Box>
 		</Box>
 	);

@@ -1,4 +1,4 @@
-import { IImage, ITag, IUser } from "../types";
+import { IImage, IPost, ITag, IUser } from "../types";
 import axiosClient from "./axiosClient";
 
 export const searchQuery = async (
@@ -8,6 +8,7 @@ export const searchQuery = async (
 	data: {
 		users: IUser[] | null;
 		images: IImage[] | null;
+		posts: IPost[] | null;
 		tags: ITag[] | null;
 	};
 }> => {

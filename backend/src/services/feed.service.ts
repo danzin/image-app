@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { ImageRepository } from "../repositories/image.repository";
+import { PostRepository } from "../repositories/post.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
@@ -12,7 +12,7 @@ import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeed
 @injectable()
 export class FeedService {
 	constructor(
-		@inject("ImageRepository") private imageRepository: ImageRepository,
+		@inject("PostRepository") private postRepository: PostRepository,
 		@inject("UserRepository") private userRepository: UserRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("UserActionRepository") private userActionRepository: UserActionRepository,
@@ -30,7 +30,7 @@ export class FeedService {
 		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
 
 		try {
-			// STEP 1: Get core feed structure (image IDs and order)
+			// STEP 1: Get core feed structure (post IDs and order)
 			const coreFeedKey = `core_feed:${userId}:${page}:${limit}`;
 			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
 
@@ -90,10 +90,10 @@ export class FeedService {
 				}
 			}
 
-			return this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
+			return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
 		}
 
-		return this.imageRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
+		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
 
 	// === Specialized feeds ===
@@ -142,7 +142,7 @@ export class FeedService {
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
-		const feed = await this.imageRepository.getRankedFeed(favoriteTags, limit, skip);
+		const feed = await this.postRepository.getRankedFeed(favoriteTags, limit, skip);
 
 		return feed;
 	}
@@ -153,7 +153,7 @@ export class FeedService {
 		let cached = await this.redisService.getWithTags(key);
 		if (!cached) {
 			const skip = (page - 1) * limit;
-			const core = await this.imageRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
+			const core = await this.postRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
 			await this.redisService.setWithTags(key, core, ["trending_feed", `page:${page}`, `limit:${limit}`], 120);
 			cached = core;
 		}
@@ -167,7 +167,7 @@ export class FeedService {
 		let cached = await this.redisService.getWithTags(key);
 		if (!cached) {
 			const skip = (page - 1) * limit;
-			const core = await this.imageRepository.getNewFeed(limit, skip);
+			const core = await this.postRepository.getNewFeed(limit, skip);
 			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 60);
 			cached = core;
 		}
@@ -175,13 +175,15 @@ export class FeedService {
 		return { ...cached, data: enriched };
 	}
 
+	// === Misc ===
+
 	// Enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
 	private async enrichFeedWithCurrentData(coreFeedData: any[]): Promise<any[]> {
 		if (!coreFeedData || coreFeedData.length === 0) return [];
 
 		// Extract unique user publicIds from feed items
 		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
-		const imagePublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
+		const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
 
 		// Batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
@@ -196,11 +198,11 @@ export class FeedService {
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Attempt to load per-image metadata with tag-based caching
-		const imageMetaKeys = imagePublicIds.map((id) => `image_meta:${id}`);
-		const metaResults = await Promise.all(imageMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
+		// Attempt to load per-post metadata with tag-based caching
+		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
+		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
 		const metaMap = new Map<string, any>();
-		imagePublicIds.forEach((id, idx) => {
+		postPublicIds.forEach((id, idx) => {
 			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
 		});
 
@@ -233,7 +235,7 @@ export class FeedService {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) throw createError("NotFoundError", "User not found");
 
-		// If action targets an image provided by publicId (may include extension), normalize
+		// If action targets a post provided by publicId (may include extension), normalize
 		let internalTargetId = targetIdentifier;
 		if (
 			actionType === "like" ||
@@ -242,8 +244,8 @@ export class FeedService {
 			actionType === "comment_deleted"
 		) {
 			const sanitized = targetIdentifier.replace(/\.[a-z0-9]{2,5}$/i, "");
-			const image = await this.imageRepository.findByPublicId(sanitized);
-			if (image) internalTargetId = (image as any)._id.toString();
+			const post = await this.postRepository.findByPublicId(sanitized);
+			if (post) internalTargetId = (post as any)._id.toString();
 		}
 
 		// Log the action to user activity collection
@@ -282,11 +284,11 @@ export class FeedService {
 	}
 
 	/**
-	 * Update per-image meta cache after like/unlike without regenerating entire feed partition.
+	 * Update per-post meta cache after like/unlike without regenerating entire feed partition.
 	 */
-	public async updateImageLikeMeta(imagePublicId: string, newTotalLikes: number): Promise<void> {
-		const metaKey = `image_meta:${imagePublicId}`;
-		const tags = [`image_meta:${imagePublicId}`, `image_likes:${imagePublicId}`];
+	public async updatePostLikeMeta(postPublicId: string, newTotalLikes: number): Promise<void> {
+		const metaKey = `post_meta:${postPublicId}`;
+		const tags = [`post_meta:${postPublicId}`, `post_likes:${postPublicId}`];
 
 		//Update cached like counts
 		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
@@ -296,7 +298,7 @@ export class FeedService {
 			"feed_updates",
 			JSON.stringify({
 				type: "like_update",
-				imageId: imagePublicId,
+				postId: postPublicId,
 				newLikes: newTotalLikes,
 				timestamp: new Date().toISOString(),
 			})

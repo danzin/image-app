@@ -6,8 +6,11 @@ export const followUser = async (publicId: string) => {
 	return response.data;
 };
 
-// Like/unlike an image by its public ID
-export const likeImage = async (imagePublicId: string) => {
-	const response = await axiosClient.post(`/api/users/like/image/${imagePublicId}`);
+// Like/unlike a post by its public ID
+export const likePost = async (postPublicId: string) => {
+	const response = await axiosClient.post(`/api/users/like/post/${postPublicId}`);
 	return response.data;
 };
+
+// Legacy alias for backward compatibility
+export const likeImage = likePost;

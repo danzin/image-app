@@ -125,7 +125,7 @@ const Discovery: React.FC = () => {
 					<TabPanel value={activeTab} index={0}>
 						<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 							<Gallery
-								images={newFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+								posts={newFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 								fetchNextPage={newFeedQuery.fetchNextPage}
 								hasNextPage={!!newFeedQuery.hasNextPage}
 								isFetchingNext={newFeedQuery.isFetchingNextPage}
@@ -138,7 +138,7 @@ const Discovery: React.FC = () => {
 					<TabPanel value={activeTab} index={1}>
 						<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 							<Gallery
-								images={trendingFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+								posts={trendingFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 								fetchNextPage={trendingFeedQuery.fetchNextPage}
 								hasNextPage={!!trendingFeedQuery.hasNextPage}
 								isFetchingNext={trendingFeedQuery.isFetchingNextPage}
@@ -152,7 +152,7 @@ const Discovery: React.FC = () => {
 						<TabPanel value={activeTab} index={2}>
 							<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 								<Gallery
-									images={forYouFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+									posts={forYouFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 									fetchNextPage={forYouFeedQuery.fetchNextPage}
 									hasNextPage={!!forYouFeedQuery.hasNextPage}
 									isFetchingNext={forYouFeedQuery.isFetchingNextPage}

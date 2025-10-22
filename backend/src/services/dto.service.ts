@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IImage, IMessage, MessageDTO } from "../types";
+import { IUser, IImage, IMessage, MessageDTO, PostDTO } from "../types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -46,7 +46,7 @@ export interface PublicImageDTO {
 
 @injectable()
 export class DTOService {
-	toPublicUserDTO(user: IUser, viewerUserId?: string): PublicUserDTO {
+	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {
 		return {
 			publicId: user.publicId,
 			username: user.username,
@@ -103,6 +103,42 @@ export class DTOService {
 			isLikedByViewer: (image as any).isLikedByViewer || false,
 			isFavoritedByViewer: (image as any).isFavoritedByViewer || false,
 		};
+	}
+
+	toPublicPostDTO(
+		post: PostDTO
+	): PublicImageDTO & { body?: string; image?: { publicId: string; url: string; slug?: string } } {
+		// Build the response object
+		const response: any = {
+			publicId: post.publicId,
+			slug: post.slug ?? post.publicId,
+			body: post.body,
+			tags: post.tags,
+			user: {
+				publicId: post.user.publicId,
+				username: post.user.username,
+				avatar: post.user.avatar,
+			},
+			likes: post.likes,
+			commentsCount: post.commentsCount,
+			createdAt: post.createdAt,
+			isLikedByViewer: post.isLikedByViewer ?? false,
+			isFavoritedByViewer: post.isFavoritedByViewer ?? false,
+		};
+
+		// Add image data if present (for backward compatibility, keep both formats)
+		if (post.url && post.imagePublicId) {
+			response.image = {
+				publicId: post.imagePublicId,
+				url: post.url,
+				slug: post.slug,
+			};
+			response.url = post.url; // Backward compatibility
+		} else {
+			response.url = "";
+		}
+
+		return response;
 	}
 
 	toPublicMessageDTO(message: IMessage, conversationPublicId: string): MessageDTO {

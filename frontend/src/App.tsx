@@ -17,6 +17,7 @@ import SearchResults from "./screens/SearchResults";
 import { SocketProvider } from "./context/Socket/SocketProvider";
 import AuthProvider from "./context/Auth/AuthProvider";
 import ImageView from "./screens/ImageView";
+import PostView from "./screens/PostView";
 import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -43,6 +44,7 @@ function App() {
 										<Route path="profile/:id" element={<Profile />} />
 										<Route path="/results" element={<SearchResults />} />
 										<Route path="images/:id" element={<ImageView />} />
+										<Route path="posts/:id" element={<PostView />} />
 										<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
 										<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
 										<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />

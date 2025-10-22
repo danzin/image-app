@@ -18,15 +18,14 @@ export class ImageRoutes {
 	}
 
 	private initializeRoutes(): void {
-		//get all images
-		this.router.get("/", this.controller.getImages);
+		this.router.get("/", this.controller.listPosts);
 
 		// Use slug for SEO-friendly image URLs (optional auth to check if user liked)
 		this.router.get(
 			"/image/:slug",
 			this.optionalAuth,
 			new ValidationMiddleware(ImageValidationSchemas.slugAction()).validate(),
-			this.controller.getImageBySlug
+			this.controller.getPostBySlug
 		);
 
 		// Public: get image by publicId (optional auth to check if user liked)
@@ -34,38 +33,36 @@ export class ImageRoutes {
 			"/image/:publicId",
 			this.optionalAuth,
 			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
-			this.controller.getImageByPublicId
+			this.controller.getPostByPublicId
 		);
 
 		// Use username for profile image galleries (public endpoint)
 		this.router.get(
 			"/user/username/:username",
 			new ValidationMiddleware(UserValidationSchemas.usernameAction()).validate(),
-			this.controller.getUserImagesByUsername
+			this.controller.getPostsByUsername
 		);
 		this.router.get(
 			"/user/id/:publicId",
 			new ValidationMiddleware(UserValidationSchemas.publicIdAction()).validate(),
-			this.controller.getUserImagesByPublicId
+			this.controller.getPostsByUserPublicId
 		);
 
-		//return images by selected tags
 		this.router.get("/search/tags", this.controller.searchByTags);
 
-		//returns all tags
-		this.router.get("/tags", this.controller.getTags);
+		this.router.get("/tags", this.controller.listTags);
 
 		// === PROTECTED ROUTES (require authentication) ===
 		this.router.use(this.auth);
 
 		//logged in user uploads an image
-		this.router.post("/upload", upload.single("image"), this.controller.uploadImage);
+		this.router.post("/upload", upload.single("image"), this.controller.createPost);
 
 		//logged in deletes an image by public ID
 		this.router.delete(
 			"/image/:publicId",
 			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
-			this.controller.deleteImageByPublicId
+			this.controller.deletePost
 		);
 	}
 	public getRouter(): express.Router {

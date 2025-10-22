@@ -1,7 +1,7 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IFavorite, IImage } from "types/index";
+import { IFavorite, IPost } from "types/index";
 
 @injectable()
 export class FavoriteRepository extends BaseRepository<IFavorite> {
@@ -9,16 +9,16 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 		super(model);
 	}
 
-	async findByUserAndImage(userId: string, imageId: string, session?: ClientSession): Promise<IFavorite | null> {
+	async findByUserAndPost(userId: string, postId: string, session?: ClientSession): Promise<IFavorite | null> {
 		return this.model
-			.findOne({ userId, imageId })
+			.findOne({ userId, postId })
 			.session(session || null)
 			.exec();
 	}
 
-	async remove(userId: string, imageId: string, session?: ClientSession): Promise<boolean> {
+	async remove(userId: string, postId: string, session?: ClientSession): Promise<boolean> {
 		const result = await this.model
-			.deleteOne({ userId, imageId })
+			.deleteOne({ userId, postId })
 			.session(session || null)
 			.exec();
 		return result.deletedCount > 0;
@@ -28,10 +28,10 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 		userId: string,
 		page: number = 1,
 		limit: number = 20
-	): Promise<{ data: IImage[]; total: number }> {
+	): Promise<{ data: IPost[]; total: number }> {
 		const skip = (page - 1) * limit;
 
-		// Use an aggregation pipeline to join Favorite documents with the Image documents
+		// Use an aggregation pipeline to join Favorite documents with the Post documents
 		const aggregation = this.model.aggregate([
 			// Stage 1: find favorites for the given user
 			{ $match: { userId: new mongoose.Types.ObjectId(userId) } },
@@ -40,20 +40,20 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 			// Stage 3: pagination
 			{ $skip: skip },
 			{ $limit: limit },
-			// Stage 4: "Join" with the images collection
+			// Stage 4: "Join" with the posts collection
 			{
 				$lookup: {
-					from: "images", // collection name in MongoDB
-					localField: "imageId",
+					from: "posts", // collection name in MongoDB
+					localField: "postId",
 					foreignField: "_id",
-					as: "imageDetails",
+					as: "postDetails",
 				},
 			},
 			// Stage 5: deconstruct the array field to get object instead of array
-			{ $unwind: "$imageDetails" },
-			// Stage 6: replace root to have imageDetails at the top level
-			{ $replaceRoot: { newRoot: "$imageDetails" } },
-			// Stage 7: populate the user field in the image
+			{ $unwind: "$postDetails" },
+			// Stage 6: replace root to have postDetails at the top level
+			{ $replaceRoot: { newRoot: "$postDetails" } },
+			// Stage 7: populate the user field in the post
 			{
 				$lookup: {
 					from: "users",
@@ -68,8 +68,8 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 		]);
 
 		const totalFavorites = await this.model.countDocuments({ userId });
-		const favoritedImages = await aggregation.exec();
+		const favoritedPosts = await aggregation.exec();
 
-		return { data: favoritedImages as IImage[], total: totalFavorites };
+		return { data: favoritedPosts as IPost[], total: totalFavorites };
 	}
 }

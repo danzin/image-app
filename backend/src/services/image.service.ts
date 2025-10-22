@@ -1,470 +1,184 @@
+import mongoose, { ClientSession } from "mongoose";
+import { inject, injectable } from "tsyringe";
 import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
-import { CommentRepository } from "../repositories/comment.repository";
-import { LikeRepository } from "../repositories/like.repository";
-import { FavoriteRepository } from "../repositories/favorite.repository";
+import { IImage, IImageStorageService } from "../types";
 import { createError } from "../utils/errors";
-import type { IImage, IImageStorageService, ITag, PaginationResult } from "../types";
-import { TagRepository } from "../repositories/tag.repository";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { inject, injectable } from "tsyringe";
-import { RedisService } from "./redis.service";
-import { EventBus } from "../application/common/buses/event.bus";
-import { ImageDeletedEvent, ImageUploadedEvent } from "../application/events/image/image.event";
-import { ClientSession } from "mongoose";
+
+export interface CreatePostAttachmentInput {
+	buffer: Buffer;
+	originalName: string;
+	userInternalId: string;
+	userPublicId: string;
+	tagIds: mongoose.Types.ObjectId[];
+	session: ClientSession;
+}
+
+export interface AttachmentSummary {
+	docId: mongoose.Types.ObjectId | null;
+	publicId?: string;
+	url?: string;
+	slug?: string;
+}
+
+export interface AttachmentCreationResult {
+	imageDoc: IImage | null;
+	storagePublicId: string | null;
+	summary: AttachmentSummary;
+}
+
+export interface RemoveAttachmentInput {
+	imageId: string;
+	requesterPublicId: string;
+	ownerInternalId?: string;
+	ownerPublicId?: string;
+	session: ClientSession;
+}
+
+export interface RemoveAttachmentResult {
+	removed: boolean;
+	removedPublicId?: string;
+	removedUrl?: string;
+}
 
 @injectable()
 export class ImageService {
 	constructor(
+		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("ImageRepository")
-		private readonly imageRepository: ImageRepository,
-		@inject("ImageStorageService")
-		private readonly imageStorageService: IImageStorageService,
-		@inject("TagRepository") private readonly tagRepository: TagRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
-		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("RedisService") private redisService: RedisService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService
 	) {}
 
-	// TODO: REFACTOR AND REMOVE OLD METHODS
-
-	// ============================================
-	// PRIVATE CORE METHODS (Internal IDs only)
-	// ============================================
-
-	/**
-	 * Core upload logic using internal user ID
-	 * @internal - Use uploadImage() instead
-	 */
-	private async executeUpload(
-		userInternalId: string,
-		file: Buffer,
-		tags: string[],
-		originalName: string,
-		session?: ClientSession
-	): Promise<IImage> {
-		const user = await this.userRepository.findById(userInternalId, session);
-		if (!user) {
-			throw createError("NotFoundError", "User not found");
-		}
-
-		// Process tags (this logic stays the same)
-		const tagIds = await Promise.all(
-			tags.map(async (tag) => {
-				const existingTag = await this.tagRepository.findByTag(tag, session);
-				if (existingTag) return existingTag._id;
-
-				const newTag = await this.tagRepository.create({ tag } as Partial<ITag>, session);
-				return newTag._id;
-			})
-		);
-
-		// Upload to storage
-		const cloudImage = await this.imageStorageService.uploadImage(file, user.publicId);
-
-		// Generate slug
-		const slug = this.generateSlug(originalName);
-
-		// Create image document
-		const image = await this.imageRepository.create(
-			{
-				url: cloudImage.url,
-				publicId: cloudImage.publicId,
-				originalName,
-				slug,
-				user: userInternalId,
-				tags: tagIds,
-				likes: 0,
-				createdAt: new Date(),
-			} as unknown as IImage,
-			session
-		);
-
-		// Update user's images array
-		await this.userRepository.update(userInternalId, { images: [...user.images, image.url] }, session);
-
-		return image;
-	}
-
-	/**
-	 * Core deletion logic using internal IDs
-	 * @internal - Use deleteImage() instead
-	 */
-	private async executeDelete(
-		imageInternalId: string,
-		requesterInternalId: string,
-		isAdmin: boolean,
-		session?: ClientSession
-	): Promise<void> {
-		const image = await this.imageRepository.findById(imageInternalId, session);
-		if (!image) {
-			throw createError("NotFoundError", "Image not found");
-		}
-
-		// Extract user ID - handle both populated and non-populated cases
-		const userIdValue =
-			typeof image.user === "object" && image.user !== null && "_id" in image.user
-				? (image.user as any)._id.toString()
-				: image.user.toString();
-
-		// Authorization check
-		if (!isAdmin && userIdValue !== requesterInternalId) {
-			throw createError("ForbiddenError", "You don't have permission to delete this image");
-		}
-
-		// Delete from storage
-		const ownerUser = await this.userRepository.findById(userIdValue, session);
-		if (!ownerUser) {
-			throw createError("NotFoundError", "Image owner not found");
-		}
-
-		const deletionResult = await this.imageStorageService.deleteAssetByUrl(
-			ownerUser.publicId,
-			ownerUser.publicId,
-			image.url
-		);
-
-		if (deletionResult.result !== "ok") {
-			throw createError("StorageError", "Failed to delete from storage");
-		}
-
-		// Delete database records
-		await this.imageRepository.delete(imageInternalId, session);
-		await this.commentRepository.deleteCommentsByImageId(imageInternalId, session);
-
-		// Update user's images array
-		const updatedImages = ownerUser.images.filter((img) => img !== image.url);
-		await this.userRepository.update(ownerUser.id, { images: updatedImages }, session);
-	}
-
-	// ============================================
-	// PUBLIC API (Public IDs only)
-	// ============================================
-
-	/**
-	 * Uploads an image for a user
-	 * @param userPublicId - User's public identifier
-	 * @param file - Image file buffer
-	 * @param tags - Array of tag names
-	 * @param originalName - Original filename
-	 */
-	async uploadImage(
-		userPublicId: string,
-		file: Buffer,
-		tags: string[],
-		originalName: string
-	): Promise<{
-		id: string; // Image's public ID
-		url: string;
-		slug: string;
-		user: {
-			id: string; // User's public ID
-			username: string;
-		};
-		tags: string[];
-		createdAt: Date;
-	}> {
-		let cloudImagePublicId: string | null = null;
-
+	async createPostAttachment(input: CreatePostAttachmentInput): Promise<AttachmentCreationResult> {
 		try {
-			const result = await this.unitOfWork.executeInTransaction(async (session) => {
-				// Convert public ID to internal ID
-				const user = await this.userRepository.findByPublicId(userPublicId, session);
-				if (!user) {
-					throw createError("NotFoundError", "User not found");
-				}
+			const uploaded = await this.imageStorageService.uploadImage(input.buffer, input.userPublicId);
+			const slug = this.generateSlug(input.originalName);
+			const createdAt = new Date();
 
-				// Execute core upload logic
-				const image = await this.executeUpload(user.id, file, tags, originalName, session);
-
-				cloudImagePublicId = image.publicId;
-
-				// Return public-facing data (no internal IDs!)
-				return {
-					id: image.publicId,
-					url: image.url,
-					slug: image.slug,
-					user: {
-						id: user.publicId,
-						username: user.username,
-					},
-					tags,
-					createdAt: image.createdAt,
-				};
-			});
-
-			// Publish event
-			await this.eventBus.publish(new ImageUploadedEvent(result.id, userPublicId, tags));
-
-			return result;
-		} catch (error) {
-			// Cleanup on failure
-			if (cloudImagePublicId) {
-				await this.imageStorageService.deleteImage(cloudImagePublicId).catch(console.error);
-			}
-			throw this.handleError(error, "uploadImage");
-		}
-	}
-
-	/**
-	 * Gets an image by its public ID
-	 * @param imagePublicId - The image's public identifier
-	 * @param viewerPublicId - Optional viewer's public ID for personalized data
-	 */
-	async getImage(imagePublicId: string, viewerPublicId?: string): Promise<IImage> {
-		try {
-			const image = await this.imageRepository.findByPublicId(imagePublicId);
-			if (!image) {
-				throw createError("NotFoundError", "Image not found");
-			}
-
-			// Use the helper method to enrich with viewer data
-			if (viewerPublicId) {
-				await this.enrichImageWithViewerData(image, viewerPublicId);
-			}
-
-			return image;
-		} catch (error) {
-			throw this.handleError(error, "getImage");
-		}
-	}
-
-	/**
-	 * Gets an image by its SEO-friendly slug
-	 * @param slug - Image's URL slug
-	 * @param viewerPublicId - (Optional) Viewer's public ID
-	 */
-	async getImageBySlug(slug: string, viewerPublicId?: string): Promise<IImage> {
-		try {
-			const image = await this.imageRepository.findBySlug(slug);
-			if (!image) {
-				throw createError("NotFoundError", "Image not found");
-			}
-
-			if (viewerPublicId) {
-				await this.enrichImageWithViewerData(image, viewerPublicId);
-			}
-
-			return image;
-		} catch (error) {
-			throw this.handleError(error, "getImageBySlug");
-		}
-	}
-
-	/**
-	 * Gets paginated images for a user
-	 * @param userPublicId - User's public identifier
-	 */
-	async getUserImages(userPublicId: string, page: number, limit: number): Promise<PaginationResult<IImage>> {
-		try {
-			return await this.imageRepository.findByUserPublicId(userPublicId, { page, limit });
-		} catch (error) {
-			throw this.handleError(error, "getUserImages");
-		}
-	}
-
-	/**
-	 * Gets all images with pagination (public feed)
-	 */
-	async getImages(page: number, limit: number): Promise<PaginationResult<IImage>> {
-		try {
-			return await this.imageRepository.findWithPagination({ page, limit });
-		} catch (error) {
-			throw this.handleError(error, "getImages");
-		}
-	}
-
-	/**
-	 * Searches images by tags
-	 */
-	async searchByTags(tags: string[], page: number, limit: number): Promise<PaginationResult<IImage>> {
-		try {
-			const tagIds = await Promise.all(
-				tags.map(async (tag) => {
-					const existingTag = await this.tagRepository.findByTag(tag);
-					if (!existingTag) {
-						throw createError("NotFoundError", `Tag '${tag}' not found`);
-					}
-					return existingTag._id;
-				})
+			const imageDoc = await this.imageRepository.create(
+				{
+					url: uploaded.url,
+					publicId: uploaded.publicId,
+					originalName: input.originalName,
+					slug,
+					user: input.userInternalId,
+					tags: input.tagIds,
+					likes: 0,
+					commentsCount: 0,
+					createdAt,
+				} as unknown as IImage,
+				input.session
 			);
 
-			return await this.imageRepository.findByTags(tagIds as string[], { page, limit });
-		} catch (error) {
-			throw this.handleError(error, "searchByTags");
-		}
-	}
+			await this.userRepository.update(input.userInternalId, { $addToSet: { images: uploaded.url } }, input.session);
 
-	async getTags(): Promise<ITag[]> {
-		try {
-			return (await this.tagRepository.getAll()) ?? [];
-		} catch (error) {
-			throw this.handleError(error, "getTags");
-		}
-	}
-
-	/**
-	 * Deletes an image by public ID
-	 */
-	async deleteImageByPublicId(
-		publicId: string,
-		userPublicId: string,
-		isAdmin: boolean = false
-	): Promise<{ message: string }> {
-		try {
-			const result = await this.unitOfWork.executeInTransaction(async (session) => {
-				// Convert public IDs to internal IDs
-				const image = await this.imageRepository.findByPublicId(publicId, session);
-				if (!image) {
-					throw createError("NotFoundError", "Image not found");
-				}
-				const imageInternalId = (image as any)._id.toString();
-
-				const requester = await this.userRepository.findByPublicId(userPublicId, session);
-				if (!requester) {
-					throw createError("NotFoundError", "Requester not found");
-				}
-				const requesterInternalId = requester.id;
-
-				// Execute core deletion logic
-				await this.executeDelete(imageInternalId, requesterInternalId, isAdmin, session);
-
-				return { message: "Image deleted successfully" };
-			});
-
-			// Publish event
-			await this.eventBus.publish(new ImageDeletedEvent(publicId, userPublicId));
-
-			return result;
-		} catch (error) {
-			throw this.handleError(error, "deleteImageByPublicId");
-		}
-	}
-
-	// ============================================
-	// ADMIN METHODS
-	// ============================================
-
-	/**
-	 * Gets all images for admin dashboard with pagination
-	 */
-	async getAllImagesAdmin(options: {
-		page?: number | string;
-		limit?: number | string;
-		sortBy?: string;
-		sortOrder?: "asc" | "desc";
-	}): Promise<PaginationResult<IImage>> {
-		try {
-			const paginationOptions = {
-				page: parseInt(String(options.page || 1), 10),
-				limit: parseInt(String(options.limit || 20), 10),
-				sortBy: options.sortBy || "createdAt",
-				sortOrder: (options.sortOrder || "desc") as "asc" | "desc",
+			return {
+				imageDoc,
+				storagePublicId: uploaded.publicId,
+				summary: {
+					docId: new mongoose.Types.ObjectId((imageDoc as any)._id),
+					publicId: imageDoc.publicId,
+					url: imageDoc.url,
+					slug: (imageDoc as any).slug,
+				},
 			};
-
-			return await this.imageRepository.findWithPagination(paginationOptions);
 		} catch (error) {
-			throw this.handleError(error, "getAllImagesAdmin");
+			throw this.wrapError(error, "createPostAttachment");
 		}
 	}
 
-	// ============================================
-	// HELPER METHODS
-	// ============================================
-
-	/**
-	 * Private helper method to check if a user has liked a specific image
-	 * @private
-	 */
-	private async checkIfUserLikedImage(userPublicId: string, imageId: string): Promise<boolean> {
+	async rollbackUpload(publicId: string | null | undefined): Promise<void> {
+		if (!publicId) return;
 		try {
-			console.log(`Checking if user ${userPublicId} liked image ${imageId}`);
+			await this.imageStorageService.deleteImage(publicId);
+		} catch (error) {
+			console.error("Failed to rollback image upload", error);
+		}
+	}
 
-			// Convert user public ID to internal ID
-			const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
-			console.log(`User internal ID: ${userInternalId}`);
-
-			if (!userInternalId) {
-				console.log("User internal ID not found");
-				return false;
+	async removePostAttachment(input: RemoveAttachmentInput): Promise<RemoveAttachmentResult> {
+		try {
+			const imageDoc = await this.imageRepository.findById(input.imageId, input.session);
+			if (!imageDoc) {
+				return { removed: false };
 			}
 
-			// Check if like record exists
-			const like = await this.likeRepository.findByUserAndImage(userInternalId, imageId);
-			console.log(`Like record found:`, like);
-			const result = like !== null;
-			console.log(`checkIfUserLikedImage result: ${result}`);
-			return result;
-		} catch (error) {
-			console.error("Error in checkIfUserLikedImage:", error);
-			// If there's an error checking likes, default to false
-			return false;
-		}
-	}
+			const owningUserId = this.resolveOwnerInternalId(imageDoc, input.ownerInternalId);
+			const owningPublicId = this.resolveOwnerPublicId(imageDoc, input.ownerPublicId) ?? input.requesterPublicId;
 
-	private async checkIfUserFavoritedImage(userPublicId: string, imageId: string): Promise<boolean> {
-		try {
-			const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
-			if (!userInternalId) {
-				return false;
+			await this.imageStorageService
+				.deleteAssetByUrl(input.requesterPublicId, owningPublicId, imageDoc.url)
+				.catch((error) => console.error("Failed to delete attachment asset", error));
+
+			await this.imageRepository.delete((imageDoc as any)._id.toString(), input.session);
+
+			if (owningUserId) {
+				const update = { $pull: { images: imageDoc.url } };
+				await this.userRepository.update(owningUserId, update, input.session);
 			}
 
-			const favorite = await this.favoriteRepository.findByUserAndImage(userInternalId, imageId);
-			return favorite !== null;
+			return {
+				removed: true,
+				removedPublicId: imageDoc.publicId,
+				removedUrl: imageDoc.url,
+			};
 		} catch (error) {
-			console.error("Error in checkIfUserFavoritedImage:", error);
-			return false;
+			throw this.wrapError(error, "removePostAttachment");
 		}
 	}
 
-	/**
-	 * Enriches an image with viewer-specific data (likes, favorites)
-	 * @private
-	 */
-	private async enrichImageWithViewerData(image: IImage, viewerPublicId: string): Promise<void> {
-		const imageId = (image as any)._id.toString();
+	private resolveOwnerInternalId(imageDoc: IImage, fallback?: string): string | undefined {
+		if (fallback) {
+			return fallback;
+		}
 
-		const [isLiked, isFavorited] = await Promise.all([
-			this.checkIfUserLikedImage(viewerPublicId, imageId),
-			this.checkIfUserFavoritedImage(viewerPublicId, imageId),
-		]);
+		const userField = (imageDoc as any).user;
+		if (!userField) {
+			return undefined;
+		}
 
-		(image as any).isLikedByViewer = isLiked;
-		(image as any).isFavoritedByViewer = isFavorited;
+		if (typeof userField === "string") {
+			return userField;
+		}
+
+		if (typeof userField === "object" && "_id" in userField) {
+			return (userField as any)._id.toString();
+		}
+
+		return undefined;
 	}
 
-	/**
-	 * Generates a URL-friendly slug from a filename
-	 * @private
-	 */
+	private resolveOwnerPublicId(imageDoc: IImage, fallback?: string): string | undefined {
+		if (fallback) {
+			return fallback;
+		}
+
+		const userField = (imageDoc as any).user;
+		if (userField && typeof userField === "object" && "publicId" in userField) {
+			return (userField as any).publicId;
+		}
+
+		return undefined;
+	}
+
 	private generateSlug(originalName: string): string {
-		return (
-			originalName
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, "-")
-				.replace(/(^-|-$)/g, "") +
-			"-" +
-			Date.now()
-		);
+		const base = originalName
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/(^-|-$)/g, "");
+		return `${base || "image"}-${Date.now()}`;
 	}
 
-	/**
-	 * Centralized error handling for consistent error formatting
-	 * @private
-	 */
-	private handleError(error: unknown, functionName: string): never {
+	private wrapError(error: unknown, context: string): Error {
 		if (error instanceof Error) {
-			throw createError(error.name, error.message, {
-				function: functionName,
+			return createError(error.name, error.message, {
+				context,
 				file: "image.service.ts",
 			});
 		}
-		throw createError("UnknownError", String(error), {
-			function: functionName,
+
+		return createError("UnknownError", String(error), {
+			context,
 			file: "image.service.ts",
 		});
 	}

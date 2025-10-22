@@ -3,10 +3,21 @@ import { RedisService } from "./redis.service";
 import { WebSocketServer } from "../server/socketServer";
 
 export interface FeedUpdateMessage {
-	type: "new_image" | "new_image_global" | "interaction" | "like_update" | "avatar_changed" | "message_sent";
+	type:
+		| "new_image"
+		| "new_image_global"
+		| "new_post"
+		| "new_post_global"
+		| "post_deleted"
+		| "interaction"
+		| "like_update"
+		| "avatar_changed"
+		| "message_sent";
 	userId?: string;
 	uploaderId?: string;
 	imageId?: string;
+	postId?: string;
+	authorId?: string;
 	targetId?: string;
 	actionType?: string;
 	tags?: string[];
@@ -67,10 +78,15 @@ export class RealTimeFeedService {
 
 			switch (message.type) {
 				case "new_image":
-					await this.handleNewImageUpdate(io, message);
+				case "new_post":
+					await this.handleNewPostUpdate(io, message);
 					break;
 				case "new_image_global":
-					await this.handleGlobalNewImageUpdate(io, message);
+				case "new_post_global":
+					await this.handleGlobalNewPostUpdate(io, message);
+					break;
+				case "post_deleted":
+					await this.handlePostDeleted(io, message);
 					break;
 				case "interaction":
 					await this.handleInteractionUpdate(io, message);
@@ -95,15 +111,17 @@ export class RealTimeFeedService {
 	/**
 	 * Handle new image upload notifications
 	 */
-	private async handleNewImageUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
-		if (!message.uploaderId) return;
+	private async handleNewPostUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
+		const authorId = message.authorId ?? message.uploaderId;
+		const postId = message.postId ?? message.imageId;
+		if (!authorId || !postId) return;
 
 		// GLOBAL BROADCAST: Notify ALL users about new content for discovery feeds
 		// This ensures the "new" feed updates immediately for everyone
 		io.emit("discovery_update", {
-			type: "new_image_global",
-			uploaderId: message.uploaderId,
-			imageId: message.imageId,
+			type: "new_post_global",
+			authorId,
+			postId,
 			tags: message.tags,
 			timestamp: message.timestamp,
 		});
@@ -112,9 +130,9 @@ export class RealTimeFeedService {
 		if (message.affectedUsers && message.affectedUsers.length > 0) {
 			for (const userId of message.affectedUsers) {
 				io.to(userId).emit("feed_update", {
-					type: "new_image",
-					uploaderId: message.uploaderId,
-					imageId: message.imageId,
+					type: "new_post",
+					authorId,
+					postId,
 					tags: message.tags,
 					timestamp: message.timestamp,
 				});
@@ -122,15 +140,15 @@ export class RealTimeFeedService {
 		}
 
 		// Also notify the uploader
-		io.to(message.uploaderId).emit("feed_update", {
-			type: "image_uploaded",
-			imageId: message.imageId,
+		io.to(authorId).emit("feed_update", {
+			type: "post_published",
+			postId,
 			tags: message.tags,
 			timestamp: message.timestamp,
 		});
 
 		console.log(
-			`Real-time notification sent globally for new image ${message.imageId} + to ${
+			`Real-time notification sent globally for new post ${postId} + to ${
 				message.affectedUsers?.length || 0
 			} specific users`
 		);
@@ -160,41 +178,56 @@ export class RealTimeFeedService {
 	/**
 	 * Handle global new image notifications for discovery feeds
 	 */
-	private async handleGlobalNewImageUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
-		if (!message.imageId) return;
+	private async handleGlobalNewPostUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
+		const postId = message.postId ?? message.imageId;
+		if (!postId) return;
 
 		// Get image details to include in the notification
 		const imageData = {
-			imageId: message.imageId,
-			userId: message.userId,
+			postId,
+			userId: message.userId ?? message.authorId ?? message.uploaderId,
 			tags: message.tags,
 			timestamp: message.timestamp,
 		};
 
-		// Broadcast globally to all connected clients for discovery feeds
-		io.emit("discovery_new_image", {
-			type: "new_image_global",
+		io.emit("discovery_new_post", {
+			type: "new_post_global",
 			data: imageData,
 		});
 
-		console.log(`Global new image notification sent for image ${message.imageId} to all connected clients`);
+		console.log(`Global new post notification sent for post ${postId} to all connected clients`);
+	}
+
+	private async handlePostDeleted(io: any, message: FeedUpdateMessage): Promise<void> {
+		const postId = message.postId;
+		if (!postId) return;
+
+		io.emit("feed_update", {
+			type: "post_deleted",
+			postId,
+			timestamp: message.timestamp,
+		});
+
+		console.log(`Real-time notification sent for post deletion ${postId}`);
 	}
 
 	/**
 	 * Handle like count updates
 	 */
 	private async handleLikeUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
-		if (!message.imageId || message.newLikes === undefined) return;
+		const targetId = message.postId ?? message.imageId;
+		if (!targetId || message.newLikes === undefined) return;
 
 		// Broadcast like count update to all connected users
 		io.emit("like_update", {
 			type: "like_count_changed",
-			imageId: message.imageId,
+			postId: targetId,
+			imageId: targetId,
 			newLikes: message.newLikes,
 			timestamp: message.timestamp,
 		});
 
-		console.log(`Real-time like update sent for image ${message.imageId}: ${message.newLikes} likes`);
+		console.log(`Real-time like update sent for post ${targetId}: ${message.newLikes} likes`);
 	}
 
 	/**
