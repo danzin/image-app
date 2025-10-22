@@ -16,10 +16,10 @@ export const fetchUserFavorites = async (page = 1, limit = 10): Promise<Favorite
 	return data;
 };
 
-export const addFavorite = async (imagePublicId: string): Promise<void> => {
-	await axiosClient.post(`/api/favorites/images/${imagePublicId}`);
+export const addFavorite = async (postPublicId: string): Promise<void> => {
+	await axiosClient.post(`/api/favorites/posts/${postPublicId}`);
 };
 
-export const removeFavorite = async (imagePublicId: string): Promise<void> => {
-	await axiosClient.delete(`/api/favorites/images/${imagePublicId}`);
+export const removeFavorite = async (postPublicId: string): Promise<void> => {
+	await axiosClient.delete(`/api/favorites/posts/${postPublicId}`);
 };

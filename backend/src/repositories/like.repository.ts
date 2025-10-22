@@ -11,17 +11,17 @@ export class LikeRepository extends BaseRepository<ILike> {
 	}
 
 	/**
-	 * Finds a like record by user and image.
+	 * Finds a like record by user and post.
 	 *
-	 * @param {string} userId - The ID of the user who liked the image.
-	 * @param {string} imageId - The ID of the liked image.
+	 * @param {string} userId - The ID of the user who liked the post.
+	 * @param {string} postId - The ID of the liked post.
 	 * @param {ClientSession} [session] - Optional MongoDB transaction session.
 	 * @returns {Promise<ILike | null>} - The found like record or `null` if not found.
 	 * @throws {Error} - Throws a "DatabaseError" if the follow relationship already exists.
 	 */
-	async findByUserAndImage(userId: string, imageId: string, session?: ClientSession): Promise<ILike | null> {
+	async findByUserAndPost(userId: string, postId: string, session?: ClientSession): Promise<ILike | null> {
 		try {
-			const query = this.model.findOne({ userId, imageId });
+			const query = this.model.findOne({ userId, postId });
 			if (session) query.session(session);
 
 			const result = await query.exec();
@@ -32,18 +32,18 @@ export class LikeRepository extends BaseRepository<ILike> {
 	}
 
 	/**
-   * Deletes a like record for a specific user and image.
+	 * Deletes a like record for a specific user and post.
    * 
-   * @param {string} userId - The ID of the user who liked the image.
-   * @param {string} imageId - The ID of the liked image.
+	 * @param {string} userId - The ID of the user who liked the post.
+	 * @param {string} postId - The ID of the liked post.
    * @param {ClientSession} [session] - Optional MongoDB transaction session.
    * @returns {Promise<boolean>} - Returns `true` if a like was deleted, otherwise `false`.
    * @throws {Error} - Throws a "DatabaseError" if the follow relationship already exists.
 
    */
-	async deleteLike(userId: string, imageId: string, session?: ClientSession): Promise<boolean> {
+	async deleteLike(userId: string, postId: string, session?: ClientSession): Promise<boolean> {
 		try {
-			const query = this.model.findOneAndDelete({ userId, imageId });
+			const query = this.model.findOneAndDelete({ userId, postId });
 			if (session) query.session(session);
 
 			const result = await query.exec();

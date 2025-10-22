@@ -1,15 +1,17 @@
 import React, { useState, useRef } from "react";
-import { X } from "lucide-react";
-import { useUploadImage } from "../hooks/images/useImages";
+import { X, ImagePlus } from "lucide-react";
+import { useUploadPost } from "../hooks/posts/usePosts";
 import { UploadFormProps } from "../types";
 
 const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
-	const uploadImageMutation = useUploadImage();
+	const uploadPostMutation = useUploadPost();
 	const [file, setFile] = useState<File | null>(null);
 	const [preview, setPreview] = useState<string>("");
+	const [body, setBody] = useState<string>("");
 	const [tags, setTags] = useState<string[]>([]);
 	const [tagInput, setTagInput] = useState("");
-	const inputRef = useRef<HTMLInputElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
+	const MAX_BODY_LENGTH = 250;
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files[0]) {
@@ -35,7 +37,6 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
 				// Without the functional updater, the tags state represents the tags from the previous update
 				setTags((prevTags) => {
 					const updatedTags = [...prevTags, tagInput.trim()];
-					console.log("Updated Tags:", updatedTags); // Logs the new state
 					return updatedTags;
 				});
 				setTagInput("");
@@ -52,84 +53,83 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
 		console.log(tags);
 	};
 
-	const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-		e.preventDefault();
-		if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-			const droppedFile = e.dataTransfer.files[0];
-			setFile(droppedFile);
-
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				setPreview(e.target?.result as string);
-			};
-			reader.readAsDataURL(droppedFile);
-		}
-	};
-
 	const handleUpload = async () => {
-		if (file) {
-			const formData = new FormData();
-			console.log("tags:", JSON.stringify(tags));
-			formData.append("image", file);
-			formData.append("tags", JSON.stringify(tags));
-			console.log("formData: ", formData);
+		// Validation: must have either text or image
+		if (!file && !body.trim()) {
+			alert("Please provide either text content or an image");
+			return;
+		}
 
-			try {
-				await uploadImageMutation.mutateAsync(formData);
-				console.log("[UploadForm] Image uploaded successfully");
-				onClose();
-			} catch (error) {
-				console.error("[UploadForm] Upload failed:", error);
-				// keep modal open on error so user can retry
-			}
+		const formData = new FormData();
+		console.log("tags:", JSON.stringify(tags));
+
+		if (file) {
+			formData.append("image", file);
+		}
+		if (body.trim()) {
+			formData.append("body", body.trim());
+		}
+		formData.append("tags", JSON.stringify(tags));
+		console.log("formData: ", formData);
+
+		try {
+			await uploadPostMutation.mutateAsync(formData);
+			console.log("[UploadForm] Post uploaded successfully");
+			onClose();
+		} catch (error) {
+			console.error("[UploadForm] Upload failed:", error);
+			// keep modal open on error so user can retry
 		}
 	};
 
 	return (
 		<div className="flex flex-col items-center justify-center w-full max-w-2xl h-4/5 mx-auto p-4">
-			<div onDrop={handleDrop} onDragOver={(e) => e.preventDefault()} className="w-full">
+			{/* Post Content Textarea */}
+			<div className="w-full mb-4">
+				<label htmlFor="body" className="block text-sm font-medium mb-2">
+					What's on your mind? ({body.length}/{MAX_BODY_LENGTH})
+				</label>
+				<textarea
+					id="body"
+					value={body}
+					onChange={(e) => {
+						if (e.target.value.length <= MAX_BODY_LENGTH) {
+							setBody(e.target.value);
+						}
+					}}
+					placeholder="Share your thoughts..."
+					className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+					rows={4}
+					maxLength={MAX_BODY_LENGTH}
+				/>
+			</div>
+
+			{/* Image Upload Button */}
+			<div className="w-full mb-4">
 				{!preview ? (
-					<label
-						htmlFor="dropzone-file"
-						className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:hover:bg-gray-600"
+					<button
+						onClick={() => fileInputRef.current?.click()}
+						className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600"
 					>
-						<div className="flex flex-col items-center justify-center pt-5 pb-6">
-							<svg
-								className="w-8 h-8 mb-4 text-gray-500"
-								xmlns="http://www.w3.org/2000/svg"
-								fill="none"
-								viewBox="0 0 20 16"
-							>
-								<path
-									stroke="currentColor"
-									strokeLinecap="round"
-									strokeLinejoin="round"
-									strokeWidth="2"
-									d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
-								/>
-							</svg>
-							<p className="mb-2 text-sm text-gray-500">
-								<span className="font-semibold">Click to upload</span> or drag and drop
-							</p>
-							<p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
-						</div>
-						<input id="dropzone-file" type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
-					</label>
+						<ImagePlus size={20} />
+						<span>Add an image</span>
+					</button>
 				) : (
-					<div className="relative w-full h-64 mb-4">
-						<img src={preview} alt="Preview" className="w-full h-full object-contain rounded-lg" />
+					<div className="relative w-full">
+						<img src={preview} alt="Preview" className="w-full max-h-64 object-contain rounded-lg border" />
 						<button
 							onClick={() => {
 								setPreview("");
 								setFile(null);
-								if (inputRef.current) inputRef.current.value = "";
+								if (fileInputRef.current) fileInputRef.current.value = "";
 							}}
-							className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+							className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 shadow-lg"
 						>
 							<X size={16} />
 						</button>
 					</div>
 				)}
+				<input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} accept="image/*" />
 			</div>
 
 			<div className="w-full space-y-4 mt-4">
@@ -169,12 +169,15 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
 			<button
 				className="mt-6 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
 				onClick={handleUpload}
-				disabled={!file || uploadImageMutation.isPending}
+				disabled={
+					(!file && !body.trim()) || // Must have at least one
+					uploadPostMutation.isPending
+				}
 			>
-				{uploadImageMutation.isPending ? "Uploading..." : "Upload Image"}
+				{uploadPostMutation.isPending ? "Uploading..." : "Create Post"}
 			</button>
 
-			{uploadImageMutation.isError && <p className="mt-2 text-sm text-red-600">Upload failed. Please try again.</p>}
+			{uploadPostMutation.isError && <p className="mt-2 text-sm text-red-600">Upload failed. Please try again.</p>}
 		</div>
 	);
 };

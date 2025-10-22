@@ -210,8 +210,8 @@ const Profile: React.FC = () => {
 		const imageUrl = urlPath.startsWith("http")
 			? urlPath
 			: urlPath.startsWith("/")
-			? `${BASE_URL}${urlPath}`
-			: `${BASE_URL}/${urlPath}`;
+				? `${BASE_URL}${urlPath}`
+				: `${BASE_URL}/${urlPath}`;
 		return imageUrl;
 	};
 
@@ -471,7 +471,7 @@ const Profile: React.FC = () => {
 								</Box>
 							) : (
 								<Gallery
-									images={flattenedImages}
+									posts={flattenedImages}
 									fetchNextPage={fetchNextPage}
 									hasNextPage={!!hasNextPage}
 									isFetchingNext={isFetchingNextPage}

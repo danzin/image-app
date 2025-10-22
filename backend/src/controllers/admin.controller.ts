@@ -1,15 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
 import { injectable, inject } from "tsyringe";
-import { ImageService } from "../services/image.service";
 import { createError } from "../utils/errors";
 import { DTOService } from "../services/dto.service";
+import { PostService } from "../services/post.service";
 
 @injectable()
 export class AdminUserController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
-		@inject("ImageService") private readonly imageService: ImageService,
+		@inject("PostService") private readonly postService: PostService,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
@@ -104,8 +104,8 @@ export class AdminUserController {
 				sortBy: sortBy as string | undefined,
 				sortOrder: sortOrder as "asc" | "desc" | undefined,
 			};
-			const result = await this.imageService.getAllImagesAdmin(options);
-			res.status(200).json(result);
+			const posts = await this.postService.getPosts(options.page, options.limit);
+			res.status(200).json(posts);
 		} catch (error) {
 			next(error);
 		}
@@ -119,7 +119,7 @@ export class AdminUserController {
 			if (!decodedUser || !(decodedUser as any).publicId) {
 				throw createError("AuthenticationError", "Admin user not found");
 			}
-			await this.imageService.deleteImageByPublicId(publicId, (decodedUser as any).publicId, true);
+			await this.postService.deletePostByPublicId(publicId, (decodedUser as any).publicId);
 			res.status(204).send();
 		} catch (error) {
 			next(error);

@@ -1,15 +1,15 @@
 import { IEvent } from "../../../application/common/interfaces/event.interface";
 
-export class UserInteractedWithImageEvent implements IEvent {
-	readonly type = "UserInteractedWithImageEvent";
+export class UserInteractedWithPostEvent implements IEvent {
+	readonly type = "UserInteractedWithPostEvent";
 	readonly timestamp: Date = new Date();
 
 	constructor(
 		public readonly userId: string,
 		public readonly interactionType: "like" | "unlike" | "comment" | "comment_deleted",
-		public readonly imageId: string,
+		public readonly postId: string,
 		public readonly tags: string[],
-		public readonly imageOwnerId: string
+		public readonly postOwnerId: string
 	) {}
 }
 

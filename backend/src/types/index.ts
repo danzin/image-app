@@ -15,3 +15,5 @@ export * from "./customImageStorage/imageStorage.types";
 export * from "./customFavorites/favorites.types";
 export * from "./customComments/comments.types";
 export * from "./customMessages/messages.types";
+export * from "./customPosts/posts.types";
+export * from "./customPosts/post.dto";

@@ -8,16 +8,16 @@ const favoriteSchema = new Schema<IFavorite>(
 			ref: "User",
 			required: true,
 		},
-		imageId: {
+		postId: {
 			type: Schema.Types.ObjectId,
-			ref: "Image",
+			ref: "Post",
 			required: true,
 		},
 	},
 	{ timestamps: true } // Autmatically manage createdAt and updatedAt fields
 );
 
-favoriteSchema.index({ userId: 1, imageId: 1 }, { unique: true }); // compound index to ensure a user can only favorite an image once
+favoriteSchema.index({ userId: 1, postId: 1 }, { unique: true }); // compound index to ensure a user can only favorite a post once
 favoriteSchema.index({ userId: 1, createdAt: -1 }); // compound index to efficiently query for a user's favorites, sorted by most recent
 
 const Favorite = mongoose.model<IFavorite>("Favorite", favoriteSchema);

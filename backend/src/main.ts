@@ -8,8 +8,11 @@ mongoose.plugin((schema) => {
 	schema.set("toJSON", {
 		transform: (doc, ret: Record<string, any>) => {
 			// console.log('Global plugin transforming document:', ret);
-			ret.id = ret._id.toString();
-			delete ret._id;
+			// Only transform if _id exists (main documents have it, subdocuments might not)
+			if (ret._id) {
+				ret.id = ret._id.toString();
+				delete ret._id;
+			}
 			delete ret.__v;
 			return ret;
 		},
@@ -34,7 +37,7 @@ process.on("uncaughtException", (error: Error) => {
 		timestamp: new Date().toISOString(),
 	});
 	console.error("Uncaught Exception:", error);
-	process.exit(1); // Exit process after logging
+	process.exit(1);
 });
 
 process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {

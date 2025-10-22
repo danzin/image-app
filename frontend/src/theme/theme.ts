@@ -15,7 +15,6 @@ export const theme = createTheme({
 		},
 		background: {
 			default: "#0f0f23", // Deep navy
-			paper: "#1a1a2e", // Slightly lighter navy
 		},
 		text: {
 			primary: "#f8fafc",
@@ -24,6 +23,21 @@ export const theme = createTheme({
 		divider: "#334155",
 	},
 	components: {
+		MuiDrawer: {
+			styleOverrides: {
+				paper: {
+					border: "none",
+				},
+			},
+		},
+		MuiAppBar: {
+			styleOverrides: {
+				root: {
+					boxShadow: "none",
+				},
+			},
+		},
+
 		MuiCard: {
 			styleOverrides: {
 				root: {

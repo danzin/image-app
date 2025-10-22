@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { useImages, useImagesByTag, usePersonalizedFeed } from "../hooks/images/useImages";
+import { usePosts } from "../hooks/posts/usePosts";
+import { useImagesByTag } from "../hooks/images/useImages";
 import Gallery from "../components/Gallery";
 import { Box, Button, Typography, useTheme, Container, alpha } from "@mui/material";
 
 import { useGallery } from "../context/GalleryContext";
 import { useAuth } from "../hooks/context/useAuth";
-import { shouldShowDiscoveryFirst } from "../lib/userOnboarding";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
@@ -30,19 +30,14 @@ const Home: React.FC = () => {
 	}, [authLoading, isLoggedIn]);
 
 	// Only enable queries when auth transition is complete
-	const personalizedFeedQuery = usePersonalizedFeed();
-	const imagesQuery = useImages();
+	// Use posts feed instead of images
+	const postsQuery = usePosts();
 	const imagesByTagQuery = useImagesByTag(selectedTags);
 
 	console.log("Home - Auth state:", { isLoggedIn, user: user?.publicId, authLoading, authTransitionComplete });
-	console.log("Home - PersonalizedFeed data:", personalizedFeedQuery.data?.pages?.[0]?.data?.[0]);
-	console.log("Home - Images data:", imagesQuery.data?.pages?.[0]?.data?.[0]);
+	console.log("Home - Posts data:", postsQuery.data?.pages?.[0]?.data?.[0]);
 
-	// show personalized feed only if logged in, auth complete, and NOT a new user
-	const isNewUser = shouldShowDiscoveryFirst(user, isLoggedIn);
-	const shouldUsePersonalizedFeed = isLoggedIn && authTransitionComplete && !authLoading && !isNewUser;
-
-	const mainQuery = shouldUsePersonalizedFeed ? personalizedFeedQuery : imagesQuery;
+	const mainQuery = postsQuery;
 
 	const {
 		data: mainFeedData,
@@ -62,24 +57,23 @@ const Home: React.FC = () => {
 		error: errorFiltered,
 	} = imagesByTagQuery;
 
-	const activeImages = React.useMemo(() => {
-		console.log("Home - Computing active images:", {
+	const activePosts = React.useMemo(() => {
+		console.log("Home - Computing active posts:", {
 			selectedTagsCount: selectedTags.length,
 			mainFeedPages: mainFeedData?.pages?.length,
 			filteredPages: filteredImagesData?.pages?.length,
-			shouldUsePersonalizedFeed,
 		});
 
 		if (selectedTags.length === 0) {
-			const images = mainFeedData?.pages.flatMap((page) => page.data) || [];
-			console.log("Home - Using main feed images:", images.length, "first image:", images[0]);
-			return images;
+			const posts = mainFeedData?.pages.flatMap((page) => page.data) || [];
+			console.log("Home - Using main feed posts:", posts.length, "first post:", posts[0]);
+			return posts;
 		} else {
-			const images = filteredImagesData?.pages.flatMap((page) => page.data) || [];
-			console.log("Home - Using filtered images:", images.length);
-			return images;
+			const posts = filteredImagesData?.pages.flatMap((page) => page.data) || [];
+			console.log("Home - Using filtered posts:", posts.length);
+			return posts;
 		}
-	}, [selectedTags, mainFeedData, filteredImagesData, shouldUsePersonalizedFeed]);
+	}, [selectedTags, mainFeedData, filteredImagesData]);
 
 	const error = selectedTags.length > 0 ? errorFiltered : errorMain;
 	const isFetchingNext = selectedTags.length > 0 ? isFetchingNextFiltered : isFetchingNextMain;
@@ -119,7 +113,7 @@ const Home: React.FC = () => {
 				}}
 			>
 				{/* Welcome Section */}
-				{!isLoggedIn && activeImages.length === 0 && !isLoading && (
+				{!isLoggedIn && activePosts.length === 0 && !isLoading && (
 					<motion.div
 						initial={{ opacity: 0, y: 30 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -231,8 +225,8 @@ const Home: React.FC = () => {
 				) : (
 					/* Gallery */
 					<Gallery
-						key={shouldUsePersonalizedFeed ? "personalized" : "public"} // Force re-render when switching feed types
-						images={activeImages}
+						key="posts-feed"
+						posts={activePosts}
 						fetchNextPage={fetchNextPage}
 						hasNextPage={hasNextPage}
 						isFetchingNext={isFetchingNext}

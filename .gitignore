@@ -15,4 +15,5 @@ dist
 .github
 notes.txt
 tsconfig.tsbuildinfo
-EVENT_HANDLER_NOTES.md
+event_handler_notes.md
+cache_strat_notes.md

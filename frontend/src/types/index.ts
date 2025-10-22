@@ -43,22 +43,60 @@ export interface ITag {
 	modifiedAt?: Date;
 }
 
-export interface IImage {
+export interface IPost {
 	publicId: string;
-	slug: string;
-	url: string;
-	title?: string;
-	tags: string[]; // Just tag names, not full tag objects
+	slug?: string;
+	body?: string; // Post text
+
+	// Image data
+	image?: {
+		url: string;
+		publicId: string;
+	} | null;
+
+	// Legacy: Keep url at top level for backward compatibility
+	url?: string;
+	imagePublicId?: string;
+
+	tags: string[];
+
 	user: {
 		publicId: string;
 		username: string;
 		avatar: string;
 	};
+
 	likes: number;
 	commentsCount: number;
 	createdAt: Date;
-	isLikedByViewer?: boolean; // Only when user is authenticated
-	isFavoritedByViewer?: boolean;
+
+	// Post type
+	postType?: "text" | "image" | "mixed";
+
+	isLikedByViewer: boolean;
+	isFavoritedByViewer: boolean;
+}
+
+/**
+ * Legacy IImage interface - for backward compatibility
+ */
+export interface IImage extends IPost {
+	url: string; // Required for images
+	title?: string;
+}
+
+/**
+ * Type guard to check if post has an image
+ */
+export function isImagePost(post: IPost): post is IImage {
+	return !!post.image || !!post.url;
+}
+
+/**
+ * Type guard for text-only posts
+ */
+export function isTextPost(post: IPost): boolean {
+	return !!post.body && !post.image && !post.url;
 }
 
 export interface IComment {
@@ -127,7 +165,7 @@ export interface TagsProps {
 }
 
 export interface GalleryProps {
-	images: IImage[];
+	posts: (IImage | IPost)[];
 	fetchNextPage: () => void;
 	hasNextPage?: boolean;
 	isFetchingNext?: boolean;
@@ -233,6 +271,10 @@ export interface ImageCardProps {
 	onClick: (image: IImage) => void;
 }
 
+export interface PostCardProps {
+	post: IPost;
+}
+
 export interface ImageEditorProps {
 	onImageUpload: (croppedImage: Blob | null) => void;
 	type: "avatar" | "cover";
@@ -305,4 +347,22 @@ export interface SendMessageRequest {
 
 export interface InitiateConversationResponse {
 	conversation: ConversationSummaryDTO;
+}
+
+// Who to follow suggestions
+export interface SuggestedUser {
+	publicId: string;
+	username: string;
+	avatar: string;
+	bio?: string;
+	followerCount: number;
+	postCount: number;
+	totalLikes: number;
+	score: number;
+}
+
+export interface WhoToFollowResponse {
+	suggestions: SuggestedUser[];
+	cached: boolean;
+	timestamp: string;
 }

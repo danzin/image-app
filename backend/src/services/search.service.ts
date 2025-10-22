@@ -1,7 +1,8 @@
 import { ImageRepository } from "../repositories/image.repository";
+import { PostRepository } from "../repositories/post.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { UserRepository } from "../repositories/user.repository";
-import { IImage, ITag, IUser } from "../types";
+import { IImage, IPost, ITag, IUser } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 
@@ -9,6 +10,7 @@ import { inject, injectable } from "tsyringe";
 export class SearchService {
 	constructor(
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
+		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository
 	) {}
@@ -16,7 +18,12 @@ export class SearchService {
 	/** Universal search function. It uses a query and search throughout the database
 
 	 */
-	async searchAll(query: string[]): Promise<{ users: IUser[] | null; images: IImage[] | null; tags: ITag[] | null }> {
+	async searchAll(query: string[]): Promise<{
+		users: IUser[] | null;
+		images: IImage[] | null;
+		posts: IPost[] | null;
+		tags: ITag[] | null;
+	}> {
 		try {
 			//Search for users by query
 			const users = await this.userRepository.getAll({ search: query });
@@ -30,9 +37,13 @@ export class SearchService {
 			//Search for images that have these tag IDs
 			const images = await this.imageRepository.findByTags(tagIds as string[]);
 
+			//Search for posts that have these tag IDs
+			const posts = await this.postRepository.findByTags(tagIds as string[]);
+
 			return {
 				users: users || null,
 				images: images?.data.length ? images?.data : null,
+				posts: posts?.data.length ? posts?.data : null,
 				tags: tags.length ? tags : null,
 			};
 		} catch (error) {

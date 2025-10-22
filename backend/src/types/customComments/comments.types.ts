@@ -3,7 +3,7 @@ import mongoose, { Document } from "mongoose";
 export interface IComment extends Document {
 	_id: mongoose.Types.ObjectId;
 	content: string;
-	imageId: mongoose.Types.ObjectId;
+	postId: mongoose.Types.ObjectId;
 	userId: mongoose.Types.ObjectId;
 	createdAt: Date;
 	updatedAt: Date;
@@ -12,7 +12,7 @@ export interface IComment extends Document {
 
 export interface CommentCreateDto {
 	content: string;
-	imageId: string;
+	postId: string;
 	userId: string;
 }
 
@@ -23,7 +23,7 @@ export interface CommentUpdateDto {
 export interface CommentResponseDto {
 	id: string;
 	content: string;
-	imageId: string;
+	postId: string;
 	user: {
 		id: string;
 		username: string;
