@@ -18,14 +18,9 @@ export class PostController {
 		try {
 			const { decodedUser, file } = req;
 
-			let tags: string[] = [];
-			try {
-				tags = req.body.tags ? JSON.parse(req.body.tags) : [];
-			} catch {
-				throw createError("ValidationError", "Tags payload must be valid JSON");
-			}
+			// Zod validation middleware has already processed and validated req.body
+			const bodyText = req.body.body;
 
-			const bodyText = typeof req.body.body === "string" ? req.body.body : req.body.caption;
 			if (!file && (!bodyText || bodyText.trim().length === 0)) {
 				throw createError("ValidationError", "Provide either an image or body text");
 			}
@@ -38,7 +33,6 @@ export class PostController {
 			const post = await this.postService.createPost({
 				userPublicId: decodedUser.publicId,
 				body: bodyText,
-				tags,
 				image: file
 					? {
 							buffer: file.buffer,

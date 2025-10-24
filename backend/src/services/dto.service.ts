@@ -113,7 +113,7 @@ export class DTOService {
 			publicId: post.publicId,
 			slug: post.slug ?? post.publicId,
 			body: post.body,
-			tags: post.tags,
+
 			user: {
 				publicId: post.user.publicId,
 				username: post.user.username,

@@ -4,7 +4,11 @@ import { Image as ImageIcon, Close as CloseIcon } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useUploadPost } from "../hooks/posts/usePosts";
 
-const CreatePost: React.FC = () => {
+interface CreatePostProps {
+	onClose?: () => void; // optional callback when post is successfully created for usage in modal
+}
+
+const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	const theme = useTheme();
 	const { user } = useAuth();
 	const uploadPostMutation = useUploadPost();
@@ -56,6 +60,11 @@ const CreatePost: React.FC = () => {
 			setFile(null);
 			setPreview("");
 			if (fileInputRef.current) fileInputRef.current.value = "";
+
+			// Call onClose if provided (in modal)
+			if (onClose) {
+				onClose();
+			}
 		} catch (error) {
 			console.error("Upload failed:", error);
 		}

@@ -37,7 +37,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				.populate("tags", "tag")
 				.populate({
 					path: "image",
-					select: "url publicId slug createdAt -_id",
+					select: "_id url publicId slug createdAt",
 				});
 
 			if (session) query.session(session);

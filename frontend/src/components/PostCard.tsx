@@ -114,7 +114,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					</Typography>
 				</Box>
 			)}{" "}
-			{/* Image Display (if post has image) */}
+			{/* Image Display */}
 			{hasImage && (
 				<Box sx={{ position: "relative", overflow: "hidden" }}>
 					<img

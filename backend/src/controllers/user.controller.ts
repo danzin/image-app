@@ -115,11 +115,8 @@ export class UserController {
 	changePassword = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const { currentPassword, newPassword } = req.body;
+			const { currentPassword, newPassword } = req.body; // Already validated by Zod middleware
 
-			if (!currentPassword || !newPassword) {
-				return next(createError("ValidationError", "Current password and new password are required."));
-			}
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}

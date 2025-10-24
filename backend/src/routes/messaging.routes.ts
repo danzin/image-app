@@ -3,7 +3,12 @@ import { inject, injectable } from "tsyringe";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { MessagingController } from "../controllers/messaging.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { MessagingValidationSchemas } from "../utils/schemals/messaging.schemas";
+import {
+	paginationSchema,
+	conversationParamsSchema,
+	initiateConversationSchema,
+	sendMessageSchema,
+} from "../utils/schemas/messaging.schemas";
 
 @injectable()
 export class MessagingRoutes {
@@ -20,31 +25,31 @@ export class MessagingRoutes {
 
 		this.router.get(
 			"/conversations",
-			new ValidationMiddleware(MessagingValidationSchemas.listConversations()).validate(),
+			new ValidationMiddleware({ query: paginationSchema }).validate(),
 			this.messagingController.listConversations
 		);
 
 		this.router.get(
 			"/conversations/:conversationId/messages",
-			new ValidationMiddleware(MessagingValidationSchemas.conversationMessages()).validate(),
+			new ValidationMiddleware({ params: conversationParamsSchema, query: paginationSchema }).validate(),
 			this.messagingController.getConversationMessages
 		);
 
 		this.router.post(
 			"/conversations/initiate",
-			new ValidationMiddleware(MessagingValidationSchemas.initiateConversation()).validate(),
+			new ValidationMiddleware({ body: initiateConversationSchema }).validate(),
 			this.messagingController.initiateConversation
 		);
 
 		this.router.post(
 			"/conversations/:conversationId/read",
-			new ValidationMiddleware(MessagingValidationSchemas.markConversationRead()).validate(),
+			new ValidationMiddleware({ params: conversationParamsSchema }).validate(),
 			this.messagingController.markConversationRead
 		);
 
 		this.router.post(
 			"/messages",
-			new ValidationMiddleware(MessagingValidationSchemas.sendMessage()).validate(),
+			new ValidationMiddleware({ body: sendMessageSchema }).validate(),
 			this.messagingController.sendMessage
 		);
 	}

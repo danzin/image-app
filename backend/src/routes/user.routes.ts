@@ -3,7 +3,14 @@ import { UserController } from "../controllers/user.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
-import { UserSchemas } from "../utils/schemals/user.schemas";
+import {
+	registrationSchema,
+	loginSchema,
+	usernameSchema,
+	publicIdSchema,
+	updateProfileSchema,
+	changePasswordSchema,
+} from "../utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -22,15 +29,11 @@ export class UserRoutes {
 		// Authentication endpoints
 		this.router.post(
 			"/register",
-			new ValidationMiddleware({ body: UserSchemas.registration() }).validate(),
+			new ValidationMiddleware({ body: registrationSchema }).validate(),
 			this.userController.register
 		);
 
-		this.router.post(
-			"/login",
-			new ValidationMiddleware({ body: UserSchemas.login() }).validate(),
-			this.userController.login
-		);
+		this.router.post("/login", new ValidationMiddleware({ body: loginSchema }).validate(), this.userController.login);
 
 		this.router.post("/logout", this.userController.logout);
 
@@ -40,14 +43,14 @@ export class UserRoutes {
 		// Get user profile by username (SEO-friendly, public)
 		this.router.get(
 			"/profile/:username",
-			new ValidationMiddleware({ params: UserSchemas.usernameParams() }).validate(),
+			new ValidationMiddleware({ params: usernameSchema }).validate(),
 			this.userController.getUserByUsername
 		);
 
 		// Get user by public ID (for API integrations)
 		this.router.get(
 			"/public/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.getUserByPublicId
 		);
 
@@ -59,40 +62,40 @@ export class UserRoutes {
 		this.router.get("/suggestions/who-to-follow", this.userController.getWhoToFollow);
 		this.router.put(
 			"/me/edit",
-			new ValidationMiddleware({ body: UserSchemas.updateProfile() }).validate(),
+			new ValidationMiddleware({ body: updateProfileSchema }).validate(),
 			this.userController.updateProfile
 		);
 		this.router.put("/me/avatar", upload.single("avatar"), this.userController.updateAvatar);
 		this.router.put("/me/cover", upload.single("cover"), this.userController.updateCover);
 		this.router.put(
 			"/me/change-password",
-			new ValidationMiddleware({ body: UserSchemas.changePassword() }).validate(),
+			new ValidationMiddleware({ body: changePasswordSchema }).validate(),
 			this.userController.changePassword
 		);
 
 		// Social actions (using public IDs for security)
 		this.router.post(
 			"/follow/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.followUserByPublicId
 		);
 
 		this.router.delete(
 			"/unfollow/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.unfollowUserByPublicId
 		);
 
 		this.router.get(
 			"/follows/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.checkFollowStatus
 		);
 
 		// Post interactions (using public IDs)
 		this.router.post(
 			"/like/post/:publicId",
-			new ValidationMiddleware({ params: UserSchemas.publicIdParams() }).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.likeActionByPublicId
 		);
 

@@ -319,7 +319,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			>
 				<Box sx={modalStyle}>
 					<Typography id="upload-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-						Upload Image
+						Create post
 					</Typography>
 					<UploadForm onClose={closeUploadModal} />
 				</Box>

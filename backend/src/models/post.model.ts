@@ -19,7 +19,7 @@ const postSchema = new Schema<IPost>(
 		body: {
 			type: String,
 			trim: true,
-			maxlength: 250,
+			maxlength: 300,
 		},
 		slug: {
 			type: String,

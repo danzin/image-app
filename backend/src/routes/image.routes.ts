@@ -1,7 +1,8 @@
 import express from "express";
 import { ImageController } from "../controllers/image.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { ImageValidationSchemas, UserValidationSchemas } from "../utils/schemals/user.schemas";
+import { slugSchema, publicIdSchema, searchByTagsSchema } from "../utils/schemas/post.schemas";
+import { usernameSchema } from "../utils/schemas/user.schemas";
 import upload from "../config/multer";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -24,7 +25,7 @@ export class ImageRoutes {
 		this.router.get(
 			"/image/:slug",
 			this.optionalAuth,
-			new ValidationMiddleware(ImageValidationSchemas.slugAction()).validate(),
+			new ValidationMiddleware({ params: slugSchema }).validate(),
 			this.controller.getPostBySlug
 		);
 
@@ -32,23 +33,27 @@ export class ImageRoutes {
 		this.router.get(
 			"/image/:publicId",
 			this.optionalAuth,
-			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.controller.getPostByPublicId
 		);
 
 		// Use username for profile image galleries (public endpoint)
 		this.router.get(
 			"/user/username/:username",
-			new ValidationMiddleware(UserValidationSchemas.usernameAction()).validate(),
+			new ValidationMiddleware({ params: usernameSchema }).validate(),
 			this.controller.getPostsByUsername
 		);
 		this.router.get(
 			"/user/id/:publicId",
-			new ValidationMiddleware(UserValidationSchemas.publicIdAction()).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.controller.getPostsByUserPublicId
 		);
 
-		this.router.get("/search/tags", this.controller.searchByTags);
+		this.router.get(
+			"/search/tags",
+			new ValidationMiddleware({ query: searchByTagsSchema }).validate(),
+			this.controller.searchByTags
+		);
 
 		this.router.get("/tags", this.controller.listTags);
 
@@ -61,7 +66,7 @@ export class ImageRoutes {
 		//logged in deletes an image by public ID
 		this.router.delete(
 			"/image/:publicId",
-			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.controller.deletePost
 		);
 	}

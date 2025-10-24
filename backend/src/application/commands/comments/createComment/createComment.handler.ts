@@ -90,7 +90,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				const payload: Partial<IComment> = {
 					content: safeContent,
 					postId: post._id as mongoose.Types.ObjectId,
-					userId: new mongoose.Types.ObjectId(user.id),
+					userId: user._id as mongoose.Types.ObjectId,
 				};
 
 				const safePayload = sanitizeForMongo(payload);
