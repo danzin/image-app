@@ -12,8 +12,8 @@ const TrendingTags: React.FC = () => {
 	const { data, isLoading, error } = useQuery({
 		queryKey: ["trending-tags"],
 		queryFn: () => feedApi.getTrendingTags(5, 1),
-		staleTime: 1000 * 60 * 30, // 30 minutes - half of cache TTL
-		refetchInterval: 1000 * 60 * 30, // refetch every 30 minutes
+		staleTime: 1000 * 60 * 30,
+		refetchInterval: 1000 * 60 * 30,
 	});
 
 	const handleTagClick = (tag: string) => {
