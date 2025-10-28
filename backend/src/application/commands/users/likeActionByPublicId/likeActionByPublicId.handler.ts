@@ -150,12 +150,21 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				: postOwner?.toString?.();
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
+			// get post preview (first 50 chars of body or image indicator)
+			const postPreview = post.body
+				? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
+				: post.image
+					? "[Image post]"
+					: "[Post]";
+
 			await this.notificationService.createNotification({
 				receiverId: postOwnerPublicId,
 				actionType: "like",
 				actorId: command.userPublicId,
 				actorUsername,
 				targetId: post.publicId,
+				targetType: "post",
+				targetPreview: postPreview,
 				session,
 			});
 		}

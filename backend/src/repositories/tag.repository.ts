@@ -75,4 +75,20 @@ export class TagRepository extends BaseRepository<ITag> {
 			throw createError("DatabaseError", error.message);
 		}
 	}
+
+	/**
+	 * Executes an aggregation pipeline on the Tag collection.
+	 * @param pipeline - MongoDB aggregation pipeline stages.
+	 * @param session - Optional Mongoose session for transactions.
+	 * @returns Promise resolving to aggregation results.
+	 */
+	async aggregate<R = any>(pipeline: any[], session?: ClientSession): Promise<R[]> {
+		try {
+			const aggregation = this.model.aggregate(pipeline);
+			if (session) aggregation.session(session);
+			return await aggregation.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message);
+		}
+	}
 }

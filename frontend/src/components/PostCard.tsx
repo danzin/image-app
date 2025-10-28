@@ -127,18 +127,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							display: "block",
 						}}
 					/>
-					{/* Gradient overlay for better readability */}
-					<Box
-						sx={{
-							position: "absolute",
-							bottom: 0,
-							left: 0,
-							right: 0,
-							height: "60px",
-							background: "linear-gradient(transparent, rgba(0, 0, 0, 0.6))",
-							pointerEvents: "none",
-						}}
-					/>
 				</Box>
 			)}
 			{/* Card Actions - Stats */}

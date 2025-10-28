@@ -20,6 +20,7 @@ import ImageView from "./screens/ImageView";
 import PostView from "./screens/PostView";
 import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
+import Notifications from "./screens/Notifications";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -47,6 +48,7 @@ function App() {
 										<Route path="posts/:id" element={<PostView />} />
 										<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
 										<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
+										<Route path="notifications" element={<ProtectedRoute element={<Notifications />} />} />
 										<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
 									</Route>
 								</Routes>

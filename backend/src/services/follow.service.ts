@@ -103,7 +103,12 @@ export class FollowService {
 	private async invalidateFollowerFeedCache(userId: string): Promise<void> {
 		try {
 			// use tag-based invalidation for efficient cache clearing
-			await this.redisService.invalidateByTags([`user_feed:${userId}`, `for_you_feed:${userId}`]);
+			await this.redisService.invalidateByTags([
+				`user_feed:${userId}`,
+				`for_you_feed:${userId}`,
+				"who_to_follow",
+				`user_suggestions:${userId}`,
+			]);
 
 			console.log(`Invalidated feed cache for user ${userId} after follow/unfollow action`);
 		} catch (error) {

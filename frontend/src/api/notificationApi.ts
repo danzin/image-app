@@ -13,12 +13,24 @@ const errorMessage = (err: unknown): string => {
 };
 
 /**
- * Fetch unread notifications for the current authenticated user.
+ * Fetch notifications for the current authenticated user with cursor-based pagination
  * Maps backend shape to strongly typed Notification objects.
+ * @param signal - AbortSignal for cancellation
+ * @param before - ISO timestamp cursor for pagination (fetch notifications older than this)
  */
-export const fetchNotifications = async (signal?: AbortSignal): Promise<Notification[]> => {
+export const fetchNotifications = async (signal?: AbortSignal, before?: string): Promise<Notification[]> => {
 	try {
-		const raw = await unwrap<unknown[]>(axiosClient.get("/api/notifications", { signal }));
+		const params: { before?: string } = {};
+		if (before) {
+			params.before = before;
+		}
+
+		const raw = await unwrap<unknown[]>(
+			axiosClient.get("/api/notifications", {
+				signal,
+				params,
+			})
+		);
 		return raw.map(mapNotification);
 	} catch (error) {
 		throw new Error(`fetchNotifications failed: ${errorMessage(error)}`);

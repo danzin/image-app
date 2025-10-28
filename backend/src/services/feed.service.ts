@@ -8,6 +8,7 @@ import { RedisService } from "./redis.service";
 import { IUser, UserLookupData } from "../types";
 import { EventBus } from "../application/common/buses/event.bus";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
+import { redisLogger, errorLogger } from "../utils/winston";
 
 @injectable()
 export class FeedService {
@@ -85,8 +86,8 @@ export class FeedService {
 			if (page === 1) {
 				try {
 					await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userId));
-				} catch (_) {
-					// non-fatal
+				} catch {
+					// non-fatal, ignore
 				}
 			}
 
@@ -98,32 +99,62 @@ export class FeedService {
 
 	// === Specialized feeds ===
 
-	// For you - personalized recommendations
+	// For you - personalized recommendations (sorted sets)
 	public async getForYouFeed(userId: string, page: number, limit: number): Promise<any> {
-		console.log(`Running getForYouFeed for userId: ${userId}`);
+		redisLogger.info(`getForYouFeed called`, { userId, page, limit });
 
 		try {
-			const coreFeedKey = `for_you_feed:${userId}:${page}:${limit}`;
-			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
+			// try to get from sorted set first
+			const postIds = await this.redisService.getFeedPage(userId, page, limit, "for_you");
+			redisLogger.debug(`getFeedPage returned`, { userId, postCount: postIds.length });
 
-			if (!coreFeed) {
-				console.log("For You feed cache miss, generating...");
-				coreFeed = await this.generateForYouFeed(userId, page, limit);
+			if (postIds.length > 0) {
+				redisLogger.info(`For You feed ZSET HIT`, { userId, postCount: postIds.length });
+				// fetch post details individually (TODO: add batch fetch to PostRepository)
+				const postPromises = postIds.map((id) => this.postRepository.findByPublicId(id));
+				const postsResults = await Promise.all(postPromises);
+				const posts = postsResults.filter((p) => p !== null);
 
-				const tags = [`user_for_you_feed:${userId}`, `for_you_feed_page:${page}`, `for_you_feed_limit:${limit}`];
-				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
-			} else {
-				console.log("For You feed cache hit");
+				redisLogger.debug(`Fetched post details`, { requested: postIds.length, found: posts.length });
+
+				const enriched = await this.enrichFeedWithCurrentData(posts);
+				const feedSize = await this.redisService.getFeedSize(userId, "for_you");
+
+				return {
+					data: enriched,
+					page,
+					limit,
+					total: feedSize,
+				};
 			}
 
-			const enrichedFeed = await this.enrichFeedWithCurrentData(coreFeed.data);
+			// cache miss - generate feed and populate sorted set
+			redisLogger.info(`For You feed ZSET MISS, generating from DB`, { userId });
+			const feed = await this.generateForYouFeed(userId, page, limit);
 
+			// populate sorted set with all posts (fire-and-forget for page 1)
+			if (page === 1 && feed.data && feed.data.length > 0) {
+				const timestamp = Date.now();
+				redisLogger.info(`Populating ZSET for user`, { userId, postCount: feed.data.length });
+				Promise.all(
+					feed.data.map((post: any, idx: number) =>
+						this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you")
+					)
+				).catch((err) => {
+					errorLogger.error(`Failed to populate For You feed ZSET`, { userId, error: err.message });
+				});
+			}
+
+			const enriched = await this.enrichFeedWithCurrentData(feed.data);
 			return {
-				...coreFeed,
-				data: enrichedFeed,
+				...feed,
+				data: enriched,
 			};
 		} catch (error) {
-			console.error("For You feed error:", error);
+			errorLogger.error("For You feed error", {
+				userId,
+				error: error instanceof Error ? error.message : String(error),
+			});
 			throw createError("FeedError", "Could not generate For You feed.");
 		}
 	}
@@ -221,7 +252,7 @@ export class FeedService {
 		});
 	}
 
-	// Real time invalidation
+	// Real time invalidation (now works with sorted sets)
 	public async recordInteraction(
 		userPublicId: string,
 		actionType: string,
@@ -263,7 +294,11 @@ export class FeedService {
 			);
 		}
 
-		// Smart cache invalidation: only clear THIS user's feed
+		// Invalidate sorted set feeds for this user
+		await this.redisService.invalidateFeed(userPublicId, "for_you");
+		await this.redisService.invalidateFeed(userPublicId, "personalized");
+
+		// Also invalidate old tag-based caches for backward compatibility
 		const invalidationTags = [`user_feed:${userPublicId}`];
 		await this.redisService.invalidateByTags(invalidationTags);
 
@@ -280,7 +315,7 @@ export class FeedService {
 			})
 		);
 
-		console.log("Smart cache invalidation completed for user interaction");
+		console.log("Feed invalidation completed for user interaction");
 	}
 
 	/**
@@ -311,5 +346,55 @@ export class FeedService {
 			unlike: -2,
 		};
 		return scoreMap[actionType] ?? 0;
+	}
+
+	// === Batch Feed Operations (for post creation/deletion) ===
+
+	/**
+	 * Add post to followers' feeds in batch (when user creates post)
+	 */
+	public async fanOutPostToFollowers(postId: string, authorId: string, timestamp: number): Promise<void> {
+		console.log(`Fanning out post ${postId} from author ${authorId} to followers`);
+
+		try {
+			const author = await this.userRepository.findByPublicId(authorId);
+			if (!author) {
+				console.warn(`Author ${authorId} not found, skipping fan-out`);
+				return;
+			}
+
+			const followerIds = author.followers || [];
+			if (followerIds.length === 0) {
+				console.log(`Author ${authorId} has no followers, skipping fan-out`);
+				return;
+			}
+
+			// add post to all followers' for_you feeds
+			await this.redisService.addToFeedsBatch(followerIds, postId, timestamp, "for_you");
+			console.log(`Fanned out post ${postId} to ${followerIds.length} followers`);
+		} catch (error) {
+			console.error(`Failed to fan out post ${postId}:`, error);
+			// non-fatal, feeds will rebuild on next read
+		}
+	}
+
+	/**
+	 * Remove post from followers' feeds (when user deletes post)
+	 */
+	public async removePostFromFollowers(postId: string, authorId: string): Promise<void> {
+		console.log(`Removing post ${postId} from followers of ${authorId}`);
+
+		try {
+			const author = await this.userRepository.findByPublicId(authorId);
+			if (!author) return;
+
+			const followerIds = author.followers || [];
+			if (followerIds.length === 0) return;
+
+			await this.redisService.removeFromFeedsBatch(followerIds, postId, "for_you");
+			console.log(`Removed post ${postId} from ${followerIds.length} followers' feeds`);
+		} catch (error) {
+			console.error(`Failed to remove post ${postId} from feeds:`, error);
+		}
 	}
 }

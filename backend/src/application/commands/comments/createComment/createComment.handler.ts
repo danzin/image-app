@@ -102,12 +102,22 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
+					// get post preview
+					const postPreview = post.body
+						? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
+						: post.image
+							? "[Image post]"
+							: "[Post]";
+
 					await this.notificationService.createNotification({
 						receiverId: postOwnerId,
 						actionType: "comment",
 						actorId: command.userPublicId,
 						actorUsername: user.username,
+						actorAvatar: user.avatar,
 						targetId: command.postPublicId,
+						targetType: "post",
+						targetPreview: postPreview,
 						session,
 					});
 				}

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Box, Typography, Avatar, Button, Card, Skeleton, useTheme } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useWhoToFollow } from "../hooks/user/useWhoToFollow";
@@ -15,6 +15,21 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 	const queryClient = useQueryClient();
 	const { data, isLoading, isError } = useWhoToFollow(limit);
 	const followMutation = useFollowUser();
+
+	// track follow state for each user (publicId -> isFollowing)
+	const [followStates, setFollowStates] = useState<Record<string, boolean>>({});
+
+	// initialize follow states when data loads
+	useEffect(() => {
+		if (data?.suggestions) {
+			const initialStates: Record<string, boolean> = {};
+			data.suggestions.forEach((user) => {
+				// users in suggestions are not followed yet
+				initialStates[user.publicId] = false;
+			});
+			setFollowStates(initialStates);
+		}
+	}, [data?.suggestions]);
 
 	if (isError) {
 		return null;
@@ -52,14 +67,34 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 	}
 
 	const handleFollow = async (publicId: string) => {
+		const currentlyFollowing = followStates[publicId] || false;
+
 		try {
+			// optimistically toggle the follow state
+			setFollowStates((prev) => ({
+				...prev,
+				[publicId]: !currentlyFollowing,
+			}));
+
 			await followMutation.mutateAsync(publicId);
-			queryClient.invalidateQueries({ queryKey: ["whoToFollow"] });
+
+			// invalidate to ensure data is fresh
+			queryClient.invalidateQueries({
+				queryKey: ["isFollowing", publicId],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["whoToFollow", limit],
+				refetchType: "active",
+			});
 		} catch (error) {
 			console.error("Failed to follow user:", error);
+			// revert the optimistic update on err
+			setFollowStates((prev) => ({
+				...prev,
+				[publicId]: currentlyFollowing,
+			}));
 		}
 	};
-
 	return (
 		<Card
 			sx={{
@@ -136,24 +171,27 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 					<Button
 						onClick={() => handleFollow(user.publicId)}
 						disabled={followMutation.isPending}
-						variant="contained"
+						variant={followStates[user.publicId] ? "outlined" : "contained"}
 						size="small"
 						sx={{
 							textTransform: "none",
 							fontWeight: 600,
 							borderRadius: 2,
 							px: 2,
-							bgcolor: "primary.main",
-							color: "primary.contrastText",
+							minWidth: 90,
+							bgcolor: followStates[user.publicId] ? "transparent" : "primary.main",
+							color: followStates[user.publicId] ? "primary.main" : "primary.contrastText",
+							borderColor: followStates[user.publicId] ? "primary.main" : "transparent",
 							"&:hover": {
-								bgcolor: "primary.dark",
+								bgcolor: followStates[user.publicId] ? "action.hover" : "primary.dark",
+								borderColor: "primary.main",
 							},
 							"&:disabled": {
 								opacity: 0.6,
 							},
 						}}
 					>
-						{followMutation.isPending ? "Following..." : "Follow"}
+						{followMutation.isPending ? "..." : followStates[user.publicId] ? "Unfollow" : "Follow"}
 					</Button>
 				</Box>
 			))}

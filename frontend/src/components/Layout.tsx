@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Box, useTheme, useMediaQuery, IconButton } from "@mui/material";
 import { Menu as MenuIcon } from "@mui/icons-material";
-import Navbar from "./Navbar";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 
@@ -18,7 +17,7 @@ const Layout: React.FC = () => {
 	return (
 		<Box
 			sx={{
-				height: "100vh",
+				minHeight: "100vh",
 				display: "flex",
 				bgcolor: "background.default",
 			}}
@@ -32,7 +31,16 @@ const Layout: React.FC = () => {
 				}}
 			>
 				{/* --- Left Sidebar --- */}
-				<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+				<Box
+					sx={{
+						position: "sticky",
+						top: 0,
+						height: "100vh",
+						zIndex: 10,
+					}}
+				>
+					<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+				</Box>
 
 				{/* --- Main Content Area --- */}
 				<Box
@@ -40,13 +48,19 @@ const Layout: React.FC = () => {
 						flex: 1,
 						display: "flex",
 						flexDirection: "column",
-						overflow: "hidden",
 						borderLeft: `1px solid ${theme.palette.divider}`,
 						borderRight: `1px solid ${theme.palette.divider}`,
 					}}
 				>
-					{/* Top Navbar Area */}
-					<Box sx={{ position: "relative" }}>
+					{/* Scrollable Main Content */}
+					<Box
+						component="main"
+						sx={{
+							display: "flex",
+							flexDirection: "column",
+							py: 3,
+						}}
+					>
 						{isMobile && (
 							<IconButton
 								color="inherit"
@@ -54,35 +68,34 @@ const Layout: React.FC = () => {
 								edge="start"
 								onClick={handleDrawerToggle}
 								sx={{
-									position: "absolute",
+									position: "fixed",
 									left: 8,
-									top: "50%",
-									transform: "translateY(-50%)",
+									top: 8,
 									zIndex: theme.zIndex.appBar + 1,
+									bgcolor: "background.paper",
+									"&:hover": {
+										bgcolor: "background.default",
+									},
 								}}
 							>
 								<MenuIcon />
 							</IconButton>
 						)}
-						<Navbar />
-					</Box>
-
-					{/* Scrollable Main Content */}
-					<Box
-						component="main"
-						sx={{
-							flex: 1,
-							overflowY: "auto",
-							display: "flex",
-							flexDirection: "column",
-						}}
-					>
 						<Outlet />
 					</Box>
 				</Box>
 
 				{/* --- Right Sidebar --- */}
-				<RightSidebar />
+				<Box
+					sx={{
+						position: "sticky",
+						top: 0,
+						height: "100vh",
+						zIndex: 10,
+					}}
+				>
+					<RightSidebar />
+				</Box>
 			</Box>
 		</Box>
 	);

@@ -117,7 +117,10 @@ export function mapNotification(rawInput: unknown): Notification {
 		actionType: String(raw.actionType || ""),
 		actorId: String(raw.actorId || ""),
 		actorUsername: typeof raw.actorUsername === "string" ? raw.actorUsername : undefined,
+		actorAvatar: typeof raw.actorAvatar === "string" ? raw.actorAvatar : undefined,
 		targetId: typeof raw.targetId === "string" ? raw.targetId : undefined,
+		targetType: typeof raw.targetType === "string" ? raw.targetType : undefined,
+		targetPreview: typeof raw.targetPreview === "string" ? raw.targetPreview : undefined,
 		timestamp: typeof ts === "string" ? ts : new Date(String(ts || Date.now())).toISOString(),
 		isRead: Boolean(raw.isRead),
 	};

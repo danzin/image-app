@@ -178,10 +178,13 @@ export interface GalleryProps {
 export interface Notification {
 	id: string;
 	userId: string;
-	actionType: string;
-	actorId: string; // Just the actor's publicId as string
-	actorUsername?: string; // Optional denormalized username
-	targetId?: string;
+	actionType: string; // 'like' | 'comment' | 'follow'
+	actorId: string; // actor's publicId
+	actorUsername?: string; // denormalized username
+	actorAvatar?: string; // actor avatar URL
+	targetId?: string; // post/image publicId
+	targetType?: string; // 'post' | 'image' | 'user'
+	targetPreview?: string; // preview text/snippet
 	timestamp: string;
 	isRead: boolean;
 }

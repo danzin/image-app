@@ -71,6 +71,8 @@ import { GetMeQueryHandler } from "../application/queries/users/getMe/getMe.hand
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetWhoToFollowQueryHandler } from "../application/queries/users/getWhoToFollow/getWhoToFollow.handler";
 import { GetWhoToFollowQuery } from "../application/queries/users/getWhoToFollow/getWhoToFollow.query";
+import { GetTrendingTagsQueryHandler } from "../application/queries/tags/getTrendingTags/getTrendingTags.handler";
+import { GetTrendingTagsQuery } from "../application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { EventBus } from "../application/common/buses/event.bus";
 import { FeedInteractionHandler } from "../application/events/feed/feed-interaction.handler";
 import { UserInteractedWithPostEvent } from "../application/events/user/user-interaction.event";
@@ -226,6 +228,7 @@ function registerCQRS(): void {
 	// Register query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
+	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 
 	// Register interaction handlers
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
@@ -263,4 +266,8 @@ function registerCQRS(): void {
 	// Register query handlers with query bus
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
+	queryBus.register(
+		GetTrendingTagsQuery,
+		container.resolve<GetTrendingTagsQueryHandler>("GetTrendingTagsQueryHandler")
+	);
 }
