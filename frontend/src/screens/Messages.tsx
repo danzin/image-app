@@ -212,10 +212,11 @@ const Messages = () => {
 	return (
 		<Box
 			sx={{
-				flex: 1,
 				display: "flex",
 				flexDirection: isMobile ? "column" : "row",
-				height: "100%",
+				height: "100vh",
+				maxHeight: "100vh",
+				overflow: "hidden",
 				background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(29, 38, 125, 0.7) 100%)",
 				color: theme.palette.text.primary,
 			}}
@@ -314,6 +315,8 @@ const Messages = () => {
 					display: isMobile && showConversationsOnMobile ? "none" : "flex",
 					flexDirection: "column",
 					backgroundColor: "rgba(13, 20, 35, 0.88)",
+					minHeight: 0,
+					overflow: "hidden",
 				}}
 			>
 				<Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1 }}>
@@ -340,6 +343,7 @@ const Messages = () => {
 								overflowY: "auto",
 								px: { xs: 2, md: 4 },
 								py: 3,
+								minHeight: 0,
 							}}
 						>
 							{messagesQuery.isLoading ? (
