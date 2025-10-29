@@ -109,7 +109,7 @@ export class RealTimeFeedService {
 	}
 
 	/**
-	 * Handle new image upload notifications
+	 * Handle new post upload notifications
 	 */
 	private async handleNewPostUpdate(io: any, message: FeedUpdateMessage): Promise<void> {
 		const authorId = message.authorId ?? message.uploaderId;
@@ -118,7 +118,7 @@ export class RealTimeFeedService {
 
 		// GLOBAL BROADCAST: Notify ALL users about new content for discovery feeds
 		// This ensures the "new" feed updates immediately for everyone
-		io.emit("discovery_update", {
+		io.emit("discovery_new_post", {
 			type: "new_post_global",
 			authorId,
 			postId,

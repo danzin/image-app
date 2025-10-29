@@ -392,6 +392,7 @@ export class RedisService {
 	 * Mark notification as read (O(1) update)
 	 */
 	async markNotificationRead(notificationId: string): Promise<void> {
+		// hash key:notification:${notificationId}; field name: isRead; field value: 1 for read
 		await this.client.hSet(`notification:${notificationId}`, "isRead", "1");
 	}
 

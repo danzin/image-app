@@ -285,7 +285,12 @@ export class PostRepository extends BaseRepository<IPost> {
 			const favoriteTagIds = await this.loadFavoriteTagIds(favoriteTags);
 			const hasTagPreferences = favoriteTagIds.length > 0;
 
+			// filter to recent posts to avoid full collection scan
+			const recentThresholdDays = 90;
+			const sinceDate = new Date(Date.now() - recentThresholdDays * 24 * 60 * 60 * 1000);
+
 			const pipeline: PipelineStage[] = [
+				{ $match: { createdAt: { $gte: sinceDate } } },
 				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
 				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
 				{ $unwind: "$userInfo" },
@@ -341,12 +346,11 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			const [results, total] = await Promise.all([
 				this.model.aggregate(pipeline).exec(),
-				this.model.countDocuments({}),
+				this.model.countDocuments({ createdAt: { $gte: sinceDate } }),
 			]);
 
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to build ranked feed");

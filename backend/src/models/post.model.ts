@@ -54,12 +54,21 @@ const postSchema = new Schema<IPost>(
 
 // index for profile feed queries
 postSchema.index({ user: 1, createdAt: -1 });
-// index for newest posts
+
+// index for newest posts (supports getNewFeed)
 postSchema.index({ createdAt: -1 });
+
 // index for tag discovery
 postSchema.index({ tags: 1, createdAt: -1 });
-// index for trending posts
-postSchema.index({ likesCount: -1, createdAt: -1 });
+
+// compound index for trending feed (createdAt range + likesCount sort)
+postSchema.index({ createdAt: -1, likesCount: -1 });
+
+// index for popularity-based queries
+postSchema.index({ likesCount: -1 });
+
+// compound index for engagement metrics (comments + likes)
+postSchema.index({ commentsCount: -1, likesCount: -1 });
 
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {

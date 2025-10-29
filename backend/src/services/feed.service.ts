@@ -117,7 +117,16 @@ export class FeedService {
 
 				redisLogger.debug(`Fetched post details`, { requested: postIds.length, found: posts.length });
 
-				const enriched = await this.enrichFeedWithCurrentData(posts);
+				// transform Mongoose documents to plain objects with userPublicId extracted
+				const transformedPosts = posts.map((post) => {
+					const plainPost = post.toObject();
+					return {
+						...plainPost,
+						userPublicId: (plainPost.user as any)?.publicId || plainPost.user,
+					};
+				});
+
+				const enriched = await this.enrichFeedWithCurrentData(transformedPosts);
 				const feedSize = await this.redisService.getFeedSize(userId, "for_you");
 
 				return {
@@ -127,7 +136,6 @@ export class FeedService {
 					total: feedSize,
 				};
 			}
-
 			// cache miss - generate feed and populate sorted set
 			redisLogger.info(`For You feed ZSET MISS, generating from DB`, { userId });
 			const feed = await this.generateForYouFeed(userId, page, limit);
