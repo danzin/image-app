@@ -285,9 +285,9 @@ export class RedisService {
 	}
 
 	/**
-	 * Backfill notifications from Mongo to Redis in correct order
-	 * Mongo returns newest-first - reverse and use RPUSH
-	 * to maintain newest-first order in the Redis list
+	 * Backfill notifications from MongoDB to Redis in correct order
+	 * MongoDB returns newest-first - RPUSH in that order
+	 * to maintain newest-first when reading from head with LRANGE
 	 */
 	async backfillNotifications(userId: string, notifications: any[], maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
@@ -298,10 +298,9 @@ export class RedisService {
 
 		const pipeline = this.client.multi();
 
-		// reverse the array (Mongo gives newest-first, reverse and RPUSH to add to tail)
-		const reversed = [...notifications].reverse();
-
-		for (const notification of reversed) {
+		// MongoDB gives newest first - RPUSH them in that order
+		// List will be newest -> newer -> old -> oldest
+		for (const notification of notifications) {
 			const notificationId = String(notification._id);
 			const hashKey = `notification:${notificationId}`;
 
@@ -312,7 +311,7 @@ export class RedisService {
 			});
 			pipeline.expire(hashKey, 2592000);
 
-			// use RPUSH to add to tail (maintains newest-first when reading from head)
+			// RPUSH to add to tail in MongoDB order (newest-first)
 			pipeline.rPush(listKey, notificationId);
 		}
 
