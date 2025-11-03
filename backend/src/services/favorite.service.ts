@@ -1,13 +1,20 @@
 import { inject, injectable } from "tsyringe";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { FavoriteRepository } from "../repositories/favorite.repository";
+import { UserRepository } from "../repositories/user.repository";
+import { PostRepository } from "../repositories/post.repository";
+import { DTOService } from "./dto.service";
+import { PaginationResult, PostDTO } from "../types";
 import { createError } from "../utils/errors";
 
 @injectable()
 export class FavoriteService {
 	constructor(
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	async addFavorite(userId: string, postId: string): Promise<void> {
@@ -28,5 +35,68 @@ export class FavoriteService {
 				throw createError("NotFoundError", "Favorite not found");
 			}
 		});
+	}
+
+	async addFavoriteByPublicIds(actorPublicId: string, postPublicId: string): Promise<void> {
+		const actorId = await this.userRepository.findInternalIdByPublicId(actorPublicId);
+		if (!actorId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const postId = await this.postRepository.findInternalIdByPublicId(postPublicId);
+		if (!postId) {
+			throw createError("NotFoundError", "Post not found");
+		}
+
+		await this.addFavorite(actorId, postId);
+	}
+
+	async removeFavoriteByPublicIds(actorPublicId: string, postPublicId: string): Promise<void> {
+		const actorId = await this.userRepository.findInternalIdByPublicId(actorPublicId);
+		if (!actorId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const postId = await this.postRepository.findInternalIdByPublicId(postPublicId);
+		if (!postId) {
+			throw createError("NotFoundError", "Post not found");
+		}
+
+		await this.removeFavorite(actorId, postId);
+	}
+
+	async getFavoritesForViewer(viewerPublicId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
+		const userId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
+		if (!userId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const safePage = Math.max(1, page);
+		const safeLimit = Math.max(1, limit);
+		const { data, total } = await this.favoriteRepository.findFavoritesByUserId(userId, safePage, safeLimit);
+
+		const dtos = data.map((post) => {
+			const plain = this.ensurePlain(post);
+			plain.isFavoritedByViewer = true;
+			if (plain.isLikedByViewer === undefined) {
+				plain.isLikedByViewer = false;
+			}
+			return this.dtoService.toPostDTO(plain);
+		});
+
+		return {
+			data: dtos,
+			total,
+			page: safePage,
+			limit: safeLimit,
+			totalPages: Math.ceil(total / safeLimit),
+		};
+	}
+
+	private ensurePlain(entry: any): any {
+		if (entry && typeof entry.toObject === "function") {
+			return entry.toObject();
+		}
+		return entry;
 	}
 }

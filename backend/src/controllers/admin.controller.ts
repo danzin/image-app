@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
 import { injectable, inject } from "tsyringe";
 import { createError } from "../utils/errors";
-import { DTOService } from "../services/dto.service";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
@@ -13,7 +12,6 @@ import { PaginationResult, PostDTO } from "../types";
 export class AdminUserController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
-		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -37,9 +35,7 @@ export class AdminUserController {
 	getUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const user = await this.userService.getUserByPublicId(publicId);
-
-			const adminDTO = this.dtoService.toAdminDTO(user);
+			const adminDTO = await this.userService.getAdminUserProfile(publicId);
 			res.status(200).json(adminDTO);
 		} catch (error) {
 			next(error);

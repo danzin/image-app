@@ -162,6 +162,11 @@ export class UserService {
 		}
 	}
 
+	async getPublicProfileByPublicId(publicId: string): Promise<PublicUserDTO> {
+		const user = await this.getUserByPublicId(publicId);
+		return this.dtoService.toPublicDTO(user);
+	}
+
 	/**
 	 * Gets user profile by username (for SEO-friendly profile URLs)
 	 */
@@ -176,6 +181,11 @@ export class UserService {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
 		}
+	}
+
+	async getPublicProfileByUsername(username: string): Promise<PublicUserDTO> {
+		const user = await this.getUserByUsername(username);
+		return this.dtoService.toPublicDTO(user);
 	}
 
 	/**
@@ -582,6 +592,11 @@ export class UserService {
 			limit: result.limit,
 			totalPages: result.totalPages,
 		};
+	}
+
+	async getAdminUserProfile(publicId: string): Promise<AdminUserDTO> {
+		const user = await this.getUserByPublicId(publicId);
+		return this.dtoService.toAdminDTO(user);
 	}
 
 	/**

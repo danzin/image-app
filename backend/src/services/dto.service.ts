@@ -52,7 +52,7 @@ export class DTOService {
 			publicId: post.publicId,
 			body: post.body,
 			slug: post.slug,
-			// Nested format (preferred)
+			// Nested format
 			image,
 			// Legacy flat format for backward compatibility
 			url,
@@ -62,6 +62,8 @@ export class DTOService {
 			commentsCount: post.commentsCount ?? 0,
 			viewsCount: post.viewsCount ?? 0,
 			createdAt: post.createdAt,
+			isLikedByViewer: post.isLikedByViewer,
+			isFavoritedByViewer: post.isFavoritedByViewer,
 			user: {
 				publicId: post.user?.publicId ?? post.user?.id ?? "",
 				username: post.user?.username ?? "",
