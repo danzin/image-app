@@ -5,10 +5,10 @@ import { UserPreferenceRepository } from "../repositories/userPreference.reposit
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
-import { IUser, UserLookupData } from "../types";
+import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
+import { IUser, PaginationResult, PostDTO, UserLookupData } from "../types";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
-import { redisLogger, errorLogger } from "../utils/winston";
 
 @injectable()
 export class FeedService {
@@ -17,8 +17,8 @@ export class FeedService {
 		@inject("UserRepository") private userRepository: UserRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("UserActionRepository") private userActionRepository: UserActionRepository,
-
 		@inject("RedisService") private redisService: RedisService,
+		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private eventBus: EventBus
 	) {}
 
@@ -27,7 +27,7 @@ export class FeedService {
 	// in 2 layers: Core feed and Enrichment.
 	// This way when a user changes avatar, I don't rebuild the whole feed. Just refresh the user data layer
 
-	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<any> {
+	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
 
 		try {
@@ -52,7 +52,7 @@ export class FeedService {
 
 			return {
 				...coreFeed,
-				data: enrichedFeed,
+				data: this.mapToPostDTOArray(enrichedFeed),
 			};
 		} catch (error) {
 			console.error("Failed to generate personalized feed:", error);
@@ -100,7 +100,7 @@ export class FeedService {
 	// === Specialized feeds ===
 
 	// Trending - ranked by popularity + recency
-	public async getTrendingFeed(page: number, limit: number): Promise<any> {
+	public async getTrendingFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		const key = `trending_feed:${page}:${limit}`;
 		let cached = await this.redisService.getWithTags(key);
 		if (!cached) {
@@ -110,11 +110,11 @@ export class FeedService {
 			cached = core;
 		}
 		const enriched = await this.enrichFeedWithCurrentData(cached.data);
-		return { ...cached, data: enriched };
+		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
 	// New feed - sorted by recency
-	public async getNewFeed(page: number, limit: number): Promise<any> {
+	public async getNewFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		const key = `new_feed:${page}:${limit}`;
 		let cached = await this.redisService.getWithTags(key);
 		if (!cached) {
@@ -124,7 +124,7 @@ export class FeedService {
 			cached = core;
 		}
 		const enriched = await this.enrichFeedWithCurrentData(cached.data);
-		return { ...cached, data: enriched };
+		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
 	// === Misc ===
@@ -179,6 +179,17 @@ export class FeedService {
 			});
 			return enriched;
 		});
+	}
+
+	private mapToPostDTOArray(entries: any[]): PostDTO[] {
+		return entries.map((entry) => this.dtoService.toPostDTO(this.ensurePlain(entry)));
+	}
+
+	private ensurePlain(entry: any): any {
+		if (entry && typeof entry.toObject === "function") {
+			return entry.toObject();
+		}
+		return entry;
 	}
 
 	// Real time invalidation

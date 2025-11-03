@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
 import { UserService } from "../services/user.service";
-import { DTOService } from "../services/dto.service";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { CreatePostCommand } from "../application/commands/post/createPost/createPost.command";
@@ -22,7 +21,6 @@ import { safeFireAndForget } from "../utils/helpers";
 export class PostController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
-		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -43,11 +41,10 @@ export class PostController {
 			}
 
 			const originalName = file?.originalname || `post-${Date.now()}`;
-			const post = (await this.commandBus.dispatch(
+			const postDTO = (await this.commandBus.dispatch(
 				new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.buffer, originalName)
 			)) as PostDTO;
-			const dto = this.dtoService.toPostDTO(post);
-			res.status(201).json(dto);
+			res.status(201).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));
@@ -66,10 +63,7 @@ export class PostController {
 		console.log("listPosts called with page:", page, "limit:", limit, "userId:", userId);
 		try {
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(new GetPostsQuery(page, limit, userId));
-			res.json({
-				...posts,
-				data: posts.data.map((post) => this.dtoService.toPostDTO(post)),
-			});
+			res.json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));
@@ -87,10 +81,7 @@ export class PostController {
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
 				new GetPostsByUserQuery(publicId, page, limit)
 			);
-			res.json({
-				...posts,
-				data: posts.data.map((post) => this.dtoService.toPostDTO(post)),
-			});
+			res.json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
 				errorLogger.error(error.stack);
@@ -112,10 +103,7 @@ export class PostController {
 				new GetPostsByUserQuery(user.publicId, page, limit)
 			);
 
-			res.status(200).json({
-				...posts,
-				data: posts.data.map((post) => this.dtoService.toPostDTO(post)),
-			});
+			res.status(200).json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));
@@ -139,8 +127,7 @@ export class PostController {
 				safeFireAndForget(this.commandBus.dispatch(new RecordPostViewCommand(post.publicId, viewerPublicId)));
 			}
 
-			const dto = this.dtoService.toPostDTO(post);
-			res.status(200).json(dto);
+			res.status(200).json(post);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));
@@ -152,18 +139,20 @@ export class PostController {
 
 	getPostByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
+			console.log("getPostByPublicId called");
 			const { publicId } = req.params;
 			const viewerPublicId = req.decodedUser?.publicId; // Get viewer's publicId if logged in
 			// Strip file extension if present (e.g., "abc-123.png" -> "abc-123")
 			const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
-			const post = await this.queryBus.execute<PostDTO>(new GetPostByPublicIdQuery(sanitizedPublicId, viewerPublicId));
+			const postDTO = await this.queryBus.execute<PostDTO>(
+				new GetPostByPublicIdQuery(sanitizedPublicId, viewerPublicId)
+			);
 
 			if (viewerPublicId) {
 				safeFireAndForget(this.commandBus.dispatch(new RecordPostViewCommand(sanitizedPublicId, viewerPublicId)));
 			}
 
-			const dto = this.dtoService.toPostDTO(post);
-			res.status(200).json(dto);
+			res.status(200).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));
@@ -179,13 +168,10 @@ export class PostController {
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
 			const tagArray = tags ? (tags as string).split(",").filter((tag) => tag.trim() !== "") : [];
-			const result = await this.queryBus.execute<PaginationResult<PostDTO>>(
+			const postDTO = await this.queryBus.execute<PaginationResult<PostDTO>>(
 				new SearchPostsByTagsQuery(tagArray, page, limit)
 			);
-			res.status(200).json({
-				...result,
-				data: result.data.map((post) => this.dtoService.toPostDTO(post)),
-			});
+			res.status(200).json(postDTO);
 		} catch (error) {
 			next(error);
 		}

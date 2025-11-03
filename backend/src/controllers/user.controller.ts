@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
-import { DTOService } from "../services/dto.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { FollowService } from "../services/follow.service";
@@ -36,8 +35,7 @@ export class UserController {
 		@inject("UserService") private readonly userService: UserService,
 		@inject("FollowService") private readonly followService: FollowService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
 
 	//Register and login users
@@ -172,10 +170,7 @@ export class UserController {
 	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { username } = req.params;
-			const user = await this.userService.getUserByUsername(username);
-
-			// Return public DTO (no sensitive data)
-			const userDTO = this.dtoService.toPublicDTO(user);
+			const userDTO = await this.userService.getPublicProfileByUsername(username);
 
 			res.status(200).json(userDTO);
 		} catch (error) {
@@ -195,10 +190,7 @@ export class UserController {
 	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const user = await this.userService.getUserByPublicId(publicId);
-
-			// Return public DTO (no sensitive data)
-			const userDTO = this.dtoService.toPublicDTO(user);
+			const userDTO = await this.userService.getPublicProfileByPublicId(publicId);
 
 			res.status(200).json(userDTO);
 		} catch (error) {

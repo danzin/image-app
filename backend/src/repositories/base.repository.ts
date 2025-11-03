@@ -95,7 +95,7 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 		session?: ClientSession
 	): Promise<T | ModifyResult<T> | null> {
 		try {
-			const query = this.model.findOneAndUpdate(filter, update, { new: true }); // Removed the { update } wrapping
+			const query = this.model.findOneAndUpdate(filter, update, { new: true });
 			if (session) query.session(session);
 			return await query.exec();
 		} catch (error) {
