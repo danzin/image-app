@@ -9,11 +9,11 @@ import { CommentRepository } from "../../../../repositories/comment.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
-import { IComment } from "types/index";
+import { IComment } from "../../../../types/index";
 import mongoose from "mongoose";
 
 @injectable()
@@ -90,7 +90,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				const payload: Partial<IComment> = {
 					content: safeContent,
 					postId: post._id as mongoose.Types.ObjectId,
-					userId: new mongoose.Types.ObjectId(user.id),
+					userId: user._id as mongoose.Types.ObjectId,
 				};
 
 				const safePayload = sanitizeForMongo(payload);
@@ -102,12 +102,22 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
+					// get post preview
+					const postPreview = post.body
+						? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
+						: post.image
+							? "[Image post]"
+							: "[Post]";
+
 					await this.notificationService.createNotification({
 						receiverId: postOwnerId,
 						actionType: "comment",
 						actorId: command.userPublicId,
 						actorUsername: user.username,
+						actorAvatar: user.avatar,
 						targetId: command.postPublicId,
+						targetType: "post",
+						targetPreview: postPreview,
 						session,
 					});
 				}

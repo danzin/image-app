@@ -184,7 +184,7 @@ export class MessagingService {
 		let targetConversation = payload.conversationPublicId
 			? await this.conversationRepository.findByPublicId(payload.conversationPublicId, undefined, {
 					populateParticipants: true,
-			  })
+				})
 			: null;
 
 		if (!targetConversation && !payload.recipientPublicId) {

@@ -10,7 +10,7 @@ import { UserActionRepository } from "../../../../repositories/userAction.reposi
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
 import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
@@ -150,12 +150,21 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				: postOwner?.toString?.();
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
+			// get post preview (first 50 chars of body or image indicator)
+			const postPreview = post.body
+				? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
+				: post.image
+					? "[Image post]"
+					: "[Post]";
+
 			await this.notificationService.createNotification({
 				receiverId: postOwnerPublicId,
 				actionType: "like",
 				actorId: command.userPublicId,
 				actorUsername,
 				targetId: post.publicId,
+				targetType: "post",
+				targetPreview: postPreview,
 				session,
 			});
 		}

@@ -5,7 +5,7 @@ import { TrendingUp, FiberNew, Favorite } from "@mui/icons-material";
 
 import Gallery from "../components/Gallery";
 import { useAuth } from "../hooks/context/useAuth";
-import { useTrendingFeed, useNewFeed, useForYouFeed } from "../hooks/images/useImages";
+import { useTrendingFeed, useNewFeed, useForYouFeed } from "../hooks/posts/usePosts";
 import { getDefaultDiscoveryTab } from "../lib/userOnboarding";
 
 interface TabPanelProps {
@@ -129,7 +129,6 @@ const Discovery: React.FC = () => {
 								fetchNextPage={newFeedQuery.fetchNextPage}
 								hasNextPage={!!newFeedQuery.hasNextPage}
 								isFetchingNext={newFeedQuery.isFetchingNextPage}
-								isLoadingFiltered={false}
 								isLoadingAll={newFeedQuery.isLoading}
 							/>
 						</motion.div>
@@ -142,7 +141,6 @@ const Discovery: React.FC = () => {
 								fetchNextPage={trendingFeedQuery.fetchNextPage}
 								hasNextPage={!!trendingFeedQuery.hasNextPage}
 								isFetchingNext={trendingFeedQuery.isFetchingNextPage}
-								isLoadingFiltered={false}
 								isLoadingAll={trendingFeedQuery.isLoading}
 							/>
 						</motion.div>
@@ -156,7 +154,6 @@ const Discovery: React.FC = () => {
 									fetchNextPage={forYouFeedQuery.fetchNextPage}
 									hasNextPage={!!forYouFeedQuery.hasNextPage}
 									isFetchingNext={forYouFeedQuery.isFetchingNextPage}
-									isLoadingFiltered={false}
 									isLoadingAll={forYouFeedQuery.isLoading}
 								/>
 							</motion.div>

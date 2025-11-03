@@ -8,6 +8,7 @@ import { RedisService } from "./redis.service";
 import { IUser, UserLookupData } from "../types";
 import { EventBus } from "../application/common/buses/event.bus";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
+import { redisLogger, errorLogger } from "../utils/winston";
 
 @injectable()
 export class FeedService {
@@ -77,7 +78,7 @@ export class FeedService {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		const followingIds = user.following || [];
+		const followingIds = (user.following || []).map((id) => String(id));
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
@@ -85,67 +86,18 @@ export class FeedService {
 			if (page === 1) {
 				try {
 					await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userId));
-				} catch (_) {
-					// non-fatal
+				} catch {
+					// non-fatal, ignore
 				}
 			}
 
-			return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
+			return this.postRepository.getNewFeed(limit, skip);
 		}
 
 		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
 
 	// === Specialized feeds ===
-
-	// For you - personalized recommendations
-	public async getForYouFeed(userId: string, page: number, limit: number): Promise<any> {
-		console.log(`Running getForYouFeed for userId: ${userId}`);
-
-		try {
-			const coreFeedKey = `for_you_feed:${userId}:${page}:${limit}`;
-			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
-
-			if (!coreFeed) {
-				console.log("For You feed cache miss, generating...");
-				coreFeed = await this.generateForYouFeed(userId, page, limit);
-
-				const tags = [`user_for_you_feed:${userId}`, `for_you_feed_page:${page}`, `for_you_feed_limit:${limit}`];
-				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
-			} else {
-				console.log("For You feed cache hit");
-			}
-
-			const enrichedFeed = await this.enrichFeedWithCurrentData(coreFeed.data);
-
-			return {
-				...coreFeed,
-				data: enrichedFeed,
-			};
-		} catch (error) {
-			console.error("For You feed error:", error);
-			throw createError("FeedError", "Could not generate For You feed.");
-		}
-	}
-	private async generateForYouFeed(userId: string, page: number, limit: number) {
-		const [user, topTags] = await Promise.all([
-			this.userRepository.findByPublicId(userId),
-			this.userRepository
-				.findByPublicId(userId)
-				.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
-		]);
-
-		if (!user) {
-			throw createError("NotFoundError", "User not found");
-		}
-
-		const favoriteTags = topTags.map((pref) => pref.tag);
-		const skip = (page - 1) * limit;
-
-		const feed = await this.postRepository.getRankedFeed(favoriteTags, limit, skip);
-
-		return feed;
-	}
 
 	// Trending - ranked by popularity + recency
 	public async getTrendingFeed(page: number, limit: number): Promise<any> {
@@ -198,7 +150,7 @@ export class FeedService {
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Attempt to load per-post metadata with tag-based caching
+		// Attempt to load post meta with tag-based caching
 		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
 		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
 		const metaMap = new Map<string, any>();
@@ -209,15 +161,23 @@ export class FeedService {
 		// Merge fresh user/image data into core feed
 		return coreFeedData.map((item) => {
 			const meta = metaMap.get(item.publicId);
-			return {
+			const enriched = {
 				...item,
 				likes: meta?.likes ?? item.likes,
+				commentsCount: meta?.commentsCount ?? item.commentsCount,
+				viewsCount: meta?.viewsCount ?? item.viewsCount,
 				user: {
 					publicId: userMap.get(item.userPublicId)?.publicId,
 					username: userMap.get(item.userPublicId)?.username,
 					avatar: userMap.get(item.userPublicId)?.avatar,
 				},
 			};
+			console.log(`[FeedService] Enriched post ${item.publicId}:`, {
+				viewsCount: enriched.viewsCount,
+				commentsCount: enriched.commentsCount,
+				likes: enriched.likes,
+			});
+			return enriched;
 		});
 	}
 
@@ -235,7 +195,7 @@ export class FeedService {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) throw createError("NotFoundError", "User not found");
 
-		// If action targets a post provided by publicId (may include extension), normalize
+		// If action targets a post provided by publicId - normalize
 		let internalTargetId = targetIdentifier;
 		if (
 			actionType === "like" ||
@@ -248,7 +208,7 @@ export class FeedService {
 			if (post) internalTargetId = (post as any)._id.toString();
 		}
 
-		// Log the action to user activity collection
+		// Log to user activity collection
 		await this.userActionRepository.logAction(String(user._id), actionType, internalTargetId);
 
 		let scoreIncrement = 0;
@@ -263,7 +223,11 @@ export class FeedService {
 			);
 		}
 
-		// Smart cache invalidation: only clear THIS user's feed
+		// Invalidate sorted set feeds for this user
+		await this.redisService.invalidateFeed(userPublicId, "for_you");
+		await this.redisService.invalidateFeed(userPublicId, "personalized");
+
+		// Also invalidate old tag-based caches for backward compatibility
 		const invalidationTags = [`user_feed:${userPublicId}`];
 		await this.redisService.invalidateByTags(invalidationTags);
 
@@ -280,18 +244,29 @@ export class FeedService {
 			})
 		);
 
-		console.log("Smart cache invalidation completed for user interaction");
+		console.log("Feed invalidation completed for user interaction");
 	}
 
 	/**
-	 * Update per-post meta cache after like/unlike without regenerating entire feed partition.
+	 * Update post meta cache after like/unlike without regenerating entire feed partition.
 	 */
 	public async updatePostLikeMeta(postPublicId: string, newTotalLikes: number): Promise<void> {
 		const metaKey = `post_meta:${postPublicId}`;
 		const tags = [`post_meta:${postPublicId}`, `post_likes:${postPublicId}`];
 
-		//Update cached like counts
-		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
+		// Get existing meta to preserve other fields (commentsCount, viewsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new likes count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				likes: newTotalLikes,
+			},
+			tags,
+			300
+		);
 
 		// Broadcast to all connected clients
 		await this.redisService.publish(
@@ -305,11 +280,105 @@ export class FeedService {
 		);
 	}
 
+	/**
+	 * Update post meta meta cache after a view is recorded
+	 */
+	public async updatePostViewMeta(postPublicId: string, newViewsCount: number): Promise<void> {
+		const metaKey = `post_meta:${postPublicId}`;
+		const tags = [`post_meta:${postPublicId}`, `post_views:${postPublicId}`];
+
+		// Get existing meta to preserve other fields (likes, commentsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new views count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				viewsCount: newViewsCount,
+			},
+			tags,
+			300
+		);
+	}
+
+	/**
+	 * Update per post meta cache after comment count changes
+	 */
+	public async updatePostCommentMeta(postPublicId: string, newCommentsCount: number): Promise<void> {
+		const metaKey = `post_meta:${postPublicId}`;
+		const tags = [`post_meta:${postPublicId}`, `post_comments:${postPublicId}`];
+
+		// Get existing meta to preserve other fields (likes, viewsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new comments count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				commentsCount: newCommentsCount,
+			},
+			tags,
+			300
+		);
+	}
+
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {
 		const scoreMap: Record<"like" | "unlike", number> = {
 			like: 2,
 			unlike: -2,
 		};
 		return scoreMap[actionType] ?? 0;
+	}
+
+	// === Batch Feed Operations (for post creatring and deleting posts) ===
+
+	/**
+	 * Add post to followers' feeds in batch (when user creates post)
+	 */
+	public async fanOutPostToFollowers(postId: string, authorId: string, timestamp: number): Promise<void> {
+		console.log(`Fanning out post ${postId} from author ${authorId} to followers`);
+
+		try {
+			const author = await this.userRepository.findByPublicId(authorId);
+			if (!author) {
+				console.warn(`Author ${authorId} not found, skipping fan-out`);
+				return;
+			}
+
+			const followerIds = author.followers || [];
+			if (followerIds.length === 0) {
+				console.log(`Author ${authorId} has no followers, skipping fan-out`);
+				return;
+			}
+
+			// add post to all followers' for_you feeds
+			await this.redisService.addToFeedsBatch(followerIds, postId, timestamp, "for_you");
+			console.log(`Fanned out post ${postId} to ${followerIds.length} followers`);
+		} catch (error) {
+			console.error(`Failed to fan out post ${postId}:`, error);
+			// non-fatal, feeds will rebuild on next read
+		}
+	}
+
+	/**
+	 * Remove post from followers' feeds (when user deletes post)
+	 */
+	public async removePostFromFollowers(postId: string, authorId: string): Promise<void> {
+		console.log(`Removing post ${postId} from followers of ${authorId}`);
+
+		try {
+			const author = await this.userRepository.findByPublicId(authorId);
+			if (!author) return;
+
+			const followerIds = author.followers || [];
+			if (followerIds.length === 0) return;
+
+			await this.redisService.removeFromFeedsBatch(followerIds, postId, "for_you");
+			console.log(`Removed post ${postId} from ${followerIds.length} followers' feeds`);
+		} catch (error) {
+			console.error(`Failed to remove post ${postId} from feeds:`, error);
+		}
 	}
 }

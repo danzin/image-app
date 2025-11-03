@@ -98,7 +98,7 @@ export class FavoriteController {
 				return post;
 			});
 
-			const postDTOs = dataWithFlag.map((post: any) => this.dtoService.toPublicPostDTO(post as any));
+			const postDTOs = dataWithFlag.map((post: any) => this.dtoService.toPostDTO(post as any));
 
 			res.status(200).json({
 				data: postDTOs,

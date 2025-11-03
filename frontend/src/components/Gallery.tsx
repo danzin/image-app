@@ -11,7 +11,6 @@ const Gallery: React.FC<GalleryProps> = ({
 	fetchNextPage,
 	hasNextPage,
 	isFetchingNext,
-	isLoadingFiltered,
 	isLoadingAll,
 	emptyTitle,
 	emptyDescription,
@@ -22,7 +21,7 @@ const Gallery: React.FC<GalleryProps> = ({
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
 	const isProfileOwner = isLoggedIn && user?.publicId === profileId;
-	const isLoading = isLoadingAll || isLoadingFiltered;
+	const isLoading = isLoadingAll;
 	const fallbackEmptyTitle = "No posts yet";
 	const fallbackEmptyMessage = isProfileOwner
 		? "Create your first post to get started!"
@@ -61,7 +60,7 @@ const Gallery: React.FC<GalleryProps> = ({
 				p: { xs: 2, sm: 3 },
 			}}
 		>
-			{/* Loading Skeletons with better styling */}
+			{/* Loading Skeletons */}
 			{isLoading &&
 				(!posts || posts.length === 0) &&
 				Array.from({ length: 3 }).map((_, i) => (
@@ -98,7 +97,7 @@ const Gallery: React.FC<GalleryProps> = ({
 					</motion.div>
 				))}
 
-			{/* Enhanced Empty State */}
+			{/* Empty State */}
 			{!isLoading && (!posts || posts.length === 0) && (
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9 }}
@@ -136,7 +135,7 @@ const Gallery: React.FC<GalleryProps> = ({
 				</motion.div>
 			)}
 
-			{/* Enhanced Infinite Scroll Trigger */}
+			{/* Infinite Scroll Trigger */}
 			<Box
 				ref={loadMoreRef}
 				sx={{

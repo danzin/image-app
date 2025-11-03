@@ -37,10 +37,11 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 export type IUser = PublicUserDTO | AuthenticatedUserDTO | AdminUserDTO;
 
 export interface ITag {
-	_id: string;
+	id: string;
 	tag: string;
 	count?: number;
 	modifiedAt?: Date;
+	score?: number;
 }
 
 export interface IPost {
@@ -68,10 +69,8 @@ export interface IPost {
 
 	likes: number;
 	commentsCount: number;
+	viewsCount: number;
 	createdAt: Date;
-
-	// Post type
-	postType?: "text" | "image" | "mixed";
 
 	isLikedByViewer: boolean;
 	isFavoritedByViewer: boolean;
@@ -102,7 +101,7 @@ export function isTextPost(post: IPost): boolean {
 export interface IComment {
 	id: string;
 	content: string;
-	imagePublicId: string; // Using image public ID instead of internal ID
+	postPublicId: string;
 	user: {
 		publicId: string;
 		username: string;
@@ -159,17 +158,11 @@ export interface UseImagesResult {
 	deleteImage: (id: string) => Promise<void>;
 }
 
-export interface TagsProps {
-	selectedTags: string[];
-	onSelectTags: (tags: ITag[]) => void;
-}
-
 export interface GalleryProps {
 	posts: (IImage | IPost)[];
 	fetchNextPage: () => void;
 	hasNextPage?: boolean;
 	isFetchingNext?: boolean;
-	isLoadingFiltered?: boolean;
 	isLoadingAll?: boolean;
 	emptyTitle?: string;
 	emptyDescription?: string;
@@ -178,10 +171,13 @@ export interface GalleryProps {
 export interface Notification {
 	id: string;
 	userId: string;
-	actionType: string;
-	actorId: string; // Just the actor's publicId as string
-	actorUsername?: string; // Optional denormalized username
-	targetId?: string;
+	actionType: string; // 'like' | 'comment' | 'follow'
+	actorId: string; // actor's publicId
+	actorUsername?: string; // denormalized username
+	actorAvatar?: string; // actor avatar URL
+	targetId?: string; // post/image publicId
+	targetType?: string; // 'post' | 'image' | 'user'
+	targetPreview?: string; // preview text/snippet
 	timestamp: string;
 	isRead: boolean;
 }

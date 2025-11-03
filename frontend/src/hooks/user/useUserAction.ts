@@ -15,8 +15,11 @@ export const useFollowUser = () => {
 			// Invalidate user-related queries
 			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-			// Invalidate who to follow suggestions
-			queryClient.invalidateQueries({ queryKey: ["whoToFollow"] });
+			// Invalidate and refetch who to follow immediately
+			queryClient.invalidateQueries({
+				queryKey: ["whoToFollow"],
+				refetchType: "active", // force immediate refetch for active/mounted queries
+			});
 		},
 		onError: (error: Error) => {
 			console.error("Error following user:", error.message || error);

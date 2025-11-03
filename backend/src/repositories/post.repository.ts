@@ -1,7 +1,7 @@
 import mongoose, { ClientSession, Model, PipelineStage, SortOrder } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IPost, PaginationOptions, PaginationResult } from "../types";
+import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "../types";
 import { createError } from "../utils/errors";
 
 @injectable()
@@ -29,6 +29,102 @@ export class PostRepository extends BaseRepository<IPost> {
 		return doc ? String(doc._id) : null;
 	}
 
+	async findOneByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
+		try {
+			const query = this.model.findOne({ publicId });
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to find post by publicId");
+		}
+	}
+
+	async incrementViewCount(postId: mongoose.Types.ObjectId, session?: ClientSession): Promise<void> {
+		try {
+			const query = this.model.findOneAndUpdate({ _id: postId }, { $inc: { viewsCount: 1 } }, { new: true });
+			if (session) query.session(session);
+			await query.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to increment post view count");
+		}
+	}
+
+	/**
+	 * returns standard $lookup stages for populating post relationships
+	 */
+	private getStandardLookups(): PipelineStage[] {
+		return [
+			{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
+			{ $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
+			{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
+			{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
+			{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+		];
+	}
+
+	/**
+	 * returns standard projection fields for shaping post output
+	 */
+	private getStandardProjectionFields() {
+		return {
+			_id: 0,
+			publicId: 1,
+			body: 1,
+			slug: 1,
+			createdAt: 1,
+			likes: "$likesCount",
+			commentsCount: 1,
+			userPublicId: "$userInfo.publicId",
+			tags: {
+				$map: {
+					input: { $ifNull: ["$tagObjects", []] },
+					as: "tag",
+					in: { tag: "$$tag.tag", publicId: "$$tag.publicId" },
+				},
+			},
+			user: {
+				publicId: "$userInfo.publicId",
+				username: "$userInfo.username",
+				avatar: "$userInfo.avatar",
+			},
+			image: {
+				$cond: {
+					if: { $ne: ["$imageDoc", null] },
+					then: {
+						publicId: "$imageDoc.publicId",
+						url: "$imageDoc.url",
+						slug: "$imageDoc.slug",
+					},
+					else: {},
+				},
+			},
+		};
+	}
+
+	/**
+	 * returns standard $project stage for shaping post output
+	 */
+	private getStandardProjection(): PipelineStage {
+		return {
+			$project: this.getStandardProjectionFields(),
+		};
+	}
+
+	async findByIdWithPopulates(id: string, session?: ClientSession): Promise<IPost | null> {
+		try {
+			const query = this.model
+				.findById(id)
+				.populate("user", "username avatar publicId")
+				.populate("tags", "tag")
+				.populate({ path: "image", select: "_id url publicId slug createdAt" });
+
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (err: any) {
+			throw createError("DatabaseError", err.message ?? "failed to load post by id");
+		}
+	}
+
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
 		try {
 			const query = this.model
@@ -37,7 +133,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				.populate("tags", "tag")
 				.populate({
 					path: "image",
-					select: "url publicId slug createdAt -_id",
+					select: "_id url publicId slug createdAt",
 				});
 
 			if (session) query.session(session);
@@ -112,35 +208,8 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $sort: sort },
 				{ $skip: skip },
 				{ $limit: limit },
-				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-				{ $unwind: "$userInfo" },
-				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
-				{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
-				{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
-				{
-					$project: {
-						_id: 0,
-						publicId: 1,
-						body: 1,
-						slug: 1,
-						likes: "$likesCount",
-						commentsCount: 1,
-						createdAt: 1,
-						tags: {
-							$map: { input: "$tagObjects", as: "tagObj", in: { tag: "$$tagObj.tag", publicId: "$$tagObj.publicId" } },
-						},
-						user: {
-							publicId: "$userInfo.publicId",
-							username: "$userInfo.username",
-							avatar: "$userInfo.avatar",
-						},
-						image: {
-							publicId: "$imageDoc.publicId",
-							url: "$imageDoc.url",
-							slug: "$imageDoc.slug",
-						},
-					},
-				},
+				...this.getStandardLookups(),
+				this.getStandardProjection(),
 			];
 
 			const aggregate = this.model.aggregate(pipeline);
@@ -222,19 +291,15 @@ export class PostRepository extends BaseRepository<IPost> {
 			}
 
 			pipeline.push(
-				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
-				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-				{ $unwind: "$userInfo" },
-				{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
-				{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+				...this.getStandardLookups(),
 				{
 					$addFields: {
-						tagNames: { $map: { input: "$tagObjects", as: "tag", in: "$$tag.tag" } },
+						tagNames: { $map: { input: { $ifNull: ["$tagObjects", []] }, as: "tag", in: "$$tag.tag" } },
 						isPersonalized: hasPreferences
 							? {
 									$or: [
 										{ $in: ["$user", followingObjectIds] },
-										{ $gt: [{ $size: { $setIntersection: ["$tagNames", favoriteTags] } }, 0] },
+										{ $gt: [{ $size: { $setIntersection: [{ $ifNull: ["$tagNames", []] }, favoriteTags] } }, 0] },
 									],
 								}
 							: false,
@@ -245,34 +310,83 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $limit: limit },
 				{
 					$project: {
+						_id: 0,
 						publicId: 1,
 						body: 1,
 						slug: 1,
 						createdAt: 1,
 						likes: "$likesCount",
 						commentsCount: 1,
+						viewsCount: { $ifNull: ["$viewsCount", 0] },
 						userPublicId: "$userInfo.publicId",
 						tags: {
 							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
+						},
+						user: {
+							publicId: "$userInfo.publicId",
+							username: "$userInfo.username",
+							avatar: "$userInfo.avatar",
 						},
 						image: {
 							publicId: "$imageDoc.publicId",
 							url: "$imageDoc.url",
 							slug: "$imageDoc.slug",
 						},
-						isPersonalized: 1,
 					},
 				}
 			);
+			let results = await this.model.aggregate(pipeline).exec();
 
-			const [results, total] = await Promise.all([
-				this.model.aggregate(pipeline).exec(),
-				this.model.countDocuments({}),
-			]);
+			// backfill with new posts if not enough personalized content
+			if (results.length < limit) {
+				const needed = limit - results.length;
+				const existingIds = results.map((post) => post.publicId);
 
+				const backfillPipeline: PipelineStage[] = [
+					{ $match: { publicId: { $nin: existingIds } } },
+					...this.getStandardLookups(),
+					{ $sort: { createdAt: -1 } },
+					{ $limit: needed },
+					{
+						$project: {
+							_id: 0,
+							publicId: 1,
+							body: 1,
+							slug: 1,
+							createdAt: 1,
+							likes: "$likesCount",
+							commentsCount: 1,
+							viewsCount: { $ifNull: ["$viewsCount", 0] },
+							userPublicId: "$userInfo.publicId",
+							tags: {
+								$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
+							},
+							user: {
+								publicId: "$userInfo.publicId",
+								username: "$userInfo.username",
+								avatar: "$userInfo.avatar",
+							},
+							image: {
+								publicId: "$imageDoc.publicId",
+								url: "$imageDoc.url",
+								slug: "$imageDoc.slug",
+							},
+						},
+					},
+				];
+
+				const backfillResults = await this.model.aggregate(backfillPipeline).exec();
+				results = [...results, ...backfillResults];
+				console.info(`Backfilled ${backfillResults.length} new posts to personalized feed`);
+			}
+
+			// calculate total based on all available posts (personalized + backfill pool)
+			// this ensures infinite scroll continues as long as there's content
+			const total = await this.model.countDocuments({});
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
 
+			console.info(`Feed for user core generated with ${results.length} results (page ${currentPage}/${totalPages})`);
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to generate feed");
@@ -285,12 +399,13 @@ export class PostRepository extends BaseRepository<IPost> {
 			const favoriteTagIds = await this.loadFavoriteTagIds(favoriteTags);
 			const hasTagPreferences = favoriteTagIds.length > 0;
 
+			// filter to recent posts to avoid full collection scan
+			const recentThresholdDays = 90;
+			const sinceDate = new Date(Date.now() - recentThresholdDays * 24 * 60 * 60 * 1000);
+
 			const pipeline: PipelineStage[] = [
-				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
-				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-				{ $unwind: "$userInfo" },
-				{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
-				{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+				{ $match: { createdAt: { $gte: sinceDate } } },
+				...this.getStandardLookups(),
 				{
 					$addFields: {
 						recencyScore: {
@@ -319,34 +434,41 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $limit: limit },
 				{
 					$project: {
+						_id: 0,
 						publicId: 1,
 						body: 1,
 						slug: 1,
 						createdAt: 1,
 						likes: "$likesCount",
 						commentsCount: 1,
+						viewsCount: { $ifNull: ["$viewsCount", 0] },
 						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
+						},
+						user: {
+							publicId: "$userInfo.publicId",
+							username: "$userInfo.username",
+							avatar: "$userInfo.avatar",
+						},
 						image: {
 							publicId: "$imageDoc.publicId",
 							url: "$imageDoc.url",
 							slug: "$imageDoc.slug",
 						},
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
 						rankScore: 1,
 					},
 				},
 			];
-
 			const [results, total] = await Promise.all([
 				this.model.aggregate(pipeline).exec(),
-				this.model.countDocuments({}),
+				this.model.countDocuments({ createdAt: { $gte: sinceDate } }),
 			]);
+
+			console.info(`Ranked feed generated with results: ${JSON.stringify(results)} `);
 
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to build ranked feed");
@@ -375,11 +497,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			const pipeline: PipelineStage[] = [
 				{ $match: { createdAt: { $gte: sinceDate }, likesCount: { $gte: minLikes } } },
-				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
-				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-				{ $unwind: "$userInfo" },
-				{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
-				{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+				...this.getStandardLookups(),
 				{
 					$addFields: {
 						recencyScore: {
@@ -404,31 +522,38 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $limit: limit },
 				{
 					$project: {
+						_id: 0,
 						publicId: 1,
 						body: 1,
 						slug: 1,
 						createdAt: 1,
 						likes: "$likesCount",
 						commentsCount: 1,
+						viewsCount: { $ifNull: ["$viewsCount", 0] },
 						userPublicId: "$userInfo.publicId",
+						tags: {
+							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
+						},
+						user: {
+							publicId: "$userInfo.publicId",
+							username: "$userInfo.username",
+							avatar: "$userInfo.avatar",
+						},
 						image: {
 							publicId: "$imageDoc.publicId",
 							url: "$imageDoc.url",
 							slug: "$imageDoc.slug",
 						},
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
 						trendScore: 1,
 					},
 				},
 			];
-
 			const [results, total] = await Promise.all([
 				this.model.aggregate(pipeline).exec(),
 				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likesCount: { $gte: minLikes } }),
 			]);
 
+			console.info(`Trending feed generated with results: ${JSON.stringify(results)} `);
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
 
@@ -441,25 +566,28 @@ export class PostRepository extends BaseRepository<IPost> {
 	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
 			const pipeline: PipelineStage[] = [
-				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
-				{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-				{ $unwind: "$userInfo" },
-				{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
-				{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+				...this.getStandardLookups(),
 				{ $sort: { createdAt: -1 } },
 				{ $skip: skip },
 				{ $limit: limit },
 				{
 					$project: {
+						_id: 0,
 						publicId: 1,
 						body: 1,
 						slug: 1,
 						createdAt: 1,
 						likes: "$likesCount",
 						commentsCount: 1,
+						viewsCount: { $ifNull: ["$viewsCount", 0] },
 						userPublicId: "$userInfo.publicId",
 						tags: {
 							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
+						},
+						user: {
+							publicId: "$userInfo.publicId",
+							username: "$userInfo.username",
+							avatar: "$userInfo.avatar",
 						},
 						image: {
 							publicId: "$imageDoc.publicId",
@@ -474,13 +602,70 @@ export class PostRepository extends BaseRepository<IPost> {
 				this.model.aggregate(pipeline).exec(),
 				this.model.countDocuments({}),
 			]);
-
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-
+			console.info(`New feed generated with results: ${JSON.stringify(results)}`);
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to build new feed");
+		}
+	}
+
+	async getTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]> {
+		try {
+			const windowHours = Math.max(1, timeWindowHours ?? 168);
+			const cappedLimit = Math.min(Math.max(limit ?? 5, 1), 20);
+			const now = new Date();
+			const timeThreshold = new Date(now.getTime() - windowHours * 3600000);
+
+			const pipeline: PipelineStage[] = [
+				{ $match: { createdAt: { $gte: timeThreshold }, tags: { $exists: true, $not: { $size: 0 } } } },
+				{
+					$project: {
+						tags: 1,
+						likesCount: { $ifNull: ["$likesCount", 0] },
+						commentsCount: { $ifNull: ["$commentsCount", 0] },
+						createdAt: 1,
+					},
+				},
+				{ $unwind: "$tags" },
+				{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagDoc" } },
+				{ $unwind: "$tagDoc" },
+				{
+					$group: {
+						_id: "$tagDoc.tag",
+						recentPostCount: { $sum: 1 },
+						totalLikes: { $sum: "$likesCount" },
+						totalComments: { $sum: "$commentsCount" },
+						lastUsedAt: { $max: "$createdAt" },
+					},
+				},
+				{
+					$addFields: {
+						hoursSinceLastUse: { $divide: [{ $subtract: [now, "$lastUsedAt"] }, 3600000] },
+						engagementScore: {
+							$add: [
+								{ $multiply: [{ $ifNull: ["$totalLikes", 0] }, 0.6] },
+								{ $multiply: [{ $ifNull: ["$totalComments", 0] }, 0.4] },
+							],
+						},
+						trendingScore: {
+							$add: [
+								"$recentPostCount",
+								{ $multiply: ["$engagementScore", 0.5] },
+								{ $divide: [windowHours, { $add: ["$hoursSinceLastUse", 1] }] },
+							],
+						},
+					},
+				},
+				{ $sort: { trendingScore: -1, recentPostCount: -1, lastUsedAt: -1 } },
+				{ $limit: cappedLimit },
+				{ $project: { _id: 0, tag: "$_id", count: "$recentPostCount", recentPostCount: "$recentPostCount" } },
+			];
+
+			return await this.runAggregation<TrendingTag>(pipeline);
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to compute trending tags");
 		}
 	}
 
@@ -499,6 +684,16 @@ export class PostRepository extends BaseRepository<IPost> {
 			await query.exec();
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to update post like count");
+		}
+	}
+
+	async runAggregation<R = any>(pipeline: PipelineStage[], session?: ClientSession): Promise<R[]> {
+		try {
+			const aggregation = this.model.aggregate(pipeline);
+			if (session) aggregation.session(session);
+			return await aggregation.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to execute aggregation");
 		}
 	}
 }

@@ -53,7 +53,6 @@ const Favorites = () => {
 						fetchNextPage={fetchNextPage}
 						hasNextPage={!!hasNextPage}
 						isFetchingNext={isFetchingNextPage}
-						isLoadingFiltered={false}
 						isLoadingAll={isLoading}
 						emptyTitle="No favorites yet"
 						emptyDescription="Tap the heart icon on any image to save it to your favorites."

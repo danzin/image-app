@@ -14,6 +14,9 @@ import {
 	useTheme,
 	useMediaQuery,
 	alpha,
+	Button,
+	Divider,
+	Badge,
 } from "@mui/material";
 import {
 	Home as HomeIcon,
@@ -23,9 +26,12 @@ import {
 	Explore as ExploreIcon,
 	Bookmark as BookmarkIcon,
 	ChatBubbleOutline as ChatBubbleOutlineIcon,
+	AdminPanelSettings as AdminPanelSettingsIcon,
+	Notifications as NotificationsIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import UploadForm from "./UploadForm";
+import { useNotifications } from "../hooks/notifications/useNotification";
 
 // TODO: Probably instead of a drawer sidebar for mobile, use a bottom navbar? That'd
 // defenitely be better
@@ -58,11 +64,14 @@ interface LeftSidebarProps {
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
 	const { isLoggedIn, logout, user } = useAuth();
+	const { notifications } = useNotifications();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
 	const handleLogout = () => {
 		logout();
@@ -93,6 +102,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 		return location.pathname === targetPath || location.pathname.startsWith(`${targetPath}/`);
 	};
 
+	const isAdmin = user && "isAdmin" in user && user.isAdmin === true;
+
 	const navigationItems: NavigationItem[] = [
 		{
 			label: "Home",
@@ -103,6 +114,28 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			label: "Discover",
 			icon: <ExploreIcon />,
 			path: "/discover",
+		},
+		{
+			label: "Notifications",
+			icon: (
+				<Badge
+					badgeContent={unreadCount}
+					max={9}
+					sx={{
+						"& .MuiBadge-badge": {
+							background: "linear-gradient(45deg, #ec4899, #f472b6)",
+							color: "white",
+							fontWeight: 600,
+							fontSize: "0.65rem",
+							minWidth: 16,
+							height: 16,
+						},
+					}}
+				>
+					<NotificationsIcon />
+				</Badge>
+			),
+			path: "/notifications",
 		},
 		{
 			label: "Profile",
@@ -126,6 +159,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			path: "/messages",
 		},
 	];
+
+	if (isAdmin) {
+		navigationItems.push({
+			label: "Admin",
+			icon: <AdminPanelSettingsIcon />,
+			path: "/admin",
+		});
+	}
 
 	const sidebarContent = (
 		<Box
@@ -231,8 +272,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 							</ListItem>
 						))}
 
+						{/* Divider */}
+						<Divider sx={{ my: 2, borderColor: "rgba(99, 102, 241, 0.1)" }} />
+
 						{/* Upload/Post Button */}
-						<ListItem sx={{ px: 0, mt: 3 }}>
+						<ListItem sx={{ px: 0 }}>
 							<ListItemButton
 								onClick={openUploadModal}
 								data-testid="post-button"
@@ -263,10 +307,40 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 						</ListItem>
 					</List>
 				) : (
-					<Box sx={{ p: 3, textAlign: "center" }}>
-						<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+					<Box sx={{ p: 3, textAlign: "center", display: "flex", flexDirection: "column", gap: 2 }}>
+						<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
 							Sign in to access all features
 						</Typography>
+						<Button
+							component={RouterLink}
+							to="/login"
+							variant="outlined"
+							size="small"
+							sx={{
+								borderColor: alpha(theme.palette.primary.main, 0.5),
+								color: theme.palette.primary.light,
+								"&:hover": {
+									borderColor: theme.palette.primary.main,
+									backgroundColor: alpha(theme.palette.primary.main, 0.1),
+								},
+							}}
+						>
+							Log In
+						</Button>
+						<Button
+							component={RouterLink}
+							to="/register"
+							variant="contained"
+							size="small"
+							sx={{
+								background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+								"&:hover": {
+									background: "linear-gradient(45deg, #4f46e5, #7c3aed)",
+								},
+							}}
+						>
+							Join
+						</Button>
 					</Box>
 				)}
 			</Box>
@@ -319,7 +393,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			>
 				<Box sx={modalStyle}>
 					<Typography id="upload-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-						Upload Image
+						Create post
 					</Typography>
 					<UploadForm onClose={closeUploadModal} />
 				</Box>

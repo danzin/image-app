@@ -18,6 +18,7 @@ export class FeedRoutes {
 		this.router.get("/for-you", this.auth, this.controller.getForYouFeed);
 		this.router.get("/trending", this.controller.getTrendingFeed);
 		this.router.get("/new", this.controller.getNewFeed);
+		this.router.get("/trending-tags", this.controller.getTrendingTags);
 	}
 
 	public getRouter(): express.Router {

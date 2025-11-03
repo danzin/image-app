@@ -1,6 +1,6 @@
 import React from "react";
 import { IPost } from "../types";
-import { Card, CardActions, Typography, Chip, Box, Avatar, IconButton } from "@mui/material";
+import { Card, CardActions, Typography, Chip, Box, Avatar } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
@@ -12,6 +12,20 @@ interface PostCardProps {
 }
 
 const BASE_URL = "/api";
+
+// Format large numbers 2345 -> 2.3K
+const formatCount = (count: number | undefined): string => {
+	if (count === undefined || count === null) {
+		return "0";
+	}
+	if (count >= 1000000) {
+		return `${(count / 1000000).toFixed(1)}M`;
+	}
+	if (count >= 1000) {
+		return `${(count / 1000).toFixed(1)}K`;
+	}
+	return count.toString();
+};
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
 	const navigate = useNavigate();
@@ -114,7 +128,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					</Typography>
 				</Box>
 			)}{" "}
-			{/* Image Display (if post has image) */}
+			{/* Image Display */}
 			{hasImage && (
 				<Box sx={{ position: "relative", overflow: "hidden" }}>
 					<img
@@ -125,18 +139,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							maxHeight: "500px",
 							objectFit: "cover",
 							display: "block",
-						}}
-					/>
-					{/* Gradient overlay for better readability */}
-					<Box
-						sx={{
-							position: "absolute",
-							bottom: 0,
-							left: 0,
-							right: 0,
-							height: "60px",
-							background: "linear-gradient(transparent, rgba(0, 0, 0, 0.6))",
-							pointerEvents: "none",
 						}}
 					/>
 				</Box>
@@ -155,7 +157,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 					<Chip
 						icon={<FavoriteIcon fontSize="small" />}
-						label={post.likes}
+						label={formatCount(post.likes || 0)}
 						size="small"
 						sx={{
 							background: "linear-gradient(45deg, rgba(236, 72, 153, 0.2), rgba(99, 102, 241, 0.2))",
@@ -166,7 +168,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					/>
 					<Chip
 						icon={<CommentIcon fontSize="small" />}
-						label={post.commentsCount || 0}
+						label={formatCount(post.commentsCount || 0)}
 						size="small"
 						sx={{
 							background: "linear-gradient(45deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2))",
@@ -176,18 +178,17 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 						}}
 					/>
 				</Box>
-				<IconButton
+				<Chip
+					icon={<VisibilityIcon fontSize="small" />}
+					label={formatCount(post.viewsCount || 0)}
 					size="small"
 					sx={{
-						color: "primary.light",
-						"&:hover": {
-							color: "primary.main",
-							transform: "scale(1.1)",
-						},
+						background: "linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))",
+						border: "1px solid rgba(139, 92, 246, 0.3)",
+						color: "#8b5cf6",
+						"& .MuiChip-icon": { color: "#8b5cf6" },
 					}}
-				>
-					<VisibilityIcon fontSize="small" />
-				</IconButton>
+				/>
 			</CardActions>
 		</Card>
 	);

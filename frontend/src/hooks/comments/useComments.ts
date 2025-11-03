@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import {
 	createComment,
-	getCommentsByImageId,
+	getCommentsByPostId,
 	updateComment,
 	deleteComment,
 	getCommentsByUserId,
@@ -9,12 +9,12 @@ import {
 import { IComment, CommentCreateDto, CommentUpdateDto, CommentsPaginationResponse } from "../../types";
 
 /**
- * Hook to get comments for an image with infinite scrolling
+ * Get comments for an image with infinite scrolling
  */
-export const useCommentsByImageId = (imagePublicId: string, limit: number = 10) => {
+export const useCommentsByPostId = (postPublicId: string, limit: number = 10) => {
 	return useInfiniteQuery<CommentsPaginationResponse, Error>({
-		queryKey: ["comments", "image", imagePublicId],
-		queryFn: ({ pageParam = 1 }) => getCommentsByImageId(imagePublicId, pageParam as number, limit),
+		queryKey: ["comments", "post", postPublicId],
+		queryFn: ({ pageParam = 1 }) => getCommentsByPostId(postPublicId, pageParam as number, limit),
 		getNextPageParam: (lastPage) => {
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
@@ -22,25 +22,25 @@ export const useCommentsByImageId = (imagePublicId: string, limit: number = 10) 
 			return undefined;
 		},
 		initialPageParam: 1,
-		enabled: !!imagePublicId,
+		enabled: !!postPublicId,
 		staleTime: 0, // Comments should be fresh
 	});
 };
 
 /**
- * Hook to get comments for an image (single page)
+ * Get comments for an image (single page)
  */
-export const useCommentsForImage = (imagePublicId: string, page: number = 1, limit: number = 10) => {
+export const useCommentsForPost = (postPublicId: string, page: number = 1, limit: number = 10) => {
 	return useQuery<CommentsPaginationResponse, Error>({
-		queryKey: ["comments", "image", imagePublicId, page, limit],
-		queryFn: () => getCommentsByImageId(imagePublicId, page, limit),
-		enabled: !!imagePublicId,
+		queryKey: ["comments", "post", postPublicId, page, limit],
+		queryFn: () => getCommentsByPostId(postPublicId, page, limit),
+		enabled: !!postPublicId,
 		staleTime: 0,
 	});
 };
 
 /**
- * Hook to create a new comment
+ * Create a new comment
  */
 export const useCreateComment = () => {
 	const queryClient = useQueryClient();
@@ -48,19 +48,25 @@ export const useCreateComment = () => {
 	return useMutation<IComment, Error, { imagePublicId: string; commentData: CommentCreateDto }>({
 		mutationFn: ({ imagePublicId, commentData }) => createComment(imagePublicId, commentData),
 		onSuccess: (newComment, { imagePublicId }) => {
-			// Invalidate and refetch comments for this image
+			// Invalidate and refetch comments for this post
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", imagePublicId],
+				queryKey: ["comments", "post", imagePublicId],
 			});
 
-			// Update the image's comment count if data
+			// Update the post's comment count
 			queryClient.invalidateQueries({
-				queryKey: ["image", imagePublicId],
+				queryKey: ["post", imagePublicId],
 			});
 
-			// Update images list to reflect new comment count
+			// Update posts list to reflect new comment count
 			queryClient.invalidateQueries({
-				queryKey: ["images"],
+				queryKey: ["posts"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["personalizedFeed"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["newFeed"],
 			});
 		},
 		onError: (error: Error) => {
@@ -70,7 +76,7 @@ export const useCreateComment = () => {
 };
 
 /**
- * Hook to update a comment
+ * Update a comment
  */
 export const useUpdateComment = () => {
 	const queryClient = useQueryClient();
@@ -78,9 +84,9 @@ export const useUpdateComment = () => {
 	return useMutation<IComment, Error, { commentId: string; commentData: CommentUpdateDto }>({
 		mutationFn: ({ commentId, commentData }) => updateComment(commentId, commentData),
 		onSuccess: (updatedComment) => {
-			// Invalidate comments for the image this comment belongs to
+			// Invalidate comments for the post this comment belongs to
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", updatedComment.imagePublicId],
+				queryKey: ["comments", "post", updatedComment.postPublicId],
 			});
 		},
 		onError: (error: Error) => {
@@ -90,27 +96,33 @@ export const useUpdateComment = () => {
 };
 
 /**
- * Hook to delete a comment
+ * Delete a comment
  */
 export const useDeleteComment = () => {
 	const queryClient = useQueryClient();
 
-	return useMutation<void, Error, { commentId: string; imagePublicId: string }>({
+	return useMutation<void, Error, { commentId: string; postPublicId: string }>({
 		mutationFn: ({ commentId }) => deleteComment(commentId),
-		onSuccess: (_, { imagePublicId }) => {
-			// Invalidate and refetch comments for this image
+		onSuccess: (_, { postPublicId }) => {
+			// Invalidate and refetch comments for this post
 			queryClient.invalidateQueries({
-				queryKey: ["comments", "image", imagePublicId],
+				queryKey: ["comments", "post", postPublicId],
 			});
 
-			// Update the image's comment count
+			// Update the post's comment count
 			queryClient.invalidateQueries({
-				queryKey: ["image", imagePublicId],
+				queryKey: ["post", postPublicId],
 			});
 
-			// Update images list to reflect new comment count
+			// Update posts list to reflect new comment count
 			queryClient.invalidateQueries({
-				queryKey: ["images"],
+				queryKey: ["posts"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["personalizedFeed"],
+			});
+			queryClient.invalidateQueries({
+				queryKey: ["newFeed"],
 			});
 		},
 		onError: (error: Error) => {
@@ -120,7 +132,7 @@ export const useDeleteComment = () => {
 };
 
 /**
- * Hook to get comments by user ID
+ * Get comments by user ID
  */
 export const useCommentsByUserId = (userId: string, page: number = 1, limit: number = 10) => {
 	return useQuery<CommentsPaginationResponse, Error>({

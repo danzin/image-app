@@ -16,8 +16,10 @@ export class NotificationRoutes {
 	private initializeRoutes(): void {
 		const protectedRouter = express.Router();
 		protectedRouter.use(this.auth);
-		protectedRouter.get("/", this.controller.getNotifications);
+		protectedRouter.get("/", this.controller.getNotifications); // supports ?limit=50&skip=0
+		protectedRouter.get("/unread-count", this.controller.getUnreadCount);
 		protectedRouter.post("/read/:notificationId", this.controller.markAsRead);
+		protectedRouter.post("/read-all", this.controller.markAllAsRead);
 		this.router.use(protectedRouter);
 	}
 

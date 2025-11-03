@@ -38,15 +38,6 @@ export function mapPost(rawInput: unknown): IPost {
 		imagePublicId = raw.imagePublicId ? String(raw.imagePublicId) : undefined;
 	}
 
-	// Determine post type
-	const hasImage = !!imageUrl;
-	const hasBody = !!raw.body && String(raw.body).trim().length > 0;
-	let postType: "text" | "image" | "mixed" = "text";
-
-	if (hasImage && hasBody) postType = "mixed";
-	else if (hasImage) postType = "image";
-	else if (hasBody) postType = "text";
-
 	// Build the post object
 	const post: IPost = {
 		publicId: String(raw.publicId || ""),
@@ -75,12 +66,11 @@ export function mapPost(rawInput: unknown): IPost {
 
 		likes: typeof raw.likes === "number" ? raw.likes : 0,
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
+		viewsCount: typeof raw.viewsCount === "number" ? raw.viewsCount : 0,
 		createdAt: new Date(String(raw.createdAt || new Date().toISOString())),
-		postType,
 		isLikedByViewer: typeof raw.isLikedByViewer === "boolean" ? raw.isLikedByViewer : false,
 		isFavoritedByViewer: typeof raw.isFavoritedByViewer === "boolean" ? raw.isFavoritedByViewer : false,
 	};
-
 	return post;
 }
 
@@ -117,7 +107,10 @@ export function mapNotification(rawInput: unknown): Notification {
 		actionType: String(raw.actionType || ""),
 		actorId: String(raw.actorId || ""),
 		actorUsername: typeof raw.actorUsername === "string" ? raw.actorUsername : undefined,
+		actorAvatar: typeof raw.actorAvatar === "string" ? raw.actorAvatar : undefined,
 		targetId: typeof raw.targetId === "string" ? raw.targetId : undefined,
+		targetType: typeof raw.targetType === "string" ? raw.targetType : undefined,
+		targetPreview: typeof raw.targetPreview === "string" ? raw.targetPreview : undefined,
 		timestamp: typeof ts === "string" ? ts : new Date(String(ts || Date.now())).toISOString(),
 		isRead: Boolean(raw.isRead),
 	};

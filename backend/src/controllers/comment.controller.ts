@@ -31,10 +31,6 @@ export class CommentController {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
-			if (!content || typeof content !== "string") {
-				throw createError("ValidationError", "Comment content is required");
-			}
-
 			const command = new CreateCommentCommand(decodedUser.publicId, postPublicId, content);
 			const comment = await this.commandBus.dispatch(command);
 
@@ -79,15 +75,11 @@ export class CommentController {
 	updateComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { commentId } = req.params;
-			const { content } = req.body;
+			const { content } = req.body; // Already validated and sanitized by Zod middleware
 			const { decodedUser } = req;
 
 			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
-			}
-
-			if (!content || typeof content !== "string") {
-				throw createError("ValidationError", "Comment content is required");
 			}
 
 			const comment = await this.commentService.updateCommentByPublicId(commentId, decodedUser.publicId, content);

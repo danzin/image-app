@@ -19,7 +19,7 @@ const postSchema = new Schema<IPost>(
 		body: {
 			type: String,
 			trim: true,
-			maxlength: 250,
+			maxlength: 300,
 		},
 		slug: {
 			type: String,
@@ -48,19 +48,28 @@ const postSchema = new Schema<IPost>(
 			default: 0,
 			required: true,
 		},
+		viewsCount: {
+			type: Number,
+			default: 0,
+			required: true,
+			index: true,
+		},
 	},
 	{ timestamps: true }
 );
 
-// index for profile feed queries
-postSchema.index({ user: 1, createdAt: -1 });
-// index for newest posts
-postSchema.index({ createdAt: -1 });
-// index for tag discovery
-postSchema.index({ tags: 1, createdAt: -1 });
-// index for trending posts
-postSchema.index({ likesCount: -1, createdAt: -1 });
-
+postSchema.index({ user: 1, createdAt: -1 }); // profile feed qyeries
+postSchema.index({ createdAt: -1 }); // newest posts
+postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
+postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
+postSchema.index({ likesCount: -1 }); // popularity queries
+postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
+postSchema.index(
+	{ createdAt: -1, likesCount: -1 },
+	{
+		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
+	}
+);
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;

@@ -16,34 +16,6 @@ import { IPost, ITag } from "../../types";
 import { useAuth } from "../context/useAuth";
 import { mapPost } from "../../lib/mappers";
 
-export const usePersonalizedFeed = () => {
-	const { isLoggedIn } = useAuth();
-
-	return useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
-		Error
-	>({
-		queryKey: ["personalizedFeed"],
-		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchPersonalizedFeed(pageParam as number, 5);
-			return {
-				...response,
-				data: response.data.map((rawPost: IPost) => mapPost(rawPost)),
-			};
-		},
-		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
-		initialPageParam: 1,
-		enabled: isLoggedIn,
-		staleTime: 0,
-	});
-};
-
 export const usePosts = () => {
 	const { user, loading } = useAuth();
 
@@ -63,7 +35,7 @@ export const usePosts = () => {
 		queryKey,
 		queryFn: async ({ pageParam = 1 }) => {
 			console.log("usePosts - Fetching with queryKey:", queryKey, "pageParam:", pageParam);
-			const response = await fetchPosts(pageParam as number);
+			const response = await fetchPosts(pageParam as number, 10);
 			console.log("usePosts - Raw response for query:", queryKey, response.data[0]);
 
 			const mappedData = response.data.map((rawPost: IPost) => {
@@ -96,7 +68,7 @@ export const usePostByPublicId = (publicId: string) => {
 	const { user, loading } = useAuth();
 
 	return useQuery<IPost, Error>({
-		queryKey: ["post", "publicId", publicId, user?.publicId], // Include user in query key
+		queryKey: ["post", "publicId", publicId, user?.publicId],
 		queryFn: async () => {
 			const rawPost = await fetchPostByPublicId(publicId);
 			return mapPost(rawPost);
@@ -237,7 +209,40 @@ export const useDeletePost = () => {
 	});
 };
 
-export const useTrendingFeed = () => {
+export const usePersonalizedFeed = (options?: { enabled?: boolean; limit?: number }) => {
+	const { isLoggedIn } = useAuth();
+	const enabled = options?.enabled ?? isLoggedIn;
+	const limit = options?.limit ?? 5;
+
+	return useInfiniteQuery<
+		{
+			data: IPost[];
+			total: number;
+			page: number;
+			limit: number;
+			totalPages: number;
+		},
+		Error
+	>({
+		queryKey: ["personalizedFeed"],
+		queryFn: async ({ pageParam = 1 }) => {
+			const response = await fetchPersonalizedFeed(pageParam as number, limit);
+			return {
+				...response,
+				data: response.data.map((rawPost: IPost) => mapPost(rawPost)),
+			};
+		},
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		initialPageParam: 1,
+		enabled,
+		staleTime: 0,
+	});
+};
+
+export const useTrendingFeed = (options?: { enabled?: boolean; limit?: number }) => {
+	const enabled = options?.enabled ?? true;
+	const limit = options?.limit ?? 10;
+
 	return useInfiniteQuery<
 		{
 			data: IPost[];
@@ -250,7 +255,7 @@ export const useTrendingFeed = () => {
 	>({
 		queryKey: ["trendingFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchTrendingFeed(pageParam as number, 10);
+			const response = await fetchTrendingFeed(pageParam as number, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
@@ -263,12 +268,16 @@ export const useTrendingFeed = () => {
 			return undefined;
 		},
 		initialPageParam: 1,
-		staleTime: 2 * 60 * 1000, // 2 minutes - backend cache TTL
+		enabled,
+		staleTime: 2 * 60 * 1000,
 		refetchOnWindowFocus: false,
 	});
 };
 
-export const useNewFeed = () => {
+export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
+	const enabled = options?.enabled ?? true;
+	const limit = options?.limit ?? 10;
+
 	return useInfiniteQuery<
 		{
 			data: IPost[];
@@ -281,7 +290,7 @@ export const useNewFeed = () => {
 	>({
 		queryKey: ["newFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchNewFeed(pageParam as number, 10);
+			const response = await fetchNewFeed(pageParam as number, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
@@ -294,13 +303,16 @@ export const useNewFeed = () => {
 			return undefined;
 		},
 		initialPageParam: 1,
-		staleTime: 1 * 60 * 1000, // 1 minute - backend cache TTL
+		enabled,
+		staleTime: 1 * 60 * 1000,
 		refetchOnWindowFocus: false,
 	});
 };
 
-export const useForYouFeed = () => {
+export const useForYouFeed = (options?: { enabled?: boolean; limit?: number }) => {
 	const { isLoggedIn } = useAuth();
+	const enabled = options?.enabled ?? isLoggedIn;
+	const limit = options?.limit ?? 10;
 
 	return useInfiniteQuery<
 		{
@@ -314,7 +326,7 @@ export const useForYouFeed = () => {
 	>({
 		queryKey: ["forYouFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchForYouFeed(pageParam as number, 10);
+			const response = await fetchForYouFeed(pageParam as number, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
@@ -327,18 +339,8 @@ export const useForYouFeed = () => {
 			return undefined;
 		},
 		initialPageParam: 1,
-		enabled: isLoggedIn,
-		staleTime: 5 * 60 * 1000, // 5 minutes - backend cache TTL
+		enabled,
+		staleTime: 5 * 60 * 1000,
 		refetchOnWindowFocus: false,
 	});
 };
-
-// === LEGACY ALIASES FOR BACKWARD COMPATIBILITY ===
-
-export const useImages = usePosts;
-export const useImageByPublicId = usePostByPublicId;
-export const useImageBySlug = usePostBySlug;
-export const useImageById = usePostById;
-export const useImagesByTag = usePostsByTag;
-export const useUploadImage = useUploadPost;
-export const useDeleteImage = useDeletePost;
