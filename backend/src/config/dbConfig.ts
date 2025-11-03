@@ -29,7 +29,7 @@ export class DatabaseConfig {
 
 	private async tryConnect(attempt = 1): Promise<void> {
 		const opts: ConnectOptions = {
-			serverSelectionTimeoutMS: 30000, // Increased from 5000ms to 30000ms
+			serverSelectionTimeoutMS: 30000,
 			connectTimeoutMS: 30000,
 			socketTimeoutMS: 30000,
 		};
