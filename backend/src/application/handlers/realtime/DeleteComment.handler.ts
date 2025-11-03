@@ -1,14 +1,14 @@
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "../../common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { DeleteCommentCommand } from "./deleteComment.command";
-import { EventBus } from "../../../common/buses/event.bus";
-import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { CommentRepository } from "../../../../repositories/comment.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
-import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
+import { DeleteCommentCommand } from "../../commands/comments/deleteComment/deleteComment.command";
+import { EventBus } from "../../common/buses/event.bus";
+import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
+import { PostRepository } from "../../../repositories/post.repository";
+import { CommentRepository } from "../../../repositories/comment.repository";
+import { UserRepository } from "../../../repositories/user.repository";
+import { createError } from "../../../utils/errors";
+import { FeedInteractionHandler } from "../../events/user/feed-interaction.handler";
+import { UnitOfWork } from "../../../database/UnitOfWork";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
@@ -49,13 +49,9 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				throw createError("NotFoundError", "Comment not found");
 			}
 
-			// Find the associated post
-			const post = await this.postRepository.findById(comment.postId.toString());
-			if (!post) {
-				throw createError("NotFoundError", "Associated post not found");
-			}
-			const hydratedPost = await this.postRepository.findByPublicId((post as any).publicId);
-			const effectivePost = hydratedPost ?? post;
+			// Find the post
+			const effectivePost = (await this.postRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
+			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
 
 			// Check if user owns the comment or the post
 			const isCommentOwner = comment.userId.toString() === user.id;

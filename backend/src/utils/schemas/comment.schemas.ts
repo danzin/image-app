@@ -1,28 +1,5 @@
 import { z } from "zod";
-import sanitizeHtml from "sanitize-html";
-
-// sanitize HTML content to prevent XSS
-const sanitize = (text: string) =>
-	sanitizeHtml(text, {
-		allowedTags: [],
-		allowedAttributes: {},
-	});
-
-// prevent prototype pollution by stripping dangerous keys from objects
-// this protects against attacks like: { "__proto__": { "isAdmin": true } }
-// note: this does NOT affect string content - users can still say "__proto__" in text
-const stripDangerousKeys = <T extends Record<string, unknown>>(obj: T): T => {
-	const dangerousKeys = ["__proto__", "constructor", "prototype"];
-	const cleaned = { ...obj };
-
-	for (const key of dangerousKeys) {
-		if (key in cleaned) {
-			delete cleaned[key];
-		}
-	}
-
-	return cleaned;
-};
+import { sanitizeForMongo, sanitize } from "../../utils/sanitizers";
 
 export const createCommentSchema = z
 	.object({
@@ -34,7 +11,7 @@ export const createCommentSchema = z
 			.transform(sanitize),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);
 
 export const updateCommentSchema = z
 	.object({
@@ -46,7 +23,7 @@ export const updateCommentSchema = z
 			.transform(sanitize),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);
 
 export const commentIdSchema = z
 	.object({

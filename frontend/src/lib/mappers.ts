@@ -38,15 +38,6 @@ export function mapPost(rawInput: unknown): IPost {
 		imagePublicId = raw.imagePublicId ? String(raw.imagePublicId) : undefined;
 	}
 
-	// Determine post type
-	const hasImage = !!imageUrl;
-	const hasBody = !!raw.body && String(raw.body).trim().length > 0;
-	let postType: "text" | "image" | "mixed" = "text";
-
-	if (hasImage && hasBody) postType = "mixed";
-	else if (hasImage) postType = "image";
-	else if (hasBody) postType = "text";
-
 	// Build the post object
 	const post: IPost = {
 		publicId: String(raw.publicId || ""),
@@ -75,12 +66,11 @@ export function mapPost(rawInput: unknown): IPost {
 
 		likes: typeof raw.likes === "number" ? raw.likes : 0,
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
+		viewsCount: typeof raw.viewsCount === "number" ? raw.viewsCount : 0,
 		createdAt: new Date(String(raw.createdAt || new Date().toISOString())),
-		postType,
 		isLikedByViewer: typeof raw.isLikedByViewer === "boolean" ? raw.isLikedByViewer : false,
 		isFavoritedByViewer: typeof raw.isFavoritedByViewer === "boolean" ? raw.isFavoritedByViewer : false,
 	};
-
 	return post;
 }
 

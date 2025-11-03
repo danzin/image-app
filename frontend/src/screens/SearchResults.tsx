@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useSearch } from "../hooks/search/useSearch";
 import { Box, Button, CircularProgress } from "@mui/material";
-import { useImagesByTag } from "../hooks/images/useImages";
 import Gallery from "../components/Gallery";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { usePostsByTag } from "../hooks/posts/usePosts";
 
 const SearchResults = () => {
 	const location = useLocation();
@@ -15,7 +15,7 @@ const SearchResults = () => {
 		.split(",")
 		.map((term) => term.trim())
 		.filter((term) => term.length > 0);
-	const [activeTab, setActiveTab] = useState<"users" | "images" | "posts" | "tags">("posts");
+	const [activeTab, setActiveTab] = useState<"users" | "posts" | "tags">("posts");
 
 	const { data, isFetching } = useSearch(query);
 
@@ -28,7 +28,7 @@ const SearchResults = () => {
 		}
 	}, [query, queryClient, location.search]);
 
-	const { fetchNextPage, hasNextPage, isFetchingNextPage } = useImagesByTag(searchTerms, {
+	const { fetchNextPage, hasNextPage, isFetchingNextPage } = usePostsByTag(searchTerms, {
 		// Only run if searchTerms has items AND search results exist
 		enabled: searchTerms.length > 0 && !!data?.data.tags,
 	});
@@ -41,7 +41,7 @@ const SearchResults = () => {
 		<Box sx={{ maxWidth: "800px", margin: "auto", p: 3 }}>
 			{/* Tabs */}
 			<Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-				{(["posts", "images", "users", "tags"] as const).map((tab) => (
+				{(["posts", "users", "tags"] as const).map((tab) => (
 					<Button key={tab} variant={activeTab === tab ? "contained" : "outlined"} onClick={() => setActiveTab(tab)}>
 						{tab.charAt(0).toUpperCase() + tab.slice(1)}
 					</Button>
@@ -58,19 +58,6 @@ const SearchResults = () => {
 						) : (
 							<Gallery
 								posts={data?.data.posts || []}
-								fetchNextPage={fetchNextPage}
-								isFetchingNext={isFetchingNextPage}
-								hasNextPage={hasNextPage}
-							/>
-						))}
-
-					{/* Images Tab */}
-					{activeTab === "images" &&
-						(data?.data.images === null ? (
-							<p>No images found for {query}.</p>
-						) : (
-							<Gallery
-								posts={data?.data.images || []}
 								fetchNextPage={fetchNextPage}
 								isFetchingNext={isFetchingNextPage}
 								hasNextPage={hasNextPage}
@@ -98,7 +85,7 @@ const SearchResults = () => {
 							<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
 								{data?.data.tags?.map((tag) => (
 									<Box
-										key={tag._id}
+										key={tag.id}
 										sx={{
 											p: 2,
 											borderBottom: "1px solid #ccc",

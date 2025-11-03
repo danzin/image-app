@@ -17,3 +17,6 @@ export * from "./customComments/comments.types";
 export * from "./customMessages/messages.types";
 export * from "./customPosts/posts.types";
 export * from "./customPosts/post.dto";
+export * from "./customPosts/postView.types";
+export * from "./customFeeds/feed.types";
+export * from "./customTags/tags.types";

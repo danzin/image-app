@@ -78,7 +78,7 @@ export class FeedService {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		const followingIds = user.following || [];
+		const followingIds = (user.following || []).map((id) => String(id));
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
@@ -91,100 +91,13 @@ export class FeedService {
 				}
 			}
 
-			return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
+			return this.postRepository.getNewFeed(limit, skip);
 		}
 
 		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
 
 	// === Specialized feeds ===
-
-	// For you - personalized recommendations (sorted sets)
-	public async getForYouFeed(userId: string, page: number, limit: number): Promise<any> {
-		redisLogger.info(`getForYouFeed called`, { userId, page, limit });
-
-		try {
-			// try to get from sorted set first
-			const postIds = await this.redisService.getFeedPage(userId, page, limit, "for_you");
-			redisLogger.debug(`getFeedPage returned`, { userId, postCount: postIds.length });
-
-			if (postIds.length > 0) {
-				redisLogger.info(`For You feed ZSET HIT`, { userId, postCount: postIds.length });
-				// fetch post details individually (TODO: add batch fetch to PostRepository)
-				const postPromises = postIds.map((id) => this.postRepository.findByPublicId(id));
-				const postsResults = await Promise.all(postPromises);
-				const posts = postsResults.filter((p) => p !== null);
-
-				redisLogger.debug(`Fetched post details`, { requested: postIds.length, found: posts.length });
-
-				// transform Mongoose documents to plain objects with userPublicId extracted
-				const transformedPosts = posts.map((post) => {
-					const plainPost = post.toObject();
-					return {
-						...plainPost,
-						userPublicId: (plainPost.user as any)?.publicId || plainPost.user,
-					};
-				});
-
-				const enriched = await this.enrichFeedWithCurrentData(transformedPosts);
-				const feedSize = await this.redisService.getFeedSize(userId, "for_you");
-
-				return {
-					data: enriched,
-					page,
-					limit,
-					total: feedSize,
-				};
-			}
-			// cache miss - generate feed and populate sorted set
-			redisLogger.info(`For You feed ZSET MISS, generating from DB`, { userId });
-			const feed = await this.generateForYouFeed(userId, page, limit);
-
-			// populate sorted set with all posts (fire-and-forget for page 1)
-			if (page === 1 && feed.data && feed.data.length > 0) {
-				const timestamp = Date.now();
-				redisLogger.info(`Populating ZSET for user`, { userId, postCount: feed.data.length });
-				Promise.all(
-					feed.data.map((post: any, idx: number) =>
-						this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you")
-					)
-				).catch((err) => {
-					errorLogger.error(`Failed to populate For You feed ZSET`, { userId, error: err.message });
-				});
-			}
-
-			const enriched = await this.enrichFeedWithCurrentData(feed.data);
-			return {
-				...feed,
-				data: enriched,
-			};
-		} catch (error) {
-			errorLogger.error("For You feed error", {
-				userId,
-				error: error instanceof Error ? error.message : String(error),
-			});
-			throw createError("FeedError", "Could not generate For You feed.");
-		}
-	}
-	private async generateForYouFeed(userId: string, page: number, limit: number) {
-		const [user, topTags] = await Promise.all([
-			this.userRepository.findByPublicId(userId),
-			this.userRepository
-				.findByPublicId(userId)
-				.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
-		]);
-
-		if (!user) {
-			throw createError("NotFoundError", "User not found");
-		}
-
-		const favoriteTags = topTags.map((pref) => pref.tag);
-		const skip = (page - 1) * limit;
-
-		const feed = await this.postRepository.getRankedFeed(favoriteTags, limit, skip);
-
-		return feed;
-	}
 
 	// Trending - ranked by popularity + recency
 	public async getTrendingFeed(page: number, limit: number): Promise<any> {
@@ -237,7 +150,7 @@ export class FeedService {
 
 		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
 
-		// Attempt to load per-post metadata with tag-based caching
+		// Attempt to load post meta with tag-based caching
 		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
 		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
 		const metaMap = new Map<string, any>();
@@ -248,19 +161,27 @@ export class FeedService {
 		// Merge fresh user/image data into core feed
 		return coreFeedData.map((item) => {
 			const meta = metaMap.get(item.publicId);
-			return {
+			const enriched = {
 				...item,
 				likes: meta?.likes ?? item.likes,
+				commentsCount: meta?.commentsCount ?? item.commentsCount,
+				viewsCount: meta?.viewsCount ?? item.viewsCount,
 				user: {
 					publicId: userMap.get(item.userPublicId)?.publicId,
 					username: userMap.get(item.userPublicId)?.username,
 					avatar: userMap.get(item.userPublicId)?.avatar,
 				},
 			};
+			console.log(`[FeedService] Enriched post ${item.publicId}:`, {
+				viewsCount: enriched.viewsCount,
+				commentsCount: enriched.commentsCount,
+				likes: enriched.likes,
+			});
+			return enriched;
 		});
 	}
 
-	// Real time invalidation (now works with sorted sets)
+	// Real time invalidation
 	public async recordInteraction(
 		userPublicId: string,
 		actionType: string,
@@ -274,7 +195,7 @@ export class FeedService {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) throw createError("NotFoundError", "User not found");
 
-		// If action targets a post provided by publicId (may include extension), normalize
+		// If action targets a post provided by publicId - normalize
 		let internalTargetId = targetIdentifier;
 		if (
 			actionType === "like" ||
@@ -287,7 +208,7 @@ export class FeedService {
 			if (post) internalTargetId = (post as any)._id.toString();
 		}
 
-		// Log the action to user activity collection
+		// Log to user activity collection
 		await this.userActionRepository.logAction(String(user._id), actionType, internalTargetId);
 
 		let scoreIncrement = 0;
@@ -327,14 +248,25 @@ export class FeedService {
 	}
 
 	/**
-	 * Update per-post meta cache after like/unlike without regenerating entire feed partition.
+	 * Update post meta cache after like/unlike without regenerating entire feed partition.
 	 */
 	public async updatePostLikeMeta(postPublicId: string, newTotalLikes: number): Promise<void> {
 		const metaKey = `post_meta:${postPublicId}`;
 		const tags = [`post_meta:${postPublicId}`, `post_likes:${postPublicId}`];
 
-		//Update cached like counts
-		await this.redisService.setWithTags(metaKey, { likes: newTotalLikes }, tags, 300);
+		// Get existing meta to preserve other fields (commentsCount, viewsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new likes count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				likes: newTotalLikes,
+			},
+			tags,
+			300
+		);
 
 		// Broadcast to all connected clients
 		await this.redisService.publish(
@@ -348,6 +280,50 @@ export class FeedService {
 		);
 	}
 
+	/**
+	 * Update post meta meta cache after a view is recorded
+	 */
+	public async updatePostViewMeta(postPublicId: string, newViewsCount: number): Promise<void> {
+		const metaKey = `post_meta:${postPublicId}`;
+		const tags = [`post_meta:${postPublicId}`, `post_views:${postPublicId}`];
+
+		// Get existing meta to preserve other fields (likes, commentsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new views count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				viewsCount: newViewsCount,
+			},
+			tags,
+			300
+		);
+	}
+
+	/**
+	 * Update per post meta cache after comment count changes
+	 */
+	public async updatePostCommentMeta(postPublicId: string, newCommentsCount: number): Promise<void> {
+		const metaKey = `post_meta:${postPublicId}`;
+		const tags = [`post_meta:${postPublicId}`, `post_comments:${postPublicId}`];
+
+		// Get existing meta to preserve other fields (likes, viewsCount)
+		const existingMeta = (await this.redisService.getWithTags(metaKey)) || {};
+
+		// Update cached meta with new comments count while preserving other fields
+		await this.redisService.setWithTags(
+			metaKey,
+			{
+				...existingMeta,
+				commentsCount: newCommentsCount,
+			},
+			tags,
+			300
+		);
+	}
+
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {
 		const scoreMap: Record<"like" | "unlike", number> = {
 			like: 2,
@@ -356,7 +332,7 @@ export class FeedService {
 		return scoreMap[actionType] ?? 0;
 	}
 
-	// === Batch Feed Operations (for post creation/deletion) ===
+	// === Batch Feed Operations (for post creatring and deleting posts) ===
 
 	/**
 	 * Add post to followers' feeds in batch (when user creates post)

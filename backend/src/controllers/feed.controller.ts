@@ -4,7 +4,8 @@ import { inject, injectable } from "tsyringe";
 import { createError } from "../utils/errors";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { GetTrendingTagsQuery } from "../application/queries/tags/getTrendingTags/getTrendingTags.query";
-
+import { GetPersonalizedFeedQuery } from "../application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
+import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
 @injectable()
 export class FeedController {
 	constructor(
@@ -18,7 +19,9 @@ export class FeedController {
 			if (!req.decodedUser || !req.decodedUser.publicId) {
 				throw createError("ValidationError", "User public ID is required");
 			}
-			const feed = await this.feedService.getPersonalizedFeed(req.decodedUser.publicId, Number(page), Number(limit));
+
+			const query = new GetPersonalizedFeedQuery(req.decodedUser.publicId, Number(page) || 1, Number(limit) || 20);
+			const feed = await this.queryBus.execute(query);
 			res.json(feed);
 		} catch (error) {
 			console.error(error);
@@ -36,7 +39,8 @@ export class FeedController {
 			if (!req.decodedUser || !req.decodedUser.publicId) {
 				throw createError("ValidationError", "User public ID is required");
 			}
-			const feed = await this.feedService.getForYouFeed(req.decodedUser.publicId, Number(page), Number(limit));
+			const query = new GetForYouFeedQuery(req.decodedUser.publicId, Number(page) || 1, Number(limit) || 20);
+			const feed = await this.queryBus.execute(query);
 			res.json(feed);
 		} catch (error) {
 			console.error(error);
@@ -83,7 +87,7 @@ export class FeedController {
 	getTrendingTags = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const limit = Number(req.query.limit) || 5;
-			const timeWindowHours = Number(req.query.timeWindowHours) || 48; // 2 days
+			const timeWindowHours = Number(req.query.timeWindowHours) || 168; // 7 days default
 
 			const query = new GetTrendingTagsQuery(limit, timeWindowHours);
 			const result = await this.queryBus.execute(query);

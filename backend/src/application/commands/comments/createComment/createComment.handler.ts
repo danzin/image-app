@@ -9,11 +9,11 @@ import { CommentRepository } from "../../../../repositories/comment.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
-import { IComment } from "types/index";
+import { IComment } from "../../../../types/index";
 import mongoose from "mongoose";
 
 @injectable()

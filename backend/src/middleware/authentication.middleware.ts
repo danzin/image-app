@@ -96,7 +96,7 @@ export class AuthenticationMiddleware {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
 				console.log(`[AUTH] Optional auth - User authenticated: ${JSON.stringify(req.decodedUser)}`);
-			} catch (error) {
+			} catch (_e) {
 				// Silently fail for optional authentication
 				console.log(`[AUTH] Optional auth - No valid token provided, continuing as anonymous`);
 				req.decodedUser = undefined;

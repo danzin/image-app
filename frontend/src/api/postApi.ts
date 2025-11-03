@@ -58,7 +58,8 @@ export const fetchForYouFeed = async (
 };
 
 export const fetchPosts = async (
-	pageParam: number
+	pageParam: number,
+	limit: number = 10
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -66,18 +67,16 @@ export const fetchPosts = async (
 	limit: number;
 	totalPages: number;
 }> => {
-	const { data } = await axiosClient.get(`/api/posts?page=${pageParam}`);
+	const { data } = await axiosClient.get(`/api/posts/?page=${pageParam}&limit=${limit}`);
 	return data;
 };
 
-// Get post by public ID
 export const fetchPostByPublicId = async (publicId: string) => {
 	console.log(`Fetching post by public ID: ${publicId}`);
 	const { data } = await axiosClient.get(`/api/posts/${publicId}`);
 	return data;
 };
 
-// Get post by slug (SEO-friendly)
 export const fetchPostBySlug = async (slug: string) => {
 	console.log("Fetching post by slug:", slug);
 	const { data } = await axiosClient.get(`/api/posts/slug/${slug}`);
@@ -104,7 +103,6 @@ export const fetchTags = async (): Promise<ITag[]> => {
 	return data;
 };
 
-// Delete post by public ID
 export const deletePostByPublicId = async (publicId: string): Promise<void> => {
 	console.log("Deleting post with public ID:", publicId);
 	await axiosClient.delete(`/api/posts/${publicId}`);

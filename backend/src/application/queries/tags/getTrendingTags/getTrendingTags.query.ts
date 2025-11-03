@@ -4,6 +4,6 @@ export class GetTrendingTagsQuery implements IQuery {
 	readonly type = "GetTrendingTagsQuery";
 	constructor(
 		public readonly limit: number = 5,
-		public readonly timeWindowHours: number = 1
+		public readonly timeWindowHours: number = 168
 	) {}
 }

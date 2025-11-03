@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stripDangerousKeys } from "../../utils/sanitizers";
+import { sanitizeForMongo } from "../../utils/sanitizers";
 
 export const publicIdSchema = z
 	.object({
@@ -29,7 +29,7 @@ export const registrationSchema = z
 		confirmPassword: z.string(),
 	})
 	.strict()
-	.transform(stripDangerousKeys)
+	.transform(sanitizeForMongo)
 	.refine((data) => data.password === data.confirmPassword, {
 		message: "Passwords do not match",
 		path: ["confirmPassword"],
@@ -41,7 +41,7 @@ export const loginSchema = z
 		password: z.string(),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);
 
 export const updateProfileSchema = z
 	.object({
@@ -54,7 +54,7 @@ export const updateProfileSchema = z
 		bio: z.string().max(500).optional(),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);
 
 export const changePasswordSchema = z
 	.object({
@@ -62,4 +62,4 @@ export const changePasswordSchema = z
 		newPassword: z.string().min(8),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);

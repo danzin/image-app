@@ -10,7 +10,7 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	const theme = useTheme();
-	const { user } = useAuth();
+	const { user, isLoggedIn } = useAuth();
 	const uploadPostMutation = useUploadPost();
 
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,6 +20,11 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
 	const [content, setContent] = useState<string>("");
 	const [tags, setTags] = useState<string[]>([]);
+
+	// Don't render if user is not logged in
+	if (!isLoggedIn) {
+		return null;
+	}
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		if (e.target.files && e.target.files[0]) {

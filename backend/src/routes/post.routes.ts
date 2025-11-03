@@ -18,7 +18,7 @@ export class PostRoutes {
 	}
 
 	private initializeRoutes(): void {
-		this.router.get("/", this.postController.listPosts);
+		this.router.get("/", this.optionalAuth, this.postController.listPosts);
 
 		this.router.get(
 			"/slug/:slug",

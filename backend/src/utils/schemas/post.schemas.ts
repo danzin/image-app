@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stripDangerousKeys, sanitize } from "../../utils/sanitizers";
+import { sanitizeForMongo, sanitize } from "../../utils/sanitizers";
 
 export const createPostSchema = z
 	.object({
@@ -31,7 +31,7 @@ export const createPostSchema = z
 	.passthrough() // allow extra fields from multer
 	.transform((data) => {
 		// strip dangerous keys after passthrough
-		const cleaned = stripDangerousKeys(data);
+		const cleaned = sanitizeForMongo(data);
 		// only return relevant filds
 		return {
 			body: cleaned.body,

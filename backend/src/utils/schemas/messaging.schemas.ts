@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { stripDangerousKeys } from "../../utils/sanitizers";
+import { sanitizeForMongo } from "../../utils/sanitizers";
 
 export const paginationSchema = z
 	.object({
@@ -31,7 +31,7 @@ export const sendMessageSchema = z
 			.optional(),
 	})
 	.strict()
-	.transform(stripDangerousKeys)
+	.transform(sanitizeForMongo)
 	.refine((data) => data.conversationPublicId || data.recipientPublicId, {
 		message: "Either conversationPublicId or recipientPublicId must be provided",
 	});
@@ -41,4 +41,4 @@ export const initiateConversationSchema = z
 		recipientPublicId: z.string().uuid("Invalid recipient public ID format."),
 	})
 	.strict()
-	.transform(stripDangerousKeys);
+	.transform(sanitizeForMongo);

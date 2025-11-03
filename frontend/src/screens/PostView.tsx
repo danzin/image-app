@@ -301,7 +301,7 @@ const PostView = () => {
 
 				{/* Comment section */}
 				<Box sx={{ p: { xs: 2, sm: 3 } }}>
-					<CommentSection imageId={post.publicId} commentsCount={post.commentsCount} />
+					<CommentSection postId={post.publicId} commentsCount={post.commentsCount} />
 				</Box>
 			</Paper>
 		</Container>

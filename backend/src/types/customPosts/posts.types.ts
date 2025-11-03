@@ -9,6 +9,7 @@ export interface IPost extends Document {
 	tags: mongoose.Types.ObjectId[];
 	likesCount: number;
 	commentsCount: number;
+	viewsCount: number;
 	createdAt: Date;
 	updatedAt: Date;
 }

@@ -11,7 +11,7 @@ export interface GetTrendingTagsResponse {
 }
 
 export const feedApi = {
-	getTrendingTags: async (limit: number = 5, timeWindowHours: number = 1): Promise<GetTrendingTagsResponse> => {
+	getTrendingTags: async (limit: number = 10, timeWindowHours: number = 168): Promise<GetTrendingTagsResponse> => {
 		const response = await axiosClient.get("/api/feed/trending-tags", {
 			params: { limit, timeWindowHours },
 		});

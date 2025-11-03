@@ -1,6 +1,6 @@
 import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { UserInteractedWithPostEvent } from "../user/user-interaction.event";
+import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
 import { FeedService } from "../../../services/feed.service";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";

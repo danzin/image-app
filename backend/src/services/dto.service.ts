@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IImage, IMessage, MessageDTO, PostDTO } from "../types";
+import { IUser, IMessage, MessageDTO, PostDTO } from "../types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -26,26 +26,49 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 	updatedAt: Date;
 }
 
-export interface PublicImageDTO {
-	publicId: string;
-	slug: string;
-	url: string;
-	title?: string;
-	tags: string[];
-	user: {
-		publicId: string;
-		username: string;
-		avatar: string;
-	};
-	likes: number;
-	commentsCount: number;
-	createdAt: Date;
-	isLikedByViewer?: boolean; // Only when user is authenticated
-	isFavoritedByViewer?: boolean;
-}
-
 @injectable()
 export class DTOService {
+	/**
+	 * Converts a raw post document to PostDTO
+	 * Handles both Mongo documents and aggregation results
+	 */
+	toPostDTO(post: any): PostDTO {
+		const tags = Array.isArray(post.tags)
+			? post.tags.map((tag: any) => {
+					if (typeof tag === "string") return tag;
+					if (tag?.tag) return tag.tag;
+					return "";
+				})
+			: [];
+
+		const imageData = post.image ? (post.image as any) : null;
+		const url = imageData?.url || undefined;
+		const imagePublicId = imageData?.publicId || undefined;
+
+		// Create nested image object if image exists
+		const image = imageData && url && imagePublicId ? { url, publicId: imagePublicId } : null;
+
+		return {
+			publicId: post.publicId,
+			body: post.body,
+			slug: post.slug,
+			// Nested format (preferred)
+			image,
+			// Legacy flat format for backward compatibility
+			url,
+			imagePublicId,
+			tags: tags.filter(Boolean),
+			likes: post.likes ?? post.likesCount ?? 0,
+			commentsCount: post.commentsCount ?? 0,
+			viewsCount: post.viewsCount ?? 0,
+			createdAt: post.createdAt,
+			user: {
+				publicId: post.user?.publicId ?? post.user?.id ?? "",
+				username: post.user?.username ?? "",
+				avatar: post.user?.avatar ?? "",
+			},
+		};
+	}
 	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {
 		return {
 			publicId: user.publicId,
@@ -83,62 +106,6 @@ export class DTOService {
 			bannedBy: user.bannedBy?.toString(),
 			updatedAt: user.updatedAt,
 		};
-	}
-
-	toPublicImageDTO(image: IImage): PublicImageDTO {
-		return {
-			publicId: image.publicId,
-			slug: image.slug,
-			url: image.url,
-			title: image.title,
-			tags: image.tags?.map((tag) => tag.tag) || [],
-			user: {
-				publicId: image.user.publicId,
-				username: image.user.username,
-				avatar: image.user.avatar,
-			},
-			likes: image.likes || 0,
-			commentsCount: image.commentsCount || 0,
-			createdAt: image.createdAt,
-			isLikedByViewer: (image as any).isLikedByViewer || false,
-			isFavoritedByViewer: (image as any).isFavoritedByViewer || false,
-		};
-	}
-
-	toPublicPostDTO(
-		post: PostDTO
-	): PublicImageDTO & { body?: string; image?: { publicId: string; url: string; slug?: string } } {
-		// Build the response object
-		const response: any = {
-			publicId: post.publicId,
-			slug: post.slug ?? post.publicId,
-			body: post.body,
-
-			user: {
-				publicId: post.user.publicId,
-				username: post.user.username,
-				avatar: post.user.avatar,
-			},
-			likes: post.likes,
-			commentsCount: post.commentsCount,
-			createdAt: post.createdAt,
-			isLikedByViewer: post.isLikedByViewer ?? false,
-			isFavoritedByViewer: post.isFavoritedByViewer ?? false,
-		};
-
-		// Add image data if present (for backward compatibility, keep both formats)
-		if (post.url && post.imagePublicId) {
-			response.image = {
-				publicId: post.imagePublicId,
-				url: post.url,
-				slug: post.slug,
-			};
-			response.url = post.url; // Backward compatibility
-		} else {
-			response.url = "";
-		}
-
-		return response;
 	}
 
 	toPublicMessageDTO(message: IMessage, conversationPublicId: string): MessageDTO {

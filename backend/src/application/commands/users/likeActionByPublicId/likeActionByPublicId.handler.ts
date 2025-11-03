@@ -10,7 +10,7 @@ import { UserActionRepository } from "../../../../repositories/userAction.reposi
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/feed/feed-interaction.handler";
+import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
 import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";

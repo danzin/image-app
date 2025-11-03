@@ -9,11 +9,13 @@ const TrendingTags: React.FC = () => {
 	const theme = useTheme();
 	const navigate = useNavigate();
 
+	const timeWindowHours = 168;
+	const limit = 5;
 	const { data, isLoading, error } = useQuery({
-		queryKey: ["trending-tags"],
-		queryFn: () => feedApi.getTrendingTags(5, 1),
-		staleTime: 1000 * 60 * 30,
-		refetchInterval: 1000 * 60 * 30,
+		queryKey: ["trending-tags", limit, timeWindowHours],
+		queryFn: () => feedApi.getTrendingTags(limit, timeWindowHours),
+		staleTime: 1000 * 60 * 15,
+		refetchInterval: 1000 * 60 * 15,
 	});
 
 	const handleTagClick = (tag: string) => {
