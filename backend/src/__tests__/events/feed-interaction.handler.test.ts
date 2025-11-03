@@ -1,9 +1,10 @@
 import "reflect-metadata";
+import { describe, it, beforeEach } from "mocha";
 import { container } from "tsyringe";
 import { expect } from "chai";
-import sinon from "sinon";
-import { FeedInteractionHandler } from "../../application/events/feed/feed-interaction.handler";
-import { UserInteractedWithImageEvent } from "../../application/events/user/user-interaction.event";
+import * as sinon from "sinon";
+import { FeedInteractionHandler } from "../../application/events/user/feed-interaction.handler";
+import { UserInteractedWithPostEvent } from "../../application/events/user/user-interaction.event";
 import { FeedService } from "../../services/feed.service";
 import { RedisService } from "../../services/redis.service";
 import { UserRepository } from "../../repositories/user.repository";
@@ -45,12 +46,12 @@ describe("FeedInteractionHandler", () => {
 
 	it("should handle a 'like' event by updating meta and invalidating only the actor's feed", async () => {
 		// Arrange
-		const event = new UserInteractedWithImageEvent("user123", "like", "imageABC", ["tag1"], "owner456");
+		const event = new UserInteractedWithPostEvent("user123", "like", "imageABC", ["tag1"], "owner456");
 		const mockImage = { publicId: "imageABC", likes: 10 } as IImage;
 
 		imageRepositoryMock.findByPublicId.resolves(mockImage);
 		feedServiceMock.recordInteraction.resolves();
-		feedServiceMock.updateImageLikeMeta.resolves();
+		feedServiceMock.updatePostLikeMeta.resolves();
 		redisServiceMock.deletePatterns.resolves();
 
 		// Act
@@ -60,9 +61,9 @@ describe("FeedInteractionHandler", () => {
 		// 1. It should record the base interaction
 		expect(feedServiceMock.recordInteraction.calledOnceWith("user123", "like", "imageABC", ["tag1"])).to.be.true;
 
-		// 2. It should update the image's like metadata cache
+		// 2. It should update the post's like metadata cache
 		expect(imageRepositoryMock.findByPublicId.calledOnceWith("imageABC")).to.be.true;
-		expect(feedServiceMock.updateImageLikeMeta.calledOnceWith("imageABC", 10)).to.be.true;
+		expect(feedServiceMock.updatePostLikeMeta.calledOnceWith("imageABC", 10)).to.be.true;
 
 		// 3. It should invalidate only the actor's structural feed cache
 		expect(redisServiceMock.deletePatterns.calledOnceWith([`core_feed:user123:*`, `feed:user123:*`])).to.be.true;
@@ -74,7 +75,7 @@ describe("FeedInteractionHandler", () => {
 
 	it("should handle a 'comment' event by performing broader feed invalidation", async () => {
 		// Arrange
-		const event = new UserInteractedWithImageEvent("user123", "comment", "imageABC", ["tag1"], "owner456");
+		const event = new UserInteractedWithPostEvent("user123", "comment", "imageABC", ["tag1"], "owner456");
 
 		// Mock affected user lookups
 		userRepositoryMock.findUsersFollowing
@@ -96,7 +97,7 @@ describe("FeedInteractionHandler", () => {
 		expect(feedServiceMock.recordInteraction.calledOnceWith("user123", "comment", "imageABC", ["tag1"])).to.be.true;
 
 		// 2. It should NOT update like meta for a comment
-		expect(feedServiceMock.updateImageLikeMeta.called).to.be.false;
+		expect(feedServiceMock.updatePostLikeMeta.called).to.be.false;
 
 		// 3. It should invalidate the actor's feed first
 		expect(redisServiceMock.deletePatterns.calledOnceWith([`feed:user123:*`, `core_feed:user123:*`])).to.be.true;
@@ -122,7 +123,7 @@ describe("FeedInteractionHandler", () => {
 
 	it("should throw an error if recordInteraction fails", async () => {
 		// Arrange
-		const event = new UserInteractedWithImageEvent("user123", "like", "imageABC", [], "owner456");
+		const event = new UserInteractedWithPostEvent("user123", "like", "imageABC", [], "owner456");
 		const testError = new Error("Database connection lost");
 		feedServiceMock.recordInteraction.rejects(testError);
 

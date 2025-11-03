@@ -1,5 +1,5 @@
 import axiosClient from "./axiosClient";
-import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../types";
+import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO, WhoToFollowResponse } from "../types";
 import axios, { AxiosError } from "axios";
 
 // Login returns user and token
@@ -119,4 +119,9 @@ export const changePasswordRequest = async (passwords: {
 	newPassword: string;
 }): Promise<void> => {
 	await axiosClient.put("/api/users/me/change-password", passwords);
+};
+
+export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowResponse> => {
+	const { data } = await axiosClient.get(`/api/users/suggestions/who-to-follow?limit=${limit}`);
+	return data;
 };

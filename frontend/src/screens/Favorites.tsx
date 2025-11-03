@@ -9,7 +9,7 @@ const Favorites = () => {
 
 	const { data, error, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = favoritesQuery;
 
-	const images = data?.pages.flatMap((page) => page.data) ?? [];
+	const posts = data?.pages.flatMap((page) => page.data) ?? [];
 
 	if (!isLoggedIn) {
 		return (
@@ -49,11 +49,10 @@ const Favorites = () => {
 					</Box>
 				) : (
 					<Gallery
-						images={images}
+						posts={posts}
 						fetchNextPage={fetchNextPage}
 						hasNextPage={!!hasNextPage}
 						isFetchingNext={isFetchingNextPage}
-						isLoadingFiltered={false}
 						isLoadingAll={isLoading}
 						emptyTitle="No favorites yet"
 						emptyDescription="Tap the heart icon on any image to save it to your favorites."

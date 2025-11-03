@@ -2,16 +2,15 @@ import React, { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useParams } from "react-router-dom";
 import { GalleryProps } from "../types";
-import ImageCard from "./ImageCard";
+import PostCard from "./PostCard";
 import { useAuth } from "../hooks/context/useAuth";
 import { Box, Typography, CircularProgress, Card, Skeleton, CardActions } from "@mui/material";
 
 const Gallery: React.FC<GalleryProps> = ({
-	images,
+	posts,
 	fetchNextPage,
 	hasNextPage,
 	isFetchingNext,
-	isLoadingFiltered,
 	isLoadingAll,
 	emptyTitle,
 	emptyDescription,
@@ -22,11 +21,11 @@ const Gallery: React.FC<GalleryProps> = ({
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
 	const isProfileOwner = isLoggedIn && user?.publicId === profileId;
-	const isLoading = isLoadingAll || isLoadingFiltered;
-	const fallbackEmptyTitle = "No images yet";
+	const isLoading = isLoadingAll;
+	const fallbackEmptyTitle = "No posts yet";
 	const fallbackEmptyMessage = isProfileOwner
-		? "Upload your first image to get started!"
-		: "This user hasn't shared any images yet.";
+		? "Create your first post to get started!"
+		: "This user hasn't shared any posts yet.";
 	const resolvedEmptyTitle = emptyTitle ?? fallbackEmptyTitle;
 	const resolvedEmptyMessage = emptyDescription ?? fallbackEmptyMessage;
 
@@ -61,9 +60,9 @@ const Gallery: React.FC<GalleryProps> = ({
 				p: { xs: 2, sm: 3 },
 			}}
 		>
-			{/* Loading Skeletons with better styling */}
+			{/* Loading Skeletons */}
 			{isLoading &&
-				images.length === 0 &&
+				(!posts || posts.length === 0) &&
 				Array.from({ length: 3 }).map((_, i) => (
 					<Card
 						key={i}
@@ -83,9 +82,10 @@ const Gallery: React.FC<GalleryProps> = ({
 					</Card>
 				))}
 
-			{/* Image Cards with motion */}
+			{/* Post Cards with motion */}
 			{!isLoading &&
-				images.map((img, index) => (
+				posts &&
+				posts.map((img, index) => (
 					<motion.div
 						key={img.publicId}
 						initial={{ opacity: 0, y: 50 }}
@@ -93,12 +93,12 @@ const Gallery: React.FC<GalleryProps> = ({
 						transition={{ duration: 0.5, delay: index * 0.1 }}
 						style={{ width: "100%", maxWidth: "700px" }}
 					>
-						<ImageCard image={img} />
+						<PostCard post={img} />
 					</motion.div>
 				))}
 
-			{/* Enhanced Empty State */}
-			{!isLoading && images.length === 0 && (
+			{/* Empty State */}
+			{!isLoading && (!posts || posts.length === 0) && (
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9 }}
 					animate={{ opacity: 1, scale: 1 }}
@@ -135,7 +135,7 @@ const Gallery: React.FC<GalleryProps> = ({
 				</motion.div>
 			)}
 
-			{/* Enhanced Infinite Scroll Trigger */}
+			{/* Infinite Scroll Trigger */}
 			<Box
 				ref={loadMoreRef}
 				sx={{

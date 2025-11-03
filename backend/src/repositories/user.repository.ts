@@ -1,4 +1,4 @@
-import { Model, ClientSession } from "mongoose";
+import { Model, ClientSession, Types } from "mongoose";
 import { IUser, PaginationOptions, PaginationResult } from "../types";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
@@ -263,6 +263,105 @@ export class UserRepository extends BaseRepository<IUser> {
 		} catch (error) {
 			console.error("Error in findUsersByPublicIds:", error);
 			return [];
+		}
+	}
+
+	/**
+	 * Get suggested users to follow based on engagement metrics
+	 * Scores users based on: follower count (40%), total post likes (30%), post count (20%), recent activity (10%)
+	 * @param currentUserId - ID of the current user (to exclude from suggestions)
+	 * @param limit - Maximum number of suggestions to return
+	 */
+	async getSuggestedUsersToFollow(currentUserId: string, limit: number = 5): Promise<any[]> {
+		try {
+			const thirtyDaysAgo = new Date();
+			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+			const currentUser = await this.model.findById(currentUserId).select("following").lean();
+			const followingIds = currentUser?.following || [];
+
+			const result = await this.model.aggregate([
+				// exclude the current user, users they already follow, and banned users
+				{
+					$match: {
+						_id: { $ne: new Types.ObjectId(currentUserId), $nin: followingIds },
+						isBanned: false,
+					},
+				},
+				// lookup posts for each user
+				{
+					$lookup: {
+						from: "posts",
+						localField: "_id",
+						foreignField: "user",
+						as: "posts",
+					},
+				},
+				// calculate metrics
+				{
+					$addFields: {
+						followerCount: { $size: { $ifNull: ["$followers", []] } },
+						postCount: { $size: "$posts" },
+						totalLikes: {
+							$reduce: {
+								input: "$posts",
+								initialValue: 0,
+								in: { $add: ["$$value", { $ifNull: ["$$this.likes", 0] }] },
+							},
+						},
+						recentPostCount: {
+							$size: {
+								$filter: {
+									input: "$posts",
+									as: "post",
+									cond: { $gte: ["$$post.createdAt", thirtyDaysAgo] },
+								},
+							},
+						},
+					},
+				},
+				// filter users with at least some activity
+				{
+					$match: {
+						$or: [{ followerCount: { $gte: 1 } }, { postCount: { $gte: 1 } }, { totalLikes: { $gte: 1 } }],
+					},
+				},
+				// calculate engagement score
+				{
+					$addFields: {
+						score: {
+							$add: [
+								{ $multiply: ["$followerCount", 0.4] },
+								{ $multiply: ["$totalLikes", 0.3] },
+								{ $multiply: ["$postCount", 0.2] },
+								{ $multiply: ["$recentPostCount", 0.1] },
+							],
+						},
+					},
+				},
+				// sort by score descending
+				{ $sort: { score: -1 } },
+				// limit results
+				{ $limit: limit },
+				// project only needed fields
+				{
+					$project: {
+						publicId: 1,
+						username: 1,
+						avatar: 1,
+						bio: 1,
+						followerCount: 1,
+						postCount: 1,
+						totalLikes: 1,
+						score: 1,
+					},
+				},
+			]);
+
+			return result;
+		} catch (error) {
+			console.error("Error in getSuggestedUsersToFollow:", error);
+			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
 }

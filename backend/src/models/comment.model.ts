@@ -8,11 +8,11 @@ const commentSchema = new Schema<IComment>(
 			trim: true,
 			maxlength: 500, // Limit comment length
 		},
-		imageId: {
+		postId: {
 			type: Schema.Types.ObjectId,
-			ref: "Image",
+			ref: "Post",
 			required: true,
-			index: true, // Index for fast queries by imagem
+			index: true, // Index for fast queries by post
 		},
 		userId: {
 			type: Schema.Types.ObjectId,
@@ -30,8 +30,8 @@ const commentSchema = new Schema<IComment>(
 	}
 );
 
-// Compound index for efficient pagination by image
-commentSchema.index({ imageId: 1, createdAt: -1 });
+// Compound index for efficient pagination by post
+commentSchema.index({ postId: 1, createdAt: -1 });
 
 // Index for user's comments
 commentSchema.index({ userId: 1, createdAt: -1 });

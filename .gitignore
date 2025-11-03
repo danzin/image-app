@@ -8,6 +8,7 @@ backend/detailed-requests.log
 backend/http-requests.log
 backend/src/NOTES.txt
 backend/errors.log
+backend/redis.log
 backend/uploads
 frontend/.env
 /uploads
@@ -15,4 +16,3 @@ dist
 .github
 notes.txt
 tsconfig.tsbuildinfo
-EVENT_HANDLER_NOTES.md

@@ -16,62 +16,40 @@ export const useFeedSocketIntegration = () => {
 		console.log("Setting up feed socket listeners...");
 
 		/**
-		 * Handle new image uploads (targeted to specific users)
-		 * Backend event: "feed_update" with type: "new_image"
+		 * Handle new post uploads (targeted to specific users)
+		 * Backend event: "feed_update" with type: "new_post"
 		 */
-		const handleNewImage = (data: {
-			type: "new_image" | "image_uploaded";
-			uploaderId: string;
-			imageId: string;
+		const handleNewPost = (data: {
+			type: "new_post";
+			authorId: string;
+			postId: string;
 			tags: string[];
+			affectedUsers: string[];
 			timestamp: string;
 		}) => {
-			console.log("Real-time: New image received (targeted)", data);
+			console.log("Real-time: New post received (targeted)", data);
 
 			// Invalidate personalized feeds
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["images"] });
 
-			// Also invalidate uploader's profile images
-			queryClient.invalidateQueries({ queryKey: ["userImages", data.uploaderId] });
+			// Also invalidate author's profile posts
+			queryClient.invalidateQueries({ queryKey: ["userImages", data.authorId] });
 		};
 
 		/**
 		 * Handle global discovery feed updates
-		 * Backend event: "discovery_new_image" with type: "new_image_global"
+		 * Backend event: "discovery_new_post" with type: "new_post_global"
 		 */
-		const handleDiscoveryNewImage = (data: {
-			type: "new_image_global";
-			data: {
-				imageId: string;
-				userId: string;
-				tags: string[];
-				timestamp: string;
-			};
-		}) => {
-			console.log("Real-time: Global new image received for discovery feeds", data);
-
-			// Immediately invalidate discovery feeds for all users
-			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
-			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
-
-			// Also invalidate general images query
-			queryClient.invalidateQueries({ queryKey: ["images"] });
-		};
-
-		/**
-		 * Handle targeted discovery feed updates (legacy event)
-		 * Backend event: "discovery_update" with type: "new_image_global"
-		 */
-		const handleDiscoveryUpdate = (data: {
-			type: "new_image_global";
-			uploaderId: string;
-			imageId: string;
+		const handleDiscoveryNewPost = (data: {
+			type: "new_post_global";
+			authorId: string;
+			postId: string;
 			tags: string[];
 			timestamp: string;
 		}) => {
-			console.log("Real-time: Discovery update received (legacy)", data);
+			console.log("Real-time: Global new post received for discovery feeds", data);
 
 			// Immediately invalidate discovery feeds for all users
 			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
@@ -199,18 +177,16 @@ export const useFeedSocketIntegration = () => {
 		};
 
 		// Register all socket event listeners
-		socket.on("feed_update", handleNewImage);
-		socket.on("discovery_new_image", handleDiscoveryNewImage);
-		socket.on("discovery_update", handleDiscoveryUpdate);
+		socket.on("feed_update", handleNewPost);
+		socket.on("discovery_new_post", handleDiscoveryNewPost);
 		socket.on("like_update", handleLikeUpdate);
 		socket.on("avatar_update", handleAvatarUpdate);
 		socket.on("feed_interaction", handleFeedInteraction);
 
 		return () => {
 			// Cleanup listeners
-			socket.off("feed_update", handleNewImage);
-			socket.off("discovery_new_image", handleDiscoveryNewImage);
-			socket.off("discovery_update", handleDiscoveryUpdate);
+			socket.off("feed_update", handleNewPost);
+			socket.off("discovery_new_post", handleDiscoveryNewPost);
 			socket.off("like_update", handleLikeUpdate);
 			socket.off("avatar_update", handleAvatarUpdate);
 			socket.off("feed_interaction", handleFeedInteraction);

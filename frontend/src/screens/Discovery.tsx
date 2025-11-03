@@ -5,7 +5,7 @@ import { TrendingUp, FiberNew, Favorite } from "@mui/icons-material";
 
 import Gallery from "../components/Gallery";
 import { useAuth } from "../hooks/context/useAuth";
-import { useTrendingFeed, useNewFeed, useForYouFeed } from "../hooks/images/useImages";
+import { useTrendingFeed, useNewFeed, useForYouFeed } from "../hooks/posts/usePosts";
 import { getDefaultDiscoveryTab } from "../lib/userOnboarding";
 
 interface TabPanelProps {
@@ -125,11 +125,10 @@ const Discovery: React.FC = () => {
 					<TabPanel value={activeTab} index={0}>
 						<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 							<Gallery
-								images={newFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+								posts={newFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 								fetchNextPage={newFeedQuery.fetchNextPage}
 								hasNextPage={!!newFeedQuery.hasNextPage}
 								isFetchingNext={newFeedQuery.isFetchingNextPage}
-								isLoadingFiltered={false}
 								isLoadingAll={newFeedQuery.isLoading}
 							/>
 						</motion.div>
@@ -138,11 +137,10 @@ const Discovery: React.FC = () => {
 					<TabPanel value={activeTab} index={1}>
 						<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 							<Gallery
-								images={trendingFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+								posts={trendingFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 								fetchNextPage={trendingFeedQuery.fetchNextPage}
 								hasNextPage={!!trendingFeedQuery.hasNextPage}
 								isFetchingNext={trendingFeedQuery.isFetchingNextPage}
-								isLoadingFiltered={false}
 								isLoadingAll={trendingFeedQuery.isLoading}
 							/>
 						</motion.div>
@@ -152,11 +150,10 @@ const Discovery: React.FC = () => {
 						<TabPanel value={activeTab} index={2}>
 							<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
 								<Gallery
-									images={forYouFeedQuery.data?.pages.flatMap((page) => page.data) || []}
+									posts={forYouFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 									fetchNextPage={forYouFeedQuery.fetchNextPage}
 									hasNextPage={!!forYouFeedQuery.hasNextPage}
 									isFetchingNext={forYouFeedQuery.isFetchingNextPage}
-									isLoadingFiltered={false}
 									isLoadingAll={forYouFeedQuery.isLoading}
 								/>
 							</motion.div>

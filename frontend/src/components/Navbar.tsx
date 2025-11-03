@@ -25,11 +25,10 @@ const Navbar = () => {
 	return (
 		<AppBar
 			position="sticky"
+			elevation={0}
 			sx={{
-				bgcolor: "rgba(26, 26, 46, 0.8)",
-				backdropFilter: "blur(20px)",
-				boxShadow: "0 8px 32px rgba(0, 0, 0, 0.3)",
-				borderBottom: "1px solid rgba(99, 102, 241, 0.2)",
+				backgroundColor: "transparent",
+				borderBottom: "none",
 			}}
 		>
 			<Container maxWidth="xl">

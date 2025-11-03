@@ -5,7 +5,7 @@ import { createError } from "../utils/errors";
 import { DTOService } from "../services/dto.service";
 import { FavoriteRepository } from "../repositories/favorite.repository";
 import { UserRepository } from "../repositories/user.repository";
-import { ImageRepository } from "../repositories/image.repository";
+import { PostRepository } from "../repositories/post.repository";
 
 @injectable()
 export class FavoriteController {
@@ -13,30 +13,33 @@ export class FavoriteController {
 		@inject("FavoriteService") private readonly favoriteService: FavoriteService,
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
+		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	/**
-	 *  Add an image to the logged-in user's favorites list.
+	 *  Add a post to the logged-in user's favorites list.
 	 */
 	addFavorite = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId: imagePublicId } = req.params; // The TARGET is the image from the URL
+			let { publicId: postPublicId } = req.params; // The TARGET is the post from the URL
 			const actorPublicId = req.decodedUser?.publicId; // The ACTOR is the logged-in user from the token
 
 			if (!actorPublicId) {
-				throw createError("AuthenticationError", "User must be logged in to favorite an image.");
+				throw createError("AuthenticationError", "User must be logged in to favorite a post.");
 			}
+
+			// strip file extension for backward compatibility
+			postPublicId = postPublicId.replace(/\.[a-z0-9]{2,5}$/i, "");
 
 			const internalActorId = await this.userRepository.findInternalIdByPublicId(actorPublicId);
-			const internalImageId = await this.imageRepository.findInternalIdByPublicId(imagePublicId);
+			const internalPostId = await this.postRepository.findInternalIdByPublicId(postPublicId);
 
-			if (!internalActorId || !internalImageId) {
-				throw createError("NotFoundError", "User or Image not found");
+			if (!internalActorId || !internalPostId) {
+				throw createError("NotFoundError", "User or Post not found");
 			}
 
-			await this.favoriteService.addFavorite(internalActorId, internalImageId);
+			await this.favoriteService.addFavorite(internalActorId, internalPostId);
 			res.status(204).send(); // 204 No Content is appropriate for a successful action with no body
 		} catch (error) {
 			next(error);
@@ -44,25 +47,28 @@ export class FavoriteController {
 	};
 
 	/**
-	 * Remove an image from the logged-in user's favorites list.
+	 * Remove a post from the logged-in user's favorites list.
 	 */
 	removeFavorite = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId: imagePublicId } = req.params; // The TARGET is the image from the URL
+			let { publicId: postPublicId } = req.params; // The TARGET is the post from the URL
 			const actorPublicId = req.decodedUser?.publicId; // The ACTOR is the logged-in user
 
 			if (!actorPublicId) {
-				throw createError("AuthenticationError", "User must be logged in to unfavorite an image.");
+				throw createError("AuthenticationError", "User must be logged in to unfavorite a post.");
 			}
+
+			// strip file extension for backward compatibility
+			postPublicId = postPublicId.replace(/\.[a-z0-9]{2,5}$/i, "");
 
 			const internalActorId = await this.userRepository.findInternalIdByPublicId(actorPublicId);
-			const internalImageId = await this.imageRepository.findInternalIdByPublicId(imagePublicId);
+			const internalPostId = await this.postRepository.findInternalIdByPublicId(postPublicId);
 
-			if (!internalActorId || !internalImageId) {
-				throw createError("NotFoundError", "User or Image not found");
+			if (!internalActorId || !internalPostId) {
+				throw createError("NotFoundError", "User or Post not found");
 			}
 
-			await this.favoriteService.removeFavorite(internalActorId, internalImageId);
+			await this.favoriteService.removeFavorite(internalActorId, internalPostId);
 			res.status(204).send();
 		} catch (error) {
 			next(error);
@@ -70,7 +76,7 @@ export class FavoriteController {
 	};
 
 	/**
-	 * Get the list of favorited images for a specific user profile.
+	 * Get the list of favorited posts for a specific user profile.
 	 */
 	getFavorites = async (req: Request, res: Response, next: NextFunction) => {
 		try {
@@ -86,15 +92,16 @@ export class FavoriteController {
 
 			const { data, total } = await this.favoriteRepository.findFavoritesByUserId(internalUserId, page, limit);
 
-			const dataWithFlag = data.map((img) => {
-				(img as any).isFavoritedByViewer = true;
-				return img;
+			const dataWithFlag = data.map((post) => {
+				(post as any).isFavoritedByViewer = true;
+				(post as any).isLikedByViewer = false; // default value
+				return post;
 			});
 
-			const imageDTOs = dataWithFlag.map((img) => this.dtoService.toPublicImageDTO(img));
+			const postDTOs = dataWithFlag.map((post: any) => this.dtoService.toPostDTO(post as any));
 
 			res.status(200).json({
-				data: imageDTOs,
+				data: postDTOs,
 				page,
 				limit,
 				total,

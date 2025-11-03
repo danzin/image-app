@@ -65,10 +65,7 @@ export class MessagingController {
 				throw createError("AuthenticationError", "User must be logged in to start a conversation");
 			}
 
-			const recipientPublicId = req.body.recipientPublicId as string | undefined;
-			if (!recipientPublicId) {
-				throw createError("ValidationError", "Recipient public ID is required");
-			}
+			const { recipientPublicId } = req.body; // validated by Zod middleware
 
 			const conversation = await this.messagingService.initiateConversation(senderPublicId, recipientPublicId);
 			res.status(201).json({ conversation });

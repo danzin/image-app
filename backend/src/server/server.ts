@@ -5,6 +5,7 @@ import http from "http";
 import { injectable, inject } from "tsyringe";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
+import { PostRoutes } from "../routes/post.routes";
 import { CommentRoutes } from "../routes/comment.routes";
 import { ErrorHandler } from "../utils/errors";
 import { SearchRoutes } from "../routes/search.routes";
@@ -23,7 +24,8 @@ export class Server {
 	/**
 	 * Constructor for initializing the server with injected dependencies.
 	 * @param {UserRoutes} userRoutes - Routes for user-related endpoints.
-	 * @param {ImageRoutes} imageRoutes - Routes for image-related endpoints.
+	 * @param {ImageRoutes} imageRoutes - Routes for legacy image endpoints.
+	 * @param {PostRoutes} postRoutes - Routes for post-related endpoints.
 	 * @param {CommentRoutes} commentRoutes - Routes for comment-related endpoints.
 	 * @param {SearchRoutes} searchRoutes - Routes for search-related endpoints.
 	 * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
@@ -35,6 +37,7 @@ export class Server {
 	constructor(
 		@inject(UserRoutes) private readonly userRoutes: UserRoutes,
 		@inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
+		@inject(PostRoutes) private readonly postRoutes: PostRoutes,
 		@inject(CommentRoutes) private readonly commentRoutes: CommentRoutes,
 		@inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
 		@inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
@@ -93,6 +96,7 @@ export class Server {
 
 		this.app.use("/users", this.userRoutes.getRouter());
 		this.app.use("/images", this.imageRoutes.getRouter());
+		this.app.use("/posts", this.postRoutes.getRouter());
 		this.app.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
 		this.app.use("/search", this.searchRoutes.getRouter());
 		this.app.use("/admin", this.adminUserRoutes.getRouter());
@@ -112,6 +116,7 @@ export class Server {
 					"/health",
 					"/api/users",
 					"/api/images",
+					"/api/posts",
 					"/api/search",
 					"/api/admin",
 					"/api/notifications",

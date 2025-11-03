@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Box, useTheme, useMediaQuery, IconButton } from "@mui/material";
 import { Menu as MenuIcon } from "@mui/icons-material";
-import Navbar from "./Navbar";
 import LeftSidebar from "./LeftSidebar";
+import RightSidebar from "./RightSidebar";
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -17,61 +17,84 @@ const Layout: React.FC = () => {
 	return (
 		<Box
 			sx={{
-				height: "100vh",
+				minHeight: "100vh",
 				display: "flex",
 				bgcolor: "background.default",
 			}}
 		>
-			{/* Left Sidebar */}
-			<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
-
-			{/* Main Content Area */}
 			<Box
 				sx={{
-					flex: 1,
 					display: "flex",
-					flexDirection: "column",
-					overflow: "hidden",
+					width: "100%",
+					maxWidth: "1650px",
+					ml: 1,
 				}}
 			>
-				{/* Navbar with mobile menu button */}
-				<Box sx={{ position: "relative" }}>
-					{isMobile && (
-						<IconButton
-							color="inherit"
-							aria-label="open drawer"
-							edge="start"
-							onClick={handleDrawerToggle}
-							sx={{
-								position: "absolute",
-								left: 8,
-								top: "50%",
-								transform: "translateY(-50%)",
-								zIndex: theme.zIndex.appBar + 1,
-								backgroundColor: "rgba(26, 26, 46, 0.8)",
-								"&:hover": {
-									backgroundColor: "rgba(26, 26, 46, 0.9)",
-								},
-							}}
-						>
-							<MenuIcon />
-						</IconButton>
-					)}
-					<Navbar />
-				</Box>
-
-				{/* Main Content */}
+				{/* --- Left Sidebar --- */}
 				<Box
-					component="main"
 					sx={{
-						flex: 1,
-						overflowY: "auto",
-						display: "flex",
-						flexDirection: "column",
-						width: "100%",
+						position: "sticky",
+						top: 0,
+						height: "100vh",
+						zIndex: 10,
 					}}
 				>
-					<Outlet />
+					<LeftSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(false)} />
+				</Box>
+
+				{/* --- Main Content Area --- */}
+				<Box
+					sx={{
+						flex: 1,
+						display: "flex",
+						flexDirection: "column",
+						borderLeft: `1px solid ${theme.palette.divider}`,
+						borderRight: `1px solid ${theme.palette.divider}`,
+					}}
+				>
+					{/* Scrollable Main Content */}
+					<Box
+						component="main"
+						sx={{
+							display: "flex",
+							flexDirection: "column",
+							py: 3,
+						}}
+					>
+						{isMobile && (
+							<IconButton
+								color="inherit"
+								aria-label="open drawer"
+								edge="start"
+								onClick={handleDrawerToggle}
+								sx={{
+									position: "fixed",
+									left: 8,
+									top: 8,
+									zIndex: theme.zIndex.appBar + 1,
+									bgcolor: "background.paper",
+									"&:hover": {
+										bgcolor: "background.default",
+									},
+								}}
+							>
+								<MenuIcon />
+							</IconButton>
+						)}
+						<Outlet />
+					</Box>
+				</Box>
+
+				{/* --- Right Sidebar --- */}
+				<Box
+					sx={{
+						position: "sticky",
+						top: 0,
+						height: "100vh",
+						zIndex: 10,
+					}}
+				>
+					<RightSidebar />
 				</Box>
 			</Box>
 		</Box>

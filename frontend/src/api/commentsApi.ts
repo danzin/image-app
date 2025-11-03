@@ -4,26 +4,29 @@ import { IComment, CommentCreateDto, CommentUpdateDto, CommentsPaginationRespons
 const BASE_URL = "/api";
 
 /**
- * Create a new comment on an image
+ * Create a new comment on a post
  */
-export const createComment = async (imagePublicId: string, commentData: CommentCreateDto): Promise<IComment> => {
-	const response = await axiosClient.post(`${BASE_URL}/images/${imagePublicId}/comments`, commentData);
+export const createComment = async (postPublicId: string, commentData: CommentCreateDto): Promise<IComment> => {
+	const response = await axiosClient.post(`${BASE_URL}/posts/${postPublicId}/comments`, commentData);
 	return response.data;
 };
 
 /**
- * Get comments for an image with pagination
+ * Get comments for a post with pagination
  */
-export const getCommentsByImageId = async (
-	imagePublicId: string,
+export const getCommentsByPostId = async (
+	postPublicId: string,
 	page: number = 1,
 	limit: number = 10
 ): Promise<CommentsPaginationResponse> => {
-	const response = await axiosClient.get(`${BASE_URL}/images/${imagePublicId}/comments`, {
+	const response = await axiosClient.get(`${BASE_URL}/posts/${postPublicId}/comments`, {
 		params: { page, limit },
 	});
 	return response.data;
 };
+
+// Legacy alias for backward compatibility
+export const getCommentsByImageId = getCommentsByPostId;
 
 /**
  * Update a comment

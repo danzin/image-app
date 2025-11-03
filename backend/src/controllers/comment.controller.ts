@@ -18,12 +18,12 @@ export class CommentController {
 	) {}
 
 	/**
-	 * Create a new comment on an image
-	 * POST /api/images/:imagePublicId/comments
+	 * Create a new comment on a post
+	 * POST /api/posts/:postPublicId/comments
 	 */
 	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { imagePublicId } = req.params;
+			const { postPublicId } = req.params;
 			const { content } = req.body;
 			const { decodedUser } = req;
 
@@ -31,12 +31,7 @@ export class CommentController {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
-			if (!content || typeof content !== "string") {
-				throw createError("ValidationError", "Comment content is required");
-			}
-
-			// Use CQRS command instead of service
-			const command = new CreateCommentCommand(decodedUser.publicId, imagePublicId, content);
+			const command = new CreateCommentCommand(decodedUser.publicId, postPublicId, content);
 			const comment = await this.commandBus.dispatch(command);
 
 			res.status(201).json(comment);
@@ -50,19 +45,19 @@ export class CommentController {
 	};
 
 	/**
-	 * Get comments for an image with pagination
-	 * GET /api/images/:imagePublicId/comments?page=1&limit=10
+	 * Get comments for a post with pagination
+	 * GET /api/posts/:postPublicId/comments?page=1&limit=10
 	 */
-	getCommentsByImageId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+	getCommentsByPostId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { imagePublicId } = req.params;
+			const { postPublicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
 
 			// Limit max comments per page to prevent abuse
 			const maxLimit = Math.min(limit, 50);
 
-			const result = await this.commentService.getCommentsByImageId(imagePublicId, page, maxLimit);
+			const result = await this.commentService.getCommentsByPostPublicId(postPublicId, page, maxLimit);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -80,15 +75,11 @@ export class CommentController {
 	updateComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { commentId } = req.params;
-			const { content } = req.body;
+			const { content } = req.body; // Already validated and sanitized by Zod middleware
 			const { decodedUser } = req;
 
 			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
-			}
-
-			if (!content || typeof content !== "string") {
-				throw createError("ValidationError", "Comment content is required");
 			}
 
 			const comment = await this.commentService.updateCommentByPublicId(commentId, decodedUser.publicId, content);

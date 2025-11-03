@@ -1,7 +1,8 @@
 import express from "express";
 import { ImageController } from "../controllers/image.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { ImageValidationSchemas, UserValidationSchemas } from "../utils/schemals/user.schemas";
+import { slugSchema, publicIdSchema, searchByTagsSchema } from "../utils/schemas/post.schemas";
+import { usernameSchema } from "../utils/schemas/user.schemas";
 import upload from "../config/multer";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -18,54 +19,55 @@ export class ImageRoutes {
 	}
 
 	private initializeRoutes(): void {
-		//get all images
-		this.router.get("/", this.controller.getImages);
+		this.router.get("/", this.controller.listPosts);
 
 		// Use slug for SEO-friendly image URLs (optional auth to check if user liked)
 		this.router.get(
 			"/image/:slug",
 			this.optionalAuth,
-			new ValidationMiddleware(ImageValidationSchemas.slugAction()).validate(),
-			this.controller.getImageBySlug
+			new ValidationMiddleware({ params: slugSchema }).validate(),
+			this.controller.getPostBySlug
 		);
 
 		// Public: get image by publicId (optional auth to check if user liked)
 		this.router.get(
 			"/image/:publicId",
 			this.optionalAuth,
-			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
-			this.controller.getImageByPublicId
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.controller.getPostByPublicId
 		);
 
 		// Use username for profile image galleries (public endpoint)
 		this.router.get(
 			"/user/username/:username",
-			new ValidationMiddleware(UserValidationSchemas.usernameAction()).validate(),
-			this.controller.getUserImagesByUsername
+			new ValidationMiddleware({ params: usernameSchema }).validate(),
+			this.controller.getPostsByUsername
 		);
 		this.router.get(
 			"/user/id/:publicId",
-			new ValidationMiddleware(UserValidationSchemas.publicIdAction()).validate(),
-			this.controller.getUserImagesByPublicId
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.controller.getPostsByUserPublicId
 		);
 
-		//return images by selected tags
-		this.router.get("/search/tags", this.controller.searchByTags);
+		this.router.get(
+			"/search/tags",
+			new ValidationMiddleware({ query: searchByTagsSchema }).validate(),
+			this.controller.searchByTags
+		);
 
-		//returns all tags
-		this.router.get("/tags", this.controller.getTags);
+		this.router.get("/tags", this.controller.listTags);
 
 		// === PROTECTED ROUTES (require authentication) ===
 		this.router.use(this.auth);
 
 		//logged in user uploads an image
-		this.router.post("/upload", upload.single("image"), this.controller.uploadImage);
+		this.router.post("/upload", upload.single("image"), this.controller.createPost);
 
 		//logged in deletes an image by public ID
 		this.router.delete(
 			"/image/:publicId",
-			new ValidationMiddleware(ImageValidationSchemas.publicIdAction()).validate(),
-			this.controller.deleteImageByPublicId
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.controller.deletePost
 		);
 	}
 	public getRouter(): express.Router {

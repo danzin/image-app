@@ -13,6 +13,8 @@ import { RegisterUserResult } from "../application/commands/users/register/regis
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetMeResult } from "../application/queries/users/getMe/getMe.handler";
 import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
+import { GetWhoToFollowQuery } from "../application/queries/users/getWhoToFollow/getWhoToFollow.query";
+import { GetWhoToFollowResult } from "../application/queries/users/getWhoToFollow/getWhoToFollow.handler";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -113,11 +115,8 @@ export class UserController {
 	changePassword = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const { currentPassword, newPassword } = req.body;
+			const { currentPassword, newPassword } = req.body; // Already validated by Zod middleware
 
-			if (!currentPassword || !newPassword) {
-				return next(createError("ValidationError", "Current password and new password are required."));
-			}
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
@@ -336,9 +335,13 @@ export class UserController {
 	// User actions
 	likeActionByPublicId = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { publicId } = req.params;
+			let { publicId } = req.params;
 			const userPublicId = req.decodedUser?.publicId;
-			console.log(`[LIKEACTION]: User public ID: ${userPublicId}, Image public ID: ${publicId}`);
+
+			// strip file extension for backward compatibility
+			publicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+
+			console.log(`[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`);
 			if (!userPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
@@ -349,6 +352,28 @@ export class UserController {
 			}
 			const command = new LikeActionByPublicIdCommand(userPublicId, publicId);
 			const result = await this.commandBus.dispatch(command);
+			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	// Get suggested users to follow
+	getWhoToFollow = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { decodedUser } = req;
+			if (!decodedUser?.publicId) {
+				return next(createError("UnauthorizedError", "User not authenticated."));
+			}
+
+			const limit = parseInt(req.query.limit as string) || 5;
+			if (limit > 20) {
+				return next(createError("ValidationError", "Limit cannot exceed 20"));
+			}
+
+			const query = new GetWhoToFollowQuery(decodedUser.publicId as string, limit);
+			const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
+
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);

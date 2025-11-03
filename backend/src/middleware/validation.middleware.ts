@@ -1,35 +1,34 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import Joi from "joi";
+import { z, ZodError } from "zod";
 import { createError } from "../utils/errors";
-import { ValidationSchema } from "../utils/schemals/user.schemas";
+
+interface ValidationSchema {
+	body?: z.ZodTypeAny;
+	query?: z.ZodTypeAny;
+	params?: z.ZodTypeAny;
+}
 
 export class ValidationMiddleware {
 	constructor(private schemas: ValidationSchema) {}
 
 	validate(): RequestHandler {
-		return (req: Request, _res: Response, next: NextFunction) => {
+		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				if (this.schemas.body) {
-					const { error, value } = (this.schemas.body as Joi.Schema).validate(req.body, { abortEarly: false });
-					if (error) throw error;
-					req.body = value;
+					req.body = await this.schemas.body.parseAsync(req.body);
 				}
-
-				if (this.schemas.params) {
-					const { error, value } = (this.schemas.params as Joi.Schema).validate(req.params, { abortEarly: false });
-					if (error) throw error;
-					req.params = value as any;
-				}
-
 				if (this.schemas.query) {
-					const { error, value } = (this.schemas.query as Joi.Schema).validate(req.query, { abortEarly: false });
-					if (error) throw error;
-					req.query = value as any;
+					req.query = await this.schemas.query.parseAsync(req.query);
 				}
-
+				if (this.schemas.params) {
+					req.params = await this.schemas.params.parseAsync(req.params);
+				}
 				next();
 			} catch (error) {
-				if (error instanceof Error) {
+				if (error instanceof ZodError) {
+					const errorMessages = error.errors.map((e) => e.message).join(", ");
+					next(createError("ValidationError", errorMessages));
+				} else if (error instanceof Error) {
 					next(createError("ValidationError", error.message));
 				} else {
 					next(createError("ValidationError", "Unknown validation error"));

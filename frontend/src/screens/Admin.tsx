@@ -26,7 +26,9 @@ import {
 	Avatar,
 	TablePagination,
 	CircularProgress,
+	useTheme,
 } from "@mui/material";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
 	Dashboard as DashboardIcon,
 	People as PeopleIcon,
@@ -64,6 +66,53 @@ interface TabPanelProps {
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
 	<div hidden={value !== index}>{value === index && <Box sx={{ py: 3 }}>{children}</Box>}</div>
 );
+
+const chartData = [
+	{ name: "May", users: 4000 },
+	{ name: "Jun", users: 5000 },
+	{ name: "Jul", users: 6200 },
+	{ name: "Aug", users: 5800 },
+	{ name: "Sep", users: 7200 },
+	{ name: "Oct", users: 8000 },
+];
+
+interface StatCardProps {
+	title: string;
+	value: string | number;
+	change?: string;
+	icon: React.ReactNode;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
+	const theme = useTheme();
+	const isPositive = change?.startsWith("+");
+
+	return (
+		<Card
+			sx={{
+				background: `linear-gradient(145deg, ${theme.palette.background.paper} 0%, ${theme.palette.background.default} 100%)`,
+				border: `1px solid ${theme.palette.divider}`,
+			}}
+		>
+			<CardContent>
+				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 2 }}>
+					<Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+						{title}
+					</Typography>
+					<Box sx={{ color: "primary.main", opacity: 0.8 }}>{icon}</Box>
+				</Box>
+				<Typography variant="h4" sx={{ fontWeight: 700, mb: 0.5 }}>
+					{value}
+				</Typography>
+				{change && (
+					<Typography variant="body2" sx={{ color: isPositive ? "success.main" : "error.main" }}>
+						{change}
+					</Typography>
+				)}
+			</CardContent>
+		</Card>
+	);
+};
 
 export const AdminDashboard: React.FC = () => {
 	const [currentTab, setCurrentTab] = useState(0);
@@ -137,70 +186,63 @@ export const AdminDashboard: React.FC = () => {
 				) : (
 					<Grid container spacing={3}>
 						<Grid item xs={12} sm={6} md={3}>
-							<Card>
-								<CardContent>
-									<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-										<PersonIcon color="primary" sx={{ fontSize: 40 }} />
-										<Box>
-											<Typography color="text.secondary" variant="body2">
-												total users
-											</Typography>
-											<Typography variant="h4">{stats?.totalUsers || 0}</Typography>
-											<Typography variant="caption" color="success.main">
-												+{stats?.recentUsers || 0} this month
-											</Typography>
-										</Box>
-									</Box>
-								</CardContent>
-							</Card>
+							<StatCard
+								title="Total Users"
+								value={stats?.totalUsers || 0}
+								change={`+${stats?.recentUsers || 0} this month`}
+								icon={<PersonIcon sx={{ fontSize: 40 }} />}
+							/>
 						</Grid>
 
 						<Grid item xs={12} sm={6} md={3}>
-							<Card>
-								<CardContent>
-									<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-										<ImageIcon color="secondary" sx={{ fontSize: 40 }} />
-										<Box>
-											<Typography color="text.secondary" variant="body2">
-												total images
-											</Typography>
-											<Typography variant="h4">{stats?.totalImages || 0}</Typography>
-											<Typography variant="caption" color="success.main">
-												+{stats?.recentImages || 0} this month
-											</Typography>
-										</Box>
-									</Box>
-								</CardContent>
-							</Card>
+							<StatCard
+								title="Total Images"
+								value={stats?.totalImages || 0}
+								change={`+${stats?.recentImages || 0} this month`}
+								icon={<ImageIcon sx={{ fontSize: 40 }} />}
+							/>
 						</Grid>
 
 						<Grid item xs={12} sm={6} md={3}>
-							<Card>
-								<CardContent>
-									<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-										<BlockIcon color="error" sx={{ fontSize: 40 }} />
-										<Box>
-											<Typography color="text.secondary" variant="body2">
-												banned users
-											</Typography>
-											<Typography variant="h4">{stats?.bannedUsers || 0}</Typography>
-										</Box>
-									</Box>
-								</CardContent>
-							</Card>
+							<StatCard
+								title="Banned Users"
+								value={stats?.bannedUsers || 0}
+								icon={<BlockIcon sx={{ fontSize: 40 }} />}
+							/>
 						</Grid>
 
 						<Grid item xs={12} sm={6} md={3}>
+							<StatCard
+								title="Admin Users"
+								value={stats?.adminUsers || 0}
+								icon={<AdminPanelSettingsIcon sx={{ fontSize: 40 }} />}
+							/>
+						</Grid>
+
+						<Grid item xs={12}>
 							<Card>
 								<CardContent>
-									<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-										<AdminPanelSettingsIcon color="warning" sx={{ fontSize: 40 }} />
-										<Box>
-											<Typography color="text.secondary" variant="body2">
-												admin users
-											</Typography>
-											<Typography variant="h4">{stats?.adminUsers || 0}</Typography>
-										</Box>
+									<Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+										New Users (Last 6 Months)
+									</Typography>
+									<Box sx={{ width: "100%", height: 300 }}>
+										<ResponsiveContainer>
+											<BarChart data={chartData}>
+												<CartesianGrid strokeDasharray="3 3" stroke="#38444d" />
+												<XAxis dataKey="name" stroke="#8899A6" />
+												<YAxis stroke="#8899A6" />
+												<Tooltip
+													contentStyle={{
+														backgroundColor: "#192734",
+														border: "1px solid #38444d",
+														borderRadius: "8px",
+													}}
+													cursor={{ fill: "rgba(99, 102, 241, 0.1)" }}
+												/>
+												<Legend />
+												<Bar dataKey="users" fill="#6366f1" radius={[8, 8, 0, 0]} />
+											</BarChart>
+										</ResponsiveContainer>
 									</Box>
 								</CardContent>
 							</Card>

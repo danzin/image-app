@@ -1,9 +1,8 @@
 import { CommentRepository, TransformedComment } from "../repositories/comment.repository";
-import { ImageRepository } from "../repositories/image.repository";
+import { PostRepository } from "../repositories/post.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { createError } from "../utils/errors";
 import { IComment } from "types/index";
-import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 
@@ -11,15 +10,14 @@ import mongoose from "mongoose";
 export class CommentService {
 	constructor(
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository
 	) {}
 
 	/**
-	 * Create a new comment on an image
+	 * create a new comment on a post
 	 */
-	async createComment(userId: string, imagePublicId: string, content: string): Promise<TransformedComment> {
+	async createComment(userId: string, postPublicId: string, content: string): Promise<TransformedComment> {
 		// Validate input
 		if (!content.trim()) {
 			throw createError("ValidationError", "Comment content cannot be empty");
@@ -29,10 +27,10 @@ export class CommentService {
 			throw createError("ValidationError", "Comment cannot exceed 500 characters");
 		}
 
-		// Check if image exists by public ID
-		const image = await this.imageRepository.findByPublicId(imagePublicId);
-		if (!image) {
-			throw createError("NotFoundError", "Image not found");
+		// Check if post exists by public ID
+		const post = await this.postRepository.findByPublicId(postPublicId);
+		if (!post) {
+			throw createError("NotFoundError", "Post not found");
 		}
 
 		const session = await mongoose.startSession();
@@ -43,20 +41,23 @@ export class CommentService {
 			const comment = await this.commentRepository.create(
 				{
 					content: content.trim(),
-					imageId: image._id as mongoose.Types.ObjectId,
+					postId: post._id as mongoose.Types.ObjectId,
 					userId: new mongoose.Types.ObjectId(userId),
 				} as Partial<IComment>,
 				session
 			);
 
-			// Increment comment count on image
-			await this.imageRepository.updateCommentCount((image._id as mongoose.Types.ObjectId).toString(), 1, session);
+			// Increment comment count on post
+			await this.postRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
 
 			await session.commitTransaction();
 
 			// Return populated comment
 			const populatedComment = await this.commentRepository.findByIdTransformed(comment._id.toString());
-			return populatedComment!;
+			if (!populatedComment) {
+				throw createError("InternalError", "Failed to load comment after creation");
+			}
+			return populatedComment;
 		} catch (error) {
 			await session.abortTransaction();
 			throw error;
@@ -65,31 +66,31 @@ export class CommentService {
 		}
 	}
 
-	async createCommentByPublicId(userPublicId: string, imagePublicId: string, content: string) {
+	async createCommentByPublicId(userPublicId: string, postPublicId: string, content: string) {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) throw createError("NotFoundError", "User not found");
-		return this.createComment(user.id, imagePublicId, content);
+		return this.createComment(user.id, postPublicId, content);
 	}
 
 	/**
-	 * Get comments for an image with pagination
+	 * get comments for a post with pagination
 	 */
-	async getCommentsByImageId(imagePublicId: string, page: number = 1, limit: number = 10) {
-		// Validate image exists
-		const image = await this.imageRepository.findByPublicId(imagePublicId);
-		if (!image) {
-			throw createError("NotFoundError", "Image not found");
+	async getCommentsByPostPublicId(postPublicId: string, page: number = 1, limit: number = 10) {
+		// Validate post exists
+		const post = await this.postRepository.findByPublicId(postPublicId);
+		if (!post) {
+			throw createError("NotFoundError", "Post not found");
 		}
 
-		return await this.commentRepository.getCommentsByImageId(
-			(image._id as mongoose.Types.ObjectId).toString(),
+		return await this.commentRepository.getCommentsByPostId(
+			(post._id as mongoose.Types.ObjectId).toString(),
 			page,
 			limit
 		);
 	}
 
 	/**
-	 * Update comment content (only by comment owner)
+	 * update comment content (only by comment owner)
 	 */
 	async updateComment(commentId: string, userId: string, content: string): Promise<TransformedComment> {
 		// Validate input
@@ -134,7 +135,7 @@ export class CommentService {
 	}
 
 	/**
-	 * Delete comment (only by comment owner or image owner)
+	 * delete comment (only by comment owner or post owner)
 	 */
 	async deleteComment(commentId: string, userId: string): Promise<void> {
 		const comment = await this.commentRepository.findById(commentId);
@@ -142,13 +143,23 @@ export class CommentService {
 			throw createError("NotFoundError", "Comment not found");
 		}
 
-		// Check if user owns the comment or the image
-		const image = await this.imageRepository.findById(comment.imageId.toString());
-		const isCommentOwner = comment.userId.toString() === userId;
-		const isImageOwner = image?.user.toString() === userId;
+		const post = await this.postRepository.findById(comment.postId.toString());
+		if (!post) {
+			throw createError("NotFoundError", "Associated post not found");
+		}
+		const hydratedPost = await this.postRepository.findByPublicId((post as any).publicId);
+		const effectivePost = hydratedPost ?? post;
 
-		if (!isCommentOwner && !isImageOwner) {
-			throw createError("ForbiddenError", "You can only delete your own comments or comments on your images");
+		const isCommentOwner = comment.userId.toString() === userId;
+		const postOwner = (effectivePost as any).user;
+		const postOwnerInternalId =
+			typeof postOwner === "object" && postOwner !== null && "_id" in postOwner
+				? (postOwner as any)._id.toString()
+				: (postOwner?.toString?.() ?? "");
+		const isPostOwner = postOwnerInternalId === userId;
+
+		if (!isCommentOwner && !isPostOwner) {
+			throw createError("ForbiddenError", "You can only delete your own comments or comments on your posts");
 		}
 
 		const session = await mongoose.startSession();
@@ -158,8 +169,8 @@ export class CommentService {
 			// Delete comment
 			await this.commentRepository.deleteComment(commentId, session);
 
-			// Decrement comment count on image
-			await this.imageRepository.updateCommentCount(comment.imageId.toString(), -1, session);
+			// Decrement comment count on post
+			await this.postRepository.updateCommentCount(comment.postId.toString(), -1, session);
 
 			await session.commitTransaction();
 		} catch (error) {
@@ -177,16 +188,16 @@ export class CommentService {
 	}
 
 	/**
-	 * Get comments by user ID
+	 * get comments by user ID
 	 */
 	async getCommentsByUserId(userId: string, page: number = 1, limit: number = 10) {
 		return await this.commentRepository.getCommentsByUserId(userId, page, limit);
 	}
 
 	/**
-	 * Delete all comments for an image (called when image is deleted)
+	 * delete all comments for a post (called when post is deleted)
 	 */
-	async deleteCommentsByImageId(imageId: string, session?: mongoose.ClientSession): Promise<number> {
-		return await this.commentRepository.deleteCommentsByImageId(imageId, session);
+	async deleteCommentsByPostId(postId: string, session?: mongoose.ClientSession): Promise<number> {
+		return await this.commentRepository.deleteCommentsByPostId(postId, session);
 	}
 }

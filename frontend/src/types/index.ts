@@ -37,34 +37,71 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 export type IUser = PublicUserDTO | AuthenticatedUserDTO | AdminUserDTO;
 
 export interface ITag {
-	_id: string;
+	id: string;
 	tag: string;
 	count?: number;
 	modifiedAt?: Date;
+	score?: number;
 }
 
-export interface IImage {
+export interface IPost {
 	publicId: string;
-	slug: string;
-	url: string;
-	title?: string;
-	tags: string[]; // Just tag names, not full tag objects
+	slug?: string;
+	body?: string; // Post text
+
+	// Image data
+	image?: {
+		url: string;
+		publicId: string;
+	} | null;
+
+	// Legacy: Keep url at top level for backward compatibility
+	url?: string;
+	imagePublicId?: string;
+
+	tags: string[];
+
 	user: {
 		publicId: string;
 		username: string;
 		avatar: string;
 	};
+
 	likes: number;
 	commentsCount: number;
+	viewsCount: number;
 	createdAt: Date;
-	isLikedByViewer?: boolean; // Only when user is authenticated
-	isFavoritedByViewer?: boolean;
+
+	isLikedByViewer: boolean;
+	isFavoritedByViewer: boolean;
+}
+
+/**
+ * Legacy IImage interface - for backward compatibility
+ */
+export interface IImage extends IPost {
+	url: string; // Required for images
+	title?: string;
+}
+
+/**
+ * Type guard to check if post has an image
+ */
+export function isImagePost(post: IPost): post is IImage {
+	return !!post.image || !!post.url;
+}
+
+/**
+ * Type guard for text-only posts
+ */
+export function isTextPost(post: IPost): boolean {
+	return !!post.body && !post.image && !post.url;
 }
 
 export interface IComment {
 	id: string;
 	content: string;
-	imagePublicId: string; // Using image public ID instead of internal ID
+	postPublicId: string;
 	user: {
 		publicId: string;
 		username: string;
@@ -121,17 +158,11 @@ export interface UseImagesResult {
 	deleteImage: (id: string) => Promise<void>;
 }
 
-export interface TagsProps {
-	selectedTags: string[];
-	onSelectTags: (tags: ITag[]) => void;
-}
-
 export interface GalleryProps {
-	images: IImage[];
+	posts: (IImage | IPost)[];
 	fetchNextPage: () => void;
 	hasNextPage?: boolean;
 	isFetchingNext?: boolean;
-	isLoadingFiltered?: boolean;
 	isLoadingAll?: boolean;
 	emptyTitle?: string;
 	emptyDescription?: string;
@@ -140,10 +171,13 @@ export interface GalleryProps {
 export interface Notification {
 	id: string;
 	userId: string;
-	actionType: string;
-	actorId: string; // Just the actor's publicId as string
-	actorUsername?: string; // Optional denormalized username
-	targetId?: string;
+	actionType: string; // 'like' | 'comment' | 'follow'
+	actorId: string; // actor's publicId
+	actorUsername?: string; // denormalized username
+	actorAvatar?: string; // actor avatar URL
+	targetId?: string; // post/image publicId
+	targetType?: string; // 'post' | 'image' | 'user'
+	targetPreview?: string; // preview text/snippet
 	timestamp: string;
 	isRead: boolean;
 }
@@ -233,6 +267,10 @@ export interface ImageCardProps {
 	onClick: (image: IImage) => void;
 }
 
+export interface PostCardProps {
+	post: IPost;
+}
+
 export interface ImageEditorProps {
 	onImageUpload: (croppedImage: Blob | null) => void;
 	type: "avatar" | "cover";
@@ -305,4 +343,22 @@ export interface SendMessageRequest {
 
 export interface InitiateConversationResponse {
 	conversation: ConversationSummaryDTO;
+}
+
+// Who to follow suggestions
+export interface SuggestedUser {
+	publicId: string;
+	username: string;
+	avatar: string;
+	bio?: string;
+	followerCount: number;
+	postCount: number;
+	totalLikes: number;
+	score: number;
+}
+
+export interface WhoToFollowResponse {
+	suggestions: SuggestedUser[];
+	cached: boolean;
+	timestamp: string;
 }
