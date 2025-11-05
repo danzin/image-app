@@ -1,45 +1,16 @@
-import mongoose, { ClientSession } from "mongoose";
+import mongoose from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { ImageRepository } from "../repositories/image.repository";
 import { UserRepository } from "../repositories/user.repository";
-import { IImage, IImageStorageService } from "../types";
+import {
+	AttachmentCreationResult,
+	CreatePostAttachmentInput,
+	IImage,
+	IImageStorageService,
+	RemoveAttachmentInput,
+	RemoveAttachmentResult,
+} from "../types";
 import { createError } from "../utils/errors";
-
-export interface CreatePostAttachmentInput {
-	buffer: Buffer;
-	originalName: string;
-	userInternalId: string;
-	userPublicId: string;
-	tagIds: mongoose.Types.ObjectId[];
-	session: ClientSession;
-}
-
-export interface AttachmentSummary {
-	docId: mongoose.Types.ObjectId | null;
-	publicId?: string;
-	url?: string;
-	slug?: string;
-}
-
-export interface AttachmentCreationResult {
-	imageDoc: IImage | null;
-	storagePublicId: string | null;
-	summary: AttachmentSummary;
-}
-
-export interface RemoveAttachmentInput {
-	imageId: string;
-	requesterPublicId: string;
-	ownerInternalId?: string;
-	ownerPublicId?: string;
-	session: ClientSession;
-}
-
-export interface RemoveAttachmentResult {
-	removed: boolean;
-	removedPublicId?: string;
-	removedUrl?: string;
-}
 
 @injectable()
 export class ImageService {
