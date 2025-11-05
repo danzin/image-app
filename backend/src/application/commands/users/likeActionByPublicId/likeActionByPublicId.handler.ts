@@ -1,7 +1,7 @@
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { LikeActionByPublicIdCommand } from "./likeActionByPublicId.command";
-import { IPost } from "../../../../types/index";
+import { IPost, PostDTO } from "../../../../types/index";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
 import { PostRepository } from "../../../../repositories/post.repository";
@@ -9,6 +9,7 @@ import { LikeRepository } from "../../../../repositories/like.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
+import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
@@ -16,7 +17,7 @@ import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 
 @injectable()
-export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, IPost> {
+export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
@@ -25,10 +26,11 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
+		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
-	async execute(command: LikeActionByPublicIdCommand): Promise<IPost> {
+	async execute(command: LikeActionByPublicIdCommand): Promise<PostDTO> {
 		let isLikeAction = true;
 		let postTags: string[] = [];
 		let existingPost: IPost | null;
@@ -111,7 +113,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				throw createError("PathError", `Post with public ID ${command.postPublicId} not found after update`);
 			}
 
-			return updatedPost.toJSON() as IPost;
+			return this.dtoService.toPostDTO(updatedPost);
 		} catch (error) {
 			console.error(error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
-import UserAction from "../models/userAction.model";
+import { container } from "tsyringe";
+import { UserActionService } from "../services/userAction.service";
 
 export function logUserAction(req: Request, res: Response, next: NextFunction): void {
 	const userId = req?.decodedUser?._id;
@@ -11,17 +12,6 @@ export function logUserAction(req: Request, res: Response, next: NextFunction): 
 		return;
 	}
 
-	const userAction = new UserAction({
-		userId,
-		actionType,
-		targetId,
-	});
-
-	userAction
-		.save()
-		.then(() => next())
-		.catch((err) => {
-			console.error("Error logging user action:", err);
-			next();
-		});
+	const userActionService = container.resolve<UserActionService>("UserActionService");
+	userActionService.logUserAction(userId, actionType, targetId).finally(() => next());
 }

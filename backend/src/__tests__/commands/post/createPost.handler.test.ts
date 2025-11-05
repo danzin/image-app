@@ -198,6 +198,20 @@ describe("CreatePostCommandHandler", () => {
 			mockPostRepository.create.resolves(mockCreatedPost);
 			mockPostRepository.findByPublicId.resolves(mockHydratedPost);
 
+			const mockPostDTO = {
+				publicId: "post-789",
+				body: "Beautiful sunset at the beach #sunset #beach",
+				slug: "sunset-beach-1234",
+				likesCount: 0,
+				commentsCount: 0,
+				user: { publicId: "user-123" },
+				image: { publicId: "img-456", url: "/uploads/img-456.jpg" },
+				tags: [{ tag: "nature" }],
+				createdAt: new Date(),
+			};
+
+			mockDTOService.toPostDTO.resolves(mockPostDTO);
+
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
 			});
@@ -210,7 +224,8 @@ describe("CreatePostCommandHandler", () => {
 			expect(mockImageService.createPostAttachment.called).to.be.true;
 			expect(mockPostRepository.create.called).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
-			expect(result).to.have.property("publicId");
+			expect(mockDTOService.toPostDTO.calledWith(mockHydratedPost)).to.be.true;
+			expect(result).to.equal(mockPostDTO);
 		});
 
 		it("should queue PostUploadedEvent after successful creation", async () => {

@@ -124,6 +124,7 @@ import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/Ava
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { GetForYouFeedQueryHandler } from "../application/queries/feed/getForYouFeed/getForYouFeed.handler";
 import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { UserActionService } from "../services/userAction.service";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -207,6 +208,7 @@ function registerServices(): void {
 	container.registerSingleton("DTOService", DTOService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
+	container.registerSingleton("UserActionService", UserActionService);
 
 	// register realtime message handlers
 	const realtimeHandlers = [
