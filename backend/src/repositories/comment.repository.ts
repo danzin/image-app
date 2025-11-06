@@ -210,4 +210,12 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const result = await this.model.deleteMany({ postId }, { session });
 		return result.deletedCount || 0;
 	}
+
+	/**
+	 * Delete all comments by a user (when user is deleted)
+	 */
+	async deleteCommentsByUserId(userId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model.deleteMany({ userId }, { session });
+		return result.deletedCount || 0;
+	}
 }

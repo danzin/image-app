@@ -1,16 +1,19 @@
 import { useMutation } from "@tanstack/react-query";
 import { registerRequest } from "../../api/userApi";
-import { PublicUserDTO } from "../../types";
+import { AuthenticatedUserDTO } from "../../types";
 import { toast } from "react-toastify";
+import { useAuth } from "../context/useAuth";
 
-type RegisterResponse = { user: PublicUserDTO; token: string };
+type RegisterResponse = { user: AuthenticatedUserDTO; token: string };
 
 export const useRegister = () => {
+	const { login: setAuthUser } = useAuth();
+
 	return useMutation<RegisterResponse, Error, { username: string; email: string; password: string }>({
 		mutationFn: registerRequest,
 
-		onSuccess: () => {
-			// Registration successful - user is automatically logged in
+		onSuccess: (data) => {
+			setAuthUser(data.user);
 			toast.success("Registration successful! You are now logged in.");
 		},
 

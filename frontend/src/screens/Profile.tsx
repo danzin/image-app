@@ -28,7 +28,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 import Gallery from "../components/Gallery";
 import { EditProfile } from "../components/EditProfile";
-import { useGetUser, useUpdateUserAvatar, useUserImages, useUpdateUserCover } from "../hooks/user/useUsers";
+import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserPosts } from "../hooks/user/useUsers";
 import { useFollowUser, useIsFollowing } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import ImageEditor from "../components/ImageEditor";
@@ -62,7 +62,7 @@ const Profile: React.FC = () => {
 		hasNextPage,
 		isFetchingNextPage,
 		isLoading: isLoadingImages,
-	} = useUserImages(profileData?.publicId || "", { enabled: !!profileData?.publicId });
+	} = useUserPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId });
 
 	const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(profileData?.publicId || "", {
 		enabled: isLoggedIn && !!profileData?.publicId && profileData?.publicId !== user?.publicId,

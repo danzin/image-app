@@ -20,6 +20,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 			tagsToInvalidate.push("trending_feed", "new_feed");
 			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
 			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
+			tagsToInvalidate.push(`user_post_count:${event.authorPublicId}`);
 
 			const followers = await this.getFollowersOfUser(event.authorPublicId);
 			if (followers.length > 0) {

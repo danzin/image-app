@@ -6,7 +6,7 @@ import axios, { AxiosError } from "axios";
 export const loginRequest = async (credentials: {
 	email: string;
 	password: string;
-}): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> => {
+}): Promise<{ user: AuthenticatedUserDTO | AdminUserDTO; token: string }> => {
 	const response = await axiosClient.post("/api/users/login", credentials);
 	return response.data;
 };
@@ -16,9 +16,9 @@ export const registerRequest = async (credentials: {
 	username: string;
 	email: string;
 	password: string;
-}): Promise<{ user: PublicUserDTO; token: string }> => {
+}): Promise<{ user: AuthenticatedUserDTO; token: string }> => {
 	const response = await axiosClient.post("/api/users/register", credentials);
-	return response.data; // { user: PublicUserDTO, token: string }
+	return response.data;
 };
 
 // Check if following using public ID
@@ -67,13 +67,13 @@ export const fetchUserByUsername = async ({ queryKey }: { queryKey: [string, str
 	return response.data;
 };
 
-// Get user images by user public ID
-export const fetchUserImages = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
+// Get user posts by user public ID
+export const fetchUserPosts = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
 	try {
-		const { data } = await axiosClient.get(`/api/images/user/id/${userPublicId}?page=${pageParam}`);
+		const { data } = await axiosClient.get(`/api/posts/user/${userPublicId}?page=${pageParam}`);
 		return data;
 	} catch (error) {
-		console.error("Error fetching user images:", error);
+		console.error("Error fetching user posts:", error);
 		throw error;
 	}
 };

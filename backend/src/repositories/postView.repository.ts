@@ -67,4 +67,16 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 			throw createError("DatabaseError", "Failed to delete post views", { cause: error });
 		}
 	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const result = await this.model
+				.deleteMany({ user: new Types.ObjectId(userId) })
+				.session(session || null)
+				.exec();
+			return result.deletedCount || 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", "Failed to delete post views by user", { cause: error });
+		}
+	}
 }

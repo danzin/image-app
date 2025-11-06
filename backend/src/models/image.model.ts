@@ -1,6 +1,5 @@
 import mongoose, { Schema } from "mongoose";
 import { IImage, ITag } from "../types";
-import User from "./user.model";
 import { v4 as uuidv4 } from "uuid";
 
 const imageSchema = new Schema<IImage>({
@@ -9,7 +8,7 @@ const imageSchema = new Schema<IImage>({
 		type: String,
 		required: true,
 		unique: true, // Defult index
-		default: uuidv4(),
+		default: uuidv4,
 		immutable: true,
 	},
 	slug: {
@@ -151,10 +150,6 @@ imageSchema.pre("findOneAndDelete", async function (next) {
 			}
 		}
 
-		if (doc.user._id) {
-			console.log(`deleting image ${doc._id} from  user  id ${doc.user._id}`);
-			await User.findByIdAndUpdate(doc.user._id, { $pull: { images: doc.url } }, { new: true, session });
-		}
 		next();
 	} catch (error) {
 		next(error as Error);

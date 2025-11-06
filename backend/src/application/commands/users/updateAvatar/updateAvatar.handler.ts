@@ -1,0 +1,94 @@
+import { inject, injectable } from "tsyringe";
+import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { UpdateAvatarCommand } from "./updateAvatar.command";
+import { UserRepository } from "../../../../repositories/user.repository";
+import { IImageStorageService } from "../../../../types";
+import { UnitOfWork } from "../../../../database/UnitOfWork";
+import { EventBus } from "../../../common/buses/event.bus";
+import { RedisService } from "../../../../services/redis.service";
+import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
+import { createError } from "../../../../utils/errors";
+import { UserAvatarChangedEvent } from "../../../events/user/user-interaction.event";
+import { PostRepository } from "../../../../repositories/post.repository";
+
+@injectable()
+export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarCommand, PublicUserDTO> {
+	constructor(
+		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("RedisService") private readonly redisService: RedisService,
+		@inject("DTOService") private readonly dtoService: DTOService
+	) {}
+
+	async execute(command: UpdateAvatarCommand): Promise<PublicUserDTO> {
+		if (!command.fileBuffer || !command.fileBuffer.length) {
+			throw createError("ValidationError", "Avatar file is required");
+		}
+
+		const user = await this.userRepository.findByPublicId(command.userPublicId);
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		let newAvatarUrl: string | null = null;
+		const oldAvatarUrl = user.avatar ?? null;
+		const userPublicId = user.publicId;
+
+		try {
+			await this.unitOfWork.executeInTransaction(async (session) => {
+				const userId = user.id;
+
+				const uploadResult = await this.imageStorageService.uploadImage(command.fileBuffer, userPublicId);
+				newAvatarUrl = uploadResult.url;
+
+				await this.userRepository.updateAvatar(userId, newAvatarUrl, session);
+
+				if (oldAvatarUrl) {
+					try {
+						await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldAvatarUrl);
+					} catch (deleteError) {
+						console.warn(`failed to delete old avatar ${oldAvatarUrl}`, deleteError);
+					}
+				}
+			});
+
+			await this.redisService.invalidateByTags([`user_data:${userPublicId}`]);
+
+			const avatarChangedEvent = new UserAvatarChangedEvent(
+				userPublicId,
+				oldAvatarUrl || undefined,
+				newAvatarUrl || undefined
+			);
+			await this.eventBus.publish(avatarChangedEvent);
+
+			const updatedUser = await this.userRepository.findByPublicId(command.userPublicId);
+			if (!updatedUser) {
+				throw createError("NotFoundError", "User not found after avatar update");
+			}
+
+			const postCount = await this.postRepository.countDocuments({ user: updatedUser.id });
+			(updatedUser as any).postCount = postCount;
+
+			return this.dtoService.toPublicDTO(updatedUser);
+		} catch (error) {
+			if (newAvatarUrl) {
+				try {
+					await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, newAvatarUrl);
+				} catch (deleteError) {
+					console.error("failed to clean up new avatar", deleteError);
+				}
+			}
+
+			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
+				throw createError(
+					(error as { name: string; message: string }).name,
+					(error as { name: string; message: string }).message
+				);
+			}
+			throw createError("InternalServerError", "An unknown error occurred");
+		}
+	}
+}

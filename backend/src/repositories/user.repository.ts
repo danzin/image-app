@@ -3,6 +3,7 @@ import { IUser, PaginationOptions, PaginationResult } from "../types";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
+import { FollowRepository } from "./follow.repository";
 
 /**
  * UserRepository provides database access for user-related operations.
@@ -10,7 +11,10 @@ import { BaseRepository } from "./base.repository";
  */
 @injectable()
 export class UserRepository extends BaseRepository<IUser> {
-	constructor(@inject("UserModel") model: Model<IUser>) {
+	constructor(
+		@inject("UserModel") model: Model<IUser>,
+		@inject("FollowRepository") private readonly followRepository: FollowRepository
+	) {
 		super(model);
 	}
 
@@ -232,14 +236,29 @@ export class UserRepository extends BaseRepository<IUser> {
 
 	async findUsersFollowing(userPublicId: string): Promise<IUser[]> {
 		try {
-			const user = await this.findByPublicId(userPublicId);
-			if (!user || !user.followers || user.followers.length === 0) {
+			const user = await this.model.findOne({ publicId: userPublicId }).select("_id").lean();
+			if (!user?._id) {
+				return [];
+			}
+			const userId = new Types.ObjectId(user._id.toString());
+			const followerIds = await this.followRepository.getFollowerObjectIds(userId);
+			const followerObjectIds = followerIds
+				.map((id) => {
+					try {
+						return new Types.ObjectId(id);
+					} catch {
+						return null;
+					}
+				})
+				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
+
+			if (followerObjectIds.length === 0) {
 				return [];
 			}
 
 			return await this.model
 				.find({
-					_id: { $in: user.followers },
+					_id: { $in: followerObjectIds },
 				})
 				.select("publicId username avatar")
 				.exec();
@@ -277,8 +296,15 @@ export class UserRepository extends BaseRepository<IUser> {
 			const thirtyDaysAgo = new Date();
 			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-			const currentUser = await this.model.findById(currentUserId).select("following").lean();
-			const followingIds = currentUser?.following || [];
+			const followingIds = (await this.followRepository.getFollowingObjectIds(currentUserId))
+				.map((id) => {
+					try {
+						return new Types.ObjectId(id);
+					} catch {
+						return null;
+					}
+				})
+				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
 
 			const result = await this.model.aggregate([
 				// exclude the current user, users they already follow, and banned users
@@ -286,6 +312,14 @@ export class UserRepository extends BaseRepository<IUser> {
 					$match: {
 						_id: { $ne: new Types.ObjectId(currentUserId), $nin: followingIds },
 						isBanned: false,
+					},
+				},
+				{
+					$lookup: {
+						from: "follows",
+						localField: "_id",
+						foreignField: "followeeId",
+						as: "followerLinks",
 					},
 				},
 				// lookup posts for each user
@@ -300,7 +334,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				// calculate metrics
 				{
 					$addFields: {
-						followerCount: { $size: { $ifNull: ["$followers", []] } },
+						followerCount: { $size: "$followerLinks" },
 						postCount: { $size: "$posts" },
 						totalLikes: {
 							$reduce: {

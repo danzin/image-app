@@ -8,9 +8,9 @@ export interface PublicUserDTO {
 	cover: string;
 	bio: string;
 	createdAt: Date;
+	postCount: number;
 	followerCount: number;
 	followingCount: number;
-	imageCount: number;
 }
 
 export interface AuthenticatedUserDTO extends PublicUserDTO {
@@ -79,9 +79,9 @@ export class DTOService {
 			cover: user.cover,
 			bio: user.bio,
 			createdAt: user.createdAt,
-			followerCount: user.followers?.length || 0,
-			followingCount: user.following?.length || 0,
-			imageCount: user.images?.length || 0,
+			postCount: this.resolvePostCount(user),
+			followerCount: this.resolveFollowerCount(user),
+			followingCount: this.resolveFollowingCount(user),
 		};
 	}
 
@@ -108,6 +108,48 @@ export class DTOService {
 			bannedBy: user.bannedBy?.toString(),
 			updatedAt: user.updatedAt,
 		};
+	}
+
+	private resolvePostCount(user: IUser): number {
+		const candidate = (user as any).postCount;
+		if (typeof candidate === "number" && Number.isFinite(candidate)) {
+			return candidate;
+		}
+
+		const postsField = (user as any).posts;
+		if (Array.isArray(postsField)) {
+			return postsField.length;
+		}
+
+		return 0;
+	}
+
+	private resolveFollowerCount(user: IUser): number {
+		const candidate = (user as any).followerCount;
+		if (typeof candidate === "number" && Number.isFinite(candidate)) {
+			return candidate;
+		}
+
+		const legacyFollowers = (user as any).followers;
+		if (Array.isArray(legacyFollowers)) {
+			return legacyFollowers.length;
+		}
+
+		return 0;
+	}
+
+	private resolveFollowingCount(user: IUser): number {
+		const candidate = (user as any).followingCount;
+		if (typeof candidate === "number" && Number.isFinite(candidate)) {
+			return candidate;
+		}
+
+		const legacyFollowing = (user as any).following;
+		if (Array.isArray(legacyFollowing)) {
+			return legacyFollowing.length;
+		}
+
+		return 0;
 	}
 
 	toPublicMessageDTO(message: IMessage, conversationPublicId: string): MessageDTO {

@@ -78,4 +78,23 @@ export class MessageRepository extends BaseRepository<IMessage> {
 		if (session) query.session(session);
 		return query.exec();
 	}
+
+	async deleteManyBySender(senderId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model
+			.deleteMany({ sender: new mongoose.Types.ObjectId(senderId) })
+			.session(session || null)
+			.exec();
+		return result.deletedCount || 0;
+	}
+
+	async removeUserFromReadBy(userId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model
+			.updateMany(
+				{ readBy: new mongoose.Types.ObjectId(userId) },
+				{ $pull: { readBy: new mongoose.Types.ObjectId(userId) } }
+			)
+			.session(session || null)
+			.exec();
+		return result.modifiedCount || 0;
+	}
 }

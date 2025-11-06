@@ -3,11 +3,12 @@ import { PostRepository } from "../repositories/post.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { UserPreferenceRepository } from "../repositories/userPreference.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
+import { FollowRepository } from "../repositories/follow.repository";
 import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
 import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
-import { IUser, PaginationResult, PostDTO, UserLookupData } from "../types";
+import { PaginationResult, PostDTO, UserLookupData } from "../types";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
 
 @injectable()
@@ -17,6 +18,7 @@ export class FeedService {
 		@inject("UserRepository") private userRepository: UserRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("UserActionRepository") private userActionRepository: UserActionRepository,
+		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private eventBus: EventBus
@@ -67,18 +69,15 @@ export class FeedService {
 	// New user - Discovery/Trending feed(getRankedFeed)
 	// Established user - Images from following + tag preferences (getFeedForUserCore)
 	private async generateCoreFeed(userId: string, page: number, limit: number) {
-		const [user, topTags] = await Promise.all([
-			this.userRepository.findByPublicId(userId),
-			this.userRepository
-				.findByPublicId(userId)
-				.then((user: IUser | null) => (user ? this.userPreferenceRepository.getTopUserTags(String(user._id)) : [])),
-		]);
-
+		const user = await this.userRepository.findByPublicId(userId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		const followingIds = (user.following || []).map((id) => String(id));
+		const [topTags, followingIds] = await Promise.all([
+			this.userPreferenceRepository.getTopUserTags(user.id),
+			this.followRepository.getFollowingObjectIds(user.id),
+		]);
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 
@@ -358,7 +357,7 @@ export class FeedService {
 				return;
 			}
 
-			const followerIds = author.followers || [];
+			const followerIds = await this.followRepository.getFollowerPublicIdsByPublicId(authorId);
 			if (followerIds.length === 0) {
 				console.log(`Author ${authorId} has no followers, skipping fan-out`);
 				return;
@@ -383,7 +382,7 @@ export class FeedService {
 			const author = await this.userRepository.findByPublicId(authorId);
 			if (!author) return;
 
-			const followerIds = author.followers || [];
+			const followerIds = await this.followRepository.getFollowerPublicIdsByPublicId(authorId);
 			if (followerIds.length === 0) return;
 
 			await this.redisService.removeFromFeedsBatch(followerIds, postId, "for_you");

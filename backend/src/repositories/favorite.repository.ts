@@ -92,4 +92,12 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 
 		return { data: favoritedPosts as IPost[], total: totalFavorites };
 	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model
+			.deleteMany({ userId })
+			.session(session || null)
+			.exec();
+		return result.deletedCount || 0;
+	}
 }

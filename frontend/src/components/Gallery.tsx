@@ -23,9 +23,7 @@ const Gallery: React.FC<GalleryProps> = ({
 	const isProfileOwner = isLoggedIn && user?.publicId === profileId;
 	const isLoading = isLoadingAll;
 	const fallbackEmptyTitle = "No posts yet";
-	const fallbackEmptyMessage = isProfileOwner
-		? "Create your first post to get started!"
-		: "This user hasn't shared any posts yet.";
+	const fallbackEmptyMessage = isProfileOwner ? "Check out Discover or post something." : "There are no posts to show";
 	const resolvedEmptyTitle = emptyTitle ?? fallbackEmptyTitle;
 	const resolvedEmptyMessage = emptyDescription ?? fallbackEmptyMessage;
 

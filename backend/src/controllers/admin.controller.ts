@@ -5,6 +5,7 @@ import { createError } from "../utils/errors";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
+import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
 import { PaginationResult, PostDTO } from "../types";
 
@@ -55,7 +56,8 @@ export class AdminUserController {
 	deleteUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			await this.userService.deleteUserByPublicId(publicId);
+			const command = new DeleteUserCommand(publicId);
+			await this.commandBus.dispatch(command);
 			res.status(204).send();
 		} catch (error) {
 			next(error);

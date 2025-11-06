@@ -1,3 +1,6 @@
+import { PaginationResult } from "../customCore/pagination.types";
+import { PublicUserDTO } from "../customUsers/dto.types";
+
 export interface PostDTO {
 	publicId: string;
 	body?: string; // text
@@ -27,4 +30,8 @@ export interface PostDTO {
 
 	isLikedByViewer?: boolean;
 	isFavoritedByViewer?: boolean;
+}
+
+export interface UserPostsResult extends PaginationResult<PostDTO> {
+	profile: PublicUserDTO;
 }

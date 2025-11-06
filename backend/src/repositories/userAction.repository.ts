@@ -15,7 +15,7 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 		actionType: string,
 		targetId: string,
 		session?: ClientSession,
-		admin?: boolean
+		_admin?: boolean
 	): Promise<IUserAction> {
 		try {
 			const doc = new this.model({ userId, actionType, targetId });
@@ -62,6 +62,21 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 				throw createError("DatabaseError", error.message);
 			}
 			throw createError("DatabaseError", String(error));
+		}
+	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const result = await this.model
+				.deleteMany({ userId })
+				.session(session || null)
+				.exec();
+			return result.deletedCount || 0;
+		} catch (error) {
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
+			}
+			throw createError("UnknownError", String(error));
 		}
 	}
 }

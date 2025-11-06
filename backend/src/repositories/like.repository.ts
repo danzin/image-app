@@ -52,4 +52,15 @@ export class LikeRepository extends BaseRepository<ILike> {
 			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const query = this.model.deleteMany({ userId });
+			if (session) query.session(session);
+			const result = await query.exec();
+			return result.deletedCount || 0;
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
 }

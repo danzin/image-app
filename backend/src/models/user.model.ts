@@ -10,6 +10,7 @@ const userSchema = new Schema<IUser>(
 			type: String,
 			unique: true,
 			immutable: true,
+			default: uuidv4,
 		},
 		username: {
 			type: String,
@@ -73,24 +74,6 @@ const userSchema = new Schema<IUser>(
 			ref: "User",
 			required: false,
 		},
-		images: [
-			{
-				type: String,
-				ref: "Image",
-			},
-		],
-		followers: [
-			{
-				type: Schema.Types.ObjectId,
-				ref: "User",
-			},
-		],
-		following: [
-			{
-				type: Schema.Types.ObjectId,
-				ref: "User",
-			},
-		],
 	},
 	{
 		timestamps: true,
@@ -99,11 +82,6 @@ const userSchema = new Schema<IUser>(
 
 // Hash pasword when a new user is registered
 userSchema.pre("save", async function (next) {
-	// Generate publicId if it doesn't exist
-	if (!this.publicId) {
-		this.publicId = uuidv4();
-	}
-
 	if (!this.isModified("password")) return next();
 
 	try {

@@ -15,9 +15,9 @@ export interface PublicUserDTO {
 	cover: string;
 	bio: string;
 	createdAt: Date;
+	postCount: number;
 	followerCount: number;
 	followingCount: number;
-	imageCount: number;
 }
 
 export interface AuthenticatedUserDTO extends PublicUserDTO {
@@ -136,6 +136,7 @@ export type ImagePageData = {
 	page: number;
 	limit: number;
 	totalPages: number;
+	profile: PublicUserDTO;
 };
 
 export interface PaginatedResponse<T> {
@@ -230,10 +231,10 @@ export interface MessagingUpdatePayload {
 
 export interface UserUserResult {
 	useCurrentUser: () => IUser | null;
-	useUserImages: (userId: string) => UseInfiniteQueryResult<
+	useUserPosts: (userId: string) => UseInfiniteQueryResult<
 		InfiniteData<
 			{
-				data: IImage[];
+				data: IPost[];
 				total: number;
 				page: number;
 				limit: number;
@@ -251,15 +252,8 @@ export interface UploadFormProps {
 }
 
 export interface AuthContextData {
-	//logout and checkAuthState are async and return a promise.
 	logout: () => Promise<void>;
-	checkAuthState: () => Promise<void>;
-
-	login: (user: IUser) => void;
-
-	loading: boolean;
-	isLoggedIn: boolean;
-	user: IUser | null;
+	login: (user: AuthenticatedUserDTO | AdminUserDTO) => void;
 	error: string | null;
 }
 export interface ImageCardProps {

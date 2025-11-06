@@ -3,11 +3,11 @@ interface BaseUserDTO {
 	username: string;
 	avatar?: string;
 	cover?: string;
-	images?: string[];
-	followers?: string[];
-	following?: string[];
+	followerCount: number;
+	followingCount: number;
 	createdAt: Date;
 	bio?: string;
+	postCount: number;
 }
 
 export interface AdminUserDTO extends BaseUserDTO {

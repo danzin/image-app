@@ -15,9 +15,9 @@ export interface IUser extends Document {
 	bannedAt?: Date;
 	bannedReason?: string;
 	bannedBy?: Types.ObjectId | string;
-	images: string[];
-	followers: string[];
-	following: string[];
+	postCount?: number;
+	followerCount?: number;
+	followingCount?: number;
 	comparePassword(candidatePassword: string): Promise<boolean>;
 }
 

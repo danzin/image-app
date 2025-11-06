@@ -169,7 +169,7 @@ export const useUploadPost = () => {
 	return useMutation<IPost, Error, FormData>({
 		mutationFn: uploadPost,
 		onSuccess: async () => {
-			// invalidate and refetch current user to update imageCount immediately
+			// invalidate and refetch current user to update postCount immediately
 			await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 			await queryClient.refetchQueries({ queryKey: ["currentUser"] });
 

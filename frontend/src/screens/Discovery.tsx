@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Box, Typography, Tabs, Tab, useTheme, alpha } from "@mui/material";
 import { TrendingUp, FiberNew, Favorite } from "@mui/icons-material";
@@ -6,7 +6,6 @@ import { TrendingUp, FiberNew, Favorite } from "@mui/icons-material";
 import Gallery from "../components/Gallery";
 import { useAuth } from "../hooks/context/useAuth";
 import { useTrendingFeed, useNewFeed, useForYouFeed } from "../hooks/posts/usePosts";
-import { getDefaultDiscoveryTab } from "../lib/userOnboarding";
 
 interface TabPanelProps {
 	children?: React.ReactNode;
@@ -30,7 +29,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
 
 const Discovery: React.FC = () => {
 	const theme = useTheme();
-	const { user, isLoggedIn, loading: authLoading } = useAuth();
+	const { isLoggedIn, loading: authLoading } = useAuth();
 
 	// Start with "new" for new users, "for-you" for existing users
 	const [activeTab, setActiveTab] = useState<number>(0);
@@ -38,14 +37,6 @@ const Discovery: React.FC = () => {
 	const trendingFeedQuery = useTrendingFeed();
 	const newFeedQuery = useNewFeed();
 	const forYouFeedQuery = useForYouFeed();
-
-	// Determine initial tab based on user status
-	useEffect(() => {
-		if (!authLoading) {
-			const defaultTab = getDefaultDiscoveryTab(user, isLoggedIn);
-			setActiveTab(defaultTab);
-		}
-	}, [authLoading, isLoggedIn, user]);
 
 	const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
 		setActiveTab(newValue);
