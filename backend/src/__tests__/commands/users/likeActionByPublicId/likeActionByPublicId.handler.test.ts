@@ -6,7 +6,7 @@ import sinon, { SinonStub } from "sinon";
 import { ClientSession, Types } from "mongoose";
 import { LikeActionByPublicIdCommand } from "../../../../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 import { LikeActionByPublicIdCommandHandler } from "../../../../application/commands/users/likeActionByPublicId/likeActionByPublicId.handler";
-import { IImage } from "../../../../types";
+import { IPost } from "../../../../types";
 
 chai.use(chaiAsPromised);
 
@@ -16,12 +16,12 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 	let mockUnitOfWork: {
 		executeInTransaction: SinonStub;
 	};
-	let mockImageRepository: {
+	let mockPostRepository: {
 		findByPublicId: SinonStub;
-		findOneAndUpdate: SinonStub;
+		updateLikeCount: SinonStub;
 	};
 	let mockLikeRepository: {
-		findByUserAndImage: SinonStub;
+		findByUserAndPost: SinonStub;
 		create: SinonStub;
 		deleteLike: SinonStub;
 	};
@@ -38,6 +38,9 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 		queueTransactional: SinonStub;
 	};
 	let mockFeedInteractionHandler: {};
+	let mockDTOService: {
+		toPostDTO: SinonStub;
+	};
 	let mockSession: ClientSession;
 
 	beforeEach(() => {
@@ -46,13 +49,13 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 			executeInTransaction: sinon.stub(),
 		};
 
-		mockImageRepository = {
+		mockPostRepository = {
 			findByPublicId: sinon.stub(),
-			findOneAndUpdate: sinon.stub(),
+			updateLikeCount: sinon.stub(),
 		};
 
 		mockLikeRepository = {
-			findByUserAndImage: sinon.stub(),
+			findByUserAndPost: sinon.stub(),
 			create: sinon.stub(),
 			deleteLike: sinon.stub(),
 		};
@@ -73,22 +76,27 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 			queueTransactional: sinon.stub(),
 		};
 
+		mockDTOService = {
+			toPostDTO: sinon.stub(),
+		};
+
 		mockFeedInteractionHandler = {};
 		mockSession = {} as ClientSession;
 
 		// Create handler with mocked dependencies
 		handler = new LikeActionByPublicIdCommandHandler(
 			mockUnitOfWork as any,
-			mockImageRepository as any,
+			mockPostRepository as any,
 			mockLikeRepository as any,
 			mockUserActionRepository as any,
 			mockUserRepository as any,
 			mockNotificationService as any,
 			mockEventBus as any,
-			mockFeedInteractionHandler as any
+			mockFeedInteractionHandler as any,
+			mockDTOService as any
 		);
 
-		command = new LikeActionByPublicIdCommand(new Types.ObjectId().toString(), "img-public-123");
+		command = new LikeActionByPublicIdCommand("user-123", "post-456");
 	});
 
 	afterEach(() => {
@@ -97,8 +105,8 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 
 	describe("Command Creation", () => {
 		it("should create command with correct properties", () => {
-			expect(command.userPublicId).to.have.lengthOf(24); // Valid ObjectId length
-			expect(command.imagePublicId).to.equal("img-public-123");
+			expect(command.userPublicId).to.equal("user-123");
+			expect(command.postPublicId).to.equal("post-456");
 			expect(command.type).to.equal("LikeActionByPublicIdCommand");
 		});
 	});
@@ -112,79 +120,100 @@ describe("LikeActionByPublicIdCommandHandler", () => {
 			);
 		});
 
-		it("should throw error when image not found", async () => {
-			const mockUser = { id: new Types.ObjectId().toString() };
+		it("should throw error when post not found", async () => {
+			const mockUser = { _id: new Types.ObjectId(), publicId: "user-123", username: "testuser" };
 			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockImageRepository.findByPublicId.resolves(null);
+			mockPostRepository.findByPublicId.resolves(null);
 
-			await expect(handler.execute(command)).to.be.rejectedWith("Image with public ID img-public-123 not found");
+			await expect(handler.execute(command)).to.be.rejectedWith("Post with public ID post-456 not found");
 		});
 
-		it("should handle like action correctly when image exists and user has not liked", async () => {
-			const mockUser = { id: new Types.ObjectId().toString() };
-			const mockImage: Partial<IImage> = {
-				id: new Types.ObjectId().toString(),
-				tags: [{ tag: "nature" }, { tag: "landscape" }],
-				user: { publicId: new Types.ObjectId() } as any,
-				toJSON: () => mockImage, // Add toJSON method to mock
+		it("should handle like action correctly when post exists and user has not liked", async () => {
+			const mockUser = { _id: new Types.ObjectId(), publicId: "user-123", username: "testuser" };
+			const mockPost: Partial<IPost> = {
+				_id: new Types.ObjectId(),
+				publicId: "post-456",
+				body: "Test post",
+				user: { publicId: "other-user" } as any,
+				tags: [{ tag: "test" }] as any,
+				likesCount: 0,
+				commentsCount: 0,
+			};
+
+			const mockPostDTO = {
+				publicId: "post-456",
+				body: "Test post",
+				user: { publicId: "other-user" },
+				tags: [{ tag: "test" }],
+				likesCount: 1,
+				commentsCount: 0,
 			};
 
 			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockImageRepository.findByPublicId
-				.onFirstCall()
-				.resolves(mockImage) // First call in execute
-				.onSecondCall()
-				.resolves(mockImage); // Second call for return value
-
-			mockLikeRepository.findByUserAndImage.resolves(null); // No existing like
+			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockLikeRepository.findByUserAndPost.resolves(null); // No existing like
+			mockDTOService.toPostDTO.resolves(mockPostDTO);
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
-				await callback(mockSession); // Mock session
+				await callback(mockSession);
 			});
 
 			const result = await handler.execute(command);
 
-			expect(mockUserRepository.findByPublicId.calledWith(command.userPublicId)).to.be.true;
-			expect(mockImageRepository.findByPublicId.calledWith("img-public-123")).to.be.true;
-			expect(mockLikeRepository.findByUserAndImage.calledWith(mockUser.id, mockImage.id, mockSession)).to.be.true;
+			expect(mockUserRepository.findByPublicId.calledWith("user-123")).to.be.true;
+			expect(mockPostRepository.findByPublicId.calledWith("post-456")).to.be.true;
+			expect(
+				mockLikeRepository.findByUserAndPost.calledWith(mockUser._id.toString(), mockPost._id!.toString(), mockSession)
+			).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
-			expect(result).to.equal(mockImage);
+			expect(mockDTOService.toPostDTO.called).to.be.true;
+			expect(result).to.equal(mockPostDTO);
 		});
 
-		it("should handle unlike action correctly when image exists and user has already liked", async () => {
-			const mockUser = { id: new Types.ObjectId().toString() };
-			const mockImage: Partial<IImage> = {
-				id: new Types.ObjectId().toString(),
-				tags: [{ tag: "nature" }, { tag: "landscape" }],
-				user: { publicId: new Types.ObjectId() } as any,
-				toJSON: () => mockImage, // Add toJSON method to mock
+		it("should handle unlike action correctly when post exists and user has already liked", async () => {
+			const mockUser = { _id: new Types.ObjectId(), publicId: "user-123", username: "testuser" };
+			const mockPost: Partial<IPost> = {
+				_id: new Types.ObjectId(),
+				publicId: "post-456",
+				body: "Test post",
+				user: { publicId: "other-user" } as any,
+				tags: [{ tag: "test" }] as any,
+				likesCount: 1,
+				commentsCount: 0,
 			};
 
 			const mockExistingLike = {
-				userId: mockUser.id,
-				imageId: mockImage.id,
+				userId: mockUser._id,
+				postId: mockPost._id,
+			};
+
+			const mockPostDTO = {
+				publicId: "post-456",
+				body: "Test post",
+				user: { publicId: "other-user" },
+				tags: [{ tag: "test" }],
+				likesCount: 0,
+				commentsCount: 0,
 			};
 
 			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockImageRepository.findByPublicId
-				.onFirstCall()
-				.resolves(mockImage) // First call in execute
-				.onSecondCall()
-				.resolves(mockImage); // Second call for return value
-
-			mockLikeRepository.findByUserAndImage.resolves(mockExistingLike); // Existing like found
+			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockLikeRepository.findByUserAndPost.resolves(mockExistingLike); // Existing like found
+			mockDTOService.toPostDTO.resolves(mockPostDTO);
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
-				await callback(mockSession); // Mock session
+				await callback(mockSession);
 			});
 
 			const result = await handler.execute(command);
 
-			expect(mockUserRepository.findByPublicId.calledWith(command.userPublicId)).to.be.true;
-			expect(mockImageRepository.findByPublicId.calledWith("img-public-123")).to.be.true;
-			expect(mockLikeRepository.deleteLike.calledWith(mockUser.id, mockImage.id, mockSession)).to.be.true;
+			expect(mockUserRepository.findByPublicId.calledWith("user-123")).to.be.true;
+			expect(mockPostRepository.findByPublicId.calledWith("post-456")).to.be.true;
+			expect(mockLikeRepository.deleteLike.calledWith(mockUser._id.toString(), mockPost._id!.toString(), mockSession))
+				.to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
-			expect(result).to.equal(mockImage);
+			expect(mockDTOService.toPostDTO.called).to.be.true;
+			expect(result).to.equal(mockPostDTO);
 		});
 	});
 });

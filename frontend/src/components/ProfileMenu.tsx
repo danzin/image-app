@@ -4,7 +4,7 @@ import { Menu, MenuItem, IconButton, Avatar, Modal, Box, Typography } from "@mui
 import { ChevronDown, UploadIcon } from "lucide-react";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
-import { useCurrentUser } from "../hooks/user/useCurrentUser";
+import { useCurrentUser } from "../hooks/user/useUsers";
 
 const BASE_URL = "/api";
 

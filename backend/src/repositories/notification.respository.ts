@@ -122,4 +122,20 @@ export class NotificationRepository extends BaseRepository<INotification> {
 
 		return result.deletedCount;
 	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model
+			.deleteMany({ userId })
+			.session(session || null)
+			.exec();
+		return result.deletedCount || 0;
+	}
+
+	async deleteManyByActorId(actorId: string, session?: ClientSession): Promise<number> {
+		const result = await this.model
+			.deleteMany({ actorId })
+			.session(session || null)
+			.exec();
+		return result.deletedCount || 0;
+	}
 }

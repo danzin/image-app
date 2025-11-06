@@ -1,4 +1,4 @@
-import mongoose, { Model } from "mongoose";
+import mongoose, { Model, ClientSession } from "mongoose";
 import { createError } from "../utils/errors";
 import { IFollow } from "../types";
 import { inject, injectable } from "tsyringe";
@@ -170,5 +170,88 @@ export class FollowRepository extends BaseRepository<IFollow> {
 		} catch (error) {
 			throw createError("DatabaseError", (error as Error).message);
 		}
+	}
+
+	private normalizeId(id: string | mongoose.Types.ObjectId): mongoose.Types.ObjectId {
+		if (id instanceof mongoose.Types.ObjectId) {
+			return id;
+		}
+		return new mongoose.Types.ObjectId(id);
+	}
+
+	async countFollowersByUserId(
+		userId: string | mongoose.Types.ObjectId,
+		session?: mongoose.ClientSession
+	): Promise<number> {
+		const normalized = this.normalizeId(userId);
+		const query = this.model.countDocuments({ followeeId: normalized });
+		if (session) query.session(session);
+		return await query.exec();
+	}
+
+	async countFollowingByUserId(
+		userId: string | mongoose.Types.ObjectId,
+		session?: mongoose.ClientSession
+	): Promise<number> {
+		const normalized = this.normalizeId(userId);
+		const query = this.model.countDocuments({ followerId: normalized });
+		if (session) query.session(session);
+		return await query.exec();
+	}
+
+	async getFollowerObjectIds(userId: string | mongoose.Types.ObjectId): Promise<string[]> {
+		const normalized = this.normalizeId(userId);
+		const followers = await this.model.find({ followeeId: normalized }).select("followerId").lean().exec();
+		return followers
+			.map((doc: any) => doc?.followerId)
+			.filter(Boolean)
+			.map((id: mongoose.Types.ObjectId) => id.toString());
+	}
+
+	async getFollowingObjectIds(userId: string | mongoose.Types.ObjectId): Promise<string[]> {
+		const normalized = this.normalizeId(userId);
+		const following = await this.model.find({ followerId: normalized }).select("followeeId").lean().exec();
+		return following
+			.map((doc: any) => doc?.followeeId)
+			.filter(Boolean)
+			.map((id: mongoose.Types.ObjectId) => id.toString());
+	}
+
+	async getFollowerPublicIdsByPublicId(userPublicId: string): Promise<string[]> {
+		const user = await this.model.db
+			.collection("users")
+			.findOne({ publicId: userPublicId }, { projection: { _id: 1 } });
+		if (!user?._id) return [];
+
+		const followers = await this.model
+			.aggregate([
+				{ $match: { followeeId: user._id } },
+				{
+					$lookup: {
+						from: "users",
+						localField: "followerId",
+						foreignField: "_id",
+						as: "follower",
+					},
+				},
+				{ $unwind: "$follower" },
+				{ $project: { publicId: "$follower.publicId" } },
+			])
+			.exec();
+
+		return followers
+			.map((doc: any) => doc?.publicId)
+			.filter((value: unknown): value is string => typeof value === "string" && value.length > 0);
+	}
+
+	async deleteAllFollowsByUserId(userId: string, session?: ClientSession): Promise<number> {
+		const userObjectId = this.normalizeId(userId);
+		const result = await this.model
+			.deleteMany({
+				$or: [{ followerId: userObjectId }, { followeeId: userObjectId }],
+			})
+			.session(session || null)
+			.exec();
+		return result.deletedCount || 0;
 	}
 }

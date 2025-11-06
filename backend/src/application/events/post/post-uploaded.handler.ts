@@ -23,9 +23,10 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 			// invalidate global discovery feeds (trending, new)
 			tagsToInvalidate.push("trending_feed", "new_feed");
 
-			// invalidate author's own feeds
+			// invalidate author's own feeds and metrics
 			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
 			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
+			tagsToInvalidate.push(`user_post_count:${event.authorPublicId}`);
 
 			console.log(`[POST_UPLOAD_HANDLER] Getting followers for user: ${event.authorPublicId}`);
 			const followers = await this.getFollowersOfUser(event.authorPublicId);

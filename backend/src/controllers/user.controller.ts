@@ -14,6 +14,10 @@ import { GetMeResult } from "../application/queries/users/getMe/getMe.handler";
 import { LikeActionByPublicIdCommand } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 import { GetWhoToFollowQuery } from "../application/queries/users/getWhoToFollow/getWhoToFollow.query";
 import { GetWhoToFollowResult } from "../application/queries/users/getWhoToFollow/getWhoToFollow.handler";
+import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/updateAvatar.command";
+import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
+import { PublicUserDTO } from "../services/dto.service";
+import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -132,15 +136,17 @@ export class UserController {
 	updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			console.log("decodedUser in updateAvatar", decodedUser);
 			const file = req.file?.buffer;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.updateAvatar(decodedUser.publicId, file);
-			res.status(200).json({ message: "Avatar updated successfully" });
+
+			const command = new UpdateAvatarCommand(decodedUser.publicId, file);
+			const updatedUserDTO = await this.commandBus.dispatch<PublicUserDTO>(command);
+
+			res.status(200).json(updatedUserDTO);
 		} catch (error) {
 			next(error);
 		}
@@ -149,16 +155,17 @@ export class UserController {
 	updateCover = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			console.log("decodedUser in updateAvatar", decodedUser);
-
 			const file = req.file?.buffer;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.updateCover(decodedUser.publicId, file);
-			res.status(200).json({ message: "Cover updated successfully" });
+
+			const command = new UpdateCoverCommand(decodedUser.publicId, file);
+			const updatedUserDTO = await this.commandBus.dispatch<PublicUserDTO>(command);
+
+			res.status(200).json(updatedUserDTO);
 		} catch (error) {
 			next(error);
 		}
@@ -286,7 +293,7 @@ export class UserController {
 	/**
 	 * Delete current user's account (self-deletion)
 	 */
-	deleteMyAccount = async (req: Request, res: Response): Promise<void> => {
+	deleteMyAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const userPublicId = req.decodedUser?.publicId;
 
@@ -295,11 +302,13 @@ export class UserController {
 				return;
 			}
 
-			await this.userService.deleteMyAccountByPublicId(userPublicId);
+			const command = new DeleteUserCommand(userPublicId);
+			await this.commandBus.dispatch(command);
+
+			res.clearCookie("token");
 			res.status(200).json({ message: "Account deleted successfully" });
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			res.status(500).json({ error: errorMessage });
+			next(error);
 		}
 	};
 

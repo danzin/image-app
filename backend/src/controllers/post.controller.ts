@@ -14,7 +14,7 @@ import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsB
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
 import { createError } from "../utils/errors";
 import { errorLogger } from "../utils/winston";
-import { PostDTO, PaginationResult, ITag } from "../types";
+import { PostDTO, PaginationResult, ITag, UserPostsResult } from "../types";
 import { safeFireAndForget } from "../utils/helpers";
 
 @injectable()
@@ -41,9 +41,8 @@ export class PostController {
 			}
 
 			const originalName = file?.originalname || `post-${Date.now()}`;
-			const postDTO = (await this.commandBus.dispatch(
-				new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.buffer, originalName)
-			)) as PostDTO;
+			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.buffer, originalName);
+			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -78,9 +77,8 @@ export class PostController {
 		const page = parseInt(req.query.page as string) || 1;
 		const limit = parseInt(req.query.limit as string) || 10;
 		try {
-			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
-				new GetPostsByUserQuery(publicId, page, limit)
-			);
+			const query = new GetPostsByUserQuery(publicId, page, limit);
+			const posts = await this.queryBus.execute<UserPostsResult>(query);
 			res.json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -99,9 +97,9 @@ export class PostController {
 			const limit = parseInt(req.query.limit as string) || 20;
 
 			const user = await this.userService.getUserByUsername(username);
-			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
-				new GetPostsByUserQuery(user.publicId, page, limit)
-			);
+
+			const query = new GetPostsByUserQuery(user.publicId, page, limit);
+			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
 
 			res.status(200).json(posts);
 		} catch (error) {
@@ -124,7 +122,8 @@ export class PostController {
 				: await this.queryBus.execute<PostDTO>(new GetPostBySlugQuery(sanitizedSlug));
 
 			if (viewerPublicId && post.publicId) {
-				safeFireAndForget(this.commandBus.dispatch(new RecordPostViewCommand(post.publicId, viewerPublicId)));
+				const command = new RecordPostViewCommand(post.publicId, viewerPublicId);
+				safeFireAndForget(this.commandBus.dispatch(command));
 			}
 
 			res.status(200).json(post);
@@ -144,9 +143,8 @@ export class PostController {
 			const viewerPublicId = req.decodedUser?.publicId; // Get viewer's publicId if logged in
 			// Strip file extension if present (e.g., "abc-123.png" -> "abc-123")
 			const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
-			const postDTO = await this.queryBus.execute<PostDTO>(
-				new GetPostByPublicIdQuery(sanitizedPublicId, viewerPublicId)
-			);
+			const command = new GetPostByPublicIdQuery(sanitizedPublicId, viewerPublicId);
+			const postDTO = await this.queryBus.execute<PostDTO>(command);
 
 			if (viewerPublicId) {
 				safeFireAndForget(this.commandBus.dispatch(new RecordPostViewCommand(sanitizedPublicId, viewerPublicId)));
@@ -168,9 +166,9 @@ export class PostController {
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
 			const tagArray = tags ? (tags as string).split(",").filter((tag) => tag.trim() !== "") : [];
-			const postDTO = await this.queryBus.execute<PaginationResult<PostDTO>>(
-				new SearchPostsByTagsQuery(tagArray, page, limit)
-			);
+
+			const query = new SearchPostsByTagsQuery(tagArray, page, limit);
+			const postDTO = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
 			res.status(200).json(postDTO);
 		} catch (error) {
 			next(error);
@@ -179,7 +177,8 @@ export class PostController {
 
 	listTags = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const result = await this.queryBus.execute<ITag[]>(new GetAllTagsQuery());
+			const query = new GetAllTagsQuery();
+			const result = await this.queryBus.execute<ITag[]>(query);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -201,7 +200,8 @@ export class PostController {
 			}
 
 			const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
-			const result = await this.commandBus.dispatch(new DeletePostCommand(sanitizedPublicId, decodedUser.publicId));
+			const command = new DeletePostCommand(sanitizedPublicId, decodedUser.publicId);
+			const result = await this.commandBus.dispatch(command);
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {

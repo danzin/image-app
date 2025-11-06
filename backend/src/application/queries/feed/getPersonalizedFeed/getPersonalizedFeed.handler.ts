@@ -8,6 +8,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
 import { ColdStartFeedGeneratedEvent } from "../../../events/ColdStartFeedGenerated.event";
 import { createError } from "../../../../utils/errors";
+import { FollowRepository } from "../../../../repositories/follow.repository";
 import { CoreFeed, FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
 
 @injectable()
@@ -16,6 +17,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		@inject("PostRepository") private postRepository: PostRepository,
 		@inject("UserRepository") private userRepository: UserRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
+		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("EventBus") private eventBus: EventBus
 	) {}
@@ -63,16 +65,15 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 	// new user - discovery/trending feed (getRankedFeed)
 	// established user - posts from following + tag preferences (getFeedForUserCore)
 	private async generateCoreFeed(userId: string, safePage: number, safeLimit: number): Promise<CoreFeed> {
-		// fetch user first
 		const user = await this.userRepository.findByPublicId(userId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		// fetch top tags for the user
-		const topTags = await this.userPreferenceRepository.getTopUserTags(String(user._id));
-
-		const followingIds = user.following || [];
+		const [topTags, followingIds] = await Promise.all([
+			this.userPreferenceRepository.getTopUserTags(user.id),
+			this.followRepository.getFollowingObjectIds(user.id),
+		]);
 		const favoriteTags = topTags.map((pref: any) => pref.tag);
 		const skip = (safePage - 1) * safeLimit;
 

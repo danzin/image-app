@@ -23,3 +23,14 @@ export class UserAvatarChangedEvent implements IEvent {
 		public readonly newAvatarUrl?: string
 	) {}
 }
+
+export class UserCoverChangedEvent implements IEvent {
+	readonly type = "UserCoverChangedEvent";
+	readonly timestamp: Date = new Date();
+
+	constructor(
+		public readonly userPublicId: string,
+		public readonly oldCoverUrl?: string,
+		public readonly newCoverUrl?: string
+	) {}
+}

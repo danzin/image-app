@@ -124,6 +124,15 @@ import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/Ava
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { GetForYouFeedQueryHandler } from "../application/queries/feed/getForYouFeed/getForYouFeed.handler";
 import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { UserActionService } from "../services/userAction.service";
+import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
+import { DeleteUserCommandHandler } from "../application/commands/users/deleteUser/deleteUser.handler";
+import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/updateAvatar.command";
+import { UpdateAvatarCommandHandler } from "../application/commands/users/updateAvatar/updateAvatar.handler";
+import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
+import { UpdateCoverCommandHandler } from "../application/commands/users/updateCover/updateCover.handler";
+import { UserCoverChangedEvent } from "../application/events/user/user-interaction.event";
+import { UserCoverChangedHandler } from "../application/events/user/user-cover-change.handler";
 
 export function setupContainer(): void {
 	registerCoreComponents();
@@ -207,6 +216,7 @@ function registerServices(): void {
 	container.registerSingleton("DTOService", DTOService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
+	container.registerSingleton("UserActionService", UserActionService);
 
 	// register realtime message handlers
 	const realtimeHandlers = [
@@ -262,6 +272,9 @@ function registerCQRS(): void {
 
 	// Register command handlers
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
+	container.register("DeleteUserCommandHandler", { useClass: DeleteUserCommandHandler });
+	container.register("UpdateAvatarCommandHandler", { useClass: UpdateAvatarCommandHandler });
+	container.register("UpdateCoverCommandHandler", { useClass: UpdateCoverCommandHandler });
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
 	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
 	container.register("CreateCommentCommandHandler", { useClass: CreateCommentCommandHandler });
@@ -274,6 +287,7 @@ function registerCQRS(): void {
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
 	container.register("UserAvatarChangedHandler", { useClass: UserAvatarChangedHandler });
+	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
 	// Register query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
@@ -301,10 +315,14 @@ function registerCQRS(): void {
 	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
 	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
 	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
 
 	// Register command handlers with command bus
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
+	commandBus.register(DeleteUserCommand, container.resolve<DeleteUserCommandHandler>("DeleteUserCommandHandler"));
+	commandBus.register(UpdateAvatarCommand, container.resolve<UpdateAvatarCommandHandler>("UpdateAvatarCommandHandler"));
+	commandBus.register(UpdateCoverCommand, container.resolve<UpdateCoverCommandHandler>("UpdateCoverCommandHandler"));
 	commandBus.register(LikeActionCommand, container.resolve<LikeActionCommandHandler>("LikeActionCommandHandler"));
 	commandBus.register(
 		LikeActionByPublicIdCommand,

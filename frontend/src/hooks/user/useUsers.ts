@@ -10,7 +10,7 @@ import {
 	fetchCurrentUser,
 	fetchUserByPublicId,
 	fetchUserByUsername,
-	fetchUserImages,
+	fetchUserPosts,
 	updateUserAvatar as updateUserAvatarApi,
 	updateUserCover as updateUserCoverApi,
 } from "../../api/userApi";
@@ -51,30 +51,36 @@ export const useGetUserByUsername = (username: string | undefined) => {
 	});
 };
 
-// For backward compatibility - tries to determine if it's a publicId or username
 export const useGetUser = (identifier: string | undefined) => {
-	// Check if identifier looks like a UUID (publicId)
-	const isPublicId = identifier && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+	const queryClient = useQueryClient();
+
+	const currentUser = queryClient.getQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"]);
+	const isViewingSelf = currentUser?.publicId === identifier || currentUser?.username === identifier;
+	const isPublicId = identifier && /^[0-9a-f]{8}-[0-9a-f]{4}-.../.test(identifier);
 
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", identifier],
-		queryFn: ({ queryKey }) => {
-			const id = queryKey[1] as string;
-			if (isPublicId) {
-				return fetchUserByPublicId({ queryKey: ["user", id] });
+		queryFn: () => {
+			const freshCurrentUser = queryClient.getQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"]);
+			const isSelf = freshCurrentUser?.publicId === identifier || freshCurrentUser?.username === identifier;
+
+			if (isSelf && freshCurrentUser) {
+				return Promise.resolve(freshCurrentUser as PublicUserDTO);
 			}
-			return fetchUserByUsername({ queryKey: ["user", id] });
+
+			return isPublicId
+				? fetchUserByPublicId({ queryKey: ["user", identifier!] })
+				: fetchUserByUsername({ queryKey: ["user", identifier!] });
 		},
 		enabled: !!identifier,
-		staleTime: 60000,
+		staleTime: isViewingSelf ? 0 : 60000,
 	});
 };
-
-// Get user images by user public ID
-export const useUserImages = (userPublicId: string, options?: UseUserImagesOptions) => {
+// Get user posts by user public ID
+export const useUserPosts = (userPublicId: string, options?: UseUserImagesOptions) => {
 	return useInfiniteQuery({
-		queryKey: ["userImages", userPublicId] as const,
-		queryFn: ({ pageParam = 1 }) => fetchUserImages(pageParam as number, userPublicId),
+		queryKey: ["userPosts", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchUserPosts(pageParam as number, userPublicId),
 		initialPageParam: 1,
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		...options,
@@ -86,11 +92,12 @@ export const useUpdateUserAvatar = () => {
 	return useMutation<AuthenticatedUserDTO | AdminUserDTO, Error, Blob>({
 		mutationFn: updateUserAvatarApi,
 		onSuccess: (data) => {
-			// Update current user cache directly with the response data
 			queryClient.setQueryData(["currentUser"], data);
+			queryClient.setQueryData(["user", data.publicId], data);
+			queryClient.setQueryData(["user", "publicId", data.publicId], data);
+			queryClient.setQueryData(["user", "username", data.username], data);
 
-			queryClient.invalidateQueries({ queryKey: ["user"], exact: false, refetchType: "none" });
-			queryClient.invalidateQueries({ queryKey: ["userImages"] });
+			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},
 		onError(error) {
 			console.error("Avatar update failed:", error);
@@ -104,8 +111,11 @@ export const useUpdateUserCover = () => {
 		mutationFn: updateUserCoverApi,
 		onSuccess: (data) => {
 			queryClient.setQueryData(["currentUser"], data);
+			queryClient.setQueryData(["user", data.publicId], data);
+			queryClient.setQueryData(["user", "publicId", data.publicId], data);
+			queryClient.setQueryData(["user", "username", data.username], data);
 
-			queryClient.invalidateQueries({ queryKey: ["user"], exact: false, refetchType: "none" });
+			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},
 		onError: (error) => {
 			console.error("Cover update failed:", error);

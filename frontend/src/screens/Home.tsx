@@ -5,10 +5,11 @@ import Gallery from "../components/Gallery";
 import CreatePost from "../components/CreatePost";
 import { Box, Button, Typography, Container, alpha } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { useAuth } from "..//hooks/context/useAuth";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
-
+	const { isLoggedIn } = useAuth();
 	// backend picks personalized vs trending based on auth present in the request
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = usePosts();
 
@@ -48,7 +49,7 @@ const Home: React.FC = () => {
 					}}
 				>
 					{/* Visitor hero when there are no posts at all */}
-					{activePosts.length === 0 && !isLoading && !error && (
+					{activePosts.length === 0 && !isLoading && !error && !isLoggedIn && (
 						<motion.div
 							initial={{ opacity: 0, y: 30 }}
 							animate={{ opacity: 1, y: 0 }}

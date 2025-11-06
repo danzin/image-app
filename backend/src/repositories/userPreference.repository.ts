@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { Model } from "mongoose";
+import { ClientSession, Model } from "mongoose";
 import { IUser, IUserPreference } from "../types";
 import { createError } from "../utils/errors";
 import { UserRepository } from "./user.repository";
@@ -77,6 +77,23 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 		} catch (error) {
 			console.error("Error getting users with tag preferences:", error);
 			return [];
+		}
+	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const result = await this.model
+				.deleteMany({ userId })
+				.session(session || null)
+				.exec();
+			return result.deletedCount || 0;
+		} catch (error) {
+			console.error(error);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
+			} else {
+				throw createError("UnknownError", String(error));
+			}
 		}
 	}
 }

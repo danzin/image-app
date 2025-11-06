@@ -181,4 +181,19 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 		if (session) update.session(session);
 		await update.exec();
 	}
+
+	async findByParticipant(userId: string, session?: ClientSession): Promise<IConversation[]> {
+		const query = this.model.find({ participants: new mongoose.Types.ObjectId(userId) });
+		if (session) query.session(session);
+		return query.exec();
+	}
+
+	async removeParticipant(conversationId: string, userId: string, session?: ClientSession): Promise<void> {
+		const update = this.model.updateOne(
+			{ _id: new mongoose.Types.ObjectId(conversationId) },
+			{ $pull: { participants: new mongoose.Types.ObjectId(userId) } }
+		);
+		if (session) update.session(session);
+		await update.exec();
+	}
 }

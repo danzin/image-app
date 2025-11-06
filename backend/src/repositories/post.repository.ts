@@ -696,4 +696,15 @@ export class PostRepository extends BaseRepository<IPost> {
 			throw createError("DatabaseError", error.message ?? "failed to execute aggregation");
 		}
 	}
+
+	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const query = this.model.deleteMany({ user: userId });
+			if (session) query.session(session);
+			const result = await query.exec();
+			return result.deletedCount || 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to delete posts by user");
+		}
+	}
 }

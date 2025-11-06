@@ -6,7 +6,7 @@ import { ICommandHandler } from "../../../common/interfaces/command-handler.inte
 import { PostRepository } from "../../../../repositories/post.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { TagService } from "../../../../services/tag.service";
-import { ImageService, AttachmentSummary } from "../../../../services/image.service";
+import { ImageService } from "../../../../services/image.service";
 import { RedisService } from "../../../../services/redis.service";
 import { DTOService } from "../../../../services/dto.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
@@ -15,7 +15,7 @@ import { PostUploadedEvent } from "../../../events/post/post.event";
 import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
 import { createError } from "../../../../utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "../../../../utils/sanitizers";
-import { IPost, PostDTO } from "../../../../types";
+import { AttachmentSummary, IPost, PostDTO } from "../../../../types";
 
 const MAX_BODY_LENGTH = 300;
 

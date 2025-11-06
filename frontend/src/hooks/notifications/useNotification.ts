@@ -72,24 +72,26 @@ export const useNotifications = () => {
 
 		const handleNew = (notification: Notification) => {
 			console.log("[useNotifications] New notification received:", notification);
-			queryClient.setQueryData<InfiniteData<Notification[]>>(["notifications"], (old) => {
-				if (!old?.pages) return old;
-
-				const firstPage = old.pages[0] || [];
-
-				// check if notification already exists (prevent duplicates)
-				const exists = old.pages.some((page: Notification[]) => page.some((n) => n.id === notification.id));
-
-				if (exists) {
-					console.log("[useNotifications] Notification already exists, skipping");
-					return old;
+			queryClient.setQueryData<InfiniteData<Notification[]>>(["notifications"], (oldData) => {
+				if (!oldData) {
+					return {
+						pages: [[notification]],
+						pageParams: [undefined],
+					};
 				}
 
-				// prepend new notification to first page
-				console.log("[useNotifications] Adding new notification to cache");
+				const exists = oldData.pages.some((page) => page.some((n) => n.id === notification.id));
+				if (exists) {
+					console.log("[useNotifications] Notification already exists, skipping");
+					return oldData;
+				}
+				const newPages = [...oldData.pages];
+				// Prepend the new notification to the very first page
+				newPages[0] = [notification, ...newPages[0]];
+
 				return {
-					...old,
-					pages: [[notification, ...firstPage], ...old.pages.slice(1)],
+					...oldData,
+					pages: newPages,
 				};
 			});
 		};

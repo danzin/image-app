@@ -20,7 +20,7 @@ export const usernameSchema = z
 export const registrationSchema = z
 	.object({
 		email: z.string().email(),
-		password: z.string().min(8),
+		password: z.string().min(3),
 		username: z
 			.string()
 			.regex(/^[a-zA-Z0-9]+$/, "Username must be alphanumeric.")
