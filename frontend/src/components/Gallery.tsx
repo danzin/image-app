@@ -67,7 +67,6 @@ const Gallery: React.FC<GalleryProps> = ({
 						sx={{
 							width: "100%",
 							maxWidth: "700px",
-							background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)",
 							border: "1px solid rgba(99, 102, 241, 0.1)",
 							borderRadius: 2,
 						}}
@@ -107,7 +106,6 @@ const Gallery: React.FC<GalleryProps> = ({
 							textAlign: "center",
 							py: 8,
 							px: 4,
-							background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)",
 							border: "1px solid rgba(99, 102, 241, 0.2)",
 							borderRadius: 3,
 							minWidth: "300px",
@@ -120,7 +118,7 @@ const Gallery: React.FC<GalleryProps> = ({
 								background: "linear-gradient(45deg, #f8fafc, #cbd5e1)",
 								backgroundClip: "text",
 								WebkitBackgroundClip: "text",
-								color: "transparent",
+								color: "text.primary",
 								fontWeight: 600,
 							}}
 						>

@@ -28,7 +28,6 @@ const TrendingTags: React.FC = () => {
 				sx={{
 					p: 3,
 					borderRadius: 3,
-					background: "linear-gradient(145deg, rgba(26, 26, 46, 0.6) 0%, rgba(22, 33, 62, 0.6) 100%)",
 					border: "1px solid rgba(99, 102, 241, 0.2)",
 				}}
 			>
@@ -54,7 +53,6 @@ const TrendingTags: React.FC = () => {
 			sx={{
 				p: 3,
 				borderRadius: 3,
-				background: "linear-gradient(145deg, rgba(26, 26, 46, 0.6) 0%, rgba(22, 33, 62, 0.6) 100%)",
 				border: "1px solid rgba(99, 102, 241, 0.2)",
 				transition: "all 0.3s ease",
 				"&:hover": {

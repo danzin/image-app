@@ -57,7 +57,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				width: "100%",
 				maxWidth: "700px",
 				overflow: "hidden",
-				background: "linear-gradient(145deg, #1a1a2e 0%, #16213e 100%)",
 				border: "1px solid rgba(99, 102, 241, 0.2)",
 				borderRadius: 3,
 				cursor: "pointer",
@@ -150,7 +149,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					justifyContent: "space-between",
 					px: 3,
 					py: 2,
-					background: "rgba(26, 26, 46, 0.9)",
 					backdropFilter: "blur(10px)",
 				}}
 			>

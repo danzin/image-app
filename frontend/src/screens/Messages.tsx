@@ -189,8 +189,8 @@ const Messages = () => {
 						px: 2,
 						py: 1.5,
 						borderRadius: 2,
-						backgroundColor: isOwnMessage ? theme.palette.primary.main : "rgba(99, 102, 241, 0.08)",
-						color: isOwnMessage ? theme.palette.primary.contrastText : theme.palette.text.primary,
+						backgroundColor: isOwnMessage ? theme.palette.primary.main : theme.palette.primary.main,
+						color: isOwnMessage ? theme.palette.text.primary : theme.palette.text.primary,
 					}}
 				>
 					{!isOwnMessage && (
@@ -217,7 +217,6 @@ const Messages = () => {
 				height: "100vh",
 				maxHeight: "100vh",
 				overflow: "hidden",
-				background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(29, 38, 125, 0.7) 100%)",
 				color: theme.palette.text.primary,
 			}}
 		>
@@ -228,7 +227,6 @@ const Messages = () => {
 					display: isMobile && !showConversationsOnMobile ? "none" : "flex",
 					flexDirection: "column",
 					borderRight: isMobile ? "none" : `1px solid ${theme.palette.divider}`,
-					backgroundColor: "rgba(15, 23, 42, 0.85)",
 				}}
 			>
 				<Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1 }}>
@@ -314,7 +312,6 @@ const Messages = () => {
 					flex: 1,
 					display: isMobile && showConversationsOnMobile ? "none" : "flex",
 					flexDirection: "column",
-					backgroundColor: "rgba(13, 20, 35, 0.88)",
 					minHeight: 0,
 					overflow: "hidden",
 				}}
@@ -383,7 +380,6 @@ const Messages = () => {
 								sx={{
 									px: 2,
 									py: 1,
-									backgroundColor: "rgba(15, 23, 42, 0.75)",
 									borderRadius: 3,
 									border: `1px solid ${theme.palette.primary.main}33`,
 								}}

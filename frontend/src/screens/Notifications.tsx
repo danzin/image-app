@@ -131,7 +131,6 @@ const Notifications: React.FC = () => {
 				sx={{
 					mb: 3,
 					fontWeight: 700,
-					background: "linear-gradient(45deg, #6366f1, #ec4899)",
 					backgroundClip: "text",
 					WebkitBackgroundClip: "text",
 					color: "transparent",
@@ -147,7 +146,6 @@ const Notifications: React.FC = () => {
 						py: 8,
 						px: 3,
 						borderRadius: 3,
-						background: "linear-gradient(145deg, rgba(26, 26, 46, 0.6) 0%, rgba(22, 33, 62, 0.6) 100%)",
 						border: "1px solid rgba(99, 102, 241, 0.2)",
 					}}
 				>
@@ -171,8 +169,8 @@ const Notifications: React.FC = () => {
 									mb: 1,
 									borderRadius: 3,
 									background: notification.isRead
-										? "linear-gradient(145deg, rgba(26, 26, 46, 0.4) 0%, rgba(22, 33, 62, 0.4) 100%)"
-										: "linear-gradient(145deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)",
+										? "linear-gradient(145deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)"
+										: "linear-gradient(145deg, rgba(26, 26, 46, 0.4) 0%, rgba(22, 33, 62, 0.4) 100%)",
 									border: notification.isRead
 										? "1px solid rgba(99, 102, 241, 0.1)"
 										: "1px solid rgba(99, 102, 241, 0.3)",
