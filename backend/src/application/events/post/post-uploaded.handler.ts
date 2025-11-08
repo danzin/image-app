@@ -20,8 +20,8 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 			// use tag-based invalidation for efficient cache clearing
 			const tagsToInvalidate: string[] = [];
 
-			// invalidate global discovery feeds (trending, new)
-			tagsToInvalidate.push("trending_feed", "new_feed");
+			// invalidate global discovery feeds (new)
+			tagsToInvalidate.push("new_feed");
 
 			// invalidate author's own feeds and metrics
 			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);

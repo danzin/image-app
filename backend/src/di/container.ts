@@ -124,6 +124,8 @@ import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/Ava
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { GetForYouFeedQueryHandler } from "../application/queries/feed/getForYouFeed/getForYouFeed.handler";
 import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { GetTrendingFeedQueryHandler } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.handler";
+import { GetTrendingFeedQuery } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.query";
 import { UserActionService } from "../services/userAction.service";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 import { DeleteUserCommandHandler } from "../application/commands/users/deleteUser/deleteUser.handler";
@@ -134,13 +136,13 @@ import { UpdateCoverCommandHandler } from "../application/commands/users/updateC
 import { UserCoverChangedEvent } from "../application/events/user/user-interaction.event";
 import { UserCoverChangedHandler } from "../application/events/user/user-cover-change.handler";
 
-export function setupContainer(): void {
+export function setupContainerCore(): void {
 	registerCoreComponents();
 	registerRepositories();
 	registerServices();
 	registerControllers();
 	registerRoutes();
-	registerCQRS();
+
 	container.registerSingleton("Server", Server);
 }
 
@@ -265,12 +267,14 @@ function registerRoutes(): void {
 }
 
 // Register CQRS components
-function registerCQRS(): void {
+export function registerCQRS(): void {
+	// Register buses
 	container.registerSingleton("CommandBus", CommandBus);
 	container.registerSingleton("QueryBus", QueryBus);
 	container.registerSingleton("EventBus", EventBus);
 
-	// Register command handlers
+	// Register handler classes as transient/registration tokens.
+	// This only binds the class to a token without resolvin the handler yet
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
 	container.register("DeleteUserCommandHandler", { useClass: DeleteUserCommandHandler });
 	container.register("UpdateAvatarCommandHandler", { useClass: UpdateAvatarCommandHandler });
@@ -283,17 +287,19 @@ function registerCQRS(): void {
 	container.register("DeletePostCommandHandler", { useClass: DeletePostCommandHandler });
 	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
 
-	// Register reactive event handlers
+	// Reactive event handlers
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
 	container.register("UserAvatarChangedHandler", { useClass: UserAvatarChangedHandler });
 	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
-	// Register query handlers
+
+	// Query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 	container.register("GetPersonalizedFeedQueryHandler", { useClass: GetPersonalizedFeedQueryHandler });
 	container.register("GetForYouFeedQueryHandler", { useClass: GetForYouFeedQueryHandler });
+	container.register("GetTrendingFeedQueryHandler", { useClass: GetTrendingFeedQueryHandler });
 	container.register("GetPostByPublicIdQueryHandler", { useClass: GetPostByPublicIdQueryHandler });
 	container.register("GetPostBySlugQueryHandler", { useClass: GetPostBySlugQueryHandler });
 	container.register("GetPostsQueryHandler", { useClass: GetPostsQueryHandler });
@@ -301,24 +307,17 @@ function registerCQRS(): void {
 	container.register("SearchPostsByTagsQueryHandler", { useClass: SearchPostsByTagsQueryHandler });
 	container.register("GetAllTagsQueryHandler", { useClass: GetAllTagsQueryHandler });
 
-	// Register interaction handlers
+	// Interaction handlers (token-only registration)
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
+}
 
-	// Setup the buses
+export function initCQRS(): void {
 	const commandBus = container.resolve<CommandBus>("CommandBus");
 	const queryBus = container.resolve<QueryBus>("QueryBus");
 	const eventBus = container.resolve<EventBus>("EventBus");
 
-	// Subscribe handlers
-	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
-	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
-	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
-	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
-	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
-	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
-
-	// Register command handlers with command bus
+	// Resolve handler instances (they will be constructed now)
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
 	commandBus.register(DeleteUserCommand, container.resolve<DeleteUserCommandHandler>("DeleteUserCommandHandler"));
 	commandBus.register(UpdateAvatarCommand, container.resolve<UpdateAvatarCommandHandler>("UpdateAvatarCommandHandler"));
@@ -332,22 +331,26 @@ function registerCQRS(): void {
 		CreateCommentCommand,
 		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
 	);
-
 	commandBus.register(
 		DeleteCommentCommand,
 		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
 	);
-
 	commandBus.register(CreatePostCommand, container.resolve<CreatePostCommandHandler>("CreatePostCommandHandler"));
-
 	commandBus.register(DeletePostCommand, container.resolve<DeletePostCommandHandler>("DeletePostCommandHandler"));
-
 	commandBus.register(
 		RecordPostViewCommand,
 		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler")
 	);
 
-	// Register query handlers with query bus
+	// Register event handlers
+	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
+	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
+	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
+	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
+	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
+
+	// Register queries
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
 	queryBus.register(
@@ -360,6 +363,10 @@ function registerCQRS(): void {
 	);
 	queryBus.register(GetForYouFeedQuery, container.resolve<GetForYouFeedQueryHandler>("GetForYouFeedQueryHandler"));
 	queryBus.register(
+		GetTrendingFeedQuery,
+		container.resolve<GetTrendingFeedQueryHandler>("GetTrendingFeedQueryHandler")
+	);
+	queryBus.register(
 		GetPostByPublicIdQuery,
 		container.resolve<GetPostByPublicIdQueryHandler>("GetPostByPublicIdQueryHandler")
 	);
@@ -371,4 +378,18 @@ function registerCQRS(): void {
 		container.resolve<SearchPostsByTagsQueryHandler>("SearchPostsByTagsQueryHandler")
 	);
 	queryBus.register(GetAllTagsQuery, container.resolve<GetAllTagsQueryHandler>("GetAllTagsQueryHandler"));
+
+	// Resolve and register realtime handlers array
+	const realtimeHandlers = [
+		container.resolve(NewPostMessageHandler),
+		container.resolve(GlobalNewPostMessageHandler),
+		container.resolve(PostDeletedMessageHandler),
+		container.resolve(InteractionMessageHandler),
+		container.resolve(LikeUpdateMessageHandler),
+		container.resolve(AvatarUpdateMessageHandler),
+		container.resolve(RealtimeMessageSentHandler),
+	];
+	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
+
+	console.info("[di] CQRS initialized (handlers resolved)");
 }

@@ -38,6 +38,10 @@ export class RedisService {
 		this.connect();
 	}
 
+	get clientInstance(): RedisClientType {
+		return this.client;
+	}
+
 	private async connect() {
 		try {
 			await this.client.connect();
@@ -544,5 +548,93 @@ export class RedisService {
 		if (type !== "none" && type !== "set") {
 			await this.client.del(key);
 		}
+	}
+
+	//======STREAM / TRENDING HELPERS======
+
+	/**
+	 * Push an interaction event into a Redis Stream
+	 * payload values that are objects will be JSON.stringified
+	 * Returns the XADD id.
+	 */
+	async pushToStream(stream = "stream:interactions", payload: Record<string, any>): Promise<string> {
+		// normalize to string-only fields for Redis
+		const prepared: Record<string, string> = {};
+		for (const [k, v] of Object.entries(payload)) {
+			prepared[k] = typeof v === "string" ? v : JSON.stringify(v);
+		}
+		// node-redis v4 exposes xAdd
+		const id = await (this.client as any).xAdd(stream, "*", prepared);
+		return id;
+	}
+
+	/**
+	 * Create a consumer group for a stream (MKSTREAM)
+	 * safe to call repeatedly (ignores BUSYGROUP).
+	 */
+	async createStreamConsumerGroup(stream = "stream:interactions", group = "trendingGroup"): Promise<void> {
+		try {
+			await (this.client as any).xGroupCreate(stream, group, "$", { MKSTREAM: true });
+		} catch (err: any) {
+			const msg = String(err?.message ?? err);
+			if (msg.includes("BUSYGROUP")) {
+				// group already exists - ignore
+				return;
+			}
+			throw err;
+		}
+	}
+
+	/**
+	 * Convenience wrapper for XACK
+	 */
+	async ackStreamMessages(stream: string, group: string, ...ids: string[]): Promise<number> {
+		// returns number of messages acknowledged
+		const res = await (this.client as any).xAck(stream, group, ids);
+		return res as number;
+	}
+
+	/**
+	 * Update (set) the trending score for a postId in the trending ZSET.
+	 */
+	async updateTrendingScore(postId: string, score: number, key = "trending:global"): Promise<void> {
+		await this.client.zAdd(key, [{ score: Number(score), value: postId }]);
+	}
+
+	/**
+	 * Increment the trending score (delta) for a postId in the trending ZSET.
+	 */
+	async incrTrendingScore(postId: string, delta: number, key = "trending:global"): Promise<number> {
+		const newScore = await this.client.zIncrBy(key, delta, postId);
+		// zIncrBy returns string score in some clients; convert to number
+		return Number(newScore);
+	}
+
+	/**
+	 * Get a range of post IDs from trending sorted set (highest to lowest scores)
+	 */
+	async getTrendingRange(start: number, end: number, key = "trending:posts"): Promise<string[]> {
+		return await this.client.zRange(key, start, end, { REV: true });
+	}
+
+	/**
+	 * Get total count of posts in trending sorted set
+	 */
+	async getTrendingCount(key = "trending:posts"): Promise<number> {
+		return await this.client.zCard(key);
+	}
+
+	/**
+	 * Read XPENDING range
+	 */
+	async xPendingRange(stream: string, group: string, start = "-", end = "+", count = 1000) {
+		return await (this.client as any).xPendingRange(stream, group, start, end, count);
+	}
+
+	/**
+	 * Claim messages (XCLAIM)
+	 */
+	async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]) {
+		return await (this.client as any).xClaim(stream, group, consumer, minIdleMs, ids);
 	}
 }

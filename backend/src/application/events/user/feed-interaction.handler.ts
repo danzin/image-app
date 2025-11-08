@@ -21,6 +21,13 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 		try {
 			await this.feedService.recordInteraction(event.userId, event.interactionType, event.postId, event.tags);
 
+			await this.redis.pushToStream("stream:interactions", {
+				postId: event.postId,
+				userId: event.userId,
+				type: event.interactionType,
+				timestamp: Date.now().toString(),
+				tags: event.tags ? JSON.stringify(event.tags) : undefined,
+			});
 			await this.invalidateRelevantFeeds(event);
 
 			// Publish real-time interaction event for WebSocket notifications

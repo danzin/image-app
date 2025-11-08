@@ -506,8 +506,11 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
+						// Calculate the popularity and comments score using natural logarithm to dampen the effect of very high like counts allowing newer posts to compete
 						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
+
 						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+
 						trendScore: {
 							$add: [
 								{ $multiply: [weights.recency, "$recencyScore"] },
