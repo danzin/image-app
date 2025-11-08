@@ -61,7 +61,10 @@ root/
 │   │   ├── application/
 │   │   │   ├── commands/                # CQRS command handlers
 │   │   │   ├── queries/                 # CQRS query handlers
-│   │   │   └── events/                  # CQRS event handlers
+│   │   │   └── events/    							 # CQRS event handlers
+│   │   ├── workers/                     # Background worker entry points
+│   │   │   └── trending.worker.ts       # Bootstrap for the worker implementation
+|		|   |   └── _impl/									 # Full worker implementation
 │   │   ├── services/                    # Legacy services (being migrated)
 │   │   ├── repositories/                # Data access layer
 │   │   ├── models/                      # Mongoose schemas
@@ -83,6 +86,30 @@ root/
 ## Key Concepts
 
 ### Backend Architecture
+
+The backend consists of two main process types that share the same codebase: the API Server and Background Workers.
+
+#### API Server
+
+The main entry point (main.ts) that runs an Express server. It's responsible for handling all incoming HTTP requests from users. Its goal is to respond as quickly as possible.
+
+#### Background Workers
+
+These are separate, headless Node.js processes (e.g., trending.worker.ts) that run alongside the main API server. They have no API endpoints.
+
+Purpose: To handle slow, computationally expensive, or asynchronous tasks without blocking the main API server. This makes the user-facing API much faster and more resilient.
+
+- **Trending Feed Worker:**
+  - Listens to a Durable Stream: It subscribes to a Redis Stream called stream:interactions.
+    - Receives Events: The main API server pushes small "interaction events" (like, comment) to this stream whenever a user interacts with a post. This is a fast, "fire-and-forget" operation for the API.
+
+  - Processes in Batches: The worker consumes these events, batches them together over a few seconds, and fetches the latest data from MongoDB.
+
+  - Calculates and Caches: It calculates the trendScore for each affected post and writes the result to a Redis Sorted Set (trending:global).
+
+  - Resilience: By using a Redis Stream with consumer groups, if the worker crashes, it can restart and continue processing events exactly where it left off, ensuring no interactions are lost.
+
+This decouples the real-time trending calculation from the user request cycle, which is a critical pattern for scalability.
 
 #### CQRS Migration (In Progress)
 
