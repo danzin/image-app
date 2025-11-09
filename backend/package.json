@@ -10,6 +10,7 @@
 		"start:trending-worker": "ts-node ./src/workers/trending.worker.ts",
 		"start:trending-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/trending.worker.ts",
 		"start:trending-worker:prod": "node ./dist/workers/trending.worker.js",
+		"seed:dev": "ts-node ./src/scripts/seed.ts",
 		"build": "tsc"
 	},
 	"author": "",
@@ -43,6 +44,7 @@
 		"zod": "^3.24.4"
 	},
 	"devDependencies": {
+		"@faker-js/faker": "^9.9.0",
 		"@types/chai": "^5.2.1",
 		"@types/chai-as-promised": "^8.0.2",
 		"@types/cookie-parser": "^1.4.8",
@@ -61,6 +63,7 @@
 		"chai": "^5.2.0",
 		"chai-as-promised": "^8.0.1",
 		"cross-env": "^7.0.3",
+		"form-data": "^4.0.4",
 		"mocha": "^11.2.2",
 		"sinon": "^20.0.0",
 		"supertest": "^7.0.0",
