@@ -17,6 +17,7 @@ const POSTS_PER_BOT = 5;
 const LIKES_PER_BOT = 10;
 const FOLLOWS_PER_BOT = 4;
 const COMMENTS_PER_BOT = 5;
+// IMPORTANT: The script requires at least some sample images in the sample-images folder!
 
 // STATE
 interface Bot {
