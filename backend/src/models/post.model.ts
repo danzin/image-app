@@ -37,6 +37,15 @@ const postSchema = new Schema<IPost>(
 				ref: "Tag",
 			},
 		],
+		likes: {
+			type: [
+				{
+					type: Schema.Types.ObjectId,
+					ref: "User",
+				},
+			],
+			default: [],
+		},
 
 		likesCount: {
 			type: Number,
@@ -70,6 +79,7 @@ postSchema.index(
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
 	}
 );
+postSchema.index({ likes: 1 }); // fast lookup for user like membership
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;

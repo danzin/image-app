@@ -50,8 +50,6 @@ import { FollowService } from "../services/follow.service";
 import Follow from "../models/follow.model";
 import Notification from "../models/notification.model";
 import { NotificationService } from "../services/notification.service";
-import Like from "../models/like.model";
-import { LikeRepository } from "../repositories/like.repository";
 import UserAction from "../models/userAction.model";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
@@ -169,7 +167,6 @@ function registerCoreComponents(): void {
 	container.register("CommentModel", { useValue: Comment });
 	container.register("FollowModel", { useValue: Follow });
 	container.register("NotificationModel", { useValue: Notification });
-	container.register("LikeModel", { useValue: Like });
 	container.register("UserActionModel", { useValue: UserAction });
 	container.register("UserPreferenceModel", { useValue: UserPreference });
 	container.register("FavoriteModel", { useValue: Favorite });
@@ -190,7 +187,6 @@ function registerRepositories(): void {
 	container.registerSingleton("TagRepository", TagRepository);
 	container.registerSingleton("FollowRepository", FollowRepository);
 	container.registerSingleton("NotificationRepository", NotificationRepository);
-	container.registerSingleton("LikeRepository", LikeRepository);
 	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
 	container.registerSingleton("FavoriteRepository", FavoriteRepository);
 	container.registerSingleton("ConversationRepository", ConversationRepository);

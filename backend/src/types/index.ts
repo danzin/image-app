@@ -5,7 +5,6 @@ export * from "./customCore/uow.types";
 export * from "./customFollows/follows.types";
 export * from "./customImages/images.types";
 export * from "./customImages/tags.types";
-export * from "./customLikes/likes.types";
 export * from "./customNotifications/notifications.types";
 export * from "./customUserAction/userAction.types";
 export * from "./customUsers/user.types";

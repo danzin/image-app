@@ -47,6 +47,13 @@ export class DTOService {
 
 		// Create nested image object if image exists
 		const image = imageData && url && imagePublicId ? { url, publicId: imagePublicId } : null;
+		const likeCount = Array.isArray(post.likes)
+			? post.likes.length
+			: typeof post.likes === "number"
+				? post.likes
+				: typeof post.likesCount === "number"
+					? post.likesCount
+					: 0;
 
 		return {
 			publicId: post.publicId,
@@ -58,7 +65,7 @@ export class DTOService {
 			url,
 			imagePublicId,
 			tags: tags.filter(Boolean),
-			likes: post.likes ?? post.likesCount ?? 0,
+			likes: likeCount,
 			commentsCount: post.commentsCount ?? 0,
 			viewsCount: post.viewsCount ?? 0,
 			createdAt: post.createdAt,

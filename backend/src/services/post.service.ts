@@ -14,7 +14,6 @@ export class PostService {
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: any,
-		@inject("LikeRepository") private readonly likeRepository: any,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
@@ -41,10 +40,10 @@ export class PostService {
 			);
 
 			if (postInternalId && viewerInternalId) {
-				// Check if viewer liked this post (using LikeRepository)
-				const likeRecord = await this.likeRepository.findByUserAndPost(viewerInternalId, postInternalId);
-				dto.isLikedByViewer = !!likeRecord;
-				console.log("[PostService.getPostByPublicId] likeRecord:", !!likeRecord);
+				// Check if viewer liked this post using embedded likes array
+				const likes = Array.isArray((post as any).likes) ? (post as any).likes : [];
+				dto.isLikedByViewer = likes.some((likeEntry: any) => likeEntry?.toString?.() === viewerInternalId);
+				console.log("[PostService.getPostByPublicId] like match:", dto.isLikedByViewer);
 
 				// Check if viewer favorited this post (using FavoriteRepository)
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);

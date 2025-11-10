@@ -681,6 +681,98 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async addLike(postId: string, userId: string, session?: ClientSession): Promise<boolean> {
+		try {
+			const postObjectId = this.normalizeObjectId(postId, "postId");
+			const userObjectId = this.normalizeObjectId(userId, "userId");
+			const query = this.model.updateOne(
+				{ _id: postObjectId, likes: { $ne: userObjectId } },
+				{ $addToSet: { likes: userObjectId }, $inc: { likesCount: 1 } }
+			);
+			if (session) query.session(session);
+			const result = await query.exec();
+			const modified = (result as any).modifiedCount ?? (result as any).nModified ?? 0;
+			return modified > 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to add like to post");
+		}
+	}
+
+	async removeLike(postId: string, userId: string, session?: ClientSession): Promise<boolean> {
+		try {
+			const postObjectId = this.normalizeObjectId(postId, "postId");
+			const userObjectId = this.normalizeObjectId(userId, "userId");
+			const query = this.model.updateOne(
+				{ _id: postObjectId, likes: userObjectId },
+				{ $pull: { likes: userObjectId }, $inc: { likesCount: -1 } }
+			);
+			if (session) query.session(session);
+			const result = await query.exec();
+			const modified = (result as any).modifiedCount ?? (result as any).nModified ?? 0;
+			return modified > 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to remove like from post");
+		}
+	}
+
+	async countLikesByUser(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const userObjectId = this.normalizeObjectId(userId, "userId");
+			const query = this.model.countDocuments({ likes: userObjectId });
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to count user likes");
+		}
+	}
+
+	async hasUserLiked(postId: string, userId: string, session?: ClientSession): Promise<boolean> {
+		try {
+			const postObjectId = this.normalizeObjectId(postId, "postId");
+			const userObjectId = this.normalizeObjectId(userId, "userId");
+			const query = this.model.exists({ _id: postObjectId, likes: userObjectId });
+			if (session) query.session(session);
+			const exists = await query.exec();
+			return Boolean(exists);
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to determine like membership");
+		}
+	}
+
+	async removeLikesByUser(userId: string, session?: ClientSession): Promise<number> {
+		try {
+			const userObjectId = this.normalizeObjectId(userId, "userId");
+			const updatePipeline = [
+				{
+					$set: {
+						likes: {
+							$filter: {
+								input: { $ifNull: ["$likes", []] },
+								as: "like",
+								cond: { $ne: ["$$like", userObjectId] },
+							},
+						},
+					},
+				},
+				{
+					$set: {
+						likesCount: {
+							$cond: [{ $isArray: "$likes" }, { $size: "$likes" }, 0],
+						},
+					},
+				},
+			];
+
+			const query = this.model.updateMany({ likes: userObjectId }, updatePipeline as any);
+			if (session) query.session(session);
+			const result = await query.exec();
+			const modified = (result as any).modifiedCount ?? (result as any).nModified ?? 0;
+			return modified;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to remove likes for user");
+		}
+	}
+
 	async updateLikeCount(postId: string, increment: number, session?: ClientSession): Promise<void> {
 		try {
 			const query = this.model.findByIdAndUpdate(postId, { $inc: { likesCount: increment } }, { session });
@@ -708,6 +800,17 @@ export class PostRepository extends BaseRepository<IPost> {
 			return result.deletedCount || 0;
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to delete posts by user");
+		}
+	}
+
+	private normalizeObjectId(id: string | mongoose.Types.ObjectId, field: string): mongoose.Types.ObjectId {
+		if (id instanceof mongoose.Types.ObjectId) {
+			return id;
+		}
+		try {
+			return new mongoose.Types.ObjectId(String(id));
+		} catch {
+			throw createError("ValidationError", `${field} is not a valid ObjectId`);
 		}
 	}
 }

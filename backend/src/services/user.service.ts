@@ -7,7 +7,6 @@ import { createError } from "../utils/errors";
 import jwt from "jsonwebtoken";
 import { injectable, inject } from "tsyringe";
 import { UnitOfWork } from "../database/UnitOfWork";
-import { LikeRepository } from "../repositories/like.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { NotificationService } from "./notification.service";
@@ -34,7 +33,6 @@ export class UserService {
 		private readonly imageStorageService: IImageStorageService,
 		@inject("UserModel") private readonly userModel: Model<IUser>,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("FollowRepository")
 		private readonly followRepository: FollowRepository,
 		@inject("UserActionRepository")
@@ -470,7 +468,7 @@ export class UserService {
 			this.imageRepository.countDocuments({ user: userId }),
 			this.followRepository.countDocuments({ followee: userId }),
 			this.followRepository.countDocuments({ follower: userId }),
-			this.likeRepository.countDocuments({ user: userId }),
+			this.postRepository.countLikesByUser(userId),
 		]);
 
 		const enrichedUser = await this.attachPostCount(user);

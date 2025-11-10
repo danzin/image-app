@@ -5,7 +5,6 @@ import { IPost, PostDTO } from "../../../../types/index";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
 import { PostRepository } from "../../../../repositories/post.repository";
-import { LikeRepository } from "../../../../repositories/like.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
@@ -13,7 +12,6 @@ import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
-import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 
 @injectable()
@@ -21,7 +19,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
@@ -88,7 +85,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					: (postOwner?.toString?.() ?? "");
 
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const existingLike = await this.likeRepository.findByUserAndPost(userMongoId, postInternalId, session);
+				const existingLike = await this.postRepository.hasUserLiked(postInternalId, userMongoId, session);
 
 				if (existingLike) {
 					await this.handleUnlike(command, userMongoId, postInternalId, session);
@@ -133,15 +130,10 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		actorUsername: string,
 		session: ClientSession
 	) {
-		await this.likeRepository.create(
-			{
-				userId: convertToObjectId(userMongoId),
-				postId: convertToObjectId((post as any)._id),
-			},
-			session
-		);
-
-		await this.postRepository.updateLikeCount((post as any)._id.toString(), 1, session);
+		const added = await this.postRepository.addLike((post as any)._id.toString(), userMongoId, session);
+		if (!added) {
+			throw createError("ConflictError", "like already exists for user and post");
+		}
 
 		await this.userActionRepository.logAction(userMongoId, "like", (post as any)._id.toString(), session);
 
@@ -178,8 +170,10 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		postId: string,
 		session: ClientSession
 	) {
-		await this.likeRepository.deleteLike(userMongoId, postId, session);
-		await this.postRepository.updateLikeCount(postId, -1, session);
+		const removed = await this.postRepository.removeLike(postId, userMongoId, session);
+		if (!removed) {
+			throw createError("NotFoundError", "like does not exist for user and post");
+		}
 		await this.userActionRepository.logAction(userMongoId, "unlike", postId, session);
 	}
 }

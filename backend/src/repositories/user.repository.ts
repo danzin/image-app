@@ -340,7 +340,18 @@ export class UserRepository extends BaseRepository<IUser> {
 							$reduce: {
 								input: "$posts",
 								initialValue: 0,
-								in: { $add: ["$$value", { $ifNull: ["$$this.likes", 0] }] },
+								in: {
+									$add: [
+										"$$value",
+										{
+											$cond: [
+												{ $isArray: "$$this.likes" },
+												{ $size: { $ifNull: ["$$this.likes", []] } },
+												{ $ifNull: ["$$this.likesCount", 0] },
+											],
+										},
+									],
+								},
 							},
 						},
 						recentPostCount: {
