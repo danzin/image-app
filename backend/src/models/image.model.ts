@@ -196,8 +196,6 @@ imageSchema.index(
 	}
 ); // compound index for trending feed (only images with at least 1 like)
 
-imageSchema.index({ tags: "text", user: "text" });
-
 tagSchema.index({ tag: "text" });
 tagSchema.index({ count: -1 });
 tagSchema.index({ modifiedAt: -1 });

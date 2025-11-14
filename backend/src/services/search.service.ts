@@ -20,7 +20,6 @@ export class SearchService {
 	 */
 	async searchAll(query: string[]): Promise<{
 		users: IUser[] | null;
-		images: IImage[] | null;
 		posts: IPost[] | null;
 		tags: ITag[] | null;
 	}> {
@@ -34,15 +33,11 @@ export class SearchService {
 			//Extract tag IDs from the found tags
 			const tagIds = tags.map((tag) => tag._id);
 
-			//Search for images that have these tag IDs
-			const images = await this.imageRepository.findByTags(tagIds as string[]);
-
 			//Search for posts that have these tag IDs
 			const posts = await this.postRepository.findByTags(tagIds as string[]);
 
 			return {
 				users: users || null,
-				images: images?.data.length ? images?.data : null,
 				posts: posts?.data.length ? posts?.data : null,
 				tags: tags.length ? tags : null,
 			};
