@@ -304,8 +304,7 @@ export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
 		},
 		initialPageParam: 1,
 		enabled,
-		staleTime: 1 * 60 * 1000,
-		refetchOnWindowFocus: false,
+		staleTime: 5 * 60 * 1000,
 	});
 };
 

@@ -143,9 +143,6 @@ userSchema.methods.comparePassword = async function (candidatePassword: string):
 	return bcryptjs.compare(candidatePassword, this.password);
 };
 
-// explicit index for lookup performance
-userSchema.index({ _id: 1 });
-
 // Transform the user object when serialized to JSON
 userSchema.set("toJSON", {
 	transform: (_doc, ret) => {

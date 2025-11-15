@@ -34,9 +34,9 @@ const Discovery: React.FC = () => {
 	// Start with "new" for new users, "for-you" for existing users
 	const [activeTab, setActiveTab] = useState<number>(0);
 
-	const trendingFeedQuery = useTrendingFeed();
-	const newFeedQuery = useNewFeed();
-	const forYouFeedQuery = useForYouFeed();
+	const trendingFeedQuery = useTrendingFeed({ enabled: activeTab === 1 });
+	const newFeedQuery = useNewFeed({ enabled: activeTab === 0 });
+	const forYouFeedQuery = useForYouFeed({ enabled: activeTab === 2 });
 
 	const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
 		setActiveTab(newValue);

@@ -100,8 +100,8 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 			return [...new Set(affectedUsers)].filter((id) => id !== event.userId);
 		} catch (error) {
 			console.error("Error determining affected users:", error);
-			// Fallback: invalidate global feeds using tags
-			await this.redis.invalidateByTags(["trending_feed", "new_feed", "for_you_feed"]);
+			// Fallback: invalidate global feeds using tags (except new_feed - lazy refresh)
+			await this.redis.invalidateByTags(["trending_feed", "for_you_feed"]);
 			return [];
 		}
 	}

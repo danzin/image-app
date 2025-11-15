@@ -185,13 +185,11 @@ imageSchema.pre("deleteMany", async function (next) {
 });
 
 imageSchema.index({ user: 1 });
-imageSchema.index({ _id: 1 }); // explicit index for lookups
 imageSchema.index({ tags: 1 }); // array index for tag lookups
 
 tagSchema.index({ tag: "text" });
 tagSchema.index({ count: -1 });
 tagSchema.index({ modifiedAt: -1 });
-tagSchema.index({ _id: 1 }); // explicit index for lookups
 
 const Image = mongoose.model<IImage>("Image", imageSchema);
 export const Tag = mongoose.model("Tag", tagSchema);
