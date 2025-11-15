@@ -569,10 +569,10 @@ export class PostRepository extends BaseRepository<IPost> {
 	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
 			const pipeline: PipelineStage[] = [
-				...this.getStandardLookups(),
 				{ $sort: { createdAt: -1 } },
 				{ $skip: skip },
 				{ $limit: limit },
+				...this.getStandardLookups(),
 				{
 					$project: {
 						_id: 0,

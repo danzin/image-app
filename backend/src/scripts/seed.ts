@@ -1,3 +1,4 @@
+import yargsParser from "yargs-parser";
 import "reflect-metadata";
 import axios from "axios";
 import { faker } from "@faker-js/faker";
@@ -5,7 +6,27 @@ import FormData from "form-data";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
-dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
+
+const args = yargsParser(process.argv.slice(2));
+const isDocker = args.docker === true;
+
+if (isDocker) {
+	process.env.MONGODB_URI = "mongodb://root:secret@127.0.0.1:27017/PhotoAppOOP?authSource=admin&directConnection=true";
+	console.log(`--- Seeder running in [DOCKER] mode ---`);
+} else {
+	const envPath = path.resolve(__dirname, "../../../.env");
+	if (!fs.existsSync(envPath)) {
+		console.error(`Error: .env file not found at path: ${envPath}`);
+		process.exit(1);
+	}
+	dotenv.config({ path: envPath });
+	console.log(`--- Seeder running in [DEVELOPMENT] mode ---`);
+}
+
+if (!process.env.MONGODB_URI) {
+	console.error("FATAL: MONGODB_URI environment variable is not set. Exiting.");
+	process.exit(1);
+}
 
 import { DatabaseConfig } from "../config/dbConfig";
 import { PublicUserDTO } from "../services/dto.service";
@@ -78,7 +99,7 @@ async function createBots() {
 }
 
 async function botsUploadPosts() {
-	console.log(`\n🖼️ Each bot will now upload ${POSTS_PER_BOT} posts...`);
+	console.log(`\n Each bot will now upload ${POSTS_PER_BOT} posts...`);
 	for (const bot of bots) {
 		for (let i = 0; i < POSTS_PER_BOT; i++) {
 			const imagePath = getRandomElement(sampleImagePaths);

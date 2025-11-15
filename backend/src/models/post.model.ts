@@ -14,7 +14,6 @@ const postSchema = new Schema<IPost>(
 			type: Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
-			index: true,
 		},
 		body: {
 			type: String,
@@ -24,7 +23,6 @@ const postSchema = new Schema<IPost>(
 		slug: {
 			type: String,
 			trim: true,
-			index: true,
 		},
 		image: {
 			type: Schema.Types.ObjectId,
@@ -61,24 +59,23 @@ const postSchema = new Schema<IPost>(
 			type: Number,
 			default: 0,
 			required: true,
-			index: true,
 		},
 	},
 	{ timestamps: true }
 );
 
 postSchema.index({ user: 1, createdAt: -1 }); // profile feed qyeries
-postSchema.index({ createdAt: -1 }); // newest posts
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
-postSchema.index({ likesCount: -1 }); // popularity queries
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
+postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
 postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
 	{
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
 	}
 );
+
 postSchema.index({ likes: 1 }); // fast lookup for user like membership
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
