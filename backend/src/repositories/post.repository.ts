@@ -142,7 +142,6 @@ export class PostRepository extends BaseRepository<IPost> {
 		try {
 			const query = this.model
 				.findById(id)
-				.populate("user", "username avatar publicId")
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "_id url publicId slug createdAt" });
 
@@ -155,14 +154,10 @@ export class PostRepository extends BaseRepository<IPost> {
 
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
 		try {
-			const query = this.model
-				.findOne({ publicId })
-				.populate("user", "username avatar publicId")
-				.populate("tags", "tag")
-				.populate({
-					path: "image",
-					select: "_id url publicId slug createdAt",
-				});
+			const query = this.model.findOne({ publicId }).populate("tags", "tag").populate({
+				path: "image",
+				select: "_id url publicId slug createdAt",
+			});
 
 			if (session) query.session(session);
 			return await query.exec();
@@ -175,7 +170,6 @@ export class PostRepository extends BaseRepository<IPost> {
 		try {
 			const query = this.model
 				.findOne({ slug })
-				.populate("user", "username avatar publicId")
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "url publicId slug createdAt -_id" });
 
@@ -204,7 +198,6 @@ export class PostRepository extends BaseRepository<IPost> {
 			const [data, total] = await Promise.all([
 				this.model
 					.find({ user: userId })
-					.populate("user", "username avatar publicId")
 					.populate("tags", "tag")
 					.populate({ path: "image", select: "url publicId slug -_id" })
 					.sort(sort)

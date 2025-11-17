@@ -117,6 +117,20 @@ const PostView = () => {
 	const isOwner = isLoggedIn && user?.publicId === post.user.publicId;
 	const isLiked = isLoggedIn && post.isLikedByViewer;
 
+	const buildMediaUrl = (value?: string) => {
+		if (!value) return undefined;
+		if (value.startsWith("http")) return value;
+		return value.startsWith("/") ? `${BASE_URL}${value}` : `${BASE_URL}/${value}`;
+	};
+
+	const avatarUrl = buildMediaUrl(post.user?.avatar);
+	const displayName = post.user?.username || post.user?.publicId || "Unknown user";
+	const profileHref = post.user?.username
+		? `/profile/${post.user.username}`
+		: post.user?.publicId
+			? `/profile/${post.user.publicId}`
+			: "/profile";
+
 	// Debug logging
 	console.log("[PostView] Post data:", {
 		publicId: post.publicId,
@@ -128,19 +142,7 @@ const PostView = () => {
 	});
 
 	// Handle optional image URL (post might be text-only)
-	const fullImageUrl = post.url
-		? post.url.startsWith("http")
-			? post.url
-			: post.url.startsWith("/")
-				? `${BASE_URL}${post.url}`
-				: `${BASE_URL}/${post.url}`
-		: post.image?.url
-			? post.image.url.startsWith("http")
-				? post.image.url
-				: post.image.url.startsWith("/")
-					? `${BASE_URL}${post.image.url}`
-					: `${BASE_URL}/${post.image.url}`
-			: undefined;
+	const fullImageUrl = post.url ? buildMediaUrl(post.url) : buildMediaUrl(post.image?.url);
 
 	const hasImage = !!fullImageUrl;
 
@@ -176,27 +178,20 @@ const PostView = () => {
 						<CardContent sx={{ pb: 1 }}>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
 								<Avatar
+									src={avatarUrl}
 									sx={{
 										width: 48,
 										height: 48,
 										border: "2px solid rgba(99, 102, 241, 0.3)",
-										background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+										background: avatarUrl ? "transparent" : "linear-gradient(45deg, #6366f1, #8b5cf6)",
 									}}
 								>
-									{post.user?.avatar ? (
-										<img
-											src={`/api/${post.user.avatar}`}
-											alt={post.user.username}
-											style={{ width: "100%", height: "100%", borderRadius: "50%" }}
-										/>
-									) : (
-										<span>{post.user?.username?.charAt(0).toUpperCase()}</span>
-									)}
+									{!avatarUrl && <span>{displayName.charAt(0).toUpperCase()}</span>}
 								</Avatar>
 								<Box sx={{ flex: 1 }}>
 									<Typography
 										component={RouterLink}
-										to={`/profile/${post.user.username}`}
+										to={profileHref}
 										sx={{
 											color: "primary.main",
 											textDecoration: "none",
@@ -205,7 +200,7 @@ const PostView = () => {
 											"&:hover": { textDecoration: "underline" },
 										}}
 									>
-										{post.user.username}
+										{displayName}
 									</Typography>
 									<Typography variant="body2" color="text.secondary">
 										{new Date(post.createdAt).toLocaleDateString(undefined, {

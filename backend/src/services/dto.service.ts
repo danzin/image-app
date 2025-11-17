@@ -82,24 +82,45 @@ export class DTOService {
 	}
 
 	private resolvePostUserSnapshot(post: any) {
-		const rawUser = post?.user;
-		if (rawUser && typeof rawUser === "object") {
-			const candidatePublicId = rawUser.publicId ?? rawUser.id ?? rawUser._id?.toString?.();
-			if (candidatePublicId) {
-				return {
-					publicId: candidatePublicId,
-					username: rawUser.username ?? rawUser.displayName ?? "",
-					avatar: rawUser.avatar ?? rawUser.avatarUrl ?? "",
-				};
-			}
+		const normalizedUser = this.normalizeUserLike(post?.user);
+		if (normalizedUser) {
+			return normalizedUser;
 		}
 
-		const author = post?.author ?? {};
+		return this.normalizeAuthorLike(post?.author);
+	}
+
+	private normalizeUserLike(candidate: any) {
+		if (!candidate || typeof candidate !== "object") {
+			return null;
+		}
+
+		const publicId = this.pickString(candidate.publicId ?? candidate.userPublicId ?? candidate.id);
+		if (!publicId) {
+			return null;
+		}
+
 		return {
-			publicId: author.publicId ?? "",
-			username: author.username ?? author.displayName ?? "",
-			avatar: author.avatarUrl ?? "",
+			publicId,
+			username: this.pickString(candidate.username ?? candidate.displayName) || "",
+			avatar: this.pickString(candidate.avatar ?? candidate.avatarUrl ?? candidate.profile?.avatarUrl) || "",
 		};
+	}
+
+	private normalizeAuthorLike(author: any) {
+		const source = author && typeof author === "object" ? author : {};
+		return {
+			publicId: this.pickString(source.publicId) || "",
+			username: this.pickString(source.username ?? source.displayName) || "",
+			avatar: this.pickString(source.avatarUrl) || "",
+		};
+	}
+
+	private pickString(value: any): string | "" {
+		if (typeof value === "string" && value.trim().length > 0) {
+			return value;
+		}
+		return "";
 	}
 	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {
 		return {

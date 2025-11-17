@@ -6,13 +6,54 @@ function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isBufferLike(value: unknown): value is { type: string; data: unknown[] } {
+	return isObject(value) && value.type === "Buffer" && Array.isArray(value.data);
+}
+
+function extractSafeString(value: unknown): string | undefined {
+	if (typeof value === "string" && value.length > 0) {
+		return value;
+	}
+	if (isObject(value) && ("_bsontype" in value || isBufferLike(value))) {
+		return undefined;
+	}
+	return undefined;
+}
+
+function normalizeUserSnapshot(raw: RawRecord): IPost["user"] {
+	const userSource = isObject(raw.user) ? raw.user : undefined;
+	const authorSource = isObject(raw.author) ? raw.author : undefined;
+	const fromUser = resolveSnapshot(userSource);
+	if (fromUser) {
+		return fromUser;
+	}
+	const fromAuthor = resolveSnapshot(authorSource);
+	if (fromAuthor) {
+		return fromAuthor;
+	}
+	return { publicId: "", username: "", avatar: "" };
+}
+
+function resolveSnapshot(source?: RawRecord): IPost["user"] | null {
+	if (!source) return null;
+	const publicId = extractSafeString(source.publicId ?? source.userPublicId ?? source.id);
+	if (!publicId) {
+		return null;
+	}
+	return {
+		publicId,
+		username: extractSafeString(source.username ?? source.displayName) || "",
+		avatar: extractSafeString(source.avatar ?? source.avatarUrl) || "",
+	};
+}
+
 /**
  * Maps raw post data from backend to frontend IPost interface
  * Handles both legacy image format and new post format
  */
 export function mapPost(rawInput: unknown): IPost {
 	const raw = isObject(rawInput) ? rawInput : {};
-	const user = isObject(raw.user) ? raw.user : {};
+	const normalizedUser = normalizeUserSnapshot(raw);
 
 	// Extract tags (supports both string[] and ITag[])
 	const tagsSource = Array.isArray(raw.tags) ? raw.tags : [];
@@ -58,11 +99,7 @@ export function mapPost(rawInput: unknown): IPost {
 
 		tags: tagStrings,
 
-		user: {
-			publicId: String(user.publicId || ""),
-			username: String(user.username || ""),
-			avatar: String(user.avatar || ""),
-		},
+		user: normalizedUser,
 
 		likes: typeof raw.likes === "number" ? raw.likes : 0,
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
