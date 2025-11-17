@@ -13,6 +13,7 @@ import { UserPreferenceRepository } from "../../../../repositories/userPreferenc
 import { ConversationRepository } from "../../../../repositories/conversation.repository";
 import { MessageRepository } from "../../../../repositories/message.repository";
 import { PostViewRepository } from "../../../../repositories/postView.repository";
+import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { IImageStorageService } from "../../../../types";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { createError } from "../../../../utils/errors";
@@ -23,6 +24,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
@@ -58,7 +60,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				await this.commentRepository.deleteCommentsByUserId(userId, session);
 
 				// delete likes
-				await this.postRepository.removeLikesByUser(userId, session);
+				await this.postLikeRepository.removeLikesByUser(userId, session);
 
 				// delete favorites
 				await this.favoriteRepository.deleteManyByUserId(userId, session);

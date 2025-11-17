@@ -3,6 +3,7 @@ import { UserRepository } from "../repositories/user.repository";
 import type { IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
 import { ImageRepository } from "../repositories/image.repository";
 import { PostRepository } from "../repositories/post.repository";
+import { PostLikeRepository } from "../repositories/postLike.repository";
 import { createError } from "../utils/errors";
 import jwt from "jsonwebtoken";
 import { injectable, inject } from "tsyringe";
@@ -29,6 +30,7 @@ export class UserService {
 		@inject("ImageRepository")
 		private readonly imageRepository: ImageRepository,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("ImageStorageService")
 		private readonly imageStorageService: IImageStorageService,
 		@inject("UserModel") private readonly userModel: Model<IUser>,
@@ -468,7 +470,7 @@ export class UserService {
 			this.imageRepository.countDocuments({ user: userId }),
 			this.followRepository.countDocuments({ followee: userId }),
 			this.followRepository.countDocuments({ follower: userId }),
-			this.postRepository.countLikesByUser(userId),
+			this.postLikeRepository.countLikesByUser(userId),
 		]);
 
 		const enrichedUser = await this.attachPostCount(user);

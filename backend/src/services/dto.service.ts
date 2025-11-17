@@ -55,6 +55,8 @@ export class DTOService {
 					? post.likesCount
 					: 0;
 
+		const userSnapshot = this.resolvePostUserSnapshot(post);
+
 		return {
 			publicId: post.publicId,
 			body: post.body,
@@ -72,10 +74,31 @@ export class DTOService {
 			isLikedByViewer: post.isLikedByViewer,
 			isFavoritedByViewer: post.isFavoritedByViewer,
 			user: {
-				publicId: post.user?.publicId ?? post.user?.id ?? "",
-				username: post.user?.username ?? "",
-				avatar: post.user?.avatar ?? "",
+				publicId: userSnapshot.publicId,
+				username: userSnapshot.username,
+				avatar: userSnapshot.avatar,
 			},
+		};
+	}
+
+	private resolvePostUserSnapshot(post: any) {
+		const rawUser = post?.user;
+		if (rawUser && typeof rawUser === "object") {
+			const candidatePublicId = rawUser.publicId ?? rawUser.id ?? rawUser._id?.toString?.();
+			if (candidatePublicId) {
+				return {
+					publicId: candidatePublicId,
+					username: rawUser.username ?? rawUser.displayName ?? "",
+					avatar: rawUser.avatar ?? rawUser.avatarUrl ?? "",
+				};
+			}
+		}
+
+		const author = post?.author ?? {};
+		return {
+			publicId: author.publicId ?? "",
+			username: author.username ?? author.displayName ?? "",
+			avatar: author.avatarUrl ?? "",
 		};
 	}
 	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {

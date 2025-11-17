@@ -5,6 +5,7 @@ import { IPost } from "../../../../types/index";
 import { EventBus } from "../../../../application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../../application/events/user/user-interaction.event";
 import { PostRepository } from "../../../../repositories/post.repository";
+import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
@@ -18,6 +19,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
@@ -52,7 +54,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 			// Execute the like/unlike operation within a database transaction
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const existingLike = await this.postRepository.hasUserLiked(command.postId, command.userId, session);
+				const existingLike = await this.postLikeRepository.hasUserLiked(command.postId, command.userId, session);
 
 				if (existingLike) {
 					// If the like already exists, perform an unlike operation
@@ -108,10 +110,12 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 	 * @param session - The active database transaction session.
 	 */
 	private async handleLike(command: LikeActionCommand, post: IPost, session: ClientSession) {
-		const added = await this.postRepository.addLike(command.postId, command.userId, session);
+		const added = await this.postLikeRepository.addLike(command.postId, command.userId, session);
 		if (!added) {
 			throw createError("ConflictError", "like already exists for user and post");
 		}
+
+		await this.postRepository.updateLikeCount(command.postId, 1, session);
 
 		// Log the user's like action
 		await this.userActionRepository.logAction(command.userId, "like", command.postId, session);
@@ -141,10 +145,12 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 	 * @param session - The active database transaction session.
 	 */
 	private async handleUnlike(command: LikeActionCommand, session: ClientSession) {
-		const removed = await this.postRepository.removeLike(command.postId, command.userId, session);
+		const removed = await this.postLikeRepository.removeLike(command.postId, command.userId, session);
 		if (!removed) {
 			throw createError("NotFoundError", "like does not exist for user and post");
 		}
+
+		await this.postRepository.updateLikeCount(command.postId, -1, session);
 
 		// Log the user's unlike action
 		await this.userActionRepository.logAction(command.userId, "unlike", command.postId, session);

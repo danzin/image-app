@@ -4,11 +4,17 @@ import { IImage } from "types/customImages/images.types";
 export interface IPost extends Document {
 	publicId: string;
 	user: mongoose.Types.ObjectId;
+	author: {
+		_id: mongoose.Types.ObjectId;
+		publicId: string;
+		username: string;
+		avatarUrl?: string;
+		displayName?: string;
+	};
 	body?: string;
 	slug?: string;
 	image?: mongoose.Types.ObjectId | null;
 	tags: mongoose.Types.ObjectId[];
-	likes: mongoose.Types.ObjectId[];
 	likesCount: number;
 	commentsCount: number;
 	viewsCount: number;

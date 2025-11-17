@@ -58,6 +58,9 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 			// delete post and associated comments
 			await this.deletePostAndComments(post, session);
+			if (postOwnerInternalId) {
+				await this.userRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } }, session);
+			}
 
 			// decrement tag usage counts
 			await this.decrementTagUsage(post, session);
@@ -86,15 +89,22 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private extractPostOwnerInfo(post: IPost): { postOwnerInternalId: string; postOwnerPublicId?: string } {
-		const postOwnerInternalId =
-			typeof post.user === "object" && post.user !== null && "_id" in post.user
-				? (post.user as any)._id.toString()
-				: ((post.user as any)?.toString?.() ?? "");
+		const rawUser = (post as any).user;
+		const authorSnapshot = (post as any).author;
+
+		let postOwnerInternalId = "";
+		if (rawUser && typeof rawUser === "object" && "_id" in rawUser) {
+			postOwnerInternalId = (rawUser as any)._id?.toString?.() ?? "";
+		} else if (authorSnapshot?._id) {
+			postOwnerInternalId = authorSnapshot._id.toString();
+		} else if (typeof rawUser?.toString === "function") {
+			postOwnerInternalId = rawUser.toString();
+		}
 
 		const postOwnerPublicId =
-			typeof post.user === "object" && post.user !== null && "publicId" in post.user
-				? (post.user as any).publicId
-				: undefined;
+			typeof rawUser === "object" && rawUser !== null && "publicId" in rawUser
+				? (rawUser as any).publicId
+				: authorSnapshot?.publicId;
 
 		return { postOwnerInternalId, postOwnerPublicId };
 	}

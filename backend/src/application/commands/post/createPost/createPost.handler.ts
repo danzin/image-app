@@ -63,6 +63,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				);
 
 				const post = await this.createPost(user, internalUserId, normalizedBody, tagIds, imageSummary, session);
+				await this.userRepository.update(user.id, { $inc: { postCount: 1 } }, session);
 
 				// queue event inside transaction
 				const distinctTags = Array.from(new Set(tagNames));
@@ -165,6 +166,13 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		const payload: Partial<IPost> = {
 			publicId: postPublicId,
 			user: internalUserId,
+			author: {
+				_id: internalUserId,
+				publicId: user.publicId,
+				username: user.username,
+				avatarUrl: user.avatar ?? user.profile?.avatarUrl ?? "",
+				displayName: user.profile?.displayName ?? user.username,
+			},
 			body: normalizedBody,
 			slug: postSlug,
 			image: imageSummary.docId,

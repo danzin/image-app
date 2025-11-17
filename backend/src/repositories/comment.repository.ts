@@ -3,7 +3,6 @@ import { BaseRepository } from "./base.repository";
 import { IComment } from "types/index";
 import { inject, injectable } from "tsyringe";
 
-// Interface for the transformed comment matching frontend
 export interface TransformedComment {
 	id: string;
 	content: string;

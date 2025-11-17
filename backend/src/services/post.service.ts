@@ -1,5 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { PostRepository } from "../repositories/post.repository";
+import { PostLikeRepository } from "../repositories/postLike.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { DTOService } from "./dto.service";
@@ -11,6 +12,7 @@ import { TagService } from "./tag.service";
 export class PostService {
 	constructor(
 		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: any,
@@ -40,9 +42,8 @@ export class PostService {
 			);
 
 			if (postInternalId && viewerInternalId) {
-				// Check if viewer liked this post using embedded likes array
-				const likes = Array.isArray((post as any).likes) ? (post as any).likes : [];
-				dto.isLikedByViewer = likes.some((likeEntry: any) => likeEntry?.toString?.() === viewerInternalId);
+				// Check like membership via dedicated collection
+				dto.isLikedByViewer = await this.postLikeRepository.hasUserLiked(postInternalId, viewerInternalId);
 				console.log("[PostService.getPostByPublicId] like match:", dto.isLikedByViewer);
 
 				// Check if viewer favorited this post (using FavoriteRepository)

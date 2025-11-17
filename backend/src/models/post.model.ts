@@ -2,6 +2,17 @@ import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { IPost } from "../types";
 
+const authorSchema = new Schema(
+	{
+		_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+		publicId: { type: String, required: true },
+		username: { type: String, required: true },
+		avatarUrl: { type: String, default: "" },
+		displayName: { type: String, default: "" },
+	},
+	{ _id: false }
+);
+
 const postSchema = new Schema<IPost>(
 	{
 		publicId: {
@@ -13,6 +24,10 @@ const postSchema = new Schema<IPost>(
 		user: {
 			type: Schema.Types.ObjectId,
 			ref: "User",
+			required: true,
+		},
+		author: {
+			type: authorSchema,
 			required: true,
 		},
 		body: {
@@ -35,16 +50,6 @@ const postSchema = new Schema<IPost>(
 				ref: "Tag",
 			},
 		],
-		likes: {
-			type: [
-				{
-					type: Schema.Types.ObjectId,
-					ref: "User",
-				},
-			],
-			default: [],
-		},
-
 		likesCount: {
 			type: Number,
 			default: 0,
@@ -76,7 +81,6 @@ postSchema.index(
 	}
 );
 
-postSchema.index({ likes: 1 }); // fast lookup for user like membership
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;
@@ -91,6 +95,18 @@ postSchema.set("toJSON", {
 				username: ret.user.username,
 				publicId: ret.user.publicId,
 			};
+		}
+
+		if (!ret.user && ret.author) {
+			ret.user = {
+				publicId: ret.author.publicId,
+				username: ret.author.username,
+				avatar: ret.author.avatarUrl,
+			};
+		}
+
+		if (ret.author && ret.author._id) {
+			ret.author._id = ret.author._id.toString();
 		}
 
 		if (Array.isArray(ret.tags)) {
