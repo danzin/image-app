@@ -34,16 +34,17 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	) {}
 
 	async execute(command: CreatePostCommand): Promise<PostDTO> {
-		// validate userPublicId format
+		// validate userPublicId format and user, early exit on fail to release the resource immdeiately
 		if (!isValidPublicId(command.userPublicId)) {
+			// static validation first, protects the db from malformed requests and spam
 			throw createError("ValidationError", "Invalid userPublicId format");
 		}
+		const user = await this.validateUser(command.userPublicId);
 
 		let uploadedImagePublicId: string | null = null;
 
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
-				const user = await this.validateUser(command.userPublicId, session);
 				const internalUserId = user._id as mongoose.Types.ObjectId;
 
 				const normalizedBody = this.normalizeBody(command.body);
@@ -85,8 +86,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		}
 	}
 
-	private async validateUser(publicId: string, session: ClientSession): Promise<any> {
-		const user = await this.userRepository.findByPublicId(publicId, session);
+	private async validateUser(publicId: string): Promise<any> {
+		const user = await this.userRepository.findByPublicId(publicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}

@@ -7,7 +7,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { redisLogger } from "../../../../utils/winston";
-import { FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
+import { FeedPost, PaginatedFeedResult, UserLookupData, PostMeta } from "types/index";
 
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {
@@ -38,7 +38,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
 				// fetch post details individually
 				const postPromises = postIds.map((id) => this.postRepository.findByPublicId(id));
+				// parallelizing I/O
 				const postsResults = await Promise.all(postPromises);
+
 				posts = postsResults.filter((p) => p !== null);
 
 				// get total count from sorted set
@@ -63,6 +65,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				page,
 				limit,
 				total,
+				totalPages: Math.ceil(total / limit),
 			};
 		} catch (error) {
 			redisLogger.error("Trending feed error", {
@@ -112,7 +115,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		return post?.author ?? {};
 	}
 
-	private async enrichFeedWithCurrentData(coreFeedData: any[]): Promise<FeedPost[]> {
+	private async enrichFeedWithCurrentData(coreFeedData: FeedPost[]): Promise<FeedPost[]> {
 		if (!coreFeedData || coreFeedData.length === 0) return [];
 
 		// extract unique user publicIds from feed items
@@ -121,7 +124,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
 		// batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags(userDataKey);
+		let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
@@ -134,10 +137,12 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
 		// attempt to load per-post metadata with tag-based caching
 		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
-		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
-		const metaMap = new Map<string, any>();
+		const metaResults = await Promise.all(
+			postMetaKeys.map((k) => this.redisService.getWithTags<PostMeta>(k).catch(() => null))
+		);
+		const metaMap = new Map<string, PostMeta>();
 		postPublicIds.forEach((id, idx) => {
-			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
+			if (metaResults[idx]) metaMap.set(id, metaResults[idx]!);
 		});
 
 		// merge fresh user/image data into core feed
@@ -149,9 +154,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				commentsCount: meta?.commentsCount ?? item.commentsCount,
 				viewsCount: meta?.viewsCount ?? item.viewsCount,
 				user: {
-					publicId: userMap.get(item.userPublicId)?.publicId,
-					username: userMap.get(item.userPublicId)?.username,
-					avatar: userMap.get(item.userPublicId)?.avatar,
+					publicId: userMap.get(item.userPublicId)?.publicId ?? item.user.publicId,
+					username: userMap.get(item.userPublicId)?.username ?? item.user.username,
+					avatar: userMap.get(item.userPublicId)?.avatar ?? item.user.avatar,
 				},
 			};
 		});

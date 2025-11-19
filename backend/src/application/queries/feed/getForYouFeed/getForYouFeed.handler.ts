@@ -45,6 +45,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 					page,
 					limit,
 					total: feedSize,
+					totalPages: Math.ceil(feedSize / limit),
 				};
 			}
 

@@ -4,14 +4,13 @@ import { inject, injectable } from "tsyringe";
 
 @injectable()
 export class UnitOfWork {
-	private session: ClientSession | null = null;
-
 	constructor(@inject("EventBus") private readonly eventBus: EventBus) {
 		if (!mongoose.connection.readyState) {
 			throw new Error("Database connection not established");
 		}
 	}
 
+	// Ensuring ACID compliance. If something fails, rollback everything.
 	async executeInTransaction<T>(work: (session: ClientSession) => Promise<T>): Promise<T> {
 		const session = await mongoose.startSession();
 		let transactionStarted = false;
@@ -52,9 +51,5 @@ export class UnitOfWork {
 		} finally {
 			await session.endSession();
 		}
-	}
-
-	getSession(): ClientSession | null {
-		return this.session;
 	}
 }
