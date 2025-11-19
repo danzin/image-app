@@ -12,10 +12,4 @@ export interface IImage extends Document {
 	slug: string;
 	originalName: string;
 	createdAt: Date;
-	tags: { tag: string }[];
-	likes: number;
-	commentsCount: number;
-	likedBy: string[];
-	isLikedByViewer?: boolean;
-	isFavoritedByViewer?: boolean;
 }

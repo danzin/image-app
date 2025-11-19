@@ -1,6 +1,6 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { BaseRepository } from "./base.repository";
-import { IImage, PaginationOptions, PaginationResult } from "../types";
+import { IImage } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 
@@ -39,57 +39,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 	}
 
 	/**
-	 * Finds images uploaded by a specific user using their public ID with pagination support.
-	 *
-	 * @param {string} userPublicId - The public ID of the user.
-	 * @param {PaginationOptions} options - Pagination options.
-	 * @returns {Promise<PaginationResult<IImage>>} - Paginated result of user's images.
-	 */
-	async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IImage>> {
-		try {
-			const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
-
-			const skip = (page - 1) * limit;
-			const sort = { [sortBy]: sortOrder };
-
-			// First find the user by publicId to get their internal _id
-			const userQuery = await this.model.db.collection("users").findOne({ publicId: userPublicId });
-			if (!userQuery) {
-				throw createError("NotFoundError", "User not found");
-			}
-
-			const userId = userQuery._id;
-
-			// Separate find query using internal user _id
-			const findQuery = this.model.find({ user: userId });
-
-			// Separate count query
-			const countQuery = this.model.countDocuments({ user: userId });
-
-			const [data, total] = await Promise.all([
-				findQuery
-					.populate("user", "username avatar publicId")
-					.populate("tags", "tag")
-					.sort(sort)
-					.skip(skip)
-					.limit(limit)
-					.exec(),
-				countQuery.exec(),
-			]);
-
-			return {
-				data,
-				total,
-				page,
-				limit,
-				totalPages: Math.ceil(total / limit),
-			};
-		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
-		}
-	}
-
-	/**
 	 * Finds an image by its ID and populates related fields.
 	 *
 	 * @param {string} id - The ID of the image.
@@ -101,7 +50,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			if (!mongoose.Types.ObjectId.isValid(id)) {
 				throw createError("ValidationError", "Invalid image ID");
 			}
-			const query = this.model.findById(id).populate("user", "username avatar publicId").populate("tags", "tag");
+			const query = this.model.findById(id).populate("user", "username avatar publicId");
 
 			if (session) query.session(session);
 			const result = await query.exec();
@@ -112,43 +61,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 				throw error;
 			}
 			throw createError("DatabaseError", (error as any).message);
-		}
-	}
-
-	/**
-	 * Finds images uploaded by a specific user with pagination support.
-	 *
-	 * @param {string} userId - The ID of the user.
-	 * @param {PaginationOptions} options - Pagination options.
-	 * @returns {Promise<PaginationResult<IImage>>} - Paginated result of user's images.
-	 */
-	async findByUserId(userId: string, options: PaginationOptions): Promise<PaginationResult<IImage>> {
-		try {
-			const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
-
-			const skip = (page - 1) * limit;
-			const sort = { [sortBy]: sortOrder };
-
-			// Separate find query
-			const findQuery = this.model.find({ user: userId });
-
-			// Separate count query
-			const countQuery = this.model.countDocuments({ user: userId });
-
-			const [data, total] = await Promise.all([
-				findQuery.populate("user", "username").populate("tags", "tag").sort(sort).skip(skip).limit(limit).exec(),
-				countQuery.exec(),
-			]);
-
-			return {
-				data,
-				total,
-				page,
-				limit,
-				totalPages: Math.ceil(total / limit),
-			};
-		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
 

@@ -30,10 +30,7 @@ export class ImageService {
 					publicId: uploaded.publicId,
 					originalName: input.originalName,
 					slug,
-					user: input.userInternalId,
-					tags: input.tagIds,
-					likes: 0,
-					commentsCount: 0,
+					user: new mongoose.Types.ObjectId(input.userInternalId),
 					createdAt,
 				} as unknown as IImage,
 				input.session

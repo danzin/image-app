@@ -27,7 +27,6 @@ export interface CreatePostAttachmentInput {
 	originalName: string;
 	userInternalId: string;
 	userPublicId: string;
-	tagIds: mongoose.Types.ObjectId[];
 	session: ClientSession;
 }
 

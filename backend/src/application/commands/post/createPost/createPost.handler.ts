@@ -51,16 +51,13 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				const tagDocs = await this.tagService.ensureTagsExist(tagNames, session);
 				const tagIds = tagDocs.map((tag) => new mongoose.Types.ObjectId((tag as any)._id));
 
-				const imageSummary = await this.handleImageUpload(
-					command,
-					user,
-					internalUserId,
-					tagIds,
-					session,
-					(publicId) => {
-						uploadedImagePublicId = publicId;
-					}
-				);
+				if (tagIds.length > 0) {
+					await this.tagService.incrementUsage(tagIds, session);
+				}
+
+				const imageSummary = await this.handleImageUpload(command, user, internalUserId, session, (publicId) => {
+					uploadedImagePublicId = publicId;
+				});
 
 				const post = await this.createPost(user, internalUserId, normalizedBody, tagIds, imageSummary, session);
 				await this.userRepository.update(user.id, { $inc: { postCount: 1 } }, session);
@@ -121,14 +118,10 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		command: CreatePostCommand,
 		user: any,
 		internalUserId: mongoose.Types.ObjectId,
-		tagIds: mongoose.Types.ObjectId[],
 		session: ClientSession,
 		setUploadedId: (publicId: string) => void
 	): Promise<AttachmentSummary> {
 		if (!command.imageBuffer) {
-			if (tagIds.length > 0) {
-				await this.tagService.incrementUsage(tagIds, session);
-			}
 			return { docId: null };
 		}
 
@@ -137,7 +130,6 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			originalName: command.imageOriginalName || `post-${Date.now()}`,
 			userInternalId: internalUserId.toString(),
 			userPublicId: user.publicId,
-			tagIds,
 			session,
 		});
 
