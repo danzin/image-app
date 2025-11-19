@@ -2,15 +2,11 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
 	Avatar,
-	Badge,
 	Box,
 	Button,
 	CircularProgress,
-	Divider,
 	IconButton,
-	InputAdornment,
 	List,
-	ListItem,
 	ListItemAvatar,
 	ListItemButton,
 	ListItemText,
@@ -19,10 +15,16 @@ import {
 	Typography,
 	useMediaQuery,
 	useTheme,
+	alpha,
 } from "@mui/material";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
+import {
+	InfoOutlined as InfoOutlinedIcon,
+	Image as ImageIcon,
+	Gif as GifIcon,
+	EmojiEmotions as EmojiEmotionsIcon,
+} from "@mui/icons-material";
 import { useConversations } from "../hooks/messaging/useConversations";
 import { useConversationMessages } from "../hooks/messaging/useConversationMessages";
 import { useSendMessage } from "../hooks/messaging/useSendMessage";
@@ -30,7 +32,7 @@ import { useMarkConversationRead } from "../hooks/messaging/useMarkConversationR
 import { useAuth } from "../hooks/context/useAuth";
 import { ConversationSummaryDTO, MessageDTO } from "../types";
 
-const CONVERSATION_PANEL_WIDTH = 320;
+const CONVERSATION_PANEL_WIDTH = 380;
 
 const formatTimestamp = (timestamp: string) => {
 	try {
@@ -73,7 +75,6 @@ const Messages = () => {
 	const [draftBody, setDraftBody] = useState("");
 	const { user } = useAuth();
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-	const [showConversationsOnMobile, setShowConversationsOnMobile] = useState(true);
 	const lastMessageCountRef = useRef<number>(0);
 	const markedAsReadRef = useRef<Set<string>>(new Set());
 	const conversationsQuery = useConversations();
@@ -91,10 +92,10 @@ const Messages = () => {
 	const firstConversationId = conversations[0]?.publicId;
 
 	useEffect(() => {
-		if (!selectedConversationId && firstConversationId) {
+		if (!selectedConversationId && firstConversationId && !isMobile) {
 			navigate(`?conversation=${firstConversationId}`, { replace: true });
 		}
-	}, [firstConversationId, selectedConversationId, navigate]);
+	}, [firstConversationId, selectedConversationId, navigate, isMobile]);
 
 	const markConversationRead = useMarkConversationRead();
 	const selectedConversation = useMemo(() => {
@@ -142,9 +143,6 @@ const Messages = () => {
 
 	const handleSelectConversation = (conversationId: string) => {
 		navigate(`?conversation=${conversationId}`);
-		if (isMobile) {
-			setShowConversationsOnMobile(false);
-		}
 	};
 	const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -167,9 +165,7 @@ const Messages = () => {
 	};
 
 	const handleBackToList = () => {
-		if (isMobile) {
-			setShowConversationsOnMobile(true);
-		}
+		navigate("/messages");
 	};
 
 	const renderMessageBubble = (message: MessageDTO) => {
@@ -179,32 +175,40 @@ const Messages = () => {
 				key={message.publicId}
 				sx={{
 					display: "flex",
-					justifyContent: isOwnMessage ? "flex-end" : "flex-start",
-					mb: 1.5,
+					flexDirection: "column",
+					alignItems: isOwnMessage ? "flex-end" : "flex-start",
+					mb: 2,
+					maxWidth: "100%",
 				}}
 			>
 				<Box
 					sx={{
-						maxWidth: "80%",
+						maxWidth: "70%",
 						px: 2,
 						py: 1.5,
-						borderRadius: 2,
-						backgroundColor: isOwnMessage ? theme.palette.primary.main : theme.palette.primary.main,
-						color: isOwnMessage ? theme.palette.text.primary : theme.palette.text.primary,
+						borderRadius: isOwnMessage ? "22px 22px 4px 22px" : "22px 22px 22px 4px",
+						bgcolor: isOwnMessage ? "primary.main" : alpha(theme.palette.text.primary, 0.05),
+						color: isOwnMessage ? "#fff" : "text.primary",
+						position: "relative",
+						wordBreak: "break-word",
+						boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
 					}}
 				>
-					{!isOwnMessage && (
-						<Typography variant="caption" sx={{ display: "block", mb: 0.5, opacity: 0.7 }}>
-							{message.sender.username}
-						</Typography>
-					)}
-					<Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+					<Typography variant="body1" sx={{ fontSize: "0.95rem", lineHeight: 1.5 }}>
 						{message.body}
 					</Typography>
-					<Typography variant="caption" sx={{ display: "block", mt: 0.75, opacity: 0.7 }}>
-						{formatTimestamp(message.createdAt)}
-					</Typography>
 				</Box>
+				<Typography
+					variant="caption"
+					sx={{
+						mt: 0.5,
+						color: "text.secondary",
+						fontSize: "0.75rem",
+						px: 1,
+					}}
+				>
+					{formatTimestamp(message.createdAt)}
+				</Typography>
 			</Box>
 		);
 	};
@@ -213,38 +217,42 @@ const Messages = () => {
 		<Box
 			sx={{
 				display: "flex",
-				flexDirection: isMobile ? "column" : "row",
 				height: "100vh",
 				maxHeight: "100vh",
 				overflow: "hidden",
-				color: theme.palette.text.primary,
+				bgcolor: "background.default",
 			}}
 		>
 			{/* Conversation List */}
 			<Box
 				sx={{
-					width: isMobile ? "100%" : CONVERSATION_PANEL_WIDTH,
-					display: isMobile && !showConversationsOnMobile ? "none" : "flex",
+					width: { xs: "100%", md: CONVERSATION_PANEL_WIDTH },
+					display: { xs: selectedConversationId ? "none" : "flex", md: "flex" },
 					flexDirection: "column",
-					borderRight: isMobile ? "none" : `1px solid ${theme.palette.divider}`,
+					borderRight: `1px solid ${theme.palette.divider}`,
+					height: "100%",
 				}}
 			>
-				<Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1 }}>
-					<ChatBubbleOutlineIcon color="primary" />
-					<Typography variant="h6" fontWeight={700}>
+				{/* Conversation List Header */}
+				<Box sx={{ p: 2, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+					<Typography variant="h5" fontWeight={800}>
 						Messages
 					</Typography>
 				</Box>
-				<Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
+
+				{/* Conversation List */}
 				<Box sx={{ flex: 1, overflowY: "auto" }}>
 					{conversationsQuery.isLoading ? (
 						<Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
 							<CircularProgress size={32} />
 						</Box>
 					) : conversations.length === 0 ? (
-						<Box sx={{ p: 3 }}>
+						<Box sx={{ p: 4, textAlign: "center" }}>
+							<Typography variant="h6" fontWeight={700} gutterBottom>
+								Welcome to your inbox!
+							</Typography>
 							<Typography variant="body2" color="text.secondary">
-								No conversations yet. Start a chat from a user profile to begin messaging.
+								Drop a line, share posts and more with private conversations between you and others.
 							</Typography>
 						</Box>
 					) : (
@@ -253,94 +261,145 @@ const Messages = () => {
 								const title = getConversationTitle(conversation, user?.publicId);
 								const avatarUrl = getConversationAvatar(conversation, user?.publicId);
 								const lastMessagePreview = conversation.lastMessage?.body ?? "No messages yet";
+								const isSelected = conversation.publicId === selectedConversationId;
 
 								return (
 									<ListItemButton
 										key={conversation.publicId}
-										selected={conversation.publicId === selectedConversationId}
+										selected={isSelected}
 										onClick={() => handleSelectConversation(conversation.publicId)}
-										sx={{ alignItems: "flex-start", py: 1.5, px: 2 }}
+										sx={{
+											alignItems: "flex-start",
+											py: 2,
+											px: 2,
+											borderRight: isSelected ? `2px solid ${theme.palette.primary.main}` : "2px solid transparent",
+											bgcolor: isSelected ? alpha(theme.palette.primary.main, 0.05) : "transparent",
+											"&:hover": {
+												bgcolor: alpha(theme.palette.text.primary, 0.03),
+											},
+										}}
 									>
-										<ListItem alignItems="flex-start" disableGutters sx={{ width: "100%" }}>
-											<ListItemAvatar>
-												<Badge color="primary" variant={conversation.unreadCount > 0 ? "dot" : "standard"}>
-													<Avatar src={avatarUrl} alt={title} />
-												</Badge>
-											</ListItemAvatar>
-											<ListItemText
-												primary={
-													<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-														<Typography variant="subtitle1" fontWeight={600} noWrap>
+										<ListItemAvatar sx={{ minWidth: 56 }}>
+											<Avatar src={avatarUrl} alt={title} sx={{ width: 40, height: 40 }} />
+										</ListItemAvatar>
+										<ListItemText
+											primary={
+												<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+													<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, overflow: "hidden" }}>
+														<Typography variant="subtitle1" fontWeight={700} noWrap>
 															{title}
 														</Typography>
-														<Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-															{conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
+														<Typography variant="body2" color="text.secondary" noWrap>
+															@{title.replace(/\s+/g, "").toLowerCase()}
 														</Typography>
 													</Box>
-												}
-												secondary={
-													<Typography variant="body2" color="text.secondary" noWrap>
-														{lastMessagePreview}
+													<Typography variant="caption" color="text.secondary" sx={{ ml: 1, whiteSpace: "nowrap" }}>
+														{conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
 													</Typography>
-												}
-											/>
-										</ListItem>
+												</Box>
+											}
+											secondary={
+												<Typography
+													variant="body2"
+													color={conversation.unreadCount > 0 ? "text.primary" : "text.secondary"}
+													fontWeight={conversation.unreadCount > 0 ? 700 : 400}
+													noWrap
+													sx={{ mt: 0.5 }}
+												>
+													{lastMessagePreview}
+												</Typography>
+											}
+										/>
 									</ListItemButton>
 								);
 							})}
 						</List>
 					)}
 				</Box>
-
-				{conversationsQuery.hasNextPage && (
-					<Box sx={{ p: 2 }}>
-						<Button
-							variant="outlined"
-							fullWidth
-							onClick={() => conversationsQuery.fetchNextPage()}
-							disabled={conversationsQuery.isFetchingNextPage}
-						>
-							{conversationsQuery.isFetchingNextPage ? "Loading..." : "Load more"}
-						</Button>
-					</Box>
-				)}
 			</Box>
 
-			{/* Messages Panel */}
+			{/* Chat Window  */}
 			<Box
 				sx={{
 					flex: 1,
-					display: isMobile && showConversationsOnMobile ? "none" : "flex",
+					display: { xs: selectedConversationId ? "flex" : "none", md: "flex" },
 					flexDirection: "column",
-					minHeight: 0,
-					overflow: "hidden",
+					height: "100%",
+					bgcolor: "background.default",
 				}}
 			>
-				<Box sx={{ p: 3, display: "flex", alignItems: "center", gap: 1 }}>
-					{isMobile && (
-						<IconButton size="small" onClick={handleBackToList} sx={{ mr: 1 }}>
-							<ArrowBackIosNewRoundedIcon fontSize="small" />
-						</IconButton>
-					)}
-				</Box>
-				<Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
-
 				{!selectedConversationId ? (
-					<Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-						<Typography variant="body1" color="text.secondary">
-							Choose a conversation to start chatting.
+					<Box
+						sx={{
+							flex: 1,
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							flexDirection: "column",
+							p: 4,
+						}}
+					>
+						<Typography variant="h4" fontWeight={800} gutterBottom>
+							Select a message
 						</Typography>
+						<Typography variant="body1" color="text.secondary">
+							Choose from your existing conversations, start a new one, or just keep swimming.
+						</Typography>
+						<Button variant="contained" size="large" sx={{ mt: 3, borderRadius: 9999, px: 4, py: 1.5 }}>
+							New Message
+						</Button>
 					</Box>
 				) : (
 					<>
+						{/* Chat Header */}
+						<Box
+							sx={{
+								px: 2,
+								py: 1,
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								borderBottom: `1px solid ${theme.palette.divider}`,
+								bgcolor: alpha(theme.palette.background.default, 0.85),
+								backdropFilter: "blur(12px)",
+								position: "sticky",
+								top: 0,
+								zIndex: 10,
+							}}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+								{isMobile && (
+									<IconButton size="small" onClick={handleBackToList}>
+										<ArrowBackIosNewRoundedIcon fontSize="small" />
+									</IconButton>
+								)}
+								{selectedConversation && (
+									<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+										<Avatar
+											src={getConversationAvatar(selectedConversation, user?.publicId)}
+											sx={{ width: 32, height: 32 }}
+										/>
+										<Typography variant="h6" fontWeight={700} fontSize="1.1rem">
+											{getConversationTitle(selectedConversation, user?.publicId)}
+										</Typography>
+									</Box>
+								)}
+							</Box>
+							<IconButton>
+								<InfoOutlinedIcon />
+							</IconButton>
+						</Box>
+
+						{/* Messages Area */}
 						<Box
 							ref={messagesContainerRef}
 							sx={{
 								flex: 1,
 								overflowY: "auto",
-								px: { xs: 2, md: 4 },
-								py: 3,
-								minHeight: 0,
+								px: 2,
+								py: 2,
+								display: "flex",
+								flexDirection: "column",
 							}}
 						>
 							{messagesQuery.isLoading ? (
@@ -350,60 +409,72 @@ const Messages = () => {
 							) : (
 								<>
 									{messagesQuery.hasNextPage && (
-										<Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
-											<Button
-												variant="text"
-												size="small"
-												onClick={() => messagesQuery.fetchNextPage()}
-												disabled={messagesQuery.isFetchingNextPage}
-											>
-												{messagesQuery.isFetchingNextPage ? "Loading..." : "Load older messages"}
-											</Button>
-										</Box>
+										<Button
+											onClick={() => messagesQuery.fetchNextPage()}
+											disabled={messagesQuery.isFetchingNextPage}
+											sx={{ alignSelf: "center", mb: 2 }}
+										>
+											Load older messages
+										</Button>
 									)}
-									{messages.length === 0 ? (
-										<Typography variant="body2" color="text.secondary" textAlign="center" mt={4}>
-											No messages yet. Say hello!
-										</Typography>
-									) : (
-										messages.map((message) => renderMessageBubble(message))
-									)}
+									{messages.map((message) => renderMessageBubble(message))}
 								</>
 							)}
 						</Box>
 
-						<Divider sx={{ borderColor: "rgba(255,255,255,0.08)" }} />
-
-						<Box component="form" onSubmit={handleSendMessage} sx={{ p: { xs: 2, md: 3 } }}>
+						{/* Input Area */}
+						<Box
+							component="form"
+							onSubmit={handleSendMessage}
+							sx={{
+								p: 1.5,
+								borderTop: `1px solid ${theme.palette.divider}`,
+								bgcolor: "background.default",
+							}}
+						>
 							<Paper
 								elevation={0}
 								sx={{
-									px: 2,
-									py: 1,
-									borderRadius: 3,
-									border: `1px solid ${theme.palette.primary.main}33`,
+									display: "flex",
+									alignItems: "center",
+									px: 1,
+									py: 0.5,
+									borderRadius: 4,
+									bgcolor: alpha(theme.palette.text.primary, 0.05),
 								}}
 							>
+								<IconButton size="small" color="primary">
+									<ImageIcon />
+								</IconButton>
+								<IconButton size="small" color="primary">
+									<GifIcon />
+								</IconButton>
+								<IconButton size="small" color="primary">
+									<EmojiEmotionsIcon />
+								</IconButton>
+
 								<TextField
 									fullWidth
 									variant="standard"
-									placeholder="Type your message..."
+									placeholder="Start a new message"
 									value={draftBody}
 									onChange={(event) => setDraftBody(event.target.value)}
 									InputProps={{
 										disableUnderline: true,
-										endAdornment: (
-											<InputAdornment position="end">
-												<IconButton type="submit" color="primary" disabled={sendMessage.isPending || !draftBody.trim()}>
-													<SendRoundedIcon />
-												</IconButton>
-											</InputAdornment>
-										),
 									}}
-									inputProps={{
-										sx: { color: "inherit", py: 1 },
-									}}
+									sx={{ px: 2 }}
 								/>
+
+								<IconButton
+									type="submit"
+									color="primary"
+									disabled={!draftBody.trim() || sendMessage.isPending}
+									sx={{
+										opacity: draftBody.trim() ? 1 : 0.5,
+									}}
+								>
+									<SendRoundedIcon />
+								</IconButton>
 							</Paper>
 						</Box>
 					</>

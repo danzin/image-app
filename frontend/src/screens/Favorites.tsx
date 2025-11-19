@@ -1,10 +1,14 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useTheme, IconButton } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate } from "react-router-dom";
 import Gallery from "../components/Gallery";
 import { useFavorites } from "../hooks/favorites/useFavorites";
 import { useAuth } from "../hooks/context/useAuth";
 
 const Favorites = () => {
-	const { isLoggedIn } = useAuth();
+	const theme = useTheme();
+	const navigate = useNavigate();
+	const { isLoggedIn, user } = useAuth();
 	const favoritesQuery = useFavorites();
 
 	const { data, error, isLoading, isFetchingNextPage, hasNextPage, fetchNextPage } = favoritesQuery;
@@ -31,11 +35,40 @@ const Favorites = () => {
 				overflow: "hidden",
 			}}
 		>
+			{/* Sticky Header */}
+			<Box
+				sx={{
+					position: "sticky",
+					top: 0,
+					zIndex: 1000,
+					bgcolor: "rgba(0, 0, 0, 0.65)",
+					backdropFilter: "blur(12px)",
+					borderBottom: `1px solid ${theme.palette.divider}`,
+					px: 2,
+					py: 1,
+					display: "flex",
+					alignItems: "center",
+					gap: 2,
+				}}
+			>
+				<IconButton onClick={() => navigate(-1)} size="small">
+					<ArrowBackIcon />
+				</IconButton>
+				<Box>
+					<Typography variant="h6" sx={{ lineHeight: 1.2, fontWeight: 700 }}>
+						Favorites
+					</Typography>
+					<Typography variant="caption" color="text.secondary">
+						@{user?.username}
+					</Typography>
+				</Box>
+			</Box>
+
 			<Box
 				sx={{
 					flexGrow: 1,
 					overflowY: "auto",
-					p: { xs: 2, sm: 3, md: 4 },
+					p: 0,
 					display: "flex",
 					flexDirection: "column",
 					alignItems: "center",

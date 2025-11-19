@@ -26,7 +26,7 @@ const SearchResults = () => {
 	// Fetch Users
 	const { data: searchData, isFetching: isSearchingUsers } = useSearch(rawQuery);
 
-	// Fetch Posts with infinite scroll)
+	// Fetch Posts with infinite scroll
 	const {
 		data: postsData,
 		fetchNextPage,
@@ -60,7 +60,7 @@ const SearchResults = () => {
 	const isLoading = isLoadingPosts || isSearchingUsers;
 
 	return (
-		<Box sx={{ maxWidth: "800px", margin: "auto", p: 3 }}>
+		<Box sx={{ maxWidth: "800px", mx: "auto", p: 3 }}>
 			{/* Tab Buttons */}
 			<Box sx={{ display: "flex", gap: 2, mb: 3 }}>
 				<Button variant={activeTab === "posts" ? "contained" : "outlined"} onClick={() => setActiveTab("posts")}>

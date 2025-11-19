@@ -51,11 +51,8 @@ const Gallery: React.FC<GalleryProps> = ({
 				display: "flex",
 				flexDirection: "column",
 				alignItems: "center",
-				gap: { xs: 3, sm: 4, md: 5 },
 				width: "100%",
-				maxWidth: "800px",
-				m: "0 auto",
-				p: { xs: 2, sm: 3 },
+				p: 0,
 			}}
 		>
 			{/* Loading Skeletons */}
@@ -66,9 +63,9 @@ const Gallery: React.FC<GalleryProps> = ({
 						key={i}
 						sx={{
 							width: "100%",
-							maxWidth: "700px",
-							border: "1px solid rgba(99, 102, 241, 0.1)",
-							borderRadius: 2,
+							borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
+							borderRadius: 0,
+							boxShadow: "none",
 						}}
 					>
 						<Skeleton variant="rectangular" height={400} sx={{ bgcolor: "rgba(99, 102, 241, 0.1)" }} />
@@ -85,10 +82,10 @@ const Gallery: React.FC<GalleryProps> = ({
 				posts.map((img, index) => (
 					<motion.div
 						key={img.publicId}
-						initial={{ opacity: 0, y: 50 }}
+						initial={{ opacity: 0, y: 20 }}
 						animate={{ opacity: 1, y: 0 }}
-						transition={{ duration: 0.5, delay: index * 0.1 }}
-						style={{ width: "100%", maxWidth: "700px" }}
+						transition={{ duration: 0.3, delay: index * 0.05 }}
+						style={{ width: "100%" }}
 					>
 						<PostCard post={img} />
 					</motion.div>
