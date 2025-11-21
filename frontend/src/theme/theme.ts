@@ -162,7 +162,7 @@ export const theme = createTheme({
 				root: {
 					color: "#71767b",
 					"&:hover": {
-						backgroundColor: "#8b5cf6",
+						backgroundColor: "white",
 						color: "#8b5cf6",
 					},
 				},

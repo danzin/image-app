@@ -6,19 +6,7 @@ import { useLikePost } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import { useDeletePost } from "../hooks/posts/usePosts";
 import HashtagText from "../components/HashtagText";
-import {
-	Box,
-	Typography,
-	Button,
-	CircularProgress,
-	Chip,
-	Alert,
-	IconButton,
-	Avatar,
-	Modal,
-	useTheme,
-	alpha,
-} from "@mui/material";
+import { Box, Typography, Button, CircularProgress, Alert, IconButton, Avatar, Modal, useTheme } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -283,7 +271,8 @@ const PostView = () => {
 					<Typography variant="body2" color="text.secondary">
 						{new Date(post.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} ·{" "}
 						{new Date(post.createdAt).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ·{" "}
-						<span style={{ color: theme.palette.text.primary, fontWeight: 600 }}>{post.viewsCount || 0}</span> Views
+						<span style={{ color: theme.palette.text.primary, fontWeight: 600 }}>{post.viewsCount || 0}</span>{" "}
+						{post.viewsCount === 1 ? "View" : "Views"}
 					</Typography>
 				</Box>
 
@@ -320,27 +309,6 @@ const PostView = () => {
 						{isFavorited ? <BookmarkIcon /> : <BookmarkBorderIcon />}
 					</IconButton>
 				</Box>
-
-				{/* Tags */}
-				{post.tags && post.tags.length > 0 && (
-					<Box sx={{ mt: 2, display: "flex", flexWrap: "wrap", gap: 1 }}>
-						{post.tags.map((tag, index) => (
-							<Chip
-								key={index}
-								label={tag}
-								size="small"
-								onClick={() => navigate(`/results?q=${tag}`)}
-								sx={{
-									bgcolor: "transparent",
-									border: `1px solid ${theme.palette.divider}`,
-									color: "primary.main",
-									fontWeight: 600,
-									"&:hover": { bgcolor: alpha(theme.palette.primary.main, 0.1) },
-								}}
-							/>
-						))}
-					</Box>
-				)}
 
 				{/* Comment Section */}
 				<Box sx={{ mt: 2 }}>
