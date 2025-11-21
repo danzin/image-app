@@ -8,6 +8,7 @@ import CancelIcon from "@mui/icons-material/Cancel";
 import { IComment } from "../../types";
 import { useAuth } from "../../hooks/context/useAuth";
 import { useUpdateComment, useDeleteComment } from "../../hooks/comments/useComments";
+import { useNavigate } from "react-router";
 
 interface CommentItemProps {
 	comment: IComment;
@@ -18,6 +19,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editContent, setEditContent] = useState(comment.content);
+	const navigate = useNavigate();
 
 	const updateCommentMutation = useUpdateComment();
 	const deleteCommentMutation = useDeleteComment();
@@ -90,13 +92,34 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 
 	return (
 		<Box sx={{ display: "flex", gap: 1, py: 1 }}>
-			<Avatar src={comment.user.avatar} alt={comment.user.username} sx={{ width: 32, height: 32 }}>
-				{comment.user.username[0].toUpperCase()}
+			<Avatar
+				src={comment.user.avatar}
+				alt={comment.user.username}
+				sx={{ width: 32, height: 32, cursor: "pointer" }}
+				onClick={() => navigate(`/profile/${comment.user?.publicId}`)}
+			>
+				{comment.user?.avatar ? (
+					<img
+						src={`/api/${comment.user.avatar}`}
+						alt={comment.user.username}
+						style={{ width: "100%", height: "100%", objectFit: "cover" }}
+					/>
+				) : (
+					<span>{comment.user?.username?.charAt(0).toUpperCase()}</span>
+				)}
 			</Avatar>
 
 			<Box sx={{ flex: 1, minWidth: 0 }}>
 				<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
-					<Typography variant="subtitle2" component="span" sx={{ fontWeight: 600 }}>
+					<Typography
+						variant="subtitle2"
+						component="span"
+						sx={{ fontWeight: 600, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						onClick={(e) => {
+							e.stopPropagation();
+							navigate(`/profile/${comment.user?.publicId}`);
+						}}
+					>
 						{comment.user.username}
 					</Typography>
 					<Typography variant="caption" color="text.secondary">
