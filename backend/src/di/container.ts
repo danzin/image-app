@@ -22,6 +22,7 @@ import { ConversationRepository } from "../repositories/conversation.repository"
 import { MessageRepository } from "../repositories/message.repository";
 import { CloudinaryService } from "../services/cloudinary.service";
 import { UserService } from "../services/user.service";
+import { AuthService } from "../services/auth.service";
 import { ImageService } from "../services/image.service";
 import { FavoriteService } from "../services/favorite.service";
 import { CommentService } from "../services/comment.service";
@@ -67,8 +68,12 @@ import { LocalStorageService } from "../services/localStorage.service";
 import { IImageStorageService } from "../types/index";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
+import { FollowUserCommand } from "../application/commands/users/followUser/followUser.command";
+import { FollowUserCommandHandler } from "../application/commands/users/followUser/followUser.handler";
 import { RegisterUserCommandHandler } from "../application/commands/users/register/register.handler";
 import { RegisterUserCommand } from "../application/commands/users/register/register.command";
+import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
+import { GetDashboardStatsQueryHandler } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { GetMeQueryHandler } from "../application/queries/users/getMe/getMe.handler";
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetWhoToFollowQueryHandler } from "../application/queries/users/getWhoToFollow/getWhoToFollow.handler";
@@ -115,6 +120,8 @@ import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsB
 import { SearchPostsByTagsQueryHandler } from "../application/queries/post/searchPostsByTags/searchPostsByTags.handler";
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
 import { GetAllTagsQueryHandler } from "../application/queries/tags/getAllTags/getAllTags.handler";
+import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
+import { GetLikedPostsByUserHandler } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.handler";
 import { NewPostMessageHandler } from "../application/handlers/realtime/NewPostMessageHandler";
 import { GlobalNewPostMessageHandler } from "../application/handlers/realtime/GlobalNewPostMessageHandler";
 import { PostDeletedMessageHandler } from "../application/handlers/realtime/PostDeletedMessageHandler";
@@ -210,6 +217,7 @@ function registerServices(): void {
 
 	container.registerSingleton("SearchService", SearchService);
 	container.registerSingleton("UserService", UserService);
+	container.registerSingleton("AuthService", AuthService);
 	container.registerSingleton("ImageService", ImageService);
 	container.registerSingleton("CommentService", CommentService);
 	container.registerSingleton("FollowService", FollowService);
@@ -276,6 +284,7 @@ export function registerCQRS(): void {
 	// Register handler classes as transient/registration tokens.
 	// This only binds the class to a token without resolvin the handler yet
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
+	container.register("FollowUserCommandHandler", { useClass: FollowUserCommandHandler });
 	container.register("DeleteUserCommandHandler", { useClass: DeleteUserCommandHandler });
 	container.register("UpdateAvatarCommandHandler", { useClass: UpdateAvatarCommandHandler });
 	container.register("UpdateCoverCommandHandler", { useClass: UpdateCoverCommandHandler });
@@ -286,6 +295,7 @@ export function registerCQRS(): void {
 	container.register("CreatePostCommandHandler", { useClass: CreatePostCommandHandler });
 	container.register("DeletePostCommandHandler", { useClass: DeletePostCommandHandler });
 	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
+	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
 
 	// Reactive event handlers
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
@@ -295,6 +305,7 @@ export function registerCQRS(): void {
 
 	// Query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
+	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 	container.register("GetPersonalizedFeedQueryHandler", { useClass: GetPersonalizedFeedQueryHandler });
@@ -306,6 +317,7 @@ export function registerCQRS(): void {
 	container.register("GetPostsByUserQueryHandler", { useClass: GetPostsByUserQueryHandler });
 	container.register("SearchPostsByTagsQueryHandler", { useClass: SearchPostsByTagsQueryHandler });
 	container.register("GetAllTagsQueryHandler", { useClass: GetAllTagsQueryHandler });
+	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
 
 	// Interaction handlers (token-only registration)
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
@@ -319,6 +331,7 @@ export function initCQRS(): void {
 
 	// Resolve handler instances (they will be constructed now)
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
+	commandBus.register(FollowUserCommand, container.resolve<FollowUserCommandHandler>("FollowUserCommandHandler"));
 	commandBus.register(DeleteUserCommand, container.resolve<DeleteUserCommandHandler>("DeleteUserCommandHandler"));
 	commandBus.register(UpdateAvatarCommand, container.resolve<UpdateAvatarCommandHandler>("UpdateAvatarCommandHandler"));
 	commandBus.register(UpdateCoverCommand, container.resolve<UpdateCoverCommandHandler>("UpdateCoverCommandHandler"));
@@ -352,6 +365,10 @@ export function initCQRS(): void {
 
 	// Register queries
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
+	queryBus.register(
+		GetDashboardStatsQuery,
+		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler")
+	);
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
 	queryBus.register(
 		GetTrendingTagsQuery,
@@ -378,6 +395,10 @@ export function initCQRS(): void {
 		container.resolve<SearchPostsByTagsQueryHandler>("SearchPostsByTagsQueryHandler")
 	);
 	queryBus.register(GetAllTagsQuery, container.resolve<GetAllTagsQueryHandler>("GetAllTagsQueryHandler"));
+	queryBus.register(
+		GetLikedPostsByUserQuery,
+		container.resolve<GetLikedPostsByUserHandler>("GetLikedPostsByUserHandler")
+	);
 
 	// Resolve and register realtime handlers array
 	const realtimeHandlers = [

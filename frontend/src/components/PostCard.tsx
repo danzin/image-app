@@ -5,7 +5,7 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate } from "react-router-dom";
-import HashtagText from "./HashtagText";
+import RichText from "./RichText";
 
 interface PostCardProps {
 	post: IPost;
@@ -35,7 +35,6 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 		navigate(`/posts/${post.publicId}`);
 	};
 
-	// Handle optional image URL
 	const fullImageUrl = post.url
 		? post.url.startsWith("http")
 			? post.url
@@ -135,7 +134,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								mb: hasImage ? 1.5 : 0,
 							}}
 						>
-							<HashtagText
+							<RichText
 								text={isExpanded || !post.body || post.body.length <= 280 ? post.body : post.body.slice(0, 280) + "..."}
 							/>
 							{post.body && post.body.length > 280 && !isExpanded && (

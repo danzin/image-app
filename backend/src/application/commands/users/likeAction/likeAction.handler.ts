@@ -7,6 +7,7 @@ import { UserInteractedWithPostEvent } from "../../../../application/events/user
 import { PostRepository } from "../../../../repositories/post.repository";
 import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
+import { UserRepository } from "../../../../repositories/user.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
@@ -21,6 +22,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
+		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
@@ -42,17 +44,15 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		let existingPost: IPost | null;
 
 		try {
-			// Retrieve the post by ID to ensure it exists
 			existingPost = await this.postRepository.findById(command.postId);
 			if (!existingPost) {
 				throw createError("PathError", `Post ${command.postId} not found`);
 			}
-			// Extract tags associated with the post for event tracking
 			postTags = Array.isArray((existingPost as any).tags)
 				? (existingPost as any).tags.map((t: any) => t.tag ?? t)
 				: [];
 
-			// Execute the like/unlike operation within a database transaction
+			// Execute the like/unlike operation within transaction
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const existingLike = await this.postLikeRepository.hasUserLiked(command.postId, command.userId, session);
 
@@ -61,11 +61,10 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 					await this.handleUnlike(command, session);
 					isLikeAction = false;
 				} else {
-					// Otherwise, perform a like operation
+					// perform a like operation
 					await this.handleLike(command, existingPost!, session);
 				}
 
-				// Queue an event to track user interaction with the image
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(
 						command.userId,
@@ -83,7 +82,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			if (!updatedPost) {
 				throw createError("PathError", `Post ${command.postId} not found after update`);
 			}
-			// Update per-post meta cache asynchronously (do not block response)
+			// Update per-post meta cache asynchronously as not to block respons
 			if ((updatedPost as any).publicId) {
 				this.feedService
 					.updatePostLikeMeta((updatedPost as any).publicId, (updatedPost as any).likesCount ?? 0)
@@ -117,17 +116,37 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		await this.postRepository.updateLikeCount(command.postId, 1, session);
 
-		// Log the user's like action
 		await this.userActionRepository.logAction(command.userId, "like", command.postId, session);
 
-		// Send a notification to the post owner about the like action
 		const postOwner = (post as any).user;
-		const postOwnerPublicId =
-			typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-				? (postOwner as any).publicId.toString()
-				: postOwner?.toString?.();
+		const postAuthor = (post as any).author;
+		let postOwnerPublicId = "";
+
+		console.log(`[LikeAction] Resolving post owner for post ${command.postId}. postOwner raw:`, postOwner);
+		if (postAuthor) {
+			console.log(`[LikeAction] post.author found:`, postAuthor);
+		}
+
+		// author.publicId if available since its embedded
+		if (postAuthor && postAuthor.publicId) {
+			postOwnerPublicId = postAuthor.publicId;
+			console.log(`[LikeAction] Resolved owner from post.author.publicId: ${postOwnerPublicId}`);
+		} else if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
+			postOwnerPublicId = (postOwner as any).publicId.toString();
+			console.log(`[LikeAction] Resolved owner from populated object: ${postOwnerPublicId}`);
+		} else if (postOwner) {
+			// Resolve user publicId from ObjectId
+			const ownerUser = await this.userRepository.findById(postOwner.toString());
+			if (ownerUser) {
+				postOwnerPublicId = ownerUser.publicId;
+				console.log(`[LikeAction] Resolved owner from DB lookup: ${postOwnerPublicId}`);
+			} else {
+				console.warn(`[LikeAction] Could not find user for ObjectId: ${postOwner}`);
+			}
+		}
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userId) {
+			console.log(`[LikeAction] Creating notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
 			await this.notificationService.createNotification({
 				receiverId: postOwnerPublicId,
 				actionType: "like",
@@ -135,6 +154,10 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 				targetId: (post as any).publicId ?? command.postId,
 				session,
 			});
+		} else {
+			console.log(
+				`[LikeAction] Skipping notification. Owner: ${postOwnerPublicId}, Actor: ${command.userId}, Same? ${postOwnerPublicId === command.userId}`
+			);
 		}
 	}
 
@@ -152,7 +175,6 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		await this.postRepository.updateLikeCount(command.postId, -1, session);
 
-		// Log the user's unlike action
 		await this.userActionRepository.logAction(command.userId, "unlike", command.postId, session);
 	}
 }

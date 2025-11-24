@@ -286,6 +286,24 @@ export class UserRepository extends BaseRepository<IUser> {
 	}
 
 	/**
+	 * Get multiple users by their usernames (case-insensitive)
+	 */
+	async findUsersByUsernames(usernames: string[]): Promise<IUser[]> {
+		try {
+			const regexes = usernames.map((u) => new RegExp(`^${u}$`, "i"));
+			return await this.model
+				.find({
+					username: { $in: regexes },
+				})
+				.select("publicId username avatar")
+				.exec();
+		} catch (error) {
+			console.error("Error in findUsersByUsernames:", error);
+			return [];
+		}
+	}
+
+	/**
 	 * Get suggested users to follow based on engagement metrics
 	 * Scores users based on: follower count (40%), total post likes (30%), post count (20%), recent activity (10%)
 	 * @param currentUserId - ID of the current user (to exclude from suggestions)

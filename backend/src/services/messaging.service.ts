@@ -10,6 +10,7 @@ import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { MessageSentEvent } from "../application/events/message/message.event";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+import { NotificationService } from "./notification.service";
 /*
 Notes on messaging system:
 
@@ -42,7 +43,8 @@ export class MessagingService {
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler
+		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler,
+		@inject("NotificationService") private readonly notificationService: NotificationService
 	) {}
 
 	async listConversations(
@@ -296,13 +298,24 @@ export class MessagingService {
 
 			const participantPublicIds = participantDocs.map((doc: any) => doc.publicId);
 
+			// Create notifications for recipients
+			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
+			for (const recipientId of recipients) {
+				await this.notificationService.createNotification({
+					receiverId: recipientId,
+					actionType: "message",
+					actorId: senderPublicId,
+					actorUsername: (message as any).sender?.username,
+					actorAvatar: (message as any).sender?.avatar,
+					targetId: conversationDoc!.publicId,
+					targetType: "conversation",
+					targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+					session,
+				});
+			}
+
 			this.eventBus.queueTransactional(
-				new MessageSentEvent(
-					conversationDoc!.publicId,
-					senderPublicId,
-					participantPublicIds.filter((id: string) => id !== senderPublicId),
-					message.publicId
-				),
+				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),
 				this.messageSentHandler
 			);
 

@@ -42,11 +42,9 @@ export class PostService {
 			);
 
 			if (postInternalId && viewerInternalId) {
-				// Check like membership via dedicated collection
 				dto.isLikedByViewer = await this.postLikeRepository.hasUserLiked(postInternalId, viewerInternalId);
 				console.log("[PostService.getPostByPublicId] like match:", dto.isLikedByViewer);
 
-				// Check if viewer favorited this post (using FavoriteRepository)
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;
 				console.log("[PostService.getPostByPublicId] favoriteRecord:", !!favoriteRecord);

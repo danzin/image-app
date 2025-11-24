@@ -16,6 +16,7 @@ import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
 import { createError } from "../../../../utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "../../../../utils/sanitizers";
 import { AttachmentSummary, IPost, PostDTO } from "../../../../types";
+import { NotificationService } from "../../../../services/notification.service";
 
 const MAX_BODY_LENGTH = 300;
 
@@ -30,7 +31,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		@inject("RedisService") private readonly redisService: RedisService,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler
+		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
+		@inject("NotificationService") private readonly notificationService: NotificationService
 	) {}
 
 	async execute(command: CreatePostCommand): Promise<PostDTO> {
@@ -63,7 +65,41 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				const post = await this.createPost(user, internalUserId, normalizedBody, tagIds, imageSummary, session);
 				await this.userRepository.update(user.id, { $inc: { postCount: 1 } }, session);
 
-				// queue event inside transaction
+				// Handle mentions
+				const mentionRegex = /@(\w+)/g;
+				const mentions = [...normalizedBody.matchAll(mentionRegex)].map((match) => match[1]);
+
+				console.log(`[CreatePost] Body: "${normalizedBody}"`);
+				console.log(`[CreatePost] Extracted mentions: ${JSON.stringify(mentions)}`);
+
+				if (mentions.length > 0) {
+					const uniqueMentions = [...new Set(mentions)];
+					const mentionedUsers = await this.userRepository.findUsersByUsernames(uniqueMentions);
+
+					console.log(`[CreatePost] Found users for mentions: ${mentionedUsers.length}`);
+
+					for (const mentionedUser of mentionedUsers) {
+						// Filter: Remove post author - no self mention
+						if (mentionedUser.publicId === user.publicId) {
+							console.log(`[CreatePost] Skipping self-mention for ${user.username}`);
+							continue;
+						}
+
+						console.log(`[CreatePost] Creating notification for ${mentionedUser.username} (${mentionedUser.publicId})`);
+						await this.notificationService.createNotification({
+							receiverId: mentionedUser.publicId,
+							actionType: "mention",
+							actorId: user.publicId,
+							actorUsername: user.username,
+							actorAvatar: user.avatar,
+							targetId: post.publicId,
+							targetType: "post",
+							targetPreview: normalizedBody.substring(0, 50) + (normalizedBody.length > 50 ? "..." : ""),
+							session,
+						});
+					}
+				}
+
 				const distinctTags = Array.from(new Set(tagNames));
 				this.eventBus.queueTransactional(
 					new PostUploadedEvent(post.publicId, user.publicId, distinctTags),

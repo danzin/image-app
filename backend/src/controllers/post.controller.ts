@@ -10,6 +10,7 @@ import { GetPostByPublicIdQuery } from "../application/queries/post/getPostByPub
 import { GetPostBySlugQuery } from "../application/queries/post/getPostBySlug/getPostBySlug.query";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
 import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/getPostsByUser.query";
+import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
 import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
 import { createError } from "../utils/errors";
@@ -87,6 +88,26 @@ export class PostController {
 				errorLogger.error("Unknown error occurred");
 			}
 			next(createError("UnknownError", "Failed to fetch posts"));
+		}
+	};
+
+	getLikedPostsByUserPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		const { publicId } = req.params;
+		const page = parseInt(req.query.page as string) || 1;
+		const limit = parseInt(req.query.limit as string) || 10;
+		const viewerPublicId = req.decodedUser?.publicId;
+
+		try {
+			const query = new GetLikedPostsByUserQuery(publicId, page, limit, viewerPublicId);
+			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
+			res.json(posts);
+		} catch (error) {
+			if (error instanceof Error) {
+				errorLogger.error(error.stack);
+			} else {
+				errorLogger.error("Unknown error occurred");
+			}
+			next(createError("UnknownError", "Failed to fetch liked posts"));
 		}
 	};
 

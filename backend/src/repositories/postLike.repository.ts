@@ -75,6 +75,32 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 		return await query.exec();
 	}
 
+	async findLikedPostIdsByUser(
+		userId: string,
+		page: number,
+		limit: number
+	): Promise<{ postIds: Types.ObjectId[]; total: number }> {
+		const normalizedUserId = this.normalizeId(userId, "userId");
+		const skip = (page - 1) * limit;
+
+		const [likes, total] = await Promise.all([
+			this.model
+				.find({ userId: normalizedUserId })
+				.sort({ createdAt: -1 })
+				.skip(skip)
+				.limit(limit)
+				.select("postId")
+				.lean()
+				.exec(),
+			this.model.countDocuments({ userId: normalizedUserId }),
+		]);
+
+		return {
+			postIds: likes.map((like) => like.postId as Types.ObjectId),
+			total,
+		};
+	}
+
 	private normalizeId(id: string | Types.ObjectId, field: string): Types.ObjectId {
 		if (id instanceof Types.ObjectId) {
 			return id;

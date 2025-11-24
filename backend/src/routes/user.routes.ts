@@ -47,7 +47,7 @@ export class UserRoutes {
 			this.userController.getUserByUsername
 		);
 
-		// Get user by public ID (for API integrations)
+		// Get user by public ID
 		this.router.get(
 			"/public/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
@@ -55,7 +55,7 @@ export class UserRoutes {
 		);
 
 		// === Protected Routes (authentication required) ===
-		this.router.use(this.auth); // All routes below require authentication
+		this.router.use(this.auth);
 
 		// Current user operations
 		this.router.get("/me", this.userController.getMe);
@@ -73,7 +73,7 @@ export class UserRoutes {
 			this.userController.changePassword
 		);
 
-		// Social actions (using public IDs for security)
+		// Social actions
 		this.router.post(
 			"/follow/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
@@ -92,14 +92,14 @@ export class UserRoutes {
 			this.userController.checkFollowStatus
 		);
 
-		// Post interactions (using public IDs)
+		// Post interactions
 		this.router.post(
 			"/like/post/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.userController.likeActionByPublicId
 		);
 
-		// Account deletion (self-deletion only, admins use separate endpoints)
+		// Account deletion
 		this.router.delete("/me", this.userController.deleteMyAccount);
 	}
 

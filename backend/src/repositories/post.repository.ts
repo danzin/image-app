@@ -152,6 +152,27 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async findPostsByIds(ids: string[], _viewerPublicId?: string): Promise<IPost[]> {
+		try {
+			const objectIds = ids.map((id) => this.normalizeObjectId(id, "id"));
+
+			const pipeline: PipelineStage[] = [
+				{ $match: { _id: { $in: objectIds } } },
+				...this.getStandardLookups(),
+				this.getStandardProjection(),
+			];
+
+			// If viewerPublicId is provided, we could potentially add isLiked/isFavorited fields here
+			// but that logic is usually handled in the service/DTO layer or via separate lookups.
+			// For now, we just return the posts.
+
+			const results = await this.model.aggregate(pipeline).exec();
+			return results;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to find posts by ids");
+		}
+	}
+
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
 		try {
 			const query = this.model.findOne({ publicId }).populate("tags", "tag").populate({

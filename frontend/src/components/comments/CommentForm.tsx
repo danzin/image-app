@@ -23,14 +23,14 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
 				imagePublicId: postId,
 				commentData: { content: content.trim() },
 			});
-			setContent(""); // Clear form after successful submission
+			setContent("");
 		} catch (error) {
 			console.error("Failed to create comment:", error);
 		}
 	};
 
-	const handleKeyPress = (e: React.KeyboardEvent) => {
-		if (e.key === "Enter" && !e.shiftKey) {
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.ctrlKey && e.key === "Enter") {
 			e.preventDefault();
 			const formEvent = new Event("submit", { bubbles: true, cancelable: true });
 			handleSubmit(formEvent as unknown as React.FormEvent);
@@ -38,7 +38,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
 	};
 
 	if (!isLoggedIn) {
-		return null; // Don't show comment form if user is not logged in
+		return null;
 	}
 
 	return (
@@ -55,7 +55,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
 						maxRows={4}
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
-						onKeyPress={handleKeyPress}
+						onKeyDown={handleKeyDown}
 						placeholder="Write a comment..."
 						variant="outlined"
 						size="small"

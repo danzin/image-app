@@ -1,5 +1,12 @@
 import axiosClient from "./axiosClient";
-import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO, WhoToFollowResponse } from "../types";
+import {
+	ImagePageData,
+	PublicUserDTO,
+	AuthenticatedUserDTO,
+	AdminUserDTO,
+	WhoToFollowResponse,
+	IComment,
+} from "../types";
 import axios, { AxiosError } from "axios";
 
 // Login returns user and token
@@ -28,7 +35,7 @@ export const fetchIsFollowing = async ({ queryKey }: { queryKey: [string, string
 	return data.isFollowing;
 };
 
-// Get current user (me endpoint)
+// Get current user at /me
 export const fetchCurrentUser = async (signal?: AbortSignal): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	try {
 		const { data } = await axiosClient.get<AuthenticatedUserDTO | AdminUserDTO>("/api/users/me", { signal });
@@ -42,32 +49,27 @@ export const fetchCurrentUser = async (signal?: AbortSignal): Promise<Authentica
 				message: err.message,
 				code: err.code,
 			};
-			// Auth specific
 			if (status === 401 || status === 403) {
 				throw Object.assign(new Error("UNAUTHORIZED"), info);
 			}
-			// Re-throw with context for diagnostics
 			throw Object.assign(err, info);
 		}
-		throw err as AxiosError; // non-axios
+		throw err as AxiosError;
 	}
 };
 
-// Get user by public ID
 export const fetchUserByPublicId = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
 	const [, publicId] = queryKey;
 	const response = await axiosClient.get(`/api/users/public/${publicId}`);
 	return response.data;
 };
 
-// Get user by username (for profile pages)
 export const fetchUserByUsername = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
 	const [, username] = queryKey;
 	const response = await axiosClient.get(`/api/users/profile/${username}`);
 	return response.data;
 };
 
-// Get user posts by user public ID
 export const fetchUserPosts = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
 	try {
 		const { data } = await axiosClient.get(`/api/posts/user/${userPublicId}?page=${pageParam}`);
@@ -78,7 +80,35 @@ export const fetchUserPosts = async (pageParam: number, userPublicId: string): P
 	}
 };
 
-// Update user avatar
+export const fetchUserLikedPosts = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
+	try {
+		const { data } = await axiosClient.get(`/api/posts/user/${userPublicId}/likes?page=${pageParam}`);
+		return data;
+	} catch (error) {
+		console.error("Error fetching user liked posts:", error);
+		throw error;
+	}
+};
+
+export const fetchUserComments = async (
+	pageParam: number,
+	userPublicId: string
+): Promise<{
+	comments: IComment[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	try {
+		const { data } = await axiosClient.get(`/api/users/${userPublicId}/comments?page=${pageParam}`);
+		return data;
+	} catch (error) {
+		console.error("Error fetching user comments:", error);
+		throw error;
+	}
+};
+
 export const updateUserAvatar = async (avatar: Blob): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	const formData = new FormData();
 	formData.append("avatar", avatar, `avatar.${avatar.type.split("/")[1] || "png"}`);
@@ -91,7 +121,6 @@ export const updateUserAvatar = async (avatar: Blob): Promise<AuthenticatedUserD
 	return data;
 };
 
-// Update user cover
 export const updateUserCover = async (cover: Blob): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
 	const formData = new FormData();
 	formData.append("cover", cover, `cover.${cover.type.split("/")[1] || "png"}`);
@@ -104,7 +133,6 @@ export const updateUserCover = async (cover: Blob): Promise<AuthenticatedUserDTO
 	return data;
 };
 
-// Update user profile
 export const editUserRequest = async (updateData: {
 	username?: string;
 	bio?: string;
@@ -113,7 +141,6 @@ export const editUserRequest = async (updateData: {
 	return response.data;
 };
 
-// Change password
 export const changePasswordRequest = async (passwords: {
 	currentPassword: string;
 	newPassword: string;

@@ -37,7 +37,7 @@ describe("Simple E2E Test", () => {
 		// Should see the left sidebar or mobile menu
 		cy.get("body").should("be.visible");
 
-		// Check if left sidebar exists (desktop)
+		// Check if left sidebar exists
 		cy.get("body").then(($body) => {
 			if ($body.find('[data-testid="left-sidebar"]').length > 0) {
 				cy.get('[data-testid="left-sidebar"]').should("be.visible");

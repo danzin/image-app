@@ -9,6 +9,7 @@ import { IComment } from "../../types";
 import { useAuth } from "../../hooks/context/useAuth";
 import { useUpdateComment, useDeleteComment } from "../../hooks/comments/useComments";
 import { useNavigate } from "react-router";
+import RichText from "../RichText";
 
 interface CommentItemProps {
 	comment: IComment;
@@ -33,6 +34,13 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 
 	const handleMenuClose = () => {
 		setAnchorEl(null);
+	};
+
+	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (e.ctrlKey && e.key === "Enter") {
+			e.preventDefault();
+			handleSaveEdit();
+		}
 	};
 
 	const handleEdit = () => {
@@ -140,6 +148,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 							multiline
 							maxRows={4}
 							value={editContent}
+							onKeyDown={handleKeyDown}
 							onChange={(e) => setEditContent(e.target.value)}
 							variant="outlined"
 							size="small"
@@ -169,7 +178,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					</Stack>
 				) : (
 					<Typography variant="body2" sx={{ wordBreak: "break-word" }}>
-						{comment.content}
+						<RichText text={comment.content} />
 					</Typography>
 				)}
 			</Box>

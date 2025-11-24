@@ -25,7 +25,14 @@ import "react-toastify/dist/ReactToastify.css";
 
 import Gallery from "../components/Gallery";
 import { EditProfile } from "../components/EditProfile";
-import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserPosts } from "../hooks/user/useUsers";
+import {
+	useGetUser,
+	useUpdateUserAvatar,
+	useUpdateUserCover,
+	useUserPosts,
+	useUserLikedPosts,
+	useUserComments,
+} from "../hooks/user/useUsers";
 import { useFollowUser, useIsFollowing } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import ImageEditor from "../components/ImageEditor";
@@ -58,7 +65,23 @@ const Profile: React.FC = () => {
 		hasNextPage,
 		isFetchingNextPage,
 		isLoading: isLoadingImages,
-	} = useUserPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId });
+	} = useUserPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 0 });
+
+	const {
+		data: likedPostsData,
+		fetchNextPage: fetchNextLikedPage,
+		hasNextPage: hasNextLikedPage,
+		isFetchingNextPage: isFetchingNextLikedPage,
+		isLoading: isLoadingLikedPosts,
+	} = useUserLikedPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 3 });
+
+	const {
+		data: commentsData,
+		fetchNextPage: fetchNextCommentsPage,
+		hasNextPage: hasNextCommentsPage,
+		isFetchingNextPage: isFetchingNextCommentsPage,
+		isLoading: isLoadingComments,
+	} = useUserComments(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 1 });
 
 	const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(profileData?.publicId || "", {
 		enabled: isLoggedIn && !!profileData?.publicId && profileData?.publicId !== user?.publicId,
@@ -82,8 +105,12 @@ const Profile: React.FC = () => {
 	const notifyError = useCallback((message: string) => toast.error(message), []);
 
 	const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
+	const flattenedLikedPosts = likedPostsData?.pages?.flatMap((page) => page.data) || [];
+	const flattenedComments = commentsData?.pages?.flatMap((page) => page.comments) || [];
 
 	const isLoadingAll = isLoadingImages || imagesData?.pages.length === 0;
+	const isLoadingAllLiked = isLoadingLikedPosts || likedPostsData?.pages.length === 0;
+	const isLoadingAllComments = isLoadingComments || commentsData?.pages.length === 0;
 
 	const handleFollowUser = () => {
 		if (!isLoggedIn) return navigate("/login");
@@ -121,7 +148,7 @@ const Profile: React.FC = () => {
 		});
 	};
 
-	// Handler for Avatar upload (receives Blob)
+	// Handler for Avatar upload
 	const handleAvatarUpload = useCallback(
 		(croppedImage: Blob | null) => {
 			if (!croppedImage) {
@@ -144,7 +171,6 @@ const Profile: React.FC = () => {
 		[avatarMutation, notifyError, notifySuccess]
 	);
 
-	// Handler for Cover upload (receives Blob)
 	const handleCoverUpload = useCallback(
 		(croppedImage: Blob | null) => {
 			if (!croppedImage) {
@@ -454,9 +480,9 @@ const Profile: React.FC = () => {
 					}}
 				>
 					<Tab label="Posts" />
-					<Tab label="Replies" disabled />
-					<Tab label="Media" disabled />
-					<Tab label="Likes" disabled />
+					<Tab label="Replies" />
+					<Tab label="Media" />
+					<Tab label="Likes" />
 				</Tabs>
 			</Box>
 
@@ -480,6 +506,105 @@ const Profile: React.FC = () => {
 								hasNextPage={!!hasNextPage}
 								isFetchingNext={isFetchingNextPage}
 								isLoadingAll={isLoadingAll}
+							/>
+						)}
+					</>
+				)}
+				{activeTab === 1 && (
+					<Box sx={{ p: 2 }}>
+						{flattenedComments.length === 0 && !isLoadingComments ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't replied yet
+								</Typography>
+							</Box>
+						) : (
+							<Box>
+								{isLoadingAllComments && (
+									<Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+										<CircularProgress />
+									</Box>
+								)}
+								{flattenedComments.map((comment) => {
+									const typedComment = comment as {
+										id: string;
+										content: string;
+										postPublicId: string;
+										createdAt: string;
+									};
+									return (
+										<Paper key={typedComment.id} sx={{ p: 2, mb: 2 }}>
+											<Typography variant="body1" sx={{ mb: 1 }}>
+												{typedComment.content}
+											</Typography>
+											<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+												<Typography
+													variant="caption"
+													color="primary"
+													sx={{
+														cursor: "pointer",
+														fontWeight: 600,
+														"&:hover": { textDecoration: "underline" },
+													}}
+													onClick={() => navigate(`/posts/${typedComment.postPublicId}`)}
+												>
+													View Post
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													{new Date(typedComment.createdAt).toLocaleDateString(undefined, {
+														year: "numeric",
+														month: "short",
+														day: "numeric",
+													})}
+												</Typography>
+											</Box>
+										</Paper>
+									);
+								})}
+								{hasNextCommentsPage && (
+									<Button onClick={() => fetchNextCommentsPage()} disabled={isFetchingNextCommentsPage}>
+										{isFetchingNextCommentsPage ? "Loading..." : "Load More"}
+									</Button>
+								)}
+							</Box>
+						)}
+					</Box>
+				)}
+				{activeTab === 2 && (
+					<>
+						{flattenedImages.length === 0 && !isLoadingImages ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't posted media yet
+								</Typography>
+							</Box>
+						) : (
+							<Gallery
+								posts={flattenedImages.filter((post) => post.image)}
+								fetchNextPage={fetchNextPage}
+								hasNextPage={!!hasNextPage}
+								isFetchingNext={isFetchingNextPage}
+								isLoadingAll={isLoadingAll}
+								variant="media"
+							/>
+						)}
+					</>
+				)}
+				{activeTab === 3 && (
+					<>
+						{flattenedLikedPosts.length === 0 && !isLoadingLikedPosts ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't liked any posts yet
+								</Typography>
+							</Box>
+						) : (
+							<Gallery
+								posts={flattenedLikedPosts}
+								fetchNextPage={fetchNextLikedPage}
+								hasNextPage={!!hasNextLikedPage}
+								isFetchingNext={isFetchingNextLikedPage}
+								isLoadingAll={isLoadingAllLiked}
 							/>
 						)}
 					</>

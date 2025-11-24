@@ -34,22 +34,19 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		try {
 			console.log(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
-				 User public ID: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
+				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
 
-			// Find user by public ID
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with public ID ${command.userPublicId} not found`);
+				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 			}
 
-			// Find comment to validate ownership and get image info
 			const comment = await this.commentRepository.findById(command.commentId);
 			if (!comment) {
 				throw createError("NotFoundError", "Comment not found");
 			}
 
-			// Find the post
 			const effectivePost = (await this.postRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
 			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
 
@@ -75,7 +72,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			}
 			postPublicId = (effectivePost as any).publicId ?? comment.postId.toString();
 
-			// Execute the comment deletion within a database transaction
+			// Execute the comment deletion within transaction
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				// Delete comment
 				await this.commentRepository.deleteComment(command.commentId, session);

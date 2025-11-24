@@ -63,7 +63,7 @@ export const usePosts = () => {
 	});
 };
 
-// Get post by public ID (preferred method)
+// Get post by public ID
 export const usePostByPublicId = (publicId: string) => {
 	const { user, loading } = useAuth();
 
@@ -79,7 +79,7 @@ export const usePostByPublicId = (publicId: string) => {
 	});
 };
 
-// Get post by slug (SEO-friendly URLs)
+// Get post by slug
 export const usePostBySlug = (slug: string) => {
 	return useQuery<IPost, Error>({
 		queryKey: ["post", "slug", slug],

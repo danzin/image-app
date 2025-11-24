@@ -33,12 +33,17 @@ export class FollowService {
 			await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
 
 			//Create notification for followee
-			await this.notificationService.createNotification({
-				receiverId: followeeId,
-				actionType: "follow",
-				actorId: followerId,
-				actorUsername: (await this.userRepository.findByPublicId(followerId))?.username,
-			});
+			const follower = await this.userRepository.findById(followerId);
+			const followee = await this.userRepository.findById(followeeId);
+
+			if (follower && followee) {
+				await this.notificationService.createNotification({
+					receiverId: followee.publicId,
+					actionType: "follow",
+					actorId: follower.publicId,
+					actorUsername: follower.username,
+				});
+			}
 
 			await this.userActionRepository.logAction(followerId, "follow", followeeId);
 

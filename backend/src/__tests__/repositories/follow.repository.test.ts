@@ -103,7 +103,7 @@ describe("FollowRepository", () => {
 	});
 
 	describe("isFollowingByPublicId", () => {
-		it("should return true when follow relationship exists using public IDs", async () => {
+		it("should return true when follow relationship exists using publicIds", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
 			const followerId = generateRandomObjectId();
@@ -263,7 +263,7 @@ describe("FollowRepository", () => {
 	});
 
 	describe("addFollowByPublicId", () => {
-		it("should create a new follow relationship using public IDs", async () => {
+		it("should create a new follow relationship using publicIds", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
 			const followerId = generateRandomObjectId();
@@ -293,7 +293,7 @@ describe("FollowRepository", () => {
 			expect(mockModel.create.calledOnce).to.be.true;
 		});
 
-		it("should create a new follow relationship using public IDs with session", async () => {
+		it("should create a new follow relationship using publicIds with session", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
 			const followerId = generateRandomObjectId();
@@ -464,7 +464,7 @@ describe("FollowRepository", () => {
 	});
 
 	describe("removeFollowByPublicId", () => {
-		it("should remove follow relationship using public IDs", async () => {
+		it("should remove follow relationship using publicIds", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
 			const followerId = generateRandomObjectId();
@@ -498,7 +498,7 @@ describe("FollowRepository", () => {
 			).to.be.true;
 		});
 
-		it("should remove follow relationship using public IDs with session", async () => {
+		it("should remove follow relationship using publicIds with session", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
 			const followerId = generateRandomObjectId();

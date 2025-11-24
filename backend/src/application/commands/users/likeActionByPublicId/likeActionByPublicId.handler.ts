@@ -70,7 +70,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				? (existingPost as any).tags.map((t: any) => t.tag ?? t)
 				: [];
 
-			// Get _id from the document - handle both Mongoose document and plain object
+			// Get _id from the document to handle both Mongoose document and plain object
 			const postInternalId = (existingPost as any)._id
 				? (existingPost as any)._id.toString()
 				: (existingPost as any).id?.toString() || null;
@@ -81,10 +81,15 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			}
 
 			const postOwner = (existingPost as any).user;
-			const postOwnerPublicId =
-				typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-					? (postOwner as any).publicId
-					: (postOwner?.toString?.() ?? "");
+			let postOwnerPublicId = "";
+			if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
+				postOwnerPublicId = (postOwner as any).publicId;
+			} else if (postOwner) {
+				const ownerUser = await this.userRepository.findById(postOwner.toString());
+				if (ownerUser) {
+					postOwnerPublicId = ownerUser.publicId;
+				}
+			}
 
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const existingLike = await this.postLikeRepository.hasUserLiked(postInternalId, userMongoId, session);
@@ -93,7 +98,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					await this.handleUnlike(command, userMongoId, postInternalId, session);
 					isLikeAction = false;
 				} else {
-					await this.handleLike(command, userMongoId, existingPost!, actorUsername, session);
+					await this.handleLike(command, userMongoId, existingPost!, actorUsername, postOwnerPublicId, session);
 				}
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(
@@ -130,6 +135,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		userMongoId: string,
 		post: IPost,
 		actorUsername: string,
+		postOwnerPublicId: string,
 		session: ClientSession
 	) {
 		const postId = (post as any)._id.toString();
@@ -141,12 +147,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		await this.postRepository.updateLikeCount(postId, 1, session);
 
 		await this.userActionRepository.logAction(userMongoId, "like", (post as any)._id.toString(), session);
-
-		const postOwner = (post as any).user;
-		const postOwnerPublicId =
-			typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-				? (postOwner as any).publicId.toString()
-				: postOwner?.toString?.();
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
 			// get post preview (first 50 chars of body or image indicator)

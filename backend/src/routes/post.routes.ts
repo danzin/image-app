@@ -47,6 +47,12 @@ export class PostRoutes {
 		);
 
 		this.router.get(
+			"/user/:publicId/likes",
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.postController.getLikedPostsByUserPublicId
+		);
+
+		this.router.get(
 			"/search/tags",
 			new ValidationMiddleware({ query: searchByTagsSchema }).validate(),
 			this.postController.searchByTags

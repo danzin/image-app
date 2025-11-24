@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
+import { AuthService } from "../services/auth.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { FollowService } from "../services/follow.service";
@@ -18,6 +19,8 @@ import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/
 import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
 import { PublicUserDTO } from "../services/dto.service";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
+import { FollowUserCommand } from "../application/commands/users/followUser/followUser.command";
+import { FollowUserResult } from "../application/commands/users/followUser/followUser.handler";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -37,12 +40,12 @@ import { DeleteUserCommand } from "../application/commands/users/deleteUser/dele
 export class UserController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
+		@inject("AuthService") private readonly authService: AuthService,
 		@inject("FollowService") private readonly followService: FollowService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
 
-	//Register and login users
 	register = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { username, email, password } = req.body;
@@ -74,7 +77,7 @@ export class UserController {
 	login = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { email, password } = req.body;
-			const { user, token } = await this.userService.login(email, password);
+			const { user, token } = await this.authService.login(email, password);
 			res.cookie("token", token, cookieOptions);
 			res.status(200).json({ user, token }); // Return both user and token
 		} catch (error) {
@@ -91,7 +94,6 @@ export class UserController {
 		}
 	};
 
-	// Profile updates
 	updateProfile = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
@@ -171,9 +173,6 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get user profile by username (public endpoint)
-	 */
 	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { username } = req.params;
@@ -191,9 +190,6 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get user profile by public ID (for API integrations)
-	 */
 	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
@@ -224,7 +220,8 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.toggleFollow(followerPublicId, publicId);
+			const command = new FollowUserCommand(followerPublicId, publicId);
+			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -254,7 +251,8 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.toggleFollow(followerPublicId, publicId);
+			const command = new FollowUserCommand(followerPublicId, publicId);
+			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
