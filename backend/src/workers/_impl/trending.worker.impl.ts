@@ -251,26 +251,32 @@ export class TrendingWorker {
 	/** reclaim messages that are pending (XPENDING) and idle for > RECLAIM_MIN_IDLE_MS using helpers */
 	private async reclaimStalledMessages(): Promise<void> {
 		try {
-			const pendingSummary = await this.redisService.xPendingRange(this.STREAM, this.GROUP, "-", "+", 1000);
+			const pendingSummary = (await this.redisService.xPendingRange(this.STREAM, this.GROUP, "-", "+", 1000)) as Array<{
+				id: string;
+				idle: number;
+				consumer: string;
+				deliveryCount: number;
+			}>;
+
 			if (!pendingSummary || pendingSummary.length === 0) return;
 
 			const toClaim: string[] = [];
 			for (const item of pendingSummary) {
 				// item.idle is ms
-				if ((item as any).idle >= this.RECLAIM_MIN_IDLE_MS) {
-					toClaim.push((item as any).id);
+				if (item.idle >= this.RECLAIM_MIN_IDLE_MS) {
+					toClaim.push(item.id);
 				}
 			}
 
 			if (toClaim.length === 0) return;
 
-			const claimed = await this.redisService.xClaim(
+			const claimed = (await this.redisService.xClaim(
 				this.STREAM,
 				this.GROUP,
 				this.CONSUMER,
 				this.RECLAIM_MIN_IDLE_MS,
 				toClaim
-			);
+			)) as Array<{ id: string; message: Record<string, string> }>;
 
 			for (const msg of claimed) {
 				try {

@@ -140,7 +140,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 
 		// batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags(userDataKey);
+		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);

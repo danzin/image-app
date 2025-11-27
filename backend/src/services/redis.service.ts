@@ -3,6 +3,16 @@ import { createClient, RedisClientType } from "redis";
 import fs from "fs";
 import { performance } from "perf_hooks";
 import { redisLogger } from "../utils/winston";
+import { INotification } from "../types";
+
+type RedisHash = { [key: string]: string | number | Buffer };
+type PipelineResult = [error: Error | null, result: unknown];
+
+interface NotificationHash extends RedisHash {
+	data: string;
+	isRead: string;
+	timestamp: string;
+}
 
 /**
  * Partial updates are done with SADD/SREM/SCARD which mutate members
@@ -54,7 +64,7 @@ export class RedisService {
 		}
 	}
 
-	async get<T = any>(key: string): Promise<T | null> {
+	async get<T>(key: string): Promise<T | null> {
 		const data = await this.client.get(key);
 		return data ? JSON.parse(data) : null;
 	}
@@ -76,7 +86,7 @@ export class RedisService {
 		return await this.client.ttl(key);
 	}
 
-	async set(key: string, value: any, ttl?: number): Promise<void> {
+	async set<T>(key: string, value: T, ttl?: number): Promise<void> {
 		const stringValue = JSON.stringify(value);
 		if (ttl) {
 			await this.client.setEx(key, ttl, stringValue);
@@ -128,8 +138,8 @@ export class RedisService {
 	 * Update (merge) JSON value at key if exists or set if not.
 	 * for small partial updates like image meta.
 	 */
-	async merge(key: string, value: Record<string, any>, ttl?: number): Promise<void> {
-		const existing = await this.get<any>(key);
+	async merge<T extends Record<string, unknown>>(key: string, value: Partial<T>, ttl?: number): Promise<void> {
+		const existing = await this.get<T>(key);
 		const next = existing ? { ...existing, ...value } : value;
 		await this.set(key, next, ttl);
 	}
@@ -137,20 +147,20 @@ export class RedisService {
 	/**
 	 * Publish a message to a Redis channel
 	 */
-	async publish(channel: string, message: any): Promise<void> {
+	async publish<T>(channel: string, message: T): Promise<void> {
 		await this.client.publish(channel, JSON.stringify(message));
 	}
 
 	/**
 	 * Subscribe to Redis channels with a message handler
 	 */
-	async subscribe(channels: string[], messageHandler: (channel: string, message: any) => void): Promise<void> {
+	async subscribe<T>(channels: string[], messageHandler: (channel: string, message: T) => void): Promise<void> {
 		const subscriber = this.client.duplicate();
 		await subscriber.connect();
 
 		await subscriber.subscribe(channels, (message, channel) => {
 			try {
-				const parsedMessage = JSON.parse(message);
+				const parsedMessage = JSON.parse(message) as T;
 				messageHandler(channel, parsedMessage);
 			} catch (error) {
 				console.error("Error parsing Redis message:", error);
@@ -162,7 +172,7 @@ export class RedisService {
 	 * Set cache with tags for smart invalidation
 	 * cache key + all tag operations in single pipeline
 	 */
-	async setWithTags(key: string, value: any, tags: string[], ttl?: number): Promise<void> {
+	async setWithTags<T>(key: string, value: T, tags: string[], ttl?: number): Promise<void> {
 		if (tags.length === 0) {
 			await this.set(key, value, ttl);
 			return;
@@ -252,7 +262,7 @@ export class RedisService {
 	 * Get cache with automatic tag cleanup on miss
 	 * simplified: let TTLs handle cleanup naturally, avoid complex eager cleanup
 	 */
-	async getWithTags<T = any>(key: string): Promise<T | null> {
+	async getWithTags<T>(key: string): Promise<T | null> {
 		return await this.get<T>(key);
 	}
 
@@ -263,7 +273,7 @@ export class RedisService {
 	 * stores metadata in separate hash for O(1) updates
 	 * uses LPUSH to add to the head
 	 */
-	async pushNotification(userId: string, notification: any, maxCount = 200): Promise<void> {
+	async pushNotification(userId: string, notification: INotification, maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
 		const notificationId = String(notification._id); // convert ObjectId to string
 		const hashKey = `notification:${notificationId}`;
@@ -284,7 +294,7 @@ export class RedisService {
 		await pipeline.exec();
 		const durationMs = performance.now() - start;
 		redisLogger.info(
-			`[Redis] pushNotification userId=${userId} notification=${notification}  duration=${durationMs.toFixed(2)}ms`
+			`[Redis] pushNotification userId=${userId} notification=${notificationId}  duration=${durationMs.toFixed(2)}ms`
 		);
 	}
 
@@ -293,7 +303,7 @@ export class RedisService {
 	 * MongoDB returns newest-first - RPUSH in that order
 	 * to maintain newest-first when reading from head with LRANGE
 	 */
-	async backfillNotifications(userId: string, notifications: any[], maxCount = 200): Promise<void> {
+	async backfillNotifications(userId: string, notifications: INotification[], maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
 		const start = performance.now();
 
@@ -334,7 +344,7 @@ export class RedisService {
 	/**
 	 * Get paginated notifications for user
 	 */
-	async getUserNotifications(userId: string, page = 1, limit = 20): Promise<any[]> {
+	async getUserNotifications(userId: string, page = 1, limit = 20): Promise<INotification[]> {
 		const listKey = `notifications:user:${userId}`;
 		const start = (page - 1) * limit;
 		const end = start + limit - 1;
@@ -354,27 +364,25 @@ export class RedisService {
 			for (const id of notificationIds) {
 				pipeline.hGetAll(`notification:${id}`);
 			}
-			const results = await pipeline.exec();
+			const results = (await pipeline.exec()) as unknown as NotificationHash[];
 
 			if (!results) {
 				redisLogger.warn(`Pipeline returned null results`, { userId });
 				return [];
 			}
 
-			const notifications = results
-				.map((r: any) => {
-					if (!r || typeof r !== "object") return null;
-					const hash = r as any;
-					if (!hash.data) return null;
+			const notifications: INotification[] = results
+				.map((hash) => {
+					if (!hash || !hash.data) return null;
 					try {
-						const notification = JSON.parse(hash.data);
+						const notification = JSON.parse(hash.data) as INotification;
 						notification.isRead = hash.isRead === "1";
 						return notification;
 					} catch {
 						return null;
 					}
 				})
-				.filter(Boolean);
+				.filter((n): n is INotification => n !== null);
 
 			const duration = performance.now() - startPerf;
 			redisLogger.info(`getUserNotifications success`, {
@@ -557,14 +565,14 @@ export class RedisService {
 	 * payload values that are objects will be JSON.stringified
 	 * Returns the XADD id.
 	 */
-	async pushToStream(stream = "stream:interactions", payload: Record<string, any>): Promise<string> {
+	async pushToStream(stream = "stream:interactions", payload: Record<string, unknown>): Promise<string> {
 		// normalize to string-only fields for Redis
 		const prepared: Record<string, string> = {};
 		for (const [k, v] of Object.entries(payload)) {
 			prepared[k] = typeof v === "string" ? v : JSON.stringify(v);
 		}
-		// node-redis v4 exposes xAdd
-		const id = await (this.client as any).xAdd(stream, "*", prepared);
+		// The `xAdd` command is not part of the base `RedisClientType`, so we cast to any.
+		const id = await this.client.xAdd(stream, "*", prepared);
 		return id;
 	}
 
@@ -574,9 +582,9 @@ export class RedisService {
 	 */
 	async createStreamConsumerGroup(stream = "stream:interactions", group = "trendingGroup"): Promise<void> {
 		try {
-			await (this.client as any).xGroupCreate(stream, group, "$", { MKSTREAM: true });
-		} catch (err: any) {
-			const msg = String(err?.message ?? err);
+			await this.client.xGroupCreate(stream, group, "$", { MKSTREAM: true });
+		} catch (err) {
+			const msg = String((err as Error)?.message ?? err);
 			if (msg.includes("BUSYGROUP")) {
 				// group already exists - ignore
 				return;
@@ -590,7 +598,7 @@ export class RedisService {
 	 */
 	async ackStreamMessages(stream: string, group: string, ...ids: string[]): Promise<number> {
 		// returns number of messages acknowledged
-		const res = await (this.client as any).xAck(stream, group, ids);
+		const res = await this.client.xAck(stream, group, ids);
 		return res as number;
 	}
 
@@ -627,14 +635,14 @@ export class RedisService {
 	/**
 	 * Read XPENDING range
 	 */
-	async xPendingRange(stream: string, group: string, start = "-", end = "+", count = 1000) {
-		return await (this.client as any).xPendingRange(stream, group, start, end, count);
+	async xPendingRange(stream: string, group: string, start = "-", end = "+", count = 1000): Promise<unknown> {
+		return await this.client.xPendingRange(stream, group, start, end, count);
 	}
 
 	/**
 	 * Claim messages (XCLAIM)
 	 */
-	async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]) {
-		return await (this.client as any).xClaim(stream, group, consumer, minIdleMs, ids);
+	async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]): Promise<unknown> {
+		return await this.client.xClaim(stream, group, consumer, minIdleMs, ids);
 	}
 }

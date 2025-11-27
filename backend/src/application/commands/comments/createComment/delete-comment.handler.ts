@@ -34,13 +34,13 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		try {
 			console.log(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
-				 User public ID: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
+				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
 
-			// Find user by public ID
+			// Find user by publicId
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with public ID ${command.userPublicId} not found`);
+				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 			}
 
 			// Find comment to validate ownership and get image info

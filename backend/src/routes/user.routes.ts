@@ -40,14 +40,12 @@ export class UserRoutes {
 		// Public user data endpoints
 		this.router.get("/users", this.userController.getUsers);
 
-		// Get user profile by username (SEO-friendly, public)
 		this.router.get(
 			"/profile/:username",
 			new ValidationMiddleware({ params: usernameSchema }).validate(),
 			this.userController.getUserByUsername
 		);
 
-		// Get user by public ID
 		this.router.get(
 			"/public/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
