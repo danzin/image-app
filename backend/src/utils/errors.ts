@@ -1,6 +1,39 @@
 import express from "express";
 import { errorLogger } from "./winston";
 
+// type guard interfaces for error handling
+export interface ErrorWithStatusCode extends Error {
+	statusCode: number;
+}
+
+export interface MongoDBDuplicateKeyError extends Error {
+	code: number;
+	keyValue: Record<string, unknown>;
+}
+
+// type guards for error checking
+export function isAppError(error: unknown): error is AppError {
+	return error instanceof AppError;
+}
+
+export function isErrorWithStatusCode(error: unknown): error is ErrorWithStatusCode {
+	return typeof error === "object" && error !== null && "statusCode" in error && error instanceof Error;
+}
+
+export function isMongoDBDuplicateKeyError(error: unknown): error is MongoDBDuplicateKeyError {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as MongoDBDuplicateKeyError).code === 11000 &&
+		"keyValue" in error
+	);
+}
+
+export function isNamedError(error: unknown): error is Error {
+	return error instanceof Error && "name" in error;
+}
+
 //improved err factory
 class AppError extends Error {
 	public statusCode: number;
@@ -124,7 +157,7 @@ export function createError(type: string, message: string, context?: any): AppEr
 }
 
 export class ErrorHandler {
-	static handleError(err: AppError, req: express.Request, res: express.Response, next: express.NextFunction): void {
+	static handleError(err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction): void {
 		const response: any = {
 			type: err.name,
 			message: err.message,

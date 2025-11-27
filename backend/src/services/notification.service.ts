@@ -1,7 +1,7 @@
 import { ClientSession } from "mongoose";
 import { NotificationRepository } from "../repositories/notification.respository";
 import { INotification } from "../types";
-import { createError } from "../utils/errors";
+import { createError, isErrorWithStatusCode } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
@@ -9,6 +9,24 @@ import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger } from "../utils/winston";
+
+// interface for notification plain object after toJSON()
+// all fields optional except the base ones that should always exist
+interface NotificationPlain {
+	id?: string;
+	_id?: string;
+	$__?: unknown;
+	userId?: string;
+	actionType?: string;
+	actorId?: string;
+	actorUsername?: string;
+	actorAvatar?: string;
+	targetId?: string;
+	targetType?: string;
+	targetPreview?: string;
+	isRead?: boolean;
+	timestamp?: Date;
+}
 
 @injectable()
 export class NotificationService {
@@ -31,16 +49,16 @@ export class NotificationService {
 	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
 			// emit a plain JSON object using toJSON to ensure proper serialization
-			const plain = notification.toJSON ? notification.toJSON() : { ...notification };
+			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
 			// ensure id field exists
-			if ((plain as any)._id && !plain.id) {
-				plain.id = String((plain as any)._id);
+			if (plain._id && !plain.id) {
+				plain.id = String(plain._id);
 			}
 
 			// remove mongoose internals
-			delete (plain as any)._id;
-			delete (plain as any).$__;
+			delete plain._id;
+			delete plain.$__;
 
 			console.log(`Sending new_notification to user ${userPublicId}:`, plain);
 			io.to(userPublicId).emit("new_notification", plain);
@@ -58,16 +76,16 @@ export class NotificationService {
 	private readNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
 			// emit a plain JSON object using toJSON to ensure proper serialization
-			const plain = notification.toJSON ? notification.toJSON() : { ...notification };
+			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
 			// ensure id field exists
-			if ((plain as any)._id && !plain.id) {
-				plain.id = String((plain as any)._id);
+			if (plain._id && !plain.id) {
+				plain.id = String(plain._id);
 			}
 
 			// remove mongoose internals
-			delete (plain as any)._id;
-			delete (plain as any).$__;
+			delete plain._id;
+			delete plain.$__;
 
 			console.log(`Sending notification_read to user ${userPublicId}:`, plain);
 			io.to(userPublicId).emit("notification_read", plain);
@@ -222,8 +240,8 @@ export class NotificationService {
 
 			return updatedNotification;
 		} catch (error) {
-			// If already an AppError (has statusCode) rethrow
-			if (typeof error === "object" && error && "statusCode" in (error as any)) throw error as any;
+			// if already an AppError (has statusCode) rethrow
+			if (isErrorWithStatusCode(error)) throw error;
 			if (error instanceof Error) throw createError(error.name, error.message);
 			throw createError("UnknownError", String(error));
 		}

@@ -6,6 +6,8 @@ import {
 	CreatePostAttachmentInput,
 	IImage,
 	IImageStorageService,
+	ImageDocWithId,
+	PopulatedUserField,
 	RemoveAttachmentInput,
 	RemoveAttachmentResult,
 } from "../types";
@@ -24,7 +26,7 @@ export class ImageService {
 			const slug = this.generateSlug(input.originalName);
 			const createdAt = new Date();
 
-			const imageDoc = await this.imageRepository.create(
+			const imageDoc = (await this.imageRepository.create(
 				{
 					url: uploaded.url,
 					publicId: uploaded.publicId,
@@ -34,16 +36,16 @@ export class ImageService {
 					createdAt,
 				} as unknown as IImage,
 				input.session
-			);
+			)) as ImageDocWithId;
 
 			return {
 				imageDoc,
 				storagePublicId: uploaded.publicId,
 				summary: {
-					docId: new mongoose.Types.ObjectId((imageDoc as any)._id),
+					docId: new mongoose.Types.ObjectId(imageDoc._id),
 					publicId: imageDoc.publicId,
 					url: imageDoc.url,
-					slug: (imageDoc as any).slug,
+					slug: imageDoc.slug,
 				},
 			};
 		} catch (error) {
@@ -62,7 +64,7 @@ export class ImageService {
 
 	async removePostAttachment(input: RemoveAttachmentInput): Promise<RemoveAttachmentResult> {
 		try {
-			const imageDoc = await this.imageRepository.findById(input.imageId, input.session);
+			const imageDoc = (await this.imageRepository.findById(input.imageId, input.session)) as ImageDocWithId | null;
 			if (!imageDoc) {
 				return { removed: false };
 			}
@@ -73,7 +75,7 @@ export class ImageService {
 				.deleteAssetByUrl(input.requesterPublicId, owningPublicId, imageDoc.url)
 				.catch((error) => console.error("Failed to delete attachment asset", error));
 
-			await this.imageRepository.delete((imageDoc as any)._id.toString(), input.session);
+			await this.imageRepository.delete(imageDoc._id.toString(), input.session);
 
 			return {
 				removed: true,
@@ -90,9 +92,9 @@ export class ImageService {
 			return fallback;
 		}
 
-		const userField = (imageDoc as any).user;
+		const userField = imageDoc.user;
 		if (userField && typeof userField === "object" && "publicId" in userField) {
-			return (userField as any).publicId;
+			return (userField as PopulatedUserField).publicId;
 		}
 
 		return undefined;

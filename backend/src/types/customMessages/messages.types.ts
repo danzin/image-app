@@ -78,3 +78,44 @@ export interface ConversationSummaryDTO {
 	isGroup: boolean;
 	title?: string;
 }
+
+export interface PopulatedSender {
+	publicId?: string;
+	username?: string;
+	avatar?: string;
+}
+
+// message where sender is populated
+export interface IMessagePopulated extends Omit<IMessage, "sender" | "readBy"> {
+	sender?: PopulatedSender;
+	readBy?: Array<string | mongoose.Types.ObjectId | { publicId?: string; toString?: () => string }>;
+}
+
+export interface IMessageWithPopulatedSender extends Omit<IMessage, "sender"> {
+	sender: PopulatedSender;
+}
+
+export interface MaybePopulatedParticipant {
+	_id?: mongoose.Types.ObjectId | string;
+	id?: string;
+	publicId?: string;
+	username?: string;
+	avatar?: string;
+	toString?: () => string;
+}
+
+// hydrated conversation with populated participants and last message
+// participants can be ObjectId[] or populated user objects
+export interface HydratedConversation {
+	publicId: string;
+	participants: Array<mongoose.Types.ObjectId | MaybePopulatedParticipant>;
+	lastMessage?: IMessage | null;
+	lastMessageAt?: Date;
+	unreadCounts: Map<string, number> | Record<string, number>;
+	isGroup: boolean;
+	title?: string;
+}
+
+export interface UserPublicIdLean {
+	publicId: string;
+}

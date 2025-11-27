@@ -1,7 +1,7 @@
-import mongoose, { Model, ClientSession } from "mongoose";
+import mongoose, { Model, ClientSession, Types } from "mongoose";
 import { BaseRepository } from "./base.repository";
 import { IImage } from "../types";
-import { createError } from "../utils/errors";
+import { createError, isNamedError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -9,7 +9,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 	constructor(@inject("ImageModel") model: Model<IImage>) {
 		super(model);
 	}
-	// TODO: REFACTOR AND REMOVE OLD METHODS
 
 	/**
 	 * Finds an image by its public ID and returns only its internal MongoDB _id.
@@ -29,9 +28,9 @@ export class ImageRepository extends BaseRepository<IImage> {
 			const filter = hasDotOrSlash
 				? { publicId }
 				: { publicId: { $regex: new RegExp(`^${escapeRegex(publicId)}(?:\\.(?:png|jpe?g|webp|gif))?$`, "i") } };
-			const doc = await this.model.findOne(filter).select("_id").lean().exec();
+			const doc = await this.model.findOne(filter).select("_id").lean<{ _id: Types.ObjectId }>().exec();
 
-			return doc ? (doc as any)._id.toString() : null;
+			return doc ? doc._id.toString() : null;
 		} catch (error) {
 			console.error(`Error in findInternalIdByPublicId for publicId: ${publicId}`, error);
 			throw createError("DatabaseError", (error as Error).message);
@@ -57,10 +56,10 @@ export class ImageRepository extends BaseRepository<IImage> {
 			console.log(result);
 			return result;
 		} catch (error) {
-			if ((error as any).name === "ValidationError") {
+			if (isNamedError(error) && error.name === "ValidationError") {
 				throw error;
 			}
-			throw createError("DatabaseError", (error as any).message);
+			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
 

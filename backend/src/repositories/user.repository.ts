@@ -1,6 +1,6 @@
 import { Model, ClientSession, Types } from "mongoose";
 import { IUser, PaginationOptions, PaginationResult } from "../types";
-import { createError } from "../utils/errors";
+import { createError, isMongoDBDuplicateKeyError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
@@ -33,8 +33,8 @@ export class UserRepository extends BaseRepository<IUser> {
 			return await doc.save();
 			//TODO: make sure catch blocks use custom error integrating the context
 		} catch (error) {
-			if (typeof error === "object" && error !== null && "code" in error && (error as any).code === 11000) {
-				const field = Object.keys((error as any).keyValue)[0];
+			if (isMongoDBDuplicateKeyError(error)) {
+				const field = Object.keys(error.keyValue)[0];
 				throw createError("DuplicateError", `${field} already exists`, {
 					function: "create",
 					context: "userRepository",
@@ -63,8 +63,8 @@ export class UserRepository extends BaseRepository<IUser> {
 			console.log("[UserRepository.update] Result:", result);
 			return result;
 		} catch (error) {
-			if (typeof error === "object" && error !== null && "code" in error && (error as any).code === 11000) {
-				const field = Object.keys((error as any).keyValue)[0];
+			if (isMongoDBDuplicateKeyError(error)) {
+				const field = Object.keys(error.keyValue)[0];
 				throw createError("DuplicateError", `${field} already exists`, {
 					function: "create",
 					context: "userRepository",
@@ -126,8 +126,8 @@ export class UserRepository extends BaseRepository<IUser> {
 
 	// Lightweight internal id lookup by publicId (projection only _id)
 	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
-		const doc = await this.model.findOne({ publicId }).select("_id").lean().exec();
-		return doc ? (doc as any)._id.toString() : null;
+		const doc = await this.model.findOne({ publicId }).select("_id").lean<{ _id: Types.ObjectId }>().exec();
+		return doc ? doc._id.toString() : null;
 	}
 
 	/**
@@ -268,9 +268,6 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
-	/**
-	 * Get multiple users by their PUBLIC IDs (not ObjectIds)
-	 */
 	async findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]> {
 		try {
 			return await this.model
@@ -285,9 +282,6 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
-	/**
-	 * Get multiple users by their usernames (case-insensitive)
-	 */
 	async findUsersByUsernames(usernames: string[]): Promise<IUser[]> {
 		try {
 			const regexes = usernames.map((u) => new RegExp(`^${u}$`, "i"));
@@ -425,6 +419,24 @@ export class UserRepository extends BaseRepository<IUser> {
 		} catch (error) {
 			console.error("Error in getSuggestedUsersToFollow:", error);
 			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	async updateFollowerCount(userId: string, increment: number, session?: ClientSession): Promise<void> {
+		try {
+			const query = this.model.findByIdAndUpdate(userId, { $inc: { followerCount: increment } }, { session });
+			await query.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to update follower count");
+		}
+	}
+
+	async updateFollowingCount(userId: string, increment: number, session?: ClientSession): Promise<void> {
+		try {
+			const query = this.model.findByIdAndUpdate(userId, { $inc: { followingCount: increment } }, { session });
+			await query.exec();
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to update following count");
 		}
 	}
 }

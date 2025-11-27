@@ -6,7 +6,6 @@ import { redisLogger } from "../utils/winston";
 import { INotification } from "../types";
 
 type RedisHash = { [key: string]: string | number | Buffer };
-type PipelineResult = [error: Error | null, result: unknown];
 
 interface NotificationHash extends RedisHash {
 	data: string;

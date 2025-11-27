@@ -56,3 +56,7 @@ export interface RemoveAttachmentResult {
 	removedPublicId?: string;
 	removedUrl?: string;
 }
+
+export interface IPostWithId extends IPost {
+	_id: mongoose.Types.ObjectId;
+}

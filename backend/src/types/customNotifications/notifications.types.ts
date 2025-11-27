@@ -12,3 +12,21 @@ export interface INotification extends Document {
 	isRead: boolean;
 	timestamp: Date;
 }
+
+// interface for notification plain object after toJSON()
+// all fields optional except the base ones that should always exist
+export interface NotificationPlain {
+	id?: string;
+	_id?: string;
+	$__?: unknown;
+	userId?: string;
+	actionType?: string;
+	actorId?: string;
+	actorUsername?: string;
+	actorAvatar?: string;
+	targetId?: string;
+	targetType?: string;
+	targetPreview?: string;
+	isRead?: boolean;
+	timestamp?: Date;
+}

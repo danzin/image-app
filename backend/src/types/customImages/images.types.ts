@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { Document } from "mongoose";
 
 export interface IImage extends Document {
@@ -12,4 +13,15 @@ export interface IImage extends Document {
 	slug: string;
 	originalName: string;
 	createdAt: Date;
+}
+
+export interface ImageDocWithId extends IImage {
+	_id: Types.ObjectId;
+	slug: string;
+}
+
+export interface PopulatedUserField {
+	publicId: string;
+	username?: string;
+	avatar?: string;
 }

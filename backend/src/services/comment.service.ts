@@ -1,10 +1,13 @@
-import { CommentRepository, TransformedComment } from "../repositories/comment.repository";
+import { CommentRepository } from "../repositories/comment.repository";
 import { PostRepository } from "../repositories/post.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { createError } from "../utils/errors";
-import { IComment } from "types/index";
+import { IComment, TransformedComment } from "types/index";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
+
+// type for IPost.user that can be ObjectId or populated object
+type PostUserField = mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId; toString?: () => string };
 
 @injectable()
 export class CommentService {
@@ -134,15 +137,11 @@ export class CommentService {
 		if (!post) {
 			throw createError("NotFoundError", "Associated post not found");
 		}
-		const hydratedPost = await this.postRepository.findByPublicId((post as any).publicId);
+		const hydratedPost = await this.postRepository.findByPublicId(post.publicId);
 		const effectivePost = hydratedPost ?? post;
 
 		const isCommentOwner = comment.userId.toString() === userId;
-		const postOwner = (effectivePost as any).user;
-		const postOwnerInternalId =
-			typeof postOwner === "object" && postOwner !== null && "_id" in postOwner
-				? (postOwner as any)._id.toString()
-				: (postOwner?.toString?.() ?? "");
+		const postOwnerInternalId = this.extractUserInternalId(effectivePost.user);
 		const isPostOwner = postOwnerInternalId === userId;
 
 		if (!isCommentOwner && !isPostOwner) {
@@ -187,5 +186,17 @@ export class CommentService {
 
 	async deleteCommentsByPostId(postId: string, session?: mongoose.ClientSession): Promise<number> {
 		return await this.commentRepository.deleteCommentsByPostId(postId, session);
+	}
+
+	// extracts internal user id from IPost.user which can be ObjectId or populated object
+	private extractUserInternalId(user: PostUserField): string {
+		if (!user) return "";
+		if (user instanceof mongoose.Types.ObjectId) {
+			return user.toString();
+		}
+		if (typeof user === "object" && "_id" in user && user._id) {
+			return user._id.toString();
+		}
+		return "";
 	}
 }

@@ -1,21 +1,17 @@
-import mongoose, { Model } from "mongoose";
+import { Model } from "mongoose";
 import { UserRepository } from "../repositories/user.repository";
-import type { IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
+import type { IUser, PaginationOptions, PaginationResult } from "../types";
 import { ImageRepository } from "../repositories/image.repository";
-import { PostRepository } from "../repositories/post.repository";
 import { PostLikeRepository } from "../repositories/postLike.repository";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
-import { EventBus } from "../application/common/buses/event.bus";
 
 import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
-import { FeedService } from "./feed.service";
-import { RedisService } from "./redis.service";
 
-// TODO: REFACTOR AND REMOVE OLD METHODS
+// TODO: REFACTOR AND REMOVE OLD METHODS, MOVE ADMIN METHODS TO ADMIN SERVICE
 
 /**
  * UserService handles all user-related operations, including authentication, profile updates,
@@ -27,20 +23,14 @@ export class UserService {
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("ImageRepository")
 		private readonly imageRepository: ImageRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("ImageStorageService")
-		private readonly imageStorageService: IImageStorageService,
 		@inject("UserModel") private readonly userModel: Model<IUser>,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("FollowRepository")
 		private readonly followRepository: FollowRepository,
 		@inject("UserActionRepository")
 		private readonly userActionRepository: UserActionRepository,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	/**
@@ -428,146 +418,17 @@ export class UserService {
 	}
 
 	private async ensurePostCount(user: IUser): Promise<void> {
-		const userWithAny = user as any;
-		if (typeof userWithAny.postCount === "number" && Number.isFinite(userWithAny.postCount)) {
-			return;
-		}
-
-		const cacheKey = user.publicId ? `user:${user.publicId}:postCount` : null;
-		if (cacheKey) {
-			try {
-				const cachedCount = await this.redisService.getWithTags<number>(cacheKey);
-				if (typeof cachedCount === "number" && Number.isFinite(cachedCount)) {
-					userWithAny.postCount = cachedCount;
-					return;
-				}
-			} catch (error) {
-				console.warn("post count cache lookup failed", {
-					publicId: user.publicId,
-					error,
-				});
-			}
-		}
-
-		const identifier = userWithAny._id ?? userWithAny.id;
-		if (!identifier) {
-			return;
-		}
-
-		try {
-			const normalizedId = this.normalizeToObjectId(identifier);
-			if (!normalizedId) {
-				return;
-			}
-
-			const postCount = await this.postRepository.countDocuments({ user: normalizedId });
-			userWithAny.postCount = postCount;
-
-			if (cacheKey) {
-				try {
-					await this.redisService.setWithTags(cacheKey, postCount, [`user_post_count:${user.publicId}`], 300);
-				} catch (cacheError) {
-					console.warn("post count cache write failed", {
-						publicId: user.publicId,
-						error: cacheError,
-					});
-				}
-			}
-		} catch (error) {
-			console.warn("failed to derive post count for user", {
-				userId: identifier,
-				error,
-			});
+		if (typeof user.postCount !== "number" || !Number.isFinite(user.postCount)) {
+			user.postCount = 0;
 		}
 	}
 
 	private async attachFollowCounts(user: IUser): Promise<void> {
-		const userWithAny = user as any;
-		if (
-			typeof userWithAny.followerCount === "number" &&
-			Number.isFinite(userWithAny.followerCount) &&
-			typeof userWithAny.followingCount === "number" &&
-			Number.isFinite(userWithAny.followingCount)
-		) {
-			return;
+		if (typeof user.followerCount !== "number" || !Number.isFinite(user.followerCount)) {
+			user.followerCount = 0;
 		}
-
-		if (!user.publicId) {
-			return;
-		}
-
-		const cacheKey = `user:${user.publicId}:followStats`;
-		try {
-			const cached = await this.redisService.getWithTags<{ followerCount?: number; followingCount?: number }>(cacheKey);
-			if (cached) {
-				if (typeof cached.followerCount === "number" && Number.isFinite(cached.followerCount)) {
-					userWithAny.followerCount = cached.followerCount;
-				}
-				if (typeof cached.followingCount === "number" && Number.isFinite(cached.followingCount)) {
-					userWithAny.followingCount = cached.followingCount;
-				}
-				if (
-					typeof userWithAny.followerCount === "number" &&
-					Number.isFinite(userWithAny.followerCount) &&
-					typeof userWithAny.followingCount === "number" &&
-					Number.isFinite(userWithAny.followingCount)
-				) {
-					return;
-				}
-			}
-		} catch (error) {
-			console.warn("follow count cache lookup failed", {
-				publicId: user.publicId,
-				error,
-			});
-		}
-
-		const identifier = userWithAny._id ?? userWithAny.id;
-		const normalizedId = this.normalizeToObjectId(identifier);
-		if (!normalizedId) {
-			return;
-		}
-
-		try {
-			const [followers, following] = await Promise.all([
-				this.followRepository.countFollowersByUserId(normalizedId),
-				this.followRepository.countFollowingByUserId(normalizedId),
-			]);
-			userWithAny.followerCount = followers;
-			userWithAny.followingCount = following;
-
-			try {
-				await this.redisService.setWithTags(
-					cacheKey,
-					{ followerCount: followers, followingCount: following },
-					[`user_follow_count:${user.publicId}`],
-					300
-				);
-			} catch (cacheError) {
-				console.warn("follow count cache write failed", {
-					publicId: user.publicId,
-					error: cacheError,
-				});
-			}
-		} catch (error) {
-			console.warn("failed to derive follow counts for user", {
-				userId: normalizedId?.toString(),
-				error,
-			});
-		}
-	}
-
-	private normalizeToObjectId(identifier: unknown): mongoose.Types.ObjectId | null {
-		if (!identifier) {
-			return null;
-		}
-		if (identifier instanceof mongoose.Types.ObjectId) {
-			return identifier;
-		}
-		try {
-			return new mongoose.Types.ObjectId(String(identifier));
-		} catch {
-			return null;
+		if (typeof user.followingCount !== "number" || !Number.isFinite(user.followingCount)) {
+			user.followingCount = 0;
 		}
 	}
 

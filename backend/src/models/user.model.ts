@@ -15,7 +15,7 @@ const userSchema = new Schema<IUser>(
 		username: {
 			type: String,
 			required: [true, "Username is required"],
-			unique: true, // Also creates an index
+			unique: true,
 		},
 		avatar: {
 			type: String,
@@ -74,6 +74,21 @@ const userSchema = new Schema<IUser>(
 			ref: "User",
 			required: false,
 		},
+		followerCount: {
+			type: Number,
+			default: 0,
+			required: true,
+		},
+		followingCount: {
+			type: Number,
+			default: 0,
+			required: true,
+		},
+		postCount: {
+			type: Number,
+			default: 0,
+			required: true,
+		},
 	},
 	{
 		timestamps: true,
@@ -131,13 +146,6 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 		next();
 	}
 });
-
-//Alternative handling of cascading deletes, currently using transaction inside userRepository instead
-// userSchema.pre('deleteOne', async function (next) {
-//   const userId = this.getQuery()["_id"];
-//   await Image.deleteMany({ userId });
-//   next();
-// });
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
 	return bcryptjs.compare(candidatePassword, this.password);

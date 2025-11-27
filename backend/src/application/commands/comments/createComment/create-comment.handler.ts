@@ -1,7 +1,6 @@
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { CreateCommentCommand } from "./createComment.command";
-import { TransformedComment } from "../../../../repositories/comment.repository";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
 import { PostRepository } from "../../../../repositories/post.repository";
@@ -13,7 +12,7 @@ import { FeedInteractionHandler } from "../../../events/user/feed-interaction.ha
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
-import { IComment } from "types/index";
+import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
 
 @injectable()

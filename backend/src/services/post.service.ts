@@ -5,7 +5,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { DTOService } from "./dto.service";
 import { createError } from "../utils/errors";
-import { IPost, ITag, PaginationResult, PostDTO } from "../types";
+import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "../types";
 import { TagService } from "./tag.service";
 
 @injectable()
@@ -31,7 +31,7 @@ export class PostService {
 
 		// Add viewer-specific fields if viewer is logged in
 		if (viewerPublicId) {
-			const postInternalId = (post as any)._id?.toString();
+			const postInternalId = (post as IPostWithId)._id?.toString();
 			const viewerInternalId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
 
 			console.log(

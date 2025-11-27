@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IMessage, MessageDTO, PostDTO } from "../types";
+import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated } from "../types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -14,7 +14,7 @@ export interface PublicUserDTO {
 }
 
 export interface AuthenticatedUserDTO extends PublicUserDTO {
-	email: string; // Only for the user themselves
+	email: string;
 }
 
 export interface AdminUserDTO extends AuthenticatedUserDTO {
@@ -162,56 +162,38 @@ export class DTOService {
 	}
 
 	private resolvePostCount(user: IUser): number {
-		const candidate = (user as any).postCount;
-		if (typeof candidate === "number" && Number.isFinite(candidate)) {
-			return candidate;
+		if (typeof user.postCount === "number" && Number.isFinite(user.postCount)) {
+			return user.postCount;
 		}
-
-		const postsField = (user as any).posts;
-		if (Array.isArray(postsField)) {
-			return postsField.length;
-		}
-
 		return 0;
 	}
 
 	private resolveFollowerCount(user: IUser): number {
-		const candidate = (user as any).followerCount;
-		if (typeof candidate === "number" && Number.isFinite(candidate)) {
-			return candidate;
-		}
-
-		const legacyFollowers = (user as any).followers;
-		if (Array.isArray(legacyFollowers)) {
-			return legacyFollowers.length;
+		if (typeof user.followerCount === "number" && Number.isFinite(user.followerCount)) {
+			return user.followerCount;
 		}
 
 		return 0;
 	}
 
 	private resolveFollowingCount(user: IUser): number {
-		const candidate = (user as any).followingCount;
-		if (typeof candidate === "number" && Number.isFinite(candidate)) {
-			return candidate;
-		}
-
-		const legacyFollowing = (user as any).following;
-		if (Array.isArray(legacyFollowing)) {
-			return legacyFollowing.length;
+		if (typeof user.followingCount === "number" && Number.isFinite(user.followingCount)) {
+			return user.followingCount;
 		}
 
 		return 0;
 	}
 
-	toPublicMessageDTO(message: IMessage, conversationPublicId: string): MessageDTO {
-		const sender: any = (message as any).sender || {};
+	toPublicMessageDTO(message: IMessage | IMessagePopulated, conversationPublicId: string): MessageDTO {
+		const populatedMessage = message as IMessagePopulated;
+		const sender = populatedMessage.sender || {};
 
-		const readBy = Array.isArray((message as any).readBy)
-			? (message as any).readBy.map((entry: any) => {
+		const readBy = Array.isArray(populatedMessage.readBy)
+			? populatedMessage.readBy.map((entry) => {
 					if (!entry) return "";
 					if (typeof entry === "string") return entry;
-					if (typeof entry === "object" && "publicId" in entry) {
-						return (entry as any).publicId;
+					if (typeof entry === "object" && "publicId" in entry && entry.publicId) {
+						return entry.publicId;
 					}
 					if (typeof entry === "object" && typeof entry.toString === "function") {
 						return entry.toString();
@@ -220,22 +202,22 @@ export class DTOService {
 				})
 			: [];
 
-		const attachments = Array.isArray((message as any).attachments) ? (message as any).attachments : [];
+		const attachments: IMessageAttachment[] = Array.isArray(message.attachments) ? message.attachments : [];
 
-		const createdAtValue = (message as any).createdAt;
+		const createdAtValue = message.createdAt;
 		const createdAt = createdAtValue instanceof Date ? createdAtValue : new Date(createdAtValue);
 
 		return {
-			publicId: (message as any).publicId,
+			publicId: message.publicId,
 			conversationId: conversationPublicId,
-			body: (message as any).body,
+			body: message.body,
 			sender: {
 				publicId: sender?.publicId ?? "",
 				username: sender?.username ?? "",
 				avatar: sender?.avatar ?? "",
 			},
 			attachments,
-			status: (message as any).status,
+			status: message.status,
 			createdAt: createdAt.toISOString(),
 			readBy: readBy.filter((value: string) => Boolean(value)),
 		};
