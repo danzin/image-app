@@ -7,7 +7,7 @@ export class CreatePostCommand implements ICommand {
 		public readonly userPublicId: string,
 		public readonly body?: string,
 		public readonly tags?: string[],
-		public readonly imageBuffer?: Buffer,
+		public readonly imagePath?: string,
 		public readonly imageOriginalName?: string
 	) {}
 }

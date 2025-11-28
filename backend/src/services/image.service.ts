@@ -22,7 +22,7 @@ export class ImageService {
 
 	async createPostAttachment(input: CreatePostAttachmentInput): Promise<AttachmentCreationResult> {
 		try {
-			const uploaded = await this.imageStorageService.uploadImage(input.buffer, input.userPublicId);
+			const uploaded = await this.imageStorageService.uploadImage(input.filePath, input.userPublicId);
 			const slug = this.generateSlug(input.originalName);
 			const createdAt = new Date();
 

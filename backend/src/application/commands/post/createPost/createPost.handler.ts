@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import * as fs from "fs";
 import mongoose, { ClientSession } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { CreatePostCommand } from "./createPost.command";
@@ -158,27 +159,36 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		session: ClientSession,
 		setUploadedId: (publicId: string) => void
 	): Promise<AttachmentSummary> {
-		if (!command.imageBuffer) {
+		if (!command.imagePath) {
 			return { docId: null };
 		}
 
-		const { storagePublicId, summary } = await this.imageService.createPostAttachment({
-			buffer: command.imageBuffer,
-			originalName: command.imageOriginalName || `post-${Date.now()}`,
-			userInternalId: internalUserId.toString(),
-			userPublicId: user.publicId,
-			session,
-		});
+		try {
+			const { storagePublicId, summary } = await this.imageService.createPostAttachment({
+				filePath: command.imagePath,
+				originalName: command.imageOriginalName || `post-${Date.now()}`,
+				userInternalId: internalUserId.toString(),
+				userPublicId: user.publicId,
+				session,
+			});
 
-		if (storagePublicId) {
-			setUploadedId(storagePublicId);
+			if (storagePublicId) {
+				setUploadedId(storagePublicId);
+			}
+
+			if (!summary.docId) {
+				throw createError("UnknownError", "Image document was not created");
+			}
+
+			return summary;
+		} finally {
+			// Clean up the temporary file
+			if (command.imagePath && fs.existsSync(command.imagePath)) {
+				fs.unlink(command.imagePath, (err) => {
+					if (err) console.error("Failed to delete temp file:", err);
+				});
+			}
 		}
-
-		if (!summary.docId) {
-			throw createError("UnknownError", "Image document was not created");
-		}
-
-		return summary;
 	}
 
 	private async createPost(

@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import * as fs from "fs";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { UpdateAvatarCommand } from "./updateAvatar.command";
 import { UserRepository } from "../../../../repositories/user.repository";
@@ -24,7 +25,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 	) {}
 
 	async execute(command: UpdateAvatarCommand): Promise<PublicUserDTO> {
-		if (!command.fileBuffer || !command.fileBuffer.length) {
+		if (!command.filePath) {
 			throw createError("ValidationError", "Avatar file is required");
 		}
 
@@ -41,7 +42,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const userId = user.id;
 
-				const uploadResult = await this.imageStorageService.uploadImage(command.fileBuffer, userPublicId);
+				const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
 				newAvatarUrl = uploadResult.url;
 
 				await this.userRepository.updateAvatar(userId, newAvatarUrl, session);
@@ -89,6 +90,12 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 				);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
+		} finally {
+			if (command.filePath && fs.existsSync(command.filePath)) {
+				fs.unlink(command.filePath, (err) => {
+					if (err) console.error("Failed to delete temp file:", err);
+				});
+			}
 		}
 	}
 }

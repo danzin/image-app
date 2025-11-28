@@ -42,7 +42,7 @@ export class PostController {
 			}
 
 			const originalName = file?.originalname || `post-${Date.now()}`;
-			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.buffer, originalName);
+			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.path, originalName);
 			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);
 		} catch (error) {

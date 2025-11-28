@@ -138,7 +138,7 @@ export class UserController {
 	updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const file = req.file?.buffer;
+			const file = req.file?.path;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
@@ -157,7 +157,7 @@ export class UserController {
 	updateCover = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const file = req.file?.buffer;
+			const file = req.file?.path;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));

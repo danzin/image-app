@@ -5,6 +5,6 @@ export class UpdateCoverCommand implements ICommand {
 
 	constructor(
 		public readonly userPublicId: string,
-		public readonly fileBuffer: Buffer
+		public readonly filePath: string
 	) {}
 }

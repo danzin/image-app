@@ -23,7 +23,7 @@ export interface IPost extends Document {
 }
 
 export interface CreatePostAttachmentInput {
-	buffer: Buffer;
+	filePath: string;
 	originalName: string;
 	userInternalId: string;
 	userPublicId: string;

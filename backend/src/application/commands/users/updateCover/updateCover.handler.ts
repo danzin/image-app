@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import * as fs from "fs";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { UpdateCoverCommand } from "./updateCover.command";
 import { UserRepository } from "../../../../repositories/user.repository";
@@ -24,7 +25,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 	) {}
 
 	async execute(command: UpdateCoverCommand): Promise<PublicUserDTO> {
-		if (!command.fileBuffer || !command.fileBuffer.length) {
+		if (!command.filePath) {
 			throw createError("ValidationError", "Cover file is required");
 		}
 
@@ -41,7 +42,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const userId = user.id;
 
-				const uploadResult = await this.imageStorageService.uploadImage(command.fileBuffer, userPublicId);
+				const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
 				newCoverUrl = uploadResult.url;
 
 				await this.userRepository.updateCover(userId, newCoverUrl, session);
@@ -89,6 +90,12 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 				);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
+		} finally {
+			if (command.filePath && fs.existsSync(command.filePath)) {
+				fs.unlink(command.filePath, (err) => {
+					if (err) console.error("Failed to delete temp file:", err);
+				});
+			}
 		}
 	}
 }
