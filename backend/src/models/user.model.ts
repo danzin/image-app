@@ -116,7 +116,6 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 	// Update doesn't work on aggregation pipelines
 	//check if it's not an array aka aggr pipeline
 	if (update && typeof update === "object" && !Array.isArray(update)) {
-		//check if password is being updated
 		const password = update.password || update.$set?.password;
 		if (password) {
 			try {

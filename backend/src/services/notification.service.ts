@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import { NotificationRepository } from "../repositories/notification.respository";
-import { INotification } from "../types";
+import { INotification, NotificationPlain } from "../types";
 import { createError, isErrorWithStatusCode } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
@@ -9,24 +9,6 @@ import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger } from "../utils/winston";
-
-// interface for notification plain object after toJSON()
-// all fields optional except the base ones that should always exist
-interface NotificationPlain {
-	id?: string;
-	_id?: string;
-	$__?: unknown;
-	userId?: string;
-	actionType?: string;
-	actorId?: string;
-	actorUsername?: string;
-	actorAvatar?: string;
-	targetId?: string;
-	targetType?: string;
-	targetPreview?: string;
-	isRead?: boolean;
-	timestamp?: Date;
-}
 
 @injectable()
 export class NotificationService {
@@ -48,15 +30,13 @@ export class NotificationService {
 
 	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			// emit a plain JSON object using toJSON to ensure proper serialization
+			// emit a plain JSON object using toJSON for proper serialization
 			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
-			// ensure id field exists
 			if (plain._id && !plain.id) {
 				plain.id = String(plain._id);
 			}
 
-			// remove mongoose internals
 			delete plain._id;
 			delete plain.$__;
 
@@ -75,15 +55,12 @@ export class NotificationService {
 
 	private readNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			// emit a plain JSON object using toJSON to ensure proper serialization
 			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
-			// ensure id field exists
 			if (plain._id && !plain.id) {
 				plain.id = String(plain._id);
 			}
 
-			// remove mongoose internals
 			delete plain._id;
 			delete plain.$__;
 
@@ -111,13 +88,12 @@ export class NotificationService {
 		actorAvatar?: string; // optional actor avatar URL
 		session?: ClientSession;
 	}): Promise<INotification> {
-		// Validate required fields
 		if (!data.receiverId || !data.actionType || !data.actorId) {
 			throw createError("ValidationError", "Missing required notification fields");
 		}
 
 		try {
-			// No ObjectId resolution; trust publicIds from frontend
+			//trust publicIds from frontend
 			const userPublicId = data.receiverId.trim();
 			const actorPublicId = data.actorId.trim();
 			const targetPublicId = data.targetId?.trim();
@@ -128,7 +104,6 @@ export class NotificationService {
 
 			const io = this.getIO();
 
-			// Save notification to the database
 			const notification = await this.notificationRepository.create(
 				{
 					userId: userPublicId,
@@ -142,10 +117,10 @@ export class NotificationService {
 					isRead: false,
 					timestamp: new Date(),
 				},
-				data.session // Pass session to ensure transaction safety\
+				data.session // pass the session
 			);
 
-			//Send instant notification to user via Socket.io
+			// emit via WebSocket
 			this.sendNotification(io, userPublicId, notification);
 
 			// push to Redis List+Hash using new pattern
@@ -240,7 +215,7 @@ export class NotificationService {
 
 			return updatedNotification;
 		} catch (error) {
-			// if already an AppError (has statusCode) rethrow
+			// if already an AppError with statuscode then rethrow
 			if (isErrorWithStatusCode(error)) throw error;
 			if (error instanceof Error) throw createError(error.name, error.message);
 			throw createError("UnknownError", String(error));
@@ -248,7 +223,7 @@ export class NotificationService {
 	}
 
 	/**
-	 * Get unread notification count for a user (using Redis)
+	 * Get unread notification count for a user using Redis
 	 */
 	async getUnreadCount(userPublicId: string): Promise<number> {
 		try {
@@ -267,9 +242,6 @@ export class NotificationService {
 		}
 	}
 
-	/**
-	 * Mark all notifications as read for a user
-	 */
 	async markAllAsRead(userPublicId: string): Promise<number> {
 		try {
 			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);

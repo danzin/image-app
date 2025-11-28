@@ -23,7 +23,6 @@ const SearchResults = () => {
 
 	const [activeTab, setActiveTab] = useState<"posts" | "users">("posts");
 
-	// Fetch Users
 	const { data: searchData, isFetching: isSearchingUsers } = useSearch(rawQuery);
 
 	// Fetch Posts with infinite scroll
