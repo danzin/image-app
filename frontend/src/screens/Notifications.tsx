@@ -20,6 +20,7 @@ import {
 	PersonAdd as PersonAddIcon,
 	CheckCircle as CheckCircleIcon,
 	ExpandMore as ExpandMoreIcon,
+	AlternateEmail as AlternateEmailIcon,
 } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
@@ -62,6 +63,8 @@ const Notifications: React.FC = () => {
 				return <CommentIcon sx={{ color: "#3b82f6", fontSize: 20 }} />;
 			case "follow":
 				return <PersonAddIcon sx={{ color: "#10b981", fontSize: 20 }} />;
+			case "mention":
+				return <AlternateEmailIcon sx={{ color: "#f59e0b", fontSize: 20 }} />;
 			default:
 				return null;
 		}
@@ -75,6 +78,8 @@ const Notifications: React.FC = () => {
 				return "commented on your post";
 			case "follow":
 				return "started following you";
+			case "mention":
+				return "mentioned you in a comment";
 			default:
 				return notification.actionType;
 		}
@@ -280,7 +285,6 @@ const Notifications: React.FC = () => {
 					{/* Infinite scroll trigger */}
 					<div ref={observerTarget} style={{ height: 20 }} />
 
-					{/* Loading indicator for next page */}
 					{isFetchingNextPage && (
 						<Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
 							<CircularProgress size={24} />
@@ -308,7 +312,6 @@ const Notifications: React.FC = () => {
 						</Box>
 					)}
 
-					{/* End of list indicator */}
 					{!hasNextPage && notifications.length > 0 && (
 						<Typography
 							variant="caption"

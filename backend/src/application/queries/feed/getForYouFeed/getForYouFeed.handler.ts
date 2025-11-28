@@ -45,6 +45,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 					page,
 					limit,
 					total: feedSize,
+					totalPages: Math.ceil(feedSize / limit),
 				};
 			}
 
@@ -82,7 +83,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 	private transformPosts(posts: any[]): FeedPost[] {
 		return posts.map((post) => {
 			const plainPost = post.toObject();
-			const userDoc = plainPost.user as any;
+			const userDoc = this.getUserSnapshot(plainPost);
 			const imageDoc = plainPost.image as any;
 			const tagsArray = Array.isArray(plainPost.tags) ? plainPost.tags : [];
 			const normalizedTags = tagsArray
@@ -102,13 +103,21 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				user: {
 					publicId: userDoc?.publicId,
 					username: userDoc?.username,
-					avatar: userDoc?.avatar,
+					avatar: userDoc?.avatar ?? userDoc?.avatarUrl ?? "",
 				},
 				image: imageDoc ? { publicId: imageDoc.publicId, url: imageDoc.url, slug: imageDoc.slug } : undefined,
 				rankScore: plainPost.rankScore,
 				trendScore: plainPost.trendScore,
 			};
 		});
+	}
+
+	private getUserSnapshot(post: any) {
+		const rawUser = post?.user;
+		if (rawUser && typeof rawUser === "object" && (rawUser.publicId || rawUser.username)) {
+			return rawUser;
+		}
+		return post?.author ?? {};
 	}
 
 	private async generateForYouFeed(userId: string, page: number, limit: number) {
@@ -131,7 +140,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 
 		// batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags(userDataKey);
+		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);

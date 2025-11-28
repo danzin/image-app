@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient, UseQueryOptions, InfiniteData } from "@tanstack/react-query";
 import { followUser, likePost } from "../../api/userActions";
 import { fetchIsFollowing } from "../../api/userApi";
+import { addFavorite, removeFavorite } from "../../api/favoritesApi";
 import {
 	IImage,
+	IPost,
 	ImagePageData,
 	PaginatedResponse,
 	PublicUserDTO,
@@ -11,7 +13,7 @@ import {
 	WhoToFollowResponse,
 } from "../../types";
 
-// Hook to follow a user by public ID
+/**All hooks use public ids */
 export const useFollowUser = () => {
 	const queryClient = useQueryClient();
 
@@ -142,7 +144,46 @@ export const useFollowUser = () => {
 	});
 };
 
-// Hook to like a post by public ID
+export const useFavoritePost = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async ({ publicId, shouldFavorite }: { publicId: string; shouldFavorite: boolean }) => {
+			if (shouldFavorite) {
+				await addFavorite(publicId);
+			} else {
+				await removeFavorite(publicId);
+			}
+		},
+		onMutate: async ({ publicId, shouldFavorite }) => {
+			await queryClient.cancelQueries({ queryKey: ["post", publicId] });
+
+			const previousPost = queryClient.getQueryData<IPost>(["post", publicId]);
+
+			queryClient.setQueryData<IPost>(["post", publicId], (old) =>
+				old ? { ...old, isFavoritedByViewer: shouldFavorite } : old
+			);
+
+			return { previousPost, publicId };
+		},
+		onError: (_err, { publicId }, context) => {
+			if (context?.previousPost) {
+				queryClient.setQueryData(["post", publicId], context.previousPost);
+			}
+		},
+		onSuccess: () => {
+			// Don't invalidate immediately - trust the optimistic update
+			// Only mark favorites list as stale in background
+			setTimeout(() => {
+				queryClient.invalidateQueries({
+					queryKey: ["favorites", "user"],
+					refetchType: "none",
+				});
+			}, 1000);
+		},
+	});
+};
+
 export const useLikePost = () => {
 	const queryClient = useQueryClient();
 
@@ -151,14 +192,13 @@ export const useLikePost = () => {
 		onMutate: async (postPublicId) => {
 			console.log("Optimistic update for post:", postPublicId);
 
-			// Cancel all related queries (both image and post queries)
+			// Cancel all related queries on posts images personalized feed everything
 			await queryClient.cancelQueries({ queryKey: ["personalizedFeed"] });
 			await queryClient.cancelQueries({ queryKey: ["image", postPublicId] });
 			await queryClient.cancelQueries({ queryKey: ["image"] });
 			await queryClient.cancelQueries({ queryKey: ["post", postPublicId] });
 			await queryClient.cancelQueries({ queryKey: ["posts"] });
 
-			// Get current data
 			const previousFeed = queryClient.getQueryData<InfiniteData<PaginatedResponse<IImage>>>(["personalizedFeed"]);
 			const previousImage = queryClient.getQueryData<IImage>(["image", postPublicId]);
 			const previousPost = queryClient.getQueryData<IImage>(["post", postPublicId]);
@@ -173,8 +213,6 @@ export const useLikePost = () => {
 					isLikedByViewer: !currentlyLiked,
 				};
 			});
-
-			// Update individual post cache - toggle both likes count and isLikedByViewer
 			queryClient.setQueryData<IImage>(["post", postPublicId], (oldPost) => {
 				if (!oldPost) return oldPost;
 				const currentlyLiked = oldPost.isLikedByViewer;
@@ -185,7 +223,7 @@ export const useLikePost = () => {
 				};
 			});
 
-			// Update the general image query (for useImageById)
+			// Update the general image query cache using the image publicid
 			queryClient.setQueriesData<IImage>({ queryKey: ["image"] }, (oldImage) => {
 				if (!oldImage || oldImage.publicId !== postPublicId) return oldImage;
 				const currentlyLiked = oldImage.isLikedByViewer;
@@ -251,7 +289,7 @@ export const useLikePost = () => {
 			setTimeout(() => {
 				queryClient.invalidateQueries({
 					queryKey: ["personalizedFeed"],
-					refetchType: "none", // Don't refetch immediately
+					refetchType: "none", // Refetching immediately causes very undesired behaviour so I disabled it and this fixed it
 				});
 				queryClient.invalidateQueries({
 					queryKey: ["trendingFeed"],
@@ -268,7 +306,7 @@ export const useLikePost = () => {
 			}, 1000);
 		},
 		onSettled: () => {
-			// The backend will return correct state on next natural refetch
+			// Backend handles correct state on next natural refetch
 		},
 	});
 };
@@ -276,7 +314,7 @@ export const useLikePost = () => {
 // Legacy alias for backward compatibility
 export const useLikeImage = useLikePost;
 
-// Hook checking if current logged in user is following the profile they're visiting (by public ID)
+// Check if current LOGGED IN user is following the profile they're visiting by publicid
 export const useIsFollowing = (
 	publicId: string,
 	options?: Omit<UseQueryOptions<boolean, Error, boolean>, "queryKey" | "queryFn">

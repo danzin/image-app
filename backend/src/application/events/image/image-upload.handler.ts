@@ -20,8 +20,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 			// use tag-based invalidation for efficient cache clearing
 			const tagsToInvalidate: string[] = [];
 
-			// invalidate global discovery feeds (trending, new)
-			tagsToInvalidate.push("trending_feed", "new_feed");
+			tagsToInvalidate.push("trending_feed");
 
 			// invalidate uploader's own feeds
 			tagsToInvalidate.push(`user_feed:${event.uploaderPublicId}`);
@@ -57,7 +56,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 				`core_feed:${event.uploaderPublicId}:*`,
 				`for_you_feed:${event.uploaderPublicId}:*`,
 				"trending_feed:*",
-				"new_feed:*",
+				// do NOT clear new_feed - lazy refresh only
 			];
 
 			affectedUsers.forEach((userId) => {
@@ -82,23 +81,12 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 				);
 			}
 
-			// Publish global discovery feed update
-			await this.redis.publish(
-				"feed_updates",
-				JSON.stringify({
-					type: "new_image_global",
-					uploaderId: event.uploaderPublicId,
-					imageId: event.imageId,
-					tags: event.tags,
-					timestamp: new Date().toISOString(),
-				})
-			);
+			// do NOT publish global discovery feed update - new feed refreshes on-demand only
 
 			console.log(`[IMAGE_UPLOAD_HANDLER] Cache invalidation complete for new image upload`);
 		} catch (error) {
 			console.error("[IMAGE_UPLOAD_HANDLER] Error handling image upload:", error);
-			// Fallback: invalidate all feed patterns
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*"];
+			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

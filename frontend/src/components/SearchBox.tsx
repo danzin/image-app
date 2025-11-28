@@ -7,6 +7,7 @@ const SearchBox: React.FC = () => {
 	const navigate = useNavigate();
 	const theme = useTheme();
 	const [searchTerm, setSearchTerm] = useState("");
+	const [isFocused, setIsFocused] = useState(false);
 
 	const handleSearchSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -22,19 +23,14 @@ const SearchBox: React.FC = () => {
 			onSubmit={handleSearchSubmit}
 			sx={{
 				position: "relative",
-				borderRadius: 3,
-				backgroundColor: alpha(theme.palette.common.white, 0.08),
-				border: "1px solid rgba(99, 102, 241, 0.3)",
+				borderRadius: 9999,
+				backgroundColor: isFocused ? "transparent" : alpha(theme.palette.common.white, 0.08),
+				border: `1px solid ${isFocused ? theme.palette.primary.main : "transparent"}`,
 				"&:hover": {
-					backgroundColor: alpha(theme.palette.common.white, 0.12),
-					borderColor: "rgba(99, 102, 241, 0.5)",
-				},
-				"&:focus-within": {
-					borderColor: theme.palette.primary.main,
-					boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`,
+					backgroundColor: isFocused ? "transparent" : alpha(theme.palette.common.white, 0.12),
 				},
 				width: "100%",
-				transition: "all 0.3s ease",
+				transition: "all 0.2s ease",
 			}}
 		>
 			<Box
@@ -48,12 +44,18 @@ const SearchBox: React.FC = () => {
 					justifyContent: "center",
 				}}
 			>
-				<SearchIcon sx={{ color: alpha(theme.palette.text.primary, 0.6) }} />
+				<SearchIcon
+					sx={{
+						color: isFocused ? theme.palette.primary.main : alpha(theme.palette.text.primary, 0.6),
+					}}
+				/>
 			</Box>
 			<InputBase
-				placeholder="Search tags/users…"
+				placeholder="Search"
 				value={searchTerm}
 				onChange={(e) => setSearchTerm(e.target.value)}
+				onFocus={() => setIsFocused(true)}
+				onBlur={() => setIsFocused(false)}
 				inputProps={{ "aria-label": "search" }}
 				sx={{
 					color: "inherit",

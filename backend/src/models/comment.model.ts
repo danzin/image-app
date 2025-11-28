@@ -6,19 +6,19 @@ const commentSchema = new Schema<IComment>(
 			type: String,
 			required: true,
 			trim: true,
-			maxlength: 500, // Limit comment length
+			maxlength: 500,
 		},
 		postId: {
 			type: Schema.Types.ObjectId,
 			ref: "Post",
 			required: true,
-			index: true, // Index for fast queries by post
+			index: true, // Index for fast queries by postid
 		},
 		userId: {
 			type: Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
-			index: true, // Index for fast queries by user
+			index: true, // Index for fast queries by userid
 		},
 		isEdited: {
 			type: Boolean,
@@ -26,7 +26,7 @@ const commentSchema = new Schema<IComment>(
 		},
 	},
 	{
-		timestamps: true, // Automatically adds createdAt and updatedAt
+		timestamps: true,
 	}
 );
 

@@ -22,13 +22,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 	 * @param skip - number of notifications to skip for pagination (default: 0)
 	 */
 	async getNotifications(userId: string, limit: number = 50, skip: number = 0): Promise<INotification[]> {
-		return this.model
-			.find({ userId })
-			.sort({ timestamp: -1 }) // most recent first
-			.skip(skip)
-			.limit(limit)
-			.lean() // return plain JS objects for better performance
-			.exec();
+		return this.model.find({ userId }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean().exec();
 	}
 
 	/**
@@ -62,9 +56,6 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		return this.model.countDocuments({ userId, isRead: false }).exec();
 	}
 
-	/**
-	 * Mark a single notification as read
-	 */
 	async markAsRead(notificationId: string, userId: string) {
 		if (!notificationId || !/^[0-9a-fA-F]{24}$/.test(notificationId)) {
 			console.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
@@ -74,7 +65,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		try {
 			const updated = await this.model
 				.findOneAndUpdate({ _id: notificationId, userId }, { $set: { isRead: true } }, { new: true })
-				.lean()
+				.lean<INotification>()
 				.exec();
 			if (!updated) {
 				console.warn(
@@ -82,12 +73,10 @@ export class NotificationRepository extends BaseRepository<INotification> {
 				);
 			} else {
 				console.log(
-					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${
-						(updated as any).isRead
-					}`
+					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${updated.isRead}`
 				);
 			}
-			return updated as any;
+			return updated;
 		} catch (e) {
 			console.error(`[NotificationRepository] markAsRead error id=${notificationId} userId=${userId}:`, e);
 			throw e;

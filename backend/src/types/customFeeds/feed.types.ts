@@ -20,6 +20,7 @@ export interface FeedPost {
 	};
 	rankScore?: number;
 	trendScore?: number;
+	isPersonalized?: boolean;
 }
 
 export interface PaginatedFeedResult {
@@ -27,12 +28,13 @@ export interface PaginatedFeedResult {
 	page: number;
 	limit: number;
 	total: number;
-	totalPages?: number;
+	totalPages: number;
 }
 
-export type CoreFeed = {
-	total: number;
-	page: number;
-	limit: number;
-	data: Array<{ publicId?: string; userPublicId: string; likes?: number; commentsCount?: number; viewsCount?: number }>;
-};
+export interface PostMeta {
+	likes?: number;
+	commentsCount?: number;
+	viewsCount?: number;
+}
+
+export type CoreFeed = PaginatedFeedResult;

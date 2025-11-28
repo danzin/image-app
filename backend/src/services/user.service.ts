@@ -1,23 +1,17 @@
-import mongoose, { Model } from "mongoose";
+import { Model } from "mongoose";
 import { UserRepository } from "../repositories/user.repository";
-import type { IImageStorageService, IUser, PaginationOptions, PaginationResult } from "../types";
+import type { IUser, PaginationOptions, PaginationResult } from "../types";
 import { ImageRepository } from "../repositories/image.repository";
-import { PostRepository } from "../repositories/post.repository";
+import { PostLikeRepository } from "../repositories/postLike.repository";
 import { createError } from "../utils/errors";
-import jwt from "jsonwebtoken";
 import { injectable, inject } from "tsyringe";
 import { UnitOfWork } from "../database/UnitOfWork";
-import { LikeRepository } from "../repositories/like.repository";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
-import { NotificationService } from "./notification.service";
-import { EventBus } from "../application/common/buses/event.bus";
 
 import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
-import { FeedService } from "./feed.service";
-import { RedisService } from "./redis.service";
 
-// TODO: REFACTOR AND REMOVE OLD METHODS
+// TODO: REFACTOR AND REMOVE OLD METHODS, MOVE ADMIN METHODS TO ADMIN SERVICE
 
 /**
  * UserService handles all user-related operations, including authentication, profile updates,
@@ -29,130 +23,15 @@ export class UserService {
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("ImageRepository")
 		private readonly imageRepository: ImageRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("ImageStorageService")
-		private readonly imageStorageService: IImageStorageService,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserModel") private readonly userModel: Model<IUser>,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("FollowRepository")
 		private readonly followRepository: FollowRepository,
 		@inject("UserActionRepository")
 		private readonly userActionRepository: UserActionRepository,
-		@inject("NotificationService")
-		private readonly notificationService: NotificationService,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
-
-	/**
-	 * Generates a JWT token for a user.
-	 * @param user - The user object
-	 * @returns A signed JWT token
-	 */
-	private generateToken(user: IUser): string {
-		// Token intentionally exposes only public-facing identifiers.
-		const payload = {
-			publicId: user.publicId,
-			email: user.email,
-			username: user.username,
-			isAdmin: user.isAdmin,
-		};
-		const secret = process.env.JWT_SECRET;
-		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
-		return jwt.sign(payload, secret, { expiresIn: "12h" });
-	}
-
-	/**
-	 * Registers a new user and returns the user DTO along with an authentication token.
-	 * @param userData - Partial user data
-	 * @returns The created user and authentication token
-	 */
-	async register(userData: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
-		try {
-			const user = await this.userRepository.create(userData);
-			const token = this.generateToken(user);
-
-			// New users always get public DTO
-			const enrichedUser = await this.attachPostCount(user);
-			const userDTO = this.dtoService.toPublicDTO(enrichedUser);
-
-			return { user: userDTO, token };
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
-				);
-			} else {
-				throw createError("InternalServerError", "An unknown error occurred.");
-			}
-		}
-	}
-
-	/**
-	 * Authenticates a user and returns their data along with a token.
-	 * @param email - User's email
-	 * @param password - User's password
-	 * @returns The authenticated user and token
-	 */
-	async login(email: string, password: string): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
-		try {
-			const user = await this.userRepository.findByEmail(email);
-			if (!user || !(await user.comparePassword?.(password))) {
-				throw createError("AuthenticationError", "Invalid email or password");
-			}
-
-			const token = this.generateToken(user);
-			const enrichedUser = await this.attachPostCount(user);
-
-			// Assign appropriate DTO
-			const userDTO = user.isAdmin
-				? this.dtoService.toAdminDTO(enrichedUser)
-				: this.dtoService.toPublicDTO(enrichedUser);
-
-			return { user: userDTO, token };
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
-				);
-			} else {
-				throw createError("InternalServerError", "An unknown error occurred.");
-			}
-		}
-	}
-
-	/**
-	 * Retrieves the authenticated user's profile.
-	 * @param user - The user object (partial).
-	 * @returns The user's updated profile (DTO) and a refreshed token.
-	 */
-	async getMe(user: Partial<IUser>): Promise<{ user: PublicUserDTO; token: string }> {
-		try {
-			let freshUser: IUser | null = null;
-			if (user.publicId) {
-				freshUser = await this.userRepository.findByPublicId(user.publicId);
-			} else if (user.id) {
-				freshUser = await this.userRepository.findById(user.id as string);
-			}
-			if (!freshUser) throw createError("PathError", "User not found");
-			const token = this.generateToken(freshUser);
-			const enrichedUser = await this.attachPostCount(freshUser);
-			return { user: this.dtoService.toPublicDTO(enrichedUser), token };
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
-				);
-			}
-			throw createError("InternalServerError", "An unknown error occurred.");
-		}
-	}
 
 	/**
 	 * Gets user profile by public ID
@@ -331,60 +210,6 @@ export class UserService {
 		};
 	}
 
-	/**
-	 * Handles user "follow" or "unfollow" actions.
-	 * If the user is already following the target user, it removes the follow.
-	 * Otherwise, it adds a follow and triggers a notification.
-	 * @param followerId - The ID of the user initiating the action.
-	 * @param followeeId - The ID of the user being followed/unfollowed.
-	 * @throws TransactionError if the database transaction fails.
-	 */
-	async followAction(followerId: string, followeeId: string): Promise<void> {
-		try {
-			await this.unitOfWork.executeInTransaction(async (session) => {
-				const isFollowing = await this.followRepository.isFollowing(followerId, followeeId);
-
-				if (isFollowing) {
-					// Unfollow logic
-					await this.followRepository.removeFollow(followerId, followeeId, session);
-					await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
-					await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
-					await this.userActionRepository.logAction(followerId, "unfollow", followeeId, session);
-				} else {
-					// Follow logic
-					await this.followRepository.addFollow(followerId, followeeId, session);
-					await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
-					await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
-					await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
-
-					// for now I'll emit the websocket event inside the transaction
-					await this.notificationService.createNotification({
-						receiverId: followeeId,
-						actionType: "follow",
-						actorId: followerId,
-						session,
-					});
-				}
-			});
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("TransactionError", errorMessage, {
-				function: "likeAction",
-				additionalInfo: "Transaction failed",
-				originalError: error,
-			});
-		}
-	}
-
-	// Adapter: follow action where follower is provided as publicId (legacy followeeId remains internal id)
-	async followActionByPublicId(followerPublicId: string, followeePublicId: string): Promise<void> {
-		const follower = await this.userRepository.findByPublicId(followerPublicId);
-		const followee = await this.userRepository.findByPublicId(followeePublicId);
-		if (!follower) throw createError("NotFoundError", "Follower not found");
-		if (!followee) throw createError("NotFoundError", "Followee not found");
-		return this.followAction(follower.id, followee.id);
-	}
-
 	// === ADMIN METHODS ===
 
 	/**
@@ -470,7 +295,7 @@ export class UserService {
 			this.imageRepository.countDocuments({ user: userId }),
 			this.followRepository.countDocuments({ followee: userId }),
 			this.followRepository.countDocuments({ follower: userId }),
-			this.likeRepository.countDocuments({ user: userId }),
+			this.postLikeRepository.countLikesByUser(userId),
 		]);
 
 		const enrichedUser = await this.attachPostCount(user);
@@ -542,37 +367,6 @@ export class UserService {
 		return this.unbanUser(user.id);
 	}
 
-	/**
-	 * Gets dashboard statistics for admin
-	 */
-	async getDashboardStats() {
-		const [totalUsers, totalImages, bannedUsers, adminUsers, recentUsers, recentImages] = await Promise.all([
-			this.userRepository.countDocuments({}),
-			this.imageRepository.countDocuments({}),
-			this.userRepository.countDocuments({ isBanned: true }),
-			this.userRepository.countDocuments({ isAdmin: true }),
-			this.userRepository.countDocuments({
-				createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-			}),
-			this.imageRepository.countDocuments({
-				createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-			}),
-		]);
-
-		return {
-			totalUsers,
-			totalImages,
-			bannedUsers,
-			adminUsers,
-			recentUsers,
-			recentImages,
-			growthRate: {
-				users: recentUsers,
-				images: recentImages,
-			},
-		};
-	}
-
 	async promoteToAdmin(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -624,177 +418,20 @@ export class UserService {
 	}
 
 	private async ensurePostCount(user: IUser): Promise<void> {
-		const userWithAny = user as any;
-		if (typeof userWithAny.postCount === "number" && Number.isFinite(userWithAny.postCount)) {
-			return;
-		}
-
-		const cacheKey = user.publicId ? `user:${user.publicId}:postCount` : null;
-		if (cacheKey) {
-			try {
-				const cachedCount = await this.redisService.getWithTags<number>(cacheKey);
-				if (typeof cachedCount === "number" && Number.isFinite(cachedCount)) {
-					userWithAny.postCount = cachedCount;
-					return;
-				}
-			} catch (error) {
-				console.warn("post count cache lookup failed", {
-					publicId: user.publicId,
-					error,
-				});
-			}
-		}
-
-		const identifier = userWithAny._id ?? userWithAny.id;
-		if (!identifier) {
-			return;
-		}
-
-		try {
-			const normalizedId = this.normalizeToObjectId(identifier);
-			if (!normalizedId) {
-				return;
-			}
-
-			const postCount = await this.postRepository.countDocuments({ user: normalizedId });
-			userWithAny.postCount = postCount;
-
-			if (cacheKey) {
-				try {
-					await this.redisService.setWithTags(cacheKey, postCount, [`user_post_count:${user.publicId}`], 300);
-				} catch (cacheError) {
-					console.warn("post count cache write failed", {
-						publicId: user.publicId,
-						error: cacheError,
-					});
-				}
-			}
-		} catch (error) {
-			console.warn("failed to derive post count for user", {
-				userId: identifier,
-				error,
-			});
+		if (typeof user.postCount !== "number" || !Number.isFinite(user.postCount)) {
+			user.postCount = 0;
 		}
 	}
 
 	private async attachFollowCounts(user: IUser): Promise<void> {
-		const userWithAny = user as any;
-		if (
-			typeof userWithAny.followerCount === "number" &&
-			Number.isFinite(userWithAny.followerCount) &&
-			typeof userWithAny.followingCount === "number" &&
-			Number.isFinite(userWithAny.followingCount)
-		) {
-			return;
+		if (typeof user.followerCount !== "number" || !Number.isFinite(user.followerCount)) {
+			user.followerCount = 0;
 		}
-
-		if (!user.publicId) {
-			return;
-		}
-
-		const cacheKey = `user:${user.publicId}:followStats`;
-		try {
-			const cached = await this.redisService.getWithTags<{ followerCount?: number; followingCount?: number }>(cacheKey);
-			if (cached) {
-				if (typeof cached.followerCount === "number" && Number.isFinite(cached.followerCount)) {
-					userWithAny.followerCount = cached.followerCount;
-				}
-				if (typeof cached.followingCount === "number" && Number.isFinite(cached.followingCount)) {
-					userWithAny.followingCount = cached.followingCount;
-				}
-				if (
-					typeof userWithAny.followerCount === "number" &&
-					Number.isFinite(userWithAny.followerCount) &&
-					typeof userWithAny.followingCount === "number" &&
-					Number.isFinite(userWithAny.followingCount)
-				) {
-					return;
-				}
-			}
-		} catch (error) {
-			console.warn("follow count cache lookup failed", {
-				publicId: user.publicId,
-				error,
-			});
-		}
-
-		const identifier = userWithAny._id ?? userWithAny.id;
-		const normalizedId = this.normalizeToObjectId(identifier);
-		if (!normalizedId) {
-			return;
-		}
-
-		try {
-			const [followers, following] = await Promise.all([
-				this.followRepository.countFollowersByUserId(normalizedId),
-				this.followRepository.countFollowingByUserId(normalizedId),
-			]);
-			userWithAny.followerCount = followers;
-			userWithAny.followingCount = following;
-
-			try {
-				await this.redisService.setWithTags(
-					cacheKey,
-					{ followerCount: followers, followingCount: following },
-					[`user_follow_count:${user.publicId}`],
-					300
-				);
-			} catch (cacheError) {
-				console.warn("follow count cache write failed", {
-					publicId: user.publicId,
-					error: cacheError,
-				});
-			}
-		} catch (error) {
-			console.warn("failed to derive follow counts for user", {
-				userId: normalizedId?.toString(),
-				error,
-			});
+		if (typeof user.followingCount !== "number" || !Number.isFinite(user.followingCount)) {
+			user.followingCount = 0;
 		}
 	}
 
-	private normalizeToObjectId(identifier: unknown): mongoose.Types.ObjectId | null {
-		if (!identifier) {
-			return null;
-		}
-		if (identifier instanceof mongoose.Types.ObjectId) {
-			return identifier;
-		}
-		try {
-			return new mongoose.Types.ObjectId(String(identifier));
-		} catch {
-			return null;
-		}
-	}
-
-	// === SECURE PUBLIC ID METHODS ===
-
-	/**
-	 * Public adapter: Toggles follow status using public IDs
-	 * This is the method the controller should call
-	 */
-	async toggleFollow(
-		followerPublicId: string,
-		followeePublicId: string
-	): Promise<{ action: "followed" | "unfollowed" }> {
-		const [follower, followee] = await Promise.all([
-			this.userRepository.findByPublicId(followerPublicId),
-			this.userRepository.findByPublicId(followeePublicId),
-		]);
-
-		if (!follower || !followee) {
-			throw createError("NotFoundError", "One or both users not found");
-		}
-
-		if (follower.id === followee.id) {
-			throw createError("ValidationError", "Cannot follow yourself");
-		}
-
-		const wasFollowing = await this.followRepository.isFollowing(follower.id, followee.id);
-		await this.followAction(follower.id, followee.id);
-
-		return { action: wasFollowing ? "unfollowed" : "followed" };
-	}
 	/**
 	 * Checks if current user is following another user by public ID
 	 */

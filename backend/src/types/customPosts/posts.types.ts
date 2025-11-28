@@ -4,6 +4,13 @@ import { IImage } from "types/customImages/images.types";
 export interface IPost extends Document {
 	publicId: string;
 	user: mongoose.Types.ObjectId;
+	author: {
+		_id: mongoose.Types.ObjectId;
+		publicId: string;
+		username: string;
+		avatarUrl?: string;
+		displayName?: string;
+	};
 	body?: string;
 	slug?: string;
 	image?: mongoose.Types.ObjectId | null;
@@ -16,11 +23,10 @@ export interface IPost extends Document {
 }
 
 export interface CreatePostAttachmentInput {
-	buffer: Buffer;
+	filePath: string;
 	originalName: string;
 	userInternalId: string;
 	userPublicId: string;
-	tagIds: mongoose.Types.ObjectId[];
 	session: ClientSession;
 }
 
@@ -49,4 +55,8 @@ export interface RemoveAttachmentResult {
 	removed: boolean;
 	removedPublicId?: string;
 	removedUrl?: string;
+}
+
+export interface IPostWithId extends IPost {
+	_id: mongoose.Types.ObjectId;
 }

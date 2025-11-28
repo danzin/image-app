@@ -10,19 +10,6 @@ export class GlobalNewPostMessageHandler implements IRealtimeMessageHandler {
 		const postId = message.postId ?? message.imageId;
 		if (!postId) return;
 
-		// get image details to include in the notification
-		const imageData = {
-			postId,
-			userId: message.userId ?? message.authorId ?? message.uploaderId,
-			tags: message.tags,
-			timestamp: message.timestamp,
-		};
-
-		io.emit("discovery_new_post", {
-			type: "new_post_global",
-			data: imageData,
-		});
-
-		console.log(`Global new post notification sent for post ${postId} to all connected clients`);
+		console.log(`Skipping global new post notification for post ${postId} - lazy refresh strategy enabled`);
 	}
 }

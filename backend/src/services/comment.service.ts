@@ -1,10 +1,13 @@
-import { CommentRepository, TransformedComment } from "../repositories/comment.repository";
+import { CommentRepository } from "../repositories/comment.repository";
 import { PostRepository } from "../repositories/post.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { createError } from "../utils/errors";
-import { IComment } from "types/index";
+import { IComment, TransformedComment } from "types/index";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
+
+// type for IPost.user that can be ObjectId or populated object
+type PostUserField = mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId; toString?: () => string };
 
 @injectable()
 export class CommentService {
@@ -14,11 +17,8 @@ export class CommentService {
 		@inject("UserRepository") private readonly userRepository: UserRepository
 	) {}
 
-	/**
-	 * create a new comment on a post
-	 */
 	async createComment(userId: string, postPublicId: string, content: string): Promise<TransformedComment> {
-		// Validate input
+		// Validate
 		if (!content.trim()) {
 			throw createError("ValidationError", "Comment content cannot be empty");
 		}
@@ -27,7 +27,6 @@ export class CommentService {
 			throw createError("ValidationError", "Comment cannot exceed 500 characters");
 		}
 
-		// Check if post exists by public ID
 		const post = await this.postRepository.findByPublicId(postPublicId);
 		if (!post) {
 			throw createError("NotFoundError", "Post not found");
@@ -72,9 +71,6 @@ export class CommentService {
 		return this.createComment(user.id, postPublicId, content);
 	}
 
-	/**
-	 * get comments for a post with pagination
-	 */
 	async getCommentsByPostPublicId(postPublicId: string, page: number = 1, limit: number = 10) {
 		// Validate post exists
 		const post = await this.postRepository.findByPublicId(postPublicId);
@@ -89,9 +85,6 @@ export class CommentService {
 		);
 	}
 
-	/**
-	 * update comment content (only by comment owner)
-	 */
 	async updateComment(commentId: string, userId: string, content: string): Promise<TransformedComment> {
 		// Validate input
 		if (!content.trim()) {
@@ -134,9 +127,6 @@ export class CommentService {
 		return this.updateComment(commentId, user.id, content);
 	}
 
-	/**
-	 * delete comment (only by comment owner or post owner)
-	 */
 	async deleteComment(commentId: string, userId: string): Promise<void> {
 		const comment = await this.commentRepository.findById(commentId);
 		if (!comment) {
@@ -147,15 +137,11 @@ export class CommentService {
 		if (!post) {
 			throw createError("NotFoundError", "Associated post not found");
 		}
-		const hydratedPost = await this.postRepository.findByPublicId((post as any).publicId);
+		const hydratedPost = await this.postRepository.findByPublicId(post.publicId);
 		const effectivePost = hydratedPost ?? post;
 
 		const isCommentOwner = comment.userId.toString() === userId;
-		const postOwner = (effectivePost as any).user;
-		const postOwnerInternalId =
-			typeof postOwner === "object" && postOwner !== null && "_id" in postOwner
-				? (postOwner as any)._id.toString()
-				: (postOwner?.toString?.() ?? "");
+		const postOwnerInternalId = this.extractUserInternalId(effectivePost.user);
 		const isPostOwner = postOwnerInternalId === userId;
 
 		if (!isCommentOwner && !isPostOwner) {
@@ -166,7 +152,6 @@ export class CommentService {
 		session.startTransaction();
 
 		try {
-			// Delete comment
 			await this.commentRepository.deleteComment(commentId, session);
 
 			// Decrement comment count on post
@@ -187,17 +172,31 @@ export class CommentService {
 		return this.deleteComment(commentId, user.id);
 	}
 
-	/**
-	 * get comments by user ID
-	 */
+	async getCommentsByUserPublicId(userPublicId: string, page: number = 1, limit: number = 10) {
+		const user = await this.userRepository.findByPublicId(userPublicId);
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+		return await this.commentRepository.getCommentsByUserId(user.id, page, limit);
+	}
+
 	async getCommentsByUserId(userId: string, page: number = 1, limit: number = 10) {
 		return await this.commentRepository.getCommentsByUserId(userId, page, limit);
 	}
 
-	/**
-	 * delete all comments for a post (called when post is deleted)
-	 */
 	async deleteCommentsByPostId(postId: string, session?: mongoose.ClientSession): Promise<number> {
 		return await this.commentRepository.deleteCommentsByPostId(postId, session);
+	}
+
+	// extracts internal user id from IPost.user which can be ObjectId or populated object
+	private extractUserInternalId(user: PostUserField): string {
+		if (!user) return "";
+		if (user instanceof mongoose.Types.ObjectId) {
+			return user.toString();
+		}
+		if (typeof user === "object" && "_id" in user && user._id) {
+			return user._id.toString();
+		}
+		return "";
 	}
 }

@@ -1,108 +1,135 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearch } from "../hooks/search/useSearch";
-import { Box, Button, CircularProgress } from "@mui/material";
-import Gallery from "../components/Gallery";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { usePostsByTag } from "../hooks/posts/usePosts";
+import { Box, Button, CircularProgress, Typography } from "@mui/material";
+import Gallery from "../components/Gallery";
+import { Link, useLocation } from "react-router-dom";
 
 const SearchResults = () => {
 	const location = useLocation();
-	const navigate = useNavigate();
-	const query = new URLSearchParams(location.search).get("q") || "";
-	const queryClient = useQueryClient();
-	const searchTerms = query
-		.split(",")
-		.map((term) => term.trim())
-		.filter((term) => term.length > 0);
-	const [activeTab, setActiveTab] = useState<"users" | "posts" | "tags">("posts");
 
-	const { data, isFetching } = useSearch(query);
+	// Parse the search query
+	const rawQuery = new URLSearchParams(location.search).get("q") || "";
 
-	useEffect(() => {
-		if (query) {
-			queryClient.invalidateQueries({
-				queryKey: ["query", query],
-				exact: false,
-			});
-		}
-	}, [query, queryClient, location.search]);
+	// Memoize search terms to prevent unnecessary re-renders
+	const searchTerms = useMemo(
+		() =>
+			rawQuery
+				.split(",")
+				.map((t) => t.trim())
+				.filter((t) => t.length > 0),
+		[rawQuery]
+	);
 
-	const { fetchNextPage, hasNextPage, isFetchingNextPage } = usePostsByTag(searchTerms, {
-		// Only run if searchTerms has items AND search results exist
-		enabled: searchTerms.length > 0 && !!data?.data.tags,
+	const [activeTab, setActiveTab] = useState<"posts" | "users">("posts");
+
+	const { data: searchData, isFetching: isSearchingUsers } = useSearch(rawQuery);
+
+	// Fetch Posts with infinite scroll
+	const {
+		data: postsData,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		isLoading: isLoadingPosts,
+	} = usePostsByTag(searchTerms, {
+		enabled: searchTerms.length > 0,
 	});
 
-	const handleTagClick = (tagName: string) => {
-		navigate(`/results?q=${encodeURIComponent(tagName)}`);
-	};
+	// Flatten pages
+	const allPosts = useMemo(() => {
+		return postsData?.pages.flatMap((page) => page.data) || [];
+	}, [postsData]);
+
+	useEffect(() => {
+		setActiveTab("posts");
+	}, [rawQuery]);
+
+	useEffect(() => {
+		if (!isLoadingPosts && !isSearchingUsers && activeTab === "posts") {
+			const hasPosts = allPosts.length > 0;
+			const hasUsers = searchData?.data.users && searchData.data.users.length > 0;
+
+			if (!hasPosts && hasUsers) {
+				setActiveTab("users");
+			}
+		}
+	}, [isLoadingPosts, isSearchingUsers, allPosts.length, searchData, activeTab]);
+
+	const isLoading = isLoadingPosts || isSearchingUsers;
 
 	return (
-		<Box sx={{ maxWidth: "800px", margin: "auto", p: 3 }}>
-			{/* Tabs */}
+		<Box sx={{ maxWidth: "800px", mx: "auto", p: 3 }}>
+			{/* Tab Buttons */}
 			<Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-				{(["posts", "users", "tags"] as const).map((tab) => (
-					<Button key={tab} variant={activeTab === tab ? "contained" : "outlined"} onClick={() => setActiveTab(tab)}>
-						{tab.charAt(0).toUpperCase() + tab.slice(1)}
-					</Button>
-				))}
+				<Button variant={activeTab === "posts" ? "contained" : "outlined"} onClick={() => setActiveTab("posts")}>
+					Posts ({allPosts.length})
+				</Button>
+				<Button variant={activeTab === "users" ? "contained" : "outlined"} onClick={() => setActiveTab("users")}>
+					Users ({searchData?.data.users?.length || 0})
+				</Button>
 			</Box>
-			{isFetching ? (
-				<CircularProgress />
+
+			{isLoading && allPosts.length === 0 ? (
+				<Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
+					<CircularProgress />
+				</Box>
 			) : (
 				<>
-					{/* Posts Tab */}
-					{activeTab === "posts" &&
-						(data?.data.posts === null ? (
-							<p>No posts found for {query}.</p>
-						) : (
-							<Gallery
-								posts={data?.data.posts || []}
-								fetchNextPage={fetchNextPage}
-								isFetchingNext={isFetchingNextPage}
-								hasNextPage={hasNextPage}
-							/>
-						))}
-					{/* Users tab */}
-					{activeTab === "users" &&
-						(data?.data.users === null ? (
-							<p>No users found {query}.</p>
-						) : (
-							data?.data.users?.map((user) => (
-								<Box key={user.publicId} sx={{ p: 2, borderBottom: "1px solid #ccc" }}>
-									<Link to={`/profile/${user.publicId}`} className="text-cyan-200">
-										{user.username}
-									</Link>
-								</Box>
-							))
-						))}
+					{/* Posts tab */}
+					{activeTab === "posts" && (
+						<Box>
+							{allPosts.length > 0 ? (
+								<Gallery
+									posts={allPosts}
+									fetchNextPage={fetchNextPage}
+									isFetchingNext={isFetchingNextPage}
+									hasNextPage={!!hasNextPage}
+								/>
+							) : (
+								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+									No posts found for "{rawQuery}".
+								</Typography>
+							)}
+						</Box>
+					)}
 
-					{/* Tags Tab */}
-					{activeTab === "tags" &&
-						(data?.data.tags === null ? (
-							<p>No tags found for {query}.</p>
-						) : (
-							<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-								{data?.data.tags?.map((tag) => (
+					{/* Users tab */}
+					{activeTab === "users" && (
+						<Box>
+							{searchData?.data.users && searchData.data.users.length > 0 ? (
+								searchData.data.users.map((user) => (
 									<Box
-										key={tag.id}
+										key={user.publicId}
 										sx={{
 											p: 2,
-											borderBottom: "1px solid #ccc",
-											cursor: "pointer",
-											"&:hover": {
-												backgroundColor: "rgba(99, 102, 241, 0.1)",
-											},
+											borderBottom: "1px solid #eee",
+											display: "flex",
+											alignItems: "center",
+											gap: 2,
+											"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
 										}}
-										onClick={() => handleTagClick(tag.tag)}
 									>
-										<p className="text-cyan-400 hover:text-cyan-300">
-											#{tag.tag} ({tag.count} posts)
-										</p>
+										<img
+											src={user.avatar}
+											alt={user.username}
+											style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+										/>
+										<Link
+											to={`/profile/${user.publicId}`}
+											style={{ textDecoration: "none", fontWeight: "bold", color: "inherit" }}
+										>
+											@{user.username}
+										</Link>
 									</Box>
-								))}
-							</Box>
-						))}
+								))
+							) : (
+								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+									No users found matching "{rawQuery}".
+								</Typography>
+							)}
+						</Box>
+					)}
 				</>
 			)}
 		</Box>

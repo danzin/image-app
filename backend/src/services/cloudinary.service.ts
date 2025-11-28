@@ -1,4 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
+import * as fs from "fs";
 import { createError } from "../utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "../types";
 import { injectable } from "tsyringe";
@@ -19,22 +20,25 @@ export class CloudinaryService implements IImageStorageService {
 		return matches ? matches[1] : null;
 	}
 
-	async uploadImage(file: Buffer, userId: string): Promise<{ url: string; publicId: string }> {
-		try {
-			const result = await cloudinary.uploader.upload(
-				`data:image/png;base64,${file.toString("base64")}`, // Convert Buffer to base64
-				{ folder: userId }
-			);
+	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
+		return new Promise((resolve, reject) => {
+			const stream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
+				if (error) {
+					const errorName = error.name || "StorageError";
+					const errorMessage = error.message || "Error uploading image";
+					return reject(createError(errorName, errorMessage));
+				}
+				if (!result) {
+					return reject(createError("StorageError", "Upload failed, no result returned"));
+				}
+				resolve({
+					url: result.secure_url,
+					publicId: result.public_id,
+				});
+			});
 
-			return {
-				url: result.secure_url,
-				publicId: result.public_id,
-			};
-		} catch (error) {
-			const errorName = error instanceof Error ? error.name : "StorageError";
-			const errorMessage = error instanceof Error ? error.message : "Error uploading image";
-			throw createError(errorName, errorMessage);
-		}
+			fs.createReadStream(filePath).pipe(stream);
+		});
 	}
 
 	async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
@@ -50,7 +54,7 @@ export class CloudinaryService implements IImageStorageService {
 			console.log(result);
 
 			// Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
-			return { result: result.result }; // Only include the result field
+			return { result: result.result };
 		} catch (error) {
 			const errorName = error instanceof Error ? error.name : "StorageError";
 			const errorMessage = error instanceof Error ? error.message : "Error deleting asset by url";

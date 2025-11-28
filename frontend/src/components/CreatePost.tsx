@@ -21,7 +21,6 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	const [content, setContent] = useState<string>("");
 	const [tags, setTags] = useState<string[]>([]);
 
-	// Don't render if user is not logged in
 	if (!isLoggedIn) {
 		return null;
 	}
@@ -41,7 +40,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	};
 
 	const handleUpload = async () => {
-		// Validation: must have either text or image
+		// Must have either text or image
 		if (!file && !content.trim()) {
 			alert("Please provide either text content or an image");
 			return;
@@ -59,14 +58,12 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
 		try {
 			await uploadPostMutation.mutateAsync(formData);
-			// Reset form on success
 			setContent("");
 			setTags([]);
 			setFile(null);
 			setPreview("");
 			if (fileInputRef.current) fileInputRef.current.value = "";
 
-			// Call onClose if provided (in modal)
 			if (onClose) {
 				onClose();
 			}

@@ -20,9 +20,6 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 			// use tag-based invalidation for efficient cache clearing
 			const tagsToInvalidate: string[] = [];
 
-			// invalidate global discovery feeds (trending, new)
-			tagsToInvalidate.push("trending_feed", "new_feed");
-
 			// invalidate author's own feeds and metrics
 			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
 			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
@@ -58,7 +55,7 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 				`core_feed:${event.authorPublicId}:*`,
 				`for_you_feed:${event.authorPublicId}:*`,
 				"trending_feed:*",
-				"new_feed:*",
+				// do NOT clear new_feed - lazy refresh only
 			];
 
 			affectedUsers.forEach((userId) => {
@@ -83,23 +80,14 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 				);
 			}
 
-			// Publish global discovery feed update
-			await this.redis.publish(
-				"feed_updates",
-				JSON.stringify({
-					type: "new_post_global",
-					authorId: event.authorPublicId,
-					postId: event.postId,
-					tags: event.tags,
-					timestamp: new Date().toISOString(),
-				})
-			);
+			// do NOT publish global discovery feed update - new feed refreshes on-demand only
+			// this prevents the "super fast train" effect where new feed updates constantly
 
 			console.log(`[POST_UPLOAD_HANDLER] Cache invalidation complete for new post`);
 		} catch (error) {
 			console.error("[POST_UPLOAD_HANDLER] Error handling post upload:", error);
-			// Fallback: invalidate all feed patterns
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*"];
+			// Fallback: invalidate all feed patterns (except new_feed)
+			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

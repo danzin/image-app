@@ -29,7 +29,7 @@ export const useNotifications = () => {
 		staleTime: 5 * 60_000, // 5 minutes
 		gcTime: 10 * 60_000, // 10 minutes
 		refetchOnWindowFocus: false,
-		refetchOnMount: false, // prevent refetch on component mount if data exists
+		refetchOnMount: false, // dont refetch on component mount if data exists
 	});
 
 	// flatten all pages into single array
@@ -38,10 +38,9 @@ export const useNotifications = () => {
 		return notificationsQuery.data.pages.flat();
 	}, [notificationsQuery.data]);
 
-	// Mark notification as read mutation
 	const markReadMutation = useMutation({
 		mutationFn: (id: string) => markNotificationAsRead(id),
-		// Optimistic update
+		// Make use of optimistic update
 		onMutate: async (id: string) => {
 			await queryClient.cancelQueries({ queryKey: ["notifications"] });
 			const previous = queryClient.getQueryData<InfiniteData<Notification[]>>(["notifications"]);
@@ -66,7 +65,7 @@ export const useNotifications = () => {
 		},
 	});
 
-	// Handle real-time notifications with WebSocket
+	// This handles real-time notifications with WebSocket
 	useEffect(() => {
 		if (!socket) return;
 
@@ -109,10 +108,8 @@ export const useNotifications = () => {
 			});
 		};
 
-		//Listen for new notifications
 		socket.on("new_notification", handleNew);
 
-		// Listen for notifications marked as read
 		socket.on("notification_read", handleRead);
 
 		return () => {

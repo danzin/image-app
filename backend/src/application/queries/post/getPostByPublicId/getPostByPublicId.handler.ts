@@ -3,7 +3,6 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetPostByPublicIdQuery } from "./getPostByPublicId.query";
 import { PostRepository } from "../../../../repositories/post.repository";
 import { UserRepository } from "../../../../repositories/user.repository";
-import { LikeRepository } from "../../../../repositories/like.repository";
 import { FavoriteRepository } from "../../../../repositories/favorite.repository";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
@@ -14,7 +13,6 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 	constructor(
 		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
@@ -33,8 +31,8 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 			const viewerInternalId = await this.userRepository.findInternalIdByPublicId(query.viewerPublicId);
 
 			if (postInternalId && viewerInternalId) {
-				const likeRecord = await this.likeRepository.findByUserAndPost(viewerInternalId, postInternalId);
-				dto.isLikedByViewer = !!likeRecord;
+				const likes = Array.isArray((post as any).likes) ? (post as any).likes : [];
+				dto.isLikedByViewer = likes.some((likeEntry: any) => likeEntry?.toString?.() === viewerInternalId);
 
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;

@@ -1,10 +1,11 @@
 import { inject, injectable } from "tsyringe";
+import mongoose from "mongoose";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { FavoriteRepository } from "../repositories/favorite.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { PostRepository } from "../repositories/post.repository";
 import { DTOService } from "./dto.service";
-import { PaginationResult, PostDTO } from "../types";
+import { IFavorite, PaginationResult, PostDTO } from "../types";
 import { createError } from "../utils/errors";
 
 @injectable()
@@ -24,7 +25,11 @@ export class FavoriteService {
 				throw createError("DuplicateError", "Post already in favorites");
 			}
 
-			await this.favoriteRepository.create({ userId, postId } as any, session);
+			const favoriteData: Partial<IFavorite> = {
+				userId: new mongoose.Types.ObjectId(userId),
+				postId: new mongoose.Types.ObjectId(postId),
+			};
+			await this.favoriteRepository.create(favoriteData, session);
 		});
 	}
 

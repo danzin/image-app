@@ -2,6 +2,17 @@ import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { IPost } from "../types";
 
+const authorSchema = new Schema(
+	{
+		_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
+		publicId: { type: String, required: true },
+		username: { type: String, required: true },
+		avatarUrl: { type: String, default: "" },
+		displayName: { type: String, default: "" },
+	},
+	{ _id: false }
+);
+
 const postSchema = new Schema<IPost>(
 	{
 		publicId: {
@@ -14,7 +25,10 @@ const postSchema = new Schema<IPost>(
 			type: Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
-			index: true,
+		},
+		author: {
+			type: authorSchema,
+			required: true,
 		},
 		body: {
 			type: String,
@@ -24,7 +38,6 @@ const postSchema = new Schema<IPost>(
 		slug: {
 			type: String,
 			trim: true,
-			index: true,
 		},
 		image: {
 			type: Schema.Types.ObjectId,
@@ -37,7 +50,6 @@ const postSchema = new Schema<IPost>(
 				ref: "Tag",
 			},
 		],
-
 		likesCount: {
 			type: Number,
 			default: 0,
@@ -52,24 +64,23 @@ const postSchema = new Schema<IPost>(
 			type: Number,
 			default: 0,
 			required: true,
-			index: true,
 		},
 	},
 	{ timestamps: true }
 );
 
 postSchema.index({ user: 1, createdAt: -1 }); // profile feed qyeries
-postSchema.index({ createdAt: -1 }); // newest posts
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
-postSchema.index({ likesCount: -1 }); // popularity queries
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
+postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
 postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
 	{
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
 	}
 );
+
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;
@@ -84,6 +95,18 @@ postSchema.set("toJSON", {
 				username: ret.user.username,
 				publicId: ret.user.publicId,
 			};
+		}
+
+		if (!ret.user && ret.author) {
+			ret.user = {
+				publicId: ret.author.publicId,
+				username: ret.author.username,
+				avatar: ret.author.avatarUrl,
+			};
+		}
+
+		if (ret.author && ret.author._id) {
+			ret.author._id = ret.author._id.toString();
 		}
 
 		if (Array.isArray(ret.tags)) {

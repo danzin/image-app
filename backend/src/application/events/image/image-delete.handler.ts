@@ -18,8 +18,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			// use tag-based invalidation for active cache entries
 			const tagsToInvalidate: string[] = [];
 
-			// invalidate global feed tags
-			tagsToInvalidate.push("trending_feed", "new_feed");
+			tagsToInvalidate.push("trending_feed");
 
 			// invalidate uploader's personalized feeds
 			tagsToInvalidate.push(`user_feed:${event.uploaderPublicId}`);
@@ -45,7 +44,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 				`core_feed:${event.uploaderPublicId}:*`,
 				`for_you_feed:${event.uploaderPublicId}:*`,
 				"trending_feed:*",
-				"new_feed:*",
+				// do NOT clear new_feed - lazy refresh only
 			];
 
 			// add follower patterns
@@ -59,8 +58,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			console.log(`Feed invalidation complete for image deletion`);
 		} catch (error) {
 			console.error("Error handling image deletion:", error);
-			// fallback: invalidate all feed patterns
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*"];
+			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

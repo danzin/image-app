@@ -6,6 +6,7 @@ import { QueryBus } from "../application/common/buses/query.bus";
 import { GetTrendingTagsQuery } from "../application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { GetPersonalizedFeedQuery } from "../application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
 import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { GetTrendingFeedQuery } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.query";
 @injectable()
 export class FeedController {
 	constructor(
@@ -56,7 +57,10 @@ export class FeedController {
 		try {
 			const page = Number(req.query.page) || 1;
 			const limit = Number(req.query.limit) || 20;
-			const feed = await this.feedService.getTrendingFeed(page, limit);
+
+			const query = new GetTrendingFeedQuery(page, limit);
+			const feed = await this.queryBus.execute(query);
+
 			res.json(feed);
 		} catch (error) {
 			console.error(error);

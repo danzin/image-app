@@ -18,24 +18,39 @@ export class LocalStorageService implements IImageStorageService {
 		console.log("LocalStorageService: Uploads directory path inside container:", this.uploadsDir);
 	}
 
-	async uploadImage(file: Buffer, userId: string): Promise<{ url: string; publicId: string }> {
+	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
 		try {
-			// validate userId is a proper UUID v4
 			const safeUserId = this.validateUserId(userId);
 
-			// generate filename with UUID v4
 			const filename = `${uuidv4()}.png`;
 			console.log("UserID in local storage service:", safeUserId);
 
-			// safely join paths with traversal protection
+			// Safely join paths with traversal protection
 			const userDir = this.safeJoin(this.uploadsDir, safeUserId);
-			const filepath = this.safeJoin(userDir, filename);
+			const destFilepath = this.safeJoin(userDir, filename);
 
 			if (!fs.existsSync(userDir)) {
 				fs.mkdirSync(userDir, { recursive: true });
 			}
 
-			await fs.promises.writeFile(filepath, file);
+			// Try to move the file efficiently using rename which is O(1) if they're on the same filesystem
+			try {
+				await fs.promises.rename(filePath, destFilepath);
+			} catch (error: any) {
+				// Fallback for EXDEV if /tmp and /uploads are on different partitions in the contaner
+				if (error.code === "EXDEV") {
+					await fs.promises.copyFile(filePath, destFilepath);
+					// don't unlink here because the handler's finally block handles cleanup
+					// but since rename would remove it and copy doesnt
+					// I'll let the handler to clean up the source file if it still exists
+					// If rename succeeds, the file is gone from source.
+					// If copy succeeds, the file remains at source.
+					// The CQRS handler checks fs.existsSync(command.imagePath) before unlinking so it handles both cases
+				} else {
+					throw error;
+				}
+			}
+
 			const url = `/uploads/${safeUserId}/${filename}`;
 
 			return { url, publicId: filename };
@@ -227,7 +242,6 @@ export class LocalStorageService implements IImageStorageService {
 		return cleaned;
 	}
 
-	// validate filename format (UUID v4 + .png extension)
 	private validateFileName(fileName: string): string {
 		// remove null bytes and use basename to prevent directory traversal
 		const cleaned = path.basename(String(fileName).replace(/\0/g, "").trim());

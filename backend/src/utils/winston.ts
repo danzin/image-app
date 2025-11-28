@@ -44,8 +44,5 @@ export const redisLogger = winston.createLogger({
 			return `[${timestamp}] [REDIS] ${level}: ${message} ${metaStr}`;
 		})
 	),
-	transports: [
-		new winston.transports.File({ filename: "redis.log" }),
-		new winston.transports.Console(), // always log Redis to console for debugging
-	],
+	transports: [new winston.transports.File({ filename: "redis.log" })],
 });

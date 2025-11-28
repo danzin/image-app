@@ -34,32 +34,25 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		try {
 			console.log(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
-				 User public ID: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
+				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
 
-			// Find user by public ID
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with public ID ${command.userPublicId} not found`);
+				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 			}
 
-			// Find comment to validate ownership and get image info
 			const comment = await this.commentRepository.findById(command.commentId);
 			if (!comment) {
 				throw createError("NotFoundError", "Comment not found");
 			}
 
-			// Find the post
 			const effectivePost = (await this.postRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
 			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
 
 			// Check if user owns the comment or the post
 			const isCommentOwner = comment.userId.toString() === user.id;
-			const postOwner = (effectivePost as any).user;
-			const postOwnerInternalId =
-				typeof postOwner === "object" && postOwner !== null && "_id" in postOwner
-					? (postOwner as any)._id.toString()
-					: (postOwner?.toString?.() ?? "");
+			const { ownerInternalId: postOwnerInternalId } = this.extractPostOwnerInfo(effectivePost as any);
 			const postOwnerMatch = postOwnerInternalId === user.id;
 
 			if (!isCommentOwner && !postOwnerMatch) {
@@ -70,10 +63,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			postTags = Array.isArray((effectivePost as any).tags)
 				? (effectivePost as any).tags.map((t: any) => t.tag ?? t)
 				: [];
-			const postOwnerPublicId =
-				typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-					? (postOwner as any).publicId
-					: undefined;
+			const { ownerPublicId: postOwnerPublicId } = this.extractPostOwnerInfo(effectivePost as any);
 			if (!postOwnerPublicId && postOwnerInternalId) {
 				const ownerDoc = await this.userRepository.findById(postOwnerInternalId);
 				postOwnerId = ownerDoc?.publicId ?? "";
@@ -82,7 +72,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			}
 			postPublicId = (effectivePost as any).publicId ?? comment.postId.toString();
 
-			// Execute the comment deletion within a database transaction
+			// Execute the comment deletion within transaction
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				// Delete comment
 				await this.commentRepository.deleteComment(command.commentId, session);
@@ -108,5 +98,26 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				userPublicId: command.userPublicId,
 			});
 		}
+	}
+
+	private extractPostOwnerInfo(post: any): { ownerInternalId: string; ownerPublicId?: string } {
+		const rawUser = post?.user;
+		const authorSnapshot = post?.author;
+
+		let ownerInternalId = "";
+		if (rawUser && typeof rawUser === "object" && "_id" in rawUser) {
+			ownerInternalId = rawUser._id?.toString?.() ?? "";
+		} else if (authorSnapshot?._id) {
+			ownerInternalId = authorSnapshot._id.toString();
+		} else if (typeof rawUser?.toString === "function") {
+			ownerInternalId = rawUser.toString();
+		}
+
+		const ownerPublicId =
+			typeof rawUser === "object" && rawUser !== null && "publicId" in rawUser
+				? (rawUser as any).publicId
+				: authorSnapshot?.publicId;
+
+		return { ownerInternalId, ownerPublicId };
 	}
 }

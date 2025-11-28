@@ -1,11 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { IPost } from "../types";
-import { Card, CardActions, Typography, Chip, Box, Avatar } from "@mui/material";
+import { Typography, Box, Avatar } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate } from "react-router-dom";
-import HashtagText from "./HashtagText";
+import RichText from "./RichText";
 
 interface PostCardProps {
 	post: IPost;
@@ -29,12 +29,12 @@ const formatCount = (count: number | undefined): string => {
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
 	const navigate = useNavigate();
+	const [isExpanded, setIsExpanded] = useState(false);
 
 	const handleClick = () => {
 		navigate(`/posts/${post.publicId}`);
 	};
 
-	// Handle optional image URL
 	const fullImageUrl = post.url
 		? post.url.startsWith("http")
 			? post.url
@@ -52,19 +52,15 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 	const hasImage = !!fullImageUrl;
 
 	return (
-		<Card
+		<Box
 			sx={{
 				width: "100%",
-				maxWidth: "700px",
-				overflow: "hidden",
-				border: "1px solid rgba(99, 102, 241, 0.2)",
-				borderRadius: 3,
+				borderBottom: "1px solid",
+				borderColor: "divider",
 				cursor: "pointer",
-				transition: "all 0.3s ease",
+				transition: "background-color 0.2s",
 				"&:hover": {
-					transform: "translateY(-4px)",
-					borderColor: "rgba(99, 102, 241, 0.4)",
-					boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+					bgcolor: "rgba(255, 255, 255, 0.03)",
 				},
 			}}
 			onClick={handleClick}
@@ -72,11 +68,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 			{/* User Info Header */}
 			<Box
 				sx={{
-					px: 3,
-					pt: 2.5,
-					pb: 1.5,
+					px: 2,
+					pt: 1.5,
+					pb: 1,
 					display: "flex",
-					alignItems: "center",
+					alignItems: "flex-start",
 					gap: 1.5,
 				}}
 			>
@@ -84,111 +80,163 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					sx={{
 						width: 40,
 						height: 40,
-						border: "2px solid rgba(99, 102, 241, 0.3)",
-						background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+						cursor: "pointer",
+					}}
+					onClick={(e) => {
+						e.stopPropagation();
+						navigate(`/profile/${post.user?.publicId}`);
 					}}
 				>
 					{post.user?.avatar ? (
 						<img
 							src={`/api/${post.user.avatar}`}
 							alt={post.user.username}
-							style={{ width: "100%", height: "100%", borderRadius: "50%" }}
+							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
 					) : (
 						<span>{post.user?.username?.charAt(0).toUpperCase()}</span>
 					)}
 				</Avatar>
-				<Box sx={{ flex: 1 }}>
-					<Typography variant="body1" sx={{ fontWeight: 600, color: "text.primary" }}>
-						{post.user?.username || "Unknown"}
-					</Typography>
-					<Typography variant="caption" color="text.secondary">
-						{new Date(post.createdAt).toLocaleDateString(undefined, {
-							month: "short",
-							day: "numeric",
-							year: "numeric",
-						})}
-					</Typography>
-				</Box>
-			</Box>
-			{/* Post Content */}
-			{post.body && (
-				<Box sx={{ px: 3, pb: hasImage ? 2 : 1 }}>
-					<Typography
-						variant="body1"
+
+				<Box sx={{ flex: 1, minWidth: 0 }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+						<Typography
+							variant="body1"
+							sx={{
+								fontWeight: 700,
+								color: "text.primary",
+								"&:hover": { textDecoration: "underline" },
+							}}
+							onClick={(e) => {
+								e.stopPropagation();
+								navigate(`/profile/${post.user?.publicId}`);
+							}}
+						>
+							{post.user?.username || "Unknown"}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{new Date(post.createdAt).toLocaleDateString(undefined, {
+								month: "short",
+								day: "numeric",
+							})}
+						</Typography>
+					</Box>
+
+					{/* Post Content */}
+					{post.body && (
+						<Typography
+							variant="body1"
+							sx={{
+								color: "text.primary",
+								lineHeight: 1.5,
+								whiteSpace: "pre-wrap",
+								wordBreak: "break-word",
+								mb: hasImage ? 1.5 : 0,
+							}}
+						>
+							<RichText
+								text={isExpanded || !post.body || post.body.length <= 280 ? post.body : post.body.slice(0, 280) + "..."}
+							/>
+							{post.body && post.body.length > 280 && !isExpanded && (
+								<Box
+									component="span"
+									sx={{
+										color: "primary.main",
+										cursor: "pointer",
+										ml: 0.5,
+										fontWeight: 500,
+										"&:hover": { textDecoration: "underline" },
+									}}
+									onClick={(e) => {
+										e.stopPropagation();
+										setIsExpanded(true);
+									}}
+								>
+									Show more
+								</Box>
+							)}
+						</Typography>
+					)}
+
+					{/* Image Display */}
+					{hasImage && (
+						<Box
+							sx={{
+								mt: 1.5,
+								borderRadius: 3,
+								overflow: "hidden",
+								border: "1px solid",
+								borderColor: "divider",
+								width: "100%",
+								maxHeight: "600px",
+								display: "flex",
+								justifyContent: "center",
+								bgcolor: "black",
+							}}
+						>
+							<img
+								src={fullImageUrl}
+								alt={post.body?.substring(0, 50) || post.publicId}
+								style={{
+									width: "100%",
+									height: "auto",
+									maxHeight: "600px",
+									objectFit: "cover",
+									display: "block",
+								}}
+							/>
+						</Box>
+					)}
+
+					{/* Card Actions - Stats */}
+					<Box
 						sx={{
-							color: "text.primary",
-							lineHeight: 1.6,
-							whiteSpace: "pre-wrap",
-							wordBreak: "break-word",
+							display: "flex",
+							justifyContent: "space-between",
+							maxWidth: 425,
+							mt: 1.5,
 						}}
 					>
-						<HashtagText text={post.body} />
-					</Typography>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+								color: "text.secondary",
+								"&:hover": { color: "#ec4899" },
+							}}
+						>
+							<FavoriteIcon fontSize="small" sx={{ fontSize: 18 }} />
+							<Typography variant="caption">{formatCount(post.likes || 0)}</Typography>
+						</Box>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+								color: "text.secondary",
+								"&:hover": { color: "#3b82f6" },
+							}}
+						>
+							<CommentIcon fontSize="small" sx={{ fontSize: 18 }} />
+							<Typography variant="caption">{formatCount(post.commentsCount || 0)}</Typography>
+						</Box>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+								color: "text.secondary",
+								"&:hover": { color: "#8b5cf6" },
+							}}
+						>
+							<VisibilityIcon fontSize="small" sx={{ fontSize: 18 }} />
+							<Typography variant="caption">{formatCount(post.viewsCount || 0)}</Typography>
+						</Box>
+					</Box>
 				</Box>
-			)}{" "}
-			{/* Image Display */}
-			{hasImage && (
-				<Box sx={{ position: "relative", overflow: "hidden" }}>
-					<img
-						src={fullImageUrl}
-						alt={post.body?.substring(0, 50) || post.publicId}
-						style={{
-							width: "100%",
-							maxHeight: "500px",
-							objectFit: "cover",
-							display: "block",
-						}}
-					/>
-				</Box>
-			)}
-			{/* Card Actions - Stats */}
-			<CardActions
-				disableSpacing
-				sx={{
-					justifyContent: "space-between",
-					px: 3,
-					py: 2,
-					backdropFilter: "blur(10px)",
-				}}
-			>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-					<Chip
-						icon={<FavoriteIcon fontSize="small" />}
-						label={formatCount(post.likes || 0)}
-						size="small"
-						sx={{
-							background: "linear-gradient(45deg, rgba(236, 72, 153, 0.2), rgba(99, 102, 241, 0.2))",
-							border: "1px solid rgba(236, 72, 153, 0.3)",
-							color: "#ec4899",
-							"& .MuiChip-icon": { color: "#ec4899" },
-						}}
-					/>
-					<Chip
-						icon={<CommentIcon fontSize="small" />}
-						label={formatCount(post.commentsCount || 0)}
-						size="small"
-						sx={{
-							background: "linear-gradient(45deg, rgba(59, 130, 246, 0.2), rgba(99, 102, 241, 0.2))",
-							border: "1px solid rgba(59, 130, 246, 0.3)",
-							color: "#3b82f6",
-							"& .MuiChip-icon": { color: "#3b82f6" },
-						}}
-					/>
-				</Box>
-				<Chip
-					icon={<VisibilityIcon fontSize="small" />}
-					label={formatCount(post.viewsCount || 0)}
-					size="small"
-					sx={{
-						background: "linear-gradient(45deg, rgba(139, 92, 246, 0.2), rgba(99, 102, 241, 0.2))",
-						border: "1px solid rgba(139, 92, 246, 0.3)",
-						color: "#8b5cf6",
-						"& .MuiChip-icon": { color: "#8b5cf6" },
-					}}
-				/>
-			</CardActions>
-		</Card>
+			</Box>
+		</Box>
 	);
 };
 

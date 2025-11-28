@@ -31,7 +31,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		try {
 			// Get core feed structure (post IDs and order)
 			const coreFeedKey = `core_feed:${userId}:${safePage}:${safeLimit}`;
-			let coreFeed = await this.redisService.getWithTags(coreFeedKey);
+			let coreFeed = (await this.redisService.getWithTags(coreFeedKey)) as CoreFeed | null;
 
 			if (!coreFeed) {
 				// cache miss - generate core feed
@@ -103,7 +103,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 
 		// batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags(userDataKey);
+		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
 
 		if (!userData) {
 			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);

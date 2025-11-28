@@ -7,6 +7,8 @@ import { QueryBus } from "../application/common/buses/query.bus";
 import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
+import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
+import { DashboardStatsResult } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { PaginationResult, PostDTO } from "../types";
 
 @injectable()
@@ -135,7 +137,7 @@ export class AdminUserController {
 	// === DASHBOARD STATS ===
 	getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const stats = await this.userService.getDashboardStats();
+			const stats = await this.queryBus.execute<DashboardStatsResult>(new GetDashboardStatsQuery());
 			res.status(200).json(stats);
 		} catch (error) {
 			next(error);
