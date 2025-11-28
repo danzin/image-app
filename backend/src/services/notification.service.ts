@@ -247,7 +247,8 @@ export class NotificationService {
 			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);
 
 			if (modifiedCount > 0) {
-				// update all notification hashes in Redis (fetch list and update each)
+				// update all notification hashes in Redis
+				// fetch the list and update each one
 				const notificationIds = await this.redisService.get(`notifications:user:${userPublicId}`);
 				if (Array.isArray(notificationIds)) {
 					await Promise.all(notificationIds.map((id: string) => this.redisService.markNotificationRead(id)));
