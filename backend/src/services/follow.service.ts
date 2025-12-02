@@ -1,10 +1,10 @@
-import mongoose from "mongoose";
 import { FollowRepository } from "../repositories/follow.repository";
 import { NotificationService } from "./notification.service";
 import { UserActionRepository } from "../repositories/userAction.repository";
 import { createError } from "../utils/errors";
 import { UserRepository } from "../repositories/user.repository";
 import { RedisService } from "./redis.service";
+import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -14,25 +14,29 @@ export class FollowService {
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("RedisService") private readonly redisService: RedisService
+		@inject("RedisService") private readonly redisService: RedisService,
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
 	) {}
 
 	async followUser(followerId: string, followeeId: string): Promise<void | string> {
 		if (await this.followRepository.isFollowing(followerId, followeeId)) return "Already following this user";
-		const session = await mongoose.startSession();
-		session.startTransaction();
 
 		try {
-			//Add follow relationship
-			await this.followRepository.addFollow(followerId, followeeId, session);
+			await this.unitOfWork.executeInTransaction(async (session) => {
+				// add follow relationship
+				await this.followRepository.addFollow(followerId, followeeId, session);
 
-			//Update follower's "following" list
-			await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
+				// update follower's "following" list
+				await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
 
-			//Update followee's "followers" list
-			await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
+				// update followee's "followers" list
+				await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
 
-			//Create notification for followee
+				// log the follow action
+				await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
+			});
+
+			// post-commit: create notification for followee
 			const follower = await this.userRepository.findById(followerId);
 			const followee = await this.userRepository.findById(followeeId);
 
@@ -45,49 +49,36 @@ export class FollowService {
 				});
 			}
 
-			await this.userActionRepository.logAction(followerId, "follow", followeeId);
-
-			await session.commitTransaction();
-
-			// Invalidate the follower's feed cache so they see the new content immediately
+			// invalidate the follower's feed cache so they see the new content immediately
 			await this.invalidateFollowerFeedCache(followerId);
 		} catch (error) {
-			await session.abortTransaction();
 			const errorMessage = error instanceof Error ? error.message : "Failed to follow user";
 			throw createError("InternalServerError", errorMessage);
-		} finally {
-			session.endSession();
 		}
 	}
 
 	async unfollowUser(followerId: string, followeeId: string): Promise<void | string> {
 		if (!(await this.followRepository.isFollowing(followerId, followeeId))) return "Already unfollowed this user";
 
-		const session = await mongoose.startSession();
-		session.startTransaction();
-
 		try {
-			//Remove follow relationship
-			await this.followRepository.removeFollow(followerId, followeeId, session);
+			await this.unitOfWork.executeInTransaction(async (session) => {
+				// remove follow relationship
+				await this.followRepository.removeFollow(followerId, followeeId, session);
 
-			//Update follower's "following" list
-			await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
+				// update follower's "following" list
+				await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
 
-			//Update followee's "followers" list
-			await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
+				// update followee's "followers" list
+				await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
 
-			//Log the unfollow action
-			await this.userActionRepository.logAction(followerId, "unfollow", followeeId);
-
-			await session.commitTransaction();
+				// log the unfollow action
+				await this.userActionRepository.logAction(followerId, "unfollow", followeeId, session);
+			});
 
 			await this.invalidateFollowerFeedCache(followerId);
 		} catch (error) {
-			await session.abortTransaction();
-			const errorMessage = error instanceof Error ? error.message : "Failed to follow user";
+			const errorMessage = error instanceof Error ? error.message : "Failed to unfollow user";
 			throw createError("InternalServerError", errorMessage);
-		} finally {
-			session.endSession();
 		}
 	}
 

@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { UserService } from "../services/user.service";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { CreatePostCommand } from "../application/commands/post/createPost/createPost.command";
@@ -13,15 +12,16 @@ import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/
 import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
 import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
 import { createError } from "../utils/errors";
 import { errorLogger } from "../utils/winston";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "../types";
 import { safeFireAndForget } from "../utils/helpers";
+import { PublicUserDTO } from "../services/dto.service";
 
 @injectable()
 export class PostController {
 	constructor(
-		@inject("UserService") private readonly userService: UserService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -117,7 +117,8 @@ export class PostController {
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 
-			const user = await this.userService.getUserByUsername(username);
+			const userQuery = new GetUserByUsernameQuery(username);
+			const user = await this.queryBus.execute<PublicUserDTO>(userQuery);
 
 			const query = new GetPostsByUserQuery(user.publicId, page, limit);
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);

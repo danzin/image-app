@@ -4,10 +4,11 @@ import { LikeActionCommand } from "./likeAction.command";
 import { IPost } from "../../../../types/index";
 import { EventBus } from "../../../../application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../../application/events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
@@ -19,10 +20,11 @@ import { UnitOfWork } from "../../../../database/UnitOfWork";
 export class LikeActionCommandHandler implements ICommandHandler<LikeActionCommand, IPost> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
@@ -44,7 +46,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		let existingPost: IPost | null;
 
 		try {
-			existingPost = await this.postRepository.findById(command.postId);
+			existingPost = await this.postReadRepository.findById(command.postId);
 			if (!existingPost) {
 				throw createError("PathError", `Post ${command.postId} not found`);
 			}
@@ -78,7 +80,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			});
 
 			// Return the updated image with the modified like count
-			const updatedPost = await this.postRepository.findById(command.postId);
+			const updatedPost = await this.postReadRepository.findById(command.postId);
 			if (!updatedPost) {
 				throw createError("PathError", `Post ${command.postId} not found after update`);
 			}
@@ -114,7 +116,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			throw createError("ConflictError", "like already exists for user and post");
 		}
 
-		await this.postRepository.updateLikeCount(command.postId, 1, session);
+		await this.postWriteRepository.updateLikeCount(command.postId, 1, session);
 
 		await this.userActionRepository.logAction(command.userId, "like", command.postId, session);
 
@@ -136,7 +138,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			console.log(`[LikeAction] Resolved owner from populated object: ${postOwnerPublicId}`);
 		} else if (postOwner) {
 			// Resolve user publicId from ObjectId
-			const ownerUser = await this.userRepository.findById(postOwner.toString());
+			const ownerUser = await this.userReadRepository.findById(postOwner.toString());
 			if (ownerUser) {
 				postOwnerPublicId = ownerUser.publicId;
 				console.log(`[LikeAction] Resolved owner from DB lookup: ${postOwnerPublicId}`);
@@ -173,7 +175,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			throw createError("NotFoundError", "like does not exist for user and post");
 		}
 
-		await this.postRepository.updateLikeCount(command.postId, -1, session);
+		await this.postWriteRepository.updateLikeCount(command.postId, -1, session);
 
 		await this.userActionRepository.logAction(command.userId, "unlike", command.postId, session);
 	}

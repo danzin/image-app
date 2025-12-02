@@ -16,8 +16,8 @@ export interface PostDTO {
 	url?: string;
 	imagePublicId?: string;
 
-	tags: string[]; // Array of tag names
-	likes: number; // Match frontend expectation
+	tags: string[];
+	likes: number;
 	commentsCount: number;
 	viewsCount: number;
 	createdAt: Date;

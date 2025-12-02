@@ -3,7 +3,8 @@ import { FollowUserCommand } from "./followUser.command";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { FollowRepository } from "../../../../repositories/follow.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
 import { NotificationService } from "../../../../services/notification.service";
 import { RedisService } from "../../../../services/redis.service";
@@ -18,7 +19,8 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("RedisService") private readonly redisService: RedisService
@@ -28,8 +30,8 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 		const { followerPublicId, followeePublicId } = command;
 
 		const [follower, followee] = await Promise.all([
-			this.userRepository.findByPublicId(followerPublicId),
-			this.userRepository.findByPublicId(followeePublicId),
+			this.userReadRepository.findByPublicId(followerPublicId),
+			this.userReadRepository.findByPublicId(followeePublicId),
 		]);
 
 		if (!follower || !followee) {
@@ -50,21 +52,21 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 				if (wasFollowing) {
 					// unfollow logic
 					await this.followRepository.removeFollow(followerId, followeeId, session);
-					await this.userRepository.update(followerId, { $pull: { following: followeeId } }, session);
-					await this.userRepository.update(followeeId, { $pull: { followers: followerId } }, session);
+					await this.userWriteRepository.update(followerId, { $pull: { following: followeeId } }, session);
+					await this.userWriteRepository.update(followeeId, { $pull: { followers: followerId } }, session);
 					// decrement denormalized counts
-					await this.userRepository.updateFollowingCount(followerId, -1, session);
-					await this.userRepository.updateFollowerCount(followeeId, -1, session);
+					await this.userWriteRepository.updateFollowingCount(followerId, -1, session);
+					await this.userWriteRepository.updateFollowerCount(followeeId, -1, session);
 
 					await this.userActionRepository.logAction(followerId, "unfollow", followeeId, session);
 				} else {
 					// follow logic
 					await this.followRepository.addFollow(followerId, followeeId, session);
-					await this.userRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
-					await this.userRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
+					await this.userWriteRepository.update(followerId, { $addToSet: { following: followeeId } }, session);
+					await this.userWriteRepository.update(followeeId, { $addToSet: { followers: followerId } }, session);
 					// increment denormalized counts
-					await this.userRepository.updateFollowingCount(followerId, 1, session);
-					await this.userRepository.updateFollowerCount(followeeId, 1, session);
+					await this.userWriteRepository.updateFollowingCount(followerId, 1, session);
+					await this.userWriteRepository.updateFollowerCount(followeeId, 1, session);
 
 					await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
 

@@ -20,3 +20,4 @@ export * from "./customPosts/postView.types";
 export * from "./customPosts/postLike.types";
 export * from "./customFeeds/feed.types";
 export * from "./customTags/tags.types";
+export * from "./customAuth/auth.types";

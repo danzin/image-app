@@ -1,7 +1,7 @@
 import { IQueryHandler } from "../../../../application/common/interfaces/query-handler.interface";
 import { GetMeQuery } from "../../../queries/users/getMe/getMe.query";
 import { inject, injectable } from "tsyringe";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces";
 import { createError } from "../../../../utils/errors";
 import { IUser } from "../../../../types/index.js";
 import { DTOService } from "../../../../services/dto.service";
@@ -15,13 +15,13 @@ export interface GetMeResult {
 @injectable()
 export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetMeQuery): Promise<GetMeResult> {
 		try {
-			const user = await this.userRepository.findByPublicId(query.publicId);
+			const user = await this.userReadRepository.findByPublicId(query.publicId);
 			if (!user) {
 				throw createError("PathError", "User not found");
 			}

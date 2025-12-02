@@ -34,3 +34,14 @@ export class UserCoverChangedEvent implements IEvent {
 		public readonly newCoverUrl?: string
 	) {}
 }
+
+export class UserDeletedEvent implements IEvent {
+	readonly type = "UserDeletedEvent";
+	readonly timestamp: Date = new Date();
+
+	constructor(
+		public readonly userPublicId: string,
+		public readonly userId: string,
+		public readonly followerPublicIds: string[]
+	) {}
+}

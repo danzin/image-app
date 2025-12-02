@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { UserService } from "../services/user.service";
 import { injectable, inject } from "tsyringe";
 import { createError } from "../utils/errors";
 import { CommandBus } from "../application/common/buses/command.bus";
@@ -10,11 +9,19 @@ import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.que
 import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
 import { DashboardStatsResult } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { PaginationResult, PostDTO } from "../types";
+import { GetAllUsersAdminQuery } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
+import { GetAdminUserProfileQuery } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
+import { GetUserStatsQuery } from "../application/queries/admin/getUserStats/getUserStats.query";
+import { GetRecentActivityQuery } from "../application/queries/admin/getRecentActivity/getRecentActivity.query";
+import { BanUserCommand } from "../application/commands/admin/banUser/banUser.command";
+import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanUser.command";
+import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
+import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
+import { AdminUserDTO } from "../services/dto.service";
 
 @injectable()
 export class AdminUserController {
 	constructor(
-		@inject("UserService") private readonly userService: UserService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -28,7 +35,8 @@ export class AdminUserController {
 				sortBy: sortBy as string | undefined,
 				sortOrder: sortOrder as "asc" | "desc" | undefined,
 			};
-			const result = await this.userService.getAllUsersAdmin(options);
+			const query = new GetAllUsersAdminQuery(options);
+			const result = await this.queryBus.execute(query);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -38,7 +46,8 @@ export class AdminUserController {
 	getUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const adminDTO = await this.userService.getAdminUserProfile(publicId);
+			const query = new GetAdminUserProfileQuery(publicId);
+			const adminDTO = await this.queryBus.execute<AdminUserDTO>(query);
 			res.status(200).json(adminDTO);
 		} catch (error) {
 			next(error);
@@ -48,7 +57,8 @@ export class AdminUserController {
 	getUserStats = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const stats = await this.userService.getUserStatsByPublicId(publicId);
+			const query = new GetUserStatsQuery(publicId);
+			const stats = await this.queryBus.execute(query);
 			res.status(200).json(stats);
 		} catch (error) {
 			next(error);
@@ -82,7 +92,8 @@ export class AdminUserController {
 			if (!(decodedUser as any).publicId) {
 				throw createError("ValidationError", "Admin publicId missing in token");
 			}
-			const result = await this.userService.banUserByPublicId(publicId, (decodedUser as any).publicId, reason);
+			const command = new BanUserCommand(publicId, (decodedUser as any).publicId, reason);
+			const result = await this.commandBus.dispatch<AdminUserDTO>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -92,7 +103,8 @@ export class AdminUserController {
 	unbanUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const result = await this.userService.unbanUserByPublicId(publicId);
+			const command = new UnbanUserCommand(publicId);
+			const result = await this.commandBus.dispatch<AdminUserDTO>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -152,7 +164,8 @@ export class AdminUserController {
 				page: page ? parseInt(page as string, 10) : 1,
 				limit: limit ? parseInt(limit as string, 10) : 10,
 			};
-			const activity = await this.userService.getRecentActivity(options);
+			const query = new GetRecentActivityQuery(options);
+			const activity = await this.queryBus.execute(query);
 			res.status(200).json(activity);
 		} catch (error) {
 			next(error);
@@ -163,7 +176,8 @@ export class AdminUserController {
 	promoteToAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const result = await this.userService.promoteToAdminByPublicId(publicId);
+			const command = new PromoteToAdminCommand(publicId);
+			const result = await this.commandBus.dispatch<AdminUserDTO>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);
@@ -173,7 +187,8 @@ export class AdminUserController {
 	demoteFromAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const result = await this.userService.demoteFromAdminByPublicId(publicId);
+			const command = new DemoteFromAdminCommand(publicId);
+			const result = await this.commandBus.dispatch<AdminUserDTO>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			next(error);

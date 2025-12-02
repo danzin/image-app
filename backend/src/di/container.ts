@@ -140,8 +140,45 @@ import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/
 import { UpdateAvatarCommandHandler } from "../application/commands/users/updateAvatar/updateAvatar.handler";
 import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
 import { UpdateCoverCommandHandler } from "../application/commands/users/updateCover/updateCover.handler";
-import { UserCoverChangedEvent } from "../application/events/user/user-interaction.event";
+import { UserCoverChangedEvent, UserDeletedEvent } from "../application/events/user/user-interaction.event";
 import { UserCoverChangedHandler } from "../application/events/user/user-cover-change.handler";
+import { UserDeletedHandler } from "../application/events/user/user-deleted.handler";
+import { PostReadRepository } from "../repositories/read/PostReadRepository";
+import { UserReadRepository } from "../repositories/read/UserReadRepository";
+import { PostWriteRepository } from "../repositories/write/PostWriteRepository";
+import { UserWriteRepository } from "../repositories/write/UserWriteRepository";
+
+import { GetUserByPublicIdQuery } from "../application/queries/users/getUserByPublicId/getUserByPublicId.query";
+import { GetUserByPublicIdQueryHandler } from "../application/queries/users/getUserByPublicId/getUserByPublicId.handler";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByUsernameQueryHandler } from "../application/queries/users/getUserByUsername/getUserByUsername.handler";
+import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.query";
+import { GetUsersQueryHandler } from "../application/queries/users/getUsers/getUsers.handler";
+import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
+import { CheckFollowStatusQueryHandler } from "../application/queries/users/checkFollowStatus/checkFollowStatus.handler";
+
+import { UpdateProfileCommand } from "../application/commands/users/updateProfile/updateProfile.command";
+import { UpdateProfileCommandHandler } from "../application/commands/users/updateProfile/updateProfile.handler";
+import { ChangePasswordCommand } from "../application/commands/users/changePassword/changePassword.command";
+import { ChangePasswordCommandHandler } from "../application/commands/users/changePassword/changePassword.handler";
+
+import { GetAllUsersAdminQuery } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
+import { GetAllUsersAdminQueryHandler } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.handler";
+import { GetAdminUserProfileQuery } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
+import { GetAdminUserProfileQueryHandler } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.handler";
+import { GetUserStatsQuery } from "../application/queries/admin/getUserStats/getUserStats.query";
+import { GetUserStatsQueryHandler } from "../application/queries/admin/getUserStats/getUserStats.handler";
+import { GetRecentActivityQuery } from "../application/queries/admin/getRecentActivity/getRecentActivity.query";
+import { GetRecentActivityQueryHandler } from "../application/queries/admin/getRecentActivity/getRecentActivity.handler";
+
+import { BanUserCommand } from "../application/commands/admin/banUser/banUser.command";
+import { BanUserCommandHandler } from "../application/commands/admin/banUser/banUser.handler";
+import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanUser.command";
+import { UnbanUserCommandHandler } from "../application/commands/admin/unbanUser/unbanUser.handler";
+import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
+import { PromoteToAdminCommandHandler } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.handler";
+import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
+import { DemoteFromAdminCommandHandler } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.handler";
 
 export function setupContainerCore(): void {
 	registerCoreComponents();
@@ -202,6 +239,14 @@ function registerRepositories(): void {
 	container.registerSingleton("FavoriteRepository", FavoriteRepository);
 	container.registerSingleton("ConversationRepository", ConversationRepository);
 	container.registerSingleton("MessageRepository", MessageRepository);
+
+	// read repositories for CQRS query handlers
+	container.registerSingleton("PostReadRepository", PostReadRepository);
+	container.registerSingleton("UserReadRepository", UserReadRepository);
+
+	// write repositories for CQRS command handlers
+	container.registerSingleton("PostWriteRepository", PostWriteRepository);
+	container.registerSingleton("UserWriteRepository", UserWriteRepository);
 }
 
 // Register Services
@@ -288,23 +333,38 @@ export function registerCQRS(): void {
 	container.register("DeleteUserCommandHandler", { useClass: DeleteUserCommandHandler });
 	container.register("UpdateAvatarCommandHandler", { useClass: UpdateAvatarCommandHandler });
 	container.register("UpdateCoverCommandHandler", { useClass: UpdateCoverCommandHandler });
+	container.register("UpdateProfileCommandHandler", { useClass: UpdateProfileCommandHandler });
+	container.register("ChangePasswordCommandHandler", { useClass: ChangePasswordCommandHandler });
+
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
 	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
+
 	container.register("CreateCommentCommandHandler", { useClass: CreateCommentCommandHandler });
 	container.register("DeleteCommentCommandHandler", { useClass: DeleteCommentCommandHandler });
 	container.register("CreatePostCommandHandler", { useClass: CreatePostCommandHandler });
 	container.register("DeletePostCommandHandler", { useClass: DeletePostCommandHandler });
+
 	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
 	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
+
+	container.register("BanUserCommandHandler", { useClass: BanUserCommandHandler });
+	container.register("UnbanUserCommandHandler", { useClass: UnbanUserCommandHandler });
+	container.register("PromoteToAdminCommandHandler", { useClass: PromoteToAdminCommandHandler });
+	container.register("DemoteFromAdminCommandHandler", { useClass: DemoteFromAdminCommandHandler });
 
 	// Reactive event handlers
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
 	container.register("UserAvatarChangedHandler", { useClass: UserAvatarChangedHandler });
 	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
+	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
 
 	// Query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
+	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
+	container.register("GetUserByUsernameQueryHandler", { useClass: GetUserByUsernameQueryHandler });
+	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
+	container.register("CheckFollowStatusQueryHandler", { useClass: CheckFollowStatusQueryHandler });
 	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
@@ -318,6 +378,12 @@ export function registerCQRS(): void {
 	container.register("SearchPostsByTagsQueryHandler", { useClass: SearchPostsByTagsQueryHandler });
 	container.register("GetAllTagsQueryHandler", { useClass: GetAllTagsQueryHandler });
 	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
+
+	// Admin query handlers
+	container.register("GetAllUsersAdminQueryHandler", { useClass: GetAllUsersAdminQueryHandler });
+	container.register("GetAdminUserProfileQueryHandler", { useClass: GetAdminUserProfileQueryHandler });
+	container.register("GetUserStatsQueryHandler", { useClass: GetUserStatsQueryHandler });
+	container.register("GetRecentActivityQueryHandler", { useClass: GetRecentActivityQueryHandler });
 
 	// Interaction handlers (token-only registration)
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
@@ -355,12 +421,35 @@ export function initCQRS(): void {
 		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler")
 	);
 
+	// User profile commands
+	commandBus.register(
+		UpdateProfileCommand,
+		container.resolve<UpdateProfileCommandHandler>("UpdateProfileCommandHandler")
+	);
+	commandBus.register(
+		ChangePasswordCommand,
+		container.resolve<ChangePasswordCommandHandler>("ChangePasswordCommandHandler")
+	);
+
+	// Admin commands
+	commandBus.register(BanUserCommand, container.resolve<BanUserCommandHandler>("BanUserCommandHandler"));
+	commandBus.register(UnbanUserCommand, container.resolve<UnbanUserCommandHandler>("UnbanUserCommandHandler"));
+	commandBus.register(
+		PromoteToAdminCommand,
+		container.resolve<PromoteToAdminCommandHandler>("PromoteToAdminCommandHandler")
+	);
+	commandBus.register(
+		DemoteFromAdminCommand,
+		container.resolve<DemoteFromAdminCommandHandler>("DemoteFromAdminCommandHandler")
+	);
+
 	// Register event handlers
 	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
 	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
 	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
 	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
+	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
 	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
 
 	// Register queries
@@ -398,6 +487,34 @@ export function initCQRS(): void {
 	queryBus.register(
 		GetLikedPostsByUserQuery,
 		container.resolve<GetLikedPostsByUserHandler>("GetLikedPostsByUserHandler")
+	);
+
+	queryBus.register(
+		GetUserByPublicIdQuery,
+		container.resolve<GetUserByPublicIdQueryHandler>("GetUserByPublicIdQueryHandler")
+	);
+	queryBus.register(
+		GetUserByUsernameQuery,
+		container.resolve<GetUserByUsernameQueryHandler>("GetUserByUsernameQueryHandler")
+	);
+	queryBus.register(GetUsersQuery, container.resolve<GetUsersQueryHandler>("GetUsersQueryHandler"));
+	queryBus.register(
+		CheckFollowStatusQuery,
+		container.resolve<CheckFollowStatusQueryHandler>("CheckFollowStatusQueryHandler")
+	);
+
+	queryBus.register(
+		GetAllUsersAdminQuery,
+		container.resolve<GetAllUsersAdminQueryHandler>("GetAllUsersAdminQueryHandler")
+	);
+	queryBus.register(
+		GetAdminUserProfileQuery,
+		container.resolve<GetAdminUserProfileQueryHandler>("GetAdminUserProfileQueryHandler")
+	);
+	queryBus.register(GetUserStatsQuery, container.resolve<GetUserStatsQueryHandler>("GetUserStatsQueryHandler"));
+	queryBus.register(
+		GetRecentActivityQuery,
+		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
 	);
 
 	// Resolve and register realtime handlers array

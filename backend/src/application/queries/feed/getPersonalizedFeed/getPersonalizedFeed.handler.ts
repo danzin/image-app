@@ -1,8 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetPersonalizedFeedQuery } from "./getPersonalizedFeed.query";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
 import { UserPreferenceRepository } from "../../../../repositories/userPreference.repository";
 import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
@@ -14,8 +13,8 @@ import { CoreFeed, FeedPost, PaginatedFeedResult, UserLookupData } from "types/i
 @injectable()
 export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersonalizedFeedQuery, any> {
 	constructor(
-		@inject("PostRepository") private postRepository: PostRepository,
-		@inject("UserRepository") private userRepository: UserRepository,
+		@inject("PostReadRepository") private postReadRepository: IPostReadRepository,
+		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
@@ -65,7 +64,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 	// new user - discovery/trending feed (getRankedFeed)
 	// established user - posts from following + tag preferences (getFeedForUserCore)
 	private async generateCoreFeed(userId: string, safePage: number, safeLimit: number): Promise<CoreFeed> {
-		const user = await this.userRepository.findByPublicId(userId);
+		const user = await this.userReadRepository.findByPublicId(userId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
@@ -87,10 +86,10 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 				}
 			}
 
-			return this.postRepository.getRankedFeed(favoriteTags, safeLimit, skip);
+			return this.postReadRepository.getRankedFeed(favoriteTags, safeLimit, skip);
 		}
 
-		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, safeLimit, skip);
+		return this.postReadRepository.getFeedForUserCore(followingIds, favoriteTags, safeLimit, skip);
 	}
 
 	// enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
@@ -106,7 +105,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
 
 		if (!userData) {
-			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
+			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
 			// cache with user-specific tags for avatar invalidation
 			const userTags = userPublicIds.map((id) => `user_data:${id}`);
 			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache

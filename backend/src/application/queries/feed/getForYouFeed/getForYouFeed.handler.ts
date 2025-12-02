@@ -1,8 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetForYouFeedQuery } from "./getForYouFeed.query";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
 import { UserPreferenceRepository } from "../../../../repositories/userPreference.repository";
 import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
@@ -13,8 +12,8 @@ import { FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQuery, PaginatedFeedResult> {
 	constructor(
-		@inject("PostRepository") private postRepository: PostRepository,
-		@inject("UserRepository") private userRepository: UserRepository,
+		@inject("PostReadRepository") private postReadRepository: IPostReadRepository,
+		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("EventBus") private eventBus: EventBus
@@ -32,7 +31,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 			if (postIds.length > 0) {
 				redisLogger.info(`For You feed ZSET HIT`, { userId, postCount: postIds.length });
 				// fetch post details individually (TODO: add batch fetch to PostRepository)
-				const postPromises = postIds.map((id) => this.postRepository.findByPublicId(id));
+				const postPromises = postIds.map((id) => this.postReadRepository.findByPublicId(id));
 				const postsResults = await Promise.all(postPromises);
 				const posts = postsResults.filter((p) => p !== null);
 				const transformedPosts = this.transformPosts(posts);
@@ -121,14 +120,14 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 	}
 
 	private async generateForYouFeed(userId: string, page: number, limit: number) {
-		const user = await this.userRepository.findByPublicId(userId);
+		const user = await this.userReadRepository.findByPublicId(userId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
 		const topTags = await this.userPreferenceRepository.getTopUserTags(String(user._id));
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
-		return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
+		return this.postReadRepository.getRankedFeed(favoriteTags, limit, skip);
 	}
 
 	private async enrichFeedWithCurrentData(coreFeedData: any[]): Promise<FeedPost[]> {
@@ -143,7 +142,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
 
 		if (!userData) {
-			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
+			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
 			// cache with user-specific tags for avatar invalidation
 			const userTags = userPublicIds.map((id) => `user_data:${id}`);
 			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache

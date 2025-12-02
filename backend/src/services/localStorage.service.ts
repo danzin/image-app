@@ -8,9 +8,8 @@ import { createError } from "../utils/errors";
 @injectable()
 export class LocalStorageService implements IImageStorageService {
 	private uploadsDir: string;
-	private isAdminFlag: boolean;
+
 	constructor() {
-		this.isAdminFlag = false;
 		this.uploadsDir = path.join(process.cwd(), "uploads");
 		if (!fs.existsSync(this.uploadsDir)) {
 			fs.mkdirSync(this.uploadsDir, { recursive: true });
@@ -97,50 +96,12 @@ export class LocalStorageService implements IImageStorageService {
 		}
 	}
 
-	// async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
-	// 	if (!this.isLocalUrl(url)) {
-	// 		console.log(`Skipping deletion of non-local URL: ${url}`);
-	// 		return { result: "skipped" };
-	// 	}
-
-	// 	try {
-	// 		console.log("URL of image about to delete:", url);
-
-	// 		// validate username is a proper UUID v4
-	// 		const safeUsername = this.validateUserId(username);
-
-	// 		// extract publicId from URL
-	// 		const publicId = this.extractPublicId(url);
-	// 		if (!publicId) {
-	// 			throw createError("StorageError", "Could not extract publicId from URL");
-	// 		}
-
-	// 		// validate filename format
-	// 		const safeFileName = this.validateFileName(publicId);
-
-	// 		// safely join paths with traversal protection
-	// 		const assetPath = this.safeJoin(this.uploadsDir, safeUsername, safeFileName);
-
-	// 		await fs.promises.unlink(assetPath);
-	// 		return { result: "ok" };
-	// 	} catch (error) {
-	// 		console.error("Error deleting asset:", error);
-	// 		if (error instanceof Error) {
-	// 			throw createError("StorageError", error.message);
-	// 		} else {
-	// 			throw createError("StorageError", String(error));
-	// 		}
-	// 	}
-	// }
-
-	async deleteAssetByUrl(requesterPublicId: string, ownerPublicId: string, url: string): Promise<{ result: string }> {
-		if (!requesterPublicId) throw createError("AuthError", "Missing requester identity");
-
-		// ownership enforcement: allow if requester == owner OR requester is admin
-		if (requesterPublicId !== ownerPublicId && !this.isAdmin(requesterPublicId)) {
-			throw createError("ForbiddenError", "Not allowed to delete another user's asset");
-		}
-
+	/**
+	 * Delete an asset by URL
+	 * Authorization must be handled by the calling handler/service BEFORE invoking this method
+	 * This service only handles file operations, not permission checks
+	 */
+	async deleteAssetByUrl(_requesterPublicId: string, ownerPublicId: string, url: string): Promise<{ result: string }> {
 		// parse & decode URL robustly
 		const parsed = (() => {
 			try {
@@ -270,13 +231,9 @@ export class LocalStorageService implements IImageStorageService {
 		return resolvedPath;
 	}
 
-	private isAdmin(userId: string): boolean {
-		return this.isAdminFlag;
-	}
-
 	private extractPublicId(url: string): string | null {
 		try {
-			// If url is absolute, parse; if relative, prepend origin so URL works
+			// if url is absolute, parse; if relative, prepend origin so URL works
 			const parsed = new URL(url, "http://localhost");
 			const pathname = decodeURIComponent(parsed.pathname);
 			const match = pathname.match(/\/uploads\/[^\/]+\/([^\/]+)$/);
@@ -284,9 +241,5 @@ export class LocalStorageService implements IImageStorageService {
 		} catch {
 			return null;
 		}
-	}
-
-	private isLocalUrl(url: string): boolean {
-		return url.startsWith("http://localhost:3000/uploads/") || url.startsWith("/uploads/");
 	}
 }
