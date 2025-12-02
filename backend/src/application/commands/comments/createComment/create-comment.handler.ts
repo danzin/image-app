@@ -3,9 +3,10 @@ import { inject, injectable } from "tsyringe";
 import { CreateCommentCommand } from "./createComment.command";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "../../../../repositories/comment.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
@@ -19,9 +20,10 @@ import mongoose from "mongoose";
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
@@ -65,12 +67,12 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		try {
 			console.log(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
 
-			const user = await this.userRepository.findByPublicId(command.userPublicId);
+			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
 				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 			}
 
-			const post = await this.postRepository.findByPublicId(command.postPublicId);
+			const post = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!post) {
 				throw createError("NotFoundError", `Post with publicId ${command.postPublicId} not found`);
 			}
@@ -95,7 +97,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				createdComment = await this.commentRepository.create(safePayload as Partial<IComment>, session);
 
 				// Increment comment count on post
-				await this.postRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
+				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
@@ -127,7 +129,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
 					console.log(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
-					const mentionedUsers = await this.userRepository.findUsersByUsernames(uniqueMentions);
+					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
 					console.log(`[CreateComment] Found ${mentionedUsers.length} users`);
 
 					for (const mentionedUser of mentionedUsers) {

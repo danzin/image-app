@@ -9,14 +9,8 @@ import { UnitOfWork } from "../database/UnitOfWork";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
 
-import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
+import { DTOService, PublicUserDTO } from "./dto.service";
 
-// TODO: REFACTOR AND REMOVE OLD METHODS, MOVE ADMIN METHODS TO ADMIN SERVICE
-
-/**
- * UserService handles all user-related operations, including authentication, profile updates,
- * and interactions such as following and liking images.
- */
 @injectable()
 export class UserService {
 	constructor(
@@ -49,12 +43,6 @@ export class UserService {
 		}
 	}
 
-	async getPublicProfileByPublicId(publicId: string): Promise<PublicUserDTO> {
-		const user = await this.getUserByPublicId(publicId);
-		const enrichedUser = await this.attachPostCount(user);
-		return this.dtoService.toPublicDTO(enrichedUser);
-	}
-
 	/**
 	 * Gets user profile by username (for SEO-friendly profile URLs)
 	 */
@@ -68,127 +56,6 @@ export class UserService {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", errorMessage);
-		}
-	}
-
-	async getPublicProfileByUsername(username: string): Promise<PublicUserDTO> {
-		const user = await this.getUserByUsername(username);
-		const enrichedUser = await this.attachPostCount(user);
-		return this.dtoService.toPublicDTO(enrichedUser);
-	}
-
-	/**
-	 * Updates a user's profile details by public identifier.
-	 */
-	async updateProfileByPublicId(
-		publicId: string,
-		userData: Partial<IUser>,
-		requestingUser?: IUser
-	): Promise<PublicUserDTO | AdminUserDTO> {
-		const targetUser = await this.userRepository.findByPublicId(publicId);
-		if (!targetUser) {
-			throw createError("NotFoundError", "User not found");
-		}
-
-		const allowedUpdates: Record<string, unknown> = {};
-		if (typeof userData.username === "string") {
-			const trimmed = userData.username.trim();
-			if (trimmed && trimmed !== targetUser.username) {
-				allowedUpdates.username = trimmed;
-			}
-		}
-		if (typeof userData.bio === "string") {
-			allowedUpdates.bio = userData.bio.trim();
-		}
-
-		if (Object.keys(allowedUpdates).length === 0) {
-			throw createError("ValidationError", "No valid fields provided for update");
-		}
-
-		let updatedUser: IUser | null = null;
-		await this.unitOfWork.executeInTransaction(async (session) => {
-			updatedUser = await this.userRepository.update(targetUser.id, { $set: allowedUpdates }, session);
-			if (!updatedUser) {
-				throw createError("NotFoundError", "User not found during update");
-			}
-			await this.userActionRepository.logAction(targetUser.id, "profile_update", targetUser.id, session);
-		});
-
-		if (!updatedUser) {
-			throw createError("InternalServerError", "Profile update failed unexpectedly");
-		}
-
-		const enrichedUser = await this.attachPostCount(updatedUser);
-		return requestingUser?.isAdmin
-			? this.dtoService.toAdminDTO(enrichedUser)
-			: this.dtoService.toPublicDTO(enrichedUser);
-	}
-
-	/**
-	 * Changes the password for a user identified by publicId after validating the current password.
-	 */
-
-	// TODO: REMEMBER TO MAKE PASSWORD MINIMUM 8 CHARACTERS LONG LATER
-	async changePasswordByPublicId(publicId: string, currentPassword: string, newPassword: string): Promise<void> {
-		if (!newPassword || newPassword.length < 3) {
-			throw createError("ValidationError", "Password must be at least 3 characters long");
-		}
-		if (currentPassword === newPassword) {
-			throw createError("ValidationError", "New password must be different from the current password");
-		}
-
-		await this.unitOfWork.executeInTransaction(async (session) => {
-			const user = await this.userModel
-				.findOne({ publicId })
-				.select("+password")
-				.session(session ?? undefined)
-				.exec();
-			if (!user) {
-				throw createError("NotFoundError", "User not found");
-			}
-			if (typeof user.comparePassword !== "function") {
-				throw createError("InternalServerError", "Password comparison not available for user");
-			}
-			const passwordMatches = await user.comparePassword(currentPassword);
-			if (!passwordMatches) {
-				throw createError("AuthenticationError", "Current password is incorrect");
-			}
-
-			await this.userRepository.update(user.id, { $set: { password: newPassword } }, session);
-			await this.userActionRepository.logAction(user.id, "password_change", user.id, session);
-		});
-	}
-
-	/**
-	 * Retrieves a user by ID.
-	 * If the requesting user is an admin, it returns an admin DTO; otherwise, it returns a public DTO.
-	 * @param id - The ID of the user to retrieve.
-	 * @param requestingUser - (Optional) The user making the request (used to determine admin privileges).
-	 * @returns The user's data in either admin or public DTO format.
-	 * @throws NotFoundError if the user is not found.
-	 */
-	async getUserById(id: string, requestingUser?: IUser): Promise<PublicUserDTO | AdminUserDTO> {
-		try {
-			const user = await this.userRepository.findById(id);
-			if (!user) {
-				throw createError("NotFoundError", "User not found");
-			}
-			const enrichedUser = await this.attachPostCount(user);
-
-			// Return admin DTO if requesting user is admin
-			if (requestingUser?.isAdmin) {
-				return this.dtoService.toAdminDTO(enrichedUser);
-			}
-			return this.dtoService.toPublicDTO(enrichedUser);
-		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
-				);
-			} else {
-				throw createError("InternalServerError", "An unknown error occurred.");
-			}
 		}
 	}
 
@@ -211,79 +78,6 @@ export class UserService {
 	}
 
 	// === ADMIN METHODS ===
-
-	/**
-	 * Gets detailed statistics for a specific user
-	 */
-
-	/**
-	 * Retrieves a paginated list of all users, including admin details.
-	 * Converts user data into admin DTO format before returning.
-	 * @param options - Pagination options (page number, limit, sorting).
-	 * @returns A paginated result containing users in admin DTO format.
-	 */
-	async getAllUsersAdmin(options: PaginationOptions): Promise<PaginationResult<AdminUserDTO>> {
-		const result = await this.userRepository.findWithPagination(options);
-
-		return {
-			data: result.data.map((user) => this.dtoService.toAdminDTO(user)),
-			total: result.total,
-			page: result.page,
-			limit: result.limit,
-			totalPages: result.totalPages,
-		};
-	}
-
-	async getAdminUserProfile(publicId: string): Promise<AdminUserDTO> {
-		const user = await this.getUserByPublicId(publicId);
-		const enrichedUser = await this.attachPostCount(user);
-		return this.dtoService.toAdminDTO(enrichedUser);
-	}
-
-	/**
-	 * Gets recent user activity for admin dashboard
-	 */
-	async getRecentActivity(options: PaginationOptions) {
-		const activities = await this.userActionRepository.findWithPagination({
-			...options,
-			sortBy: "timestamp",
-			sortOrder: "desc",
-		});
-
-		// transform the data to match frontend expectations
-		const transformedData = activities.data.map((activity: any) => ({
-			userId: activity.userId?._id?.toString() || activity.userId?.toString() || "",
-			username: activity.userId?.username || "Unknown",
-			action: activity.actionType || "unknown",
-			targetType: this.getTargetType(activity.actionType),
-			targetId: activity.targetId?.toString() || "",
-			timestamp: activity.timestamp || new Date(),
-		}));
-
-		return {
-			data: transformedData,
-			total: activities.total,
-			page: activities.page,
-			limit: activities.limit,
-			totalPages: activities.totalPages,
-		};
-	}
-
-	/**
-	 * Helper to determine target type from action type
-	 */
-	private getTargetType(actionType: string): string {
-		const actionMap: Record<string, string> = {
-			upload: "image",
-			like: "image",
-			comment: "image",
-			follow: "user",
-			unfollow: "user",
-			favorite: "image",
-			unfavorite: "image",
-		};
-		return actionMap[actionType] || "unknown";
-	}
 
 	async getUserStats(userId: string) {
 		const user = await this.userRepository.findById(userId);
@@ -313,36 +107,6 @@ export class UserService {
 		};
 	}
 
-	// PublicId wrapper for stats
-	async getUserStatsByPublicId(publicId: string) {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.getUserStats(user.id);
-	}
-
-	async banUserByPublicId(publicId: string, adminPublicId: string, reason: string): Promise<any> {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) {
-			throw createError("NotFoundError", "User not found");
-		}
-		const adminInternalId = await this.userRepository.findInternalIdByPublicId(adminPublicId);
-		if (!adminInternalId) throw createError("NotFoundError", "Admin not found");
-		const updatedUser = await this.userRepository.update(String(user._id), {
-			isBanned: true,
-			bannedAt: new Date(),
-			bannedReason: reason,
-			bannedBy: adminInternalId,
-		});
-		if (!updatedUser) {
-			throw createError("InternalServerError", "Failed to update user during ban");
-		}
-		const enrichedUser = await this.attachPostCount(updatedUser);
-		return { message: "User banned successfully", user: this.dtoService.toAdminDTO(enrichedUser) };
-	}
-
-	/**
-	 * Unbans a user
-	 */
 	async unbanUser(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -361,12 +125,6 @@ export class UserService {
 		return this.dtoService.toAdminDTO(enrichedUser);
 	}
 
-	async unbanUserByPublicId(publicId: string) {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.unbanUser(user.id);
-	}
-
 	async promoteToAdmin(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -383,12 +141,6 @@ export class UserService {
 		return this.dtoService.toAdminDTO(enrichedUser);
 	}
 
-	async promoteToAdminByPublicId(publicId: string) {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.promoteToAdmin(user.id);
-	}
-
 	async demoteFromAdmin(userId: string) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
@@ -403,12 +155,6 @@ export class UserService {
 		}
 		const enrichedUser = await this.attachPostCount(updatedUser);
 		return this.dtoService.toAdminDTO(enrichedUser);
-	}
-
-	async demoteFromAdminByPublicId(publicId: string) {
-		const user = await this.userRepository.findByPublicId(publicId);
-		if (!user) throw createError("NotFoundError", "User not found");
-		return this.demoteFromAdmin(user.id);
 	}
 
 	private async attachPostCount(user: IUser): Promise<IUser> {
@@ -429,19 +175,6 @@ export class UserService {
 		}
 		if (typeof user.followingCount !== "number" || !Number.isFinite(user.followingCount)) {
 			user.followingCount = 0;
-		}
-	}
-
-	/**
-	 * Checks if current user is following another user by public ID
-	 */
-	async checkFollowStatusByPublicId(followerPublicId: string, targetPublicId: string): Promise<boolean> {
-		try {
-			const isFollowing = await this.followRepository.isFollowingByPublicId(followerPublicId, targetPublicId);
-			return isFollowing;
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			throw createError("InternalServerError", errorMessage);
 		}
 	}
 }

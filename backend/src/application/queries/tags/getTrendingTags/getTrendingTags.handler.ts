@@ -2,7 +2,7 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetTrendingTagsQuery } from "./getTrendingTags.query";
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "../../../../services/redis.service";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces";
 import { createError } from "../../../../utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "types/index";
 
@@ -12,7 +12,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	private readonly CACHE_TTL = 900; // 15 minutes – balances freshness with expensive aggregation
 
 	constructor(
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
 		@inject("RedisService") private readonly redisService: RedisService
 	) {}
 
@@ -66,7 +66,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	 * sorts by recency and popularity
 	 */
 	private async computeTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]> {
-		const trendingTags = await this.postRepository.getTrendingTags(limit, timeWindowHours);
+		const trendingTags = await this.postReadRepository.getTrendingTags(limit, timeWindowHours);
 
 		console.log(`[GetTrendingTagsQuery] Found ${trendingTags.length} trending tags`);
 		if (trendingTags.length > 0) {

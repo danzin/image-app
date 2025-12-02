@@ -3,8 +3,6 @@ import { UserService } from "../services/user.service";
 import { AuthService } from "../services/auth.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
-import { FollowService } from "../services/follow.service";
-import { IUser } from "../types";
 import { cookieOptions } from "../config/cookieConfig";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
@@ -21,6 +19,12 @@ import { PublicUserDTO } from "../services/dto.service";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 import { FollowUserCommand } from "../application/commands/users/followUser/followUser.command";
 import { FollowUserResult } from "../application/commands/users/followUser/followUser.handler";
+import { UpdateProfileCommand } from "../application/commands/users/updateProfile/updateProfile.command";
+import { ChangePasswordCommand } from "../application/commands/users/changePassword/changePassword.command";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByPublicIdQuery } from "../application/queries/users/getUserByPublicId/getUserByPublicId.query";
+import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.query";
+import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -41,7 +45,6 @@ export class UserController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
 		@inject("AuthService") private readonly authService: AuthService,
-		@inject("FollowService") private readonly followService: FollowService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -105,11 +108,9 @@ export class UserController {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			const updatedUser = await this.userService.updateProfileByPublicId(
-				decodedUser.publicId,
-				userData,
-				decodedUser as IUser
-			);
+
+			const command = new UpdateProfileCommand(decodedUser.publicId, userData);
+			const updatedUser = await this.commandBus.dispatch<PublicUserDTO>(command);
 			res.status(200).json(updatedUser);
 		} catch (error) {
 			next(error);
@@ -119,15 +120,17 @@ export class UserController {
 	changePassword = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const { currentPassword, newPassword } = req.body; // Already validated by Zod middleware
+			const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
 
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.changePasswordByPublicId(decodedUser.publicId, currentPassword, newPassword);
 
-			// res.clearCookie('token'); // Might clear cookies on password change to force re-login
+			const command = new ChangePasswordCommand(decodedUser.publicId, currentPassword, newPassword);
+			await this.commandBus.dispatch(command);
+
+			// res.clearCookie('token'); // might clear cookies on password change to force re-login
 
 			res.status(200).json({ message: "Password changed successfully." });
 		} catch (error) {
@@ -176,7 +179,8 @@ export class UserController {
 	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { username } = req.params;
-			const userDTO = await this.userService.getPublicProfileByUsername(username);
+			const query = new GetUserByUsernameQuery(username);
+			const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
 			res.status(200).json(userDTO);
 		} catch (error) {
@@ -193,7 +197,8 @@ export class UserController {
 	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const userDTO = await this.userService.getPublicProfileByPublicId(publicId);
+			const query = new GetUserByPublicIdQuery(publicId);
+			const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
 			res.status(200).json(userDTO);
 		} catch (error) {
@@ -280,7 +285,8 @@ export class UserController {
 				return;
 			}
 
-			const isFollowing = await this.userService.checkFollowStatusByPublicId(followerPublicId, publicId);
+			const query = new CheckFollowStatusQuery(followerPublicId, publicId);
+			const isFollowing = await this.queryBus.execute<boolean>(query);
 			res.status(200).json({ isFollowing });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -310,22 +316,13 @@ export class UserController {
 		}
 	};
 
-	//User getters
+	// user getters
 	getUsers = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const options = { ...req.query } as any;
-			const result = await this.userService.getUsers(options);
+			const query = new GetUsersQuery(options);
+			const result = await this.queryBus.execute(query);
 			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
-
-	getUserById = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { decodedUser } = req;
-			const user = await this.userService.getUserById(req.params.userId, decodedUser as IUser);
-			res.status(200).json(user);
 		} catch (error) {
 			next(error);
 		}

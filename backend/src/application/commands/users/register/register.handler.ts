@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import jwt from "jsonwebtoken";
 import { createError } from "../../../../utils/errors";
 import { ICommandHandler } from "../../../../application/common/interfaces/command-handler.interface";
@@ -15,14 +15,14 @@ export interface RegisterUserResult {
 @injectable()
 export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserCommand, RegisterUserResult> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 	// Trying and keeping the logic from my current userservice method, see how it goes
 
 	async execute(command: RegisterUserCommand): Promise<RegisterUserResult> {
 		try {
-			const user = await this.userRepository.create({
+			const user = await this.userWriteRepository.create({
 				username: command.username,
 				email: command.email,
 				password: command.password,
@@ -48,7 +48,7 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 	 */
 	private generateToken(user: IUser): string {
 		const payload = {
-			id: user.publicId,
+			publicId: user.publicId,
 			email: user.email,
 			username: user.username,
 			isAdmin: user.isAdmin,

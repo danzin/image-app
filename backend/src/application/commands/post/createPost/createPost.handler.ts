@@ -4,8 +4,10 @@ import mongoose, { ClientSession } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { CreatePostCommand } from "./createPost.command";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import { TagService } from "../../../../services/tag.service";
 import { ImageService } from "../../../../services/image.service";
 import { RedisService } from "../../../../services/redis.service";
@@ -25,8 +27,10 @@ const MAX_BODY_LENGTH = 300;
 export class CreatePostCommandHandler implements ICommandHandler<CreatePostCommand, PostDTO> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("ImageService") private readonly imageService: ImageService,
 		@inject("RedisService") private readonly redisService: RedisService,
@@ -64,7 +68,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				});
 
 				const post = await this.createPost(user, internalUserId, normalizedBody, tagIds, imageSummary, session);
-				await this.userRepository.update(user.id, { $inc: { postCount: 1 } }, session);
+				await this.userWriteRepository.update(user.id, { $inc: { postCount: 1 } }, session);
 
 				// Handle mentions
 				const mentionRegex = /@(\w+)/g;
@@ -75,7 +79,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
-					const mentionedUsers = await this.userRepository.findUsersByUsernames(uniqueMentions);
+					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
 
 					console.log(`[CreatePost] Found users for mentions: ${mentionedUsers.length}`);
 
@@ -124,7 +128,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	}
 
 	private async validateUser(publicId: string): Promise<any> {
-		const user = await this.userRepository.findByPublicId(publicId);
+		const user = await this.userReadRepository.findByPublicId(publicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
@@ -225,7 +229,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		const safePayload = sanitizeForMongo(payload);
 		console.log("Safe post payload:", safePayload);
 
-		return await this.postRepository.create(safePayload as unknown as IPost, session);
+		return await this.postWriteRepository.create(safePayload as unknown as IPost, session);
 	}
 
 	private generatePostSlug(body: string): string {
@@ -239,7 +243,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	}
 
 	private async finalizePost(result: { post: IPost; user: any; tagNames: string[] }): Promise<PostDTO> {
-		const hydratedPost = await this.postRepository.findByPublicId(result.post.publicId);
+		const hydratedPost = await this.postReadRepository.findByPublicId(result.post.publicId);
 		if (!hydratedPost) {
 			throw createError("NotFoundError", "Post not found after creation");
 		}

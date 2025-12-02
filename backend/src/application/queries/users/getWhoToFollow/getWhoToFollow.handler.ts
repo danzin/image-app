@@ -1,7 +1,7 @@
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetWhoToFollowQuery } from "./getWhoToFollow.query";
 import { inject, injectable } from "tsyringe";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces";
 import { RedisService } from "../../../../services/redis.service";
 import { createError } from "../../../../utils/errors";
 
@@ -25,7 +25,7 @@ export interface GetWhoToFollowResult {
 @injectable()
 export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQuery, GetWhoToFollowResult> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("RedisService") private readonly redisService: RedisService
 	) {}
 
@@ -42,13 +42,13 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQ
 			}
 
 			// get current user's internal ID
-			const currentUser = await this.userRepository.findByPublicId(query.userPublicId);
+			const currentUser = await this.userReadRepository.findByPublicId(query.userPublicId);
 			if (!currentUser) {
 				throw createError("NotFoundError", "User not found");
 			}
 
 			// get suggestions from aggregation
-			const suggestions = await this.userRepository.getSuggestedUsersToFollow(String(currentUser._id), query.limit);
+			const suggestions = await this.userReadRepository.getSuggestedUsersToFollow(String(currentUser._id), query.limit);
 
 			const result: GetWhoToFollowResult = {
 				suggestions,

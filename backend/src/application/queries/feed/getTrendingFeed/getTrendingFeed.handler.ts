@@ -1,8 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetTrendingFeedQuery } from "./getTrendingFeed.query";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
 import { RedisService } from "../../../../services/redis.service";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
@@ -12,8 +11,8 @@ import { FeedPost, PaginatedFeedResult, UserLookupData, PostMeta } from "types/i
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {
 	constructor(
-		@inject("PostRepository") private postRepository: PostRepository,
-		@inject("UserRepository") private userRepository: UserRepository,
+		@inject("PostReadRepository") private postReadRepository: IPostReadRepository,
+		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("DTOService") private dtoService: DTOService
 	) {}
@@ -37,7 +36,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				redisLogger.info(`Trending feed ZSET HIT`, { postCount: postIds.length });
 
 				// fetch post details individually
-				const postPromises = postIds.map((id) => this.postRepository.findByPublicId(id));
+				const postPromises = postIds.map((id) => this.postReadRepository.findByPublicId(id));
 				// parallelizing I/O
 				const postsResults = await Promise.all(postPromises);
 
@@ -49,7 +48,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				// fallback: worker hasn't populated sorted set yet, use MongoDB sort
 				redisLogger.warn("trending:posts empty, falling back to MongoDB sort");
 				const skip = (page - 1) * limit;
-				const result = await this.postRepository.getTrendingFeed(limit, skip, {
+				const result = await this.postReadRepository.getTrendingFeed(limit, skip, {
 					timeWindowDays: 14,
 					minLikes: 1,
 				});
@@ -127,7 +126,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
 
 		if (!userData) {
-			userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
+			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
 			// cache with user-specific tags for avatar invalidation
 			const userTags = userPublicIds.map((id) => `user_data:${id}`);
 			await this.redisService.setWithTags(userDataKey, userData, userTags, 60);

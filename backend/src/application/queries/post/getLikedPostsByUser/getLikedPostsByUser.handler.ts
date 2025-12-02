@@ -2,8 +2,7 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetLikedPostsByUserQuery } from "./getLikedPostsByUser.query";
 import { inject, injectable } from "tsyringe";
 import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
 import { DTOService } from "../../../../services/dto.service";
 import { PaginationResult, PostDTO } from "../../../../types";
 import { createError } from "../../../../utils/errors";
@@ -12,15 +11,15 @@ import { createError } from "../../../../utils/errors";
 export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsByUserQuery, PaginationResult<PostDTO>> {
 	constructor(
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetLikedPostsByUserQuery): Promise<PaginationResult<PostDTO>> {
 		const { userPublicId, page, limit, viewerPublicId } = query;
 
-		const user = await this.userRepository.findByPublicId(userPublicId);
+		const user = await this.userReadRepository.findByPublicId(userPublicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
@@ -37,8 +36,8 @@ export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsBy
 			};
 		}
 
-		// Fetch posts by IDs
-		const posts = await this.postRepository.findPostsByIds(
+		// fetch posts by IDs
+		const posts = await this.postReadRepository.findPostsByIds(
 			postIds.map((id) => id.toString()),
 			viewerPublicId
 		);

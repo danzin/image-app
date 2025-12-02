@@ -2,7 +2,9 @@ import { inject, injectable } from "tsyringe";
 import * as fs from "fs";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { UpdateAvatarCommand } from "./updateAvatar.command";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
 import { IImageStorageService } from "../../../../types";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
@@ -10,13 +12,13 @@ import { RedisService } from "../../../../services/redis.service";
 import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { UserAvatarChangedEvent } from "../../../events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
 
 @injectable()
 export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarCommand, PublicUserDTO> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
 		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("EventBus") private readonly eventBus: EventBus,
@@ -29,7 +31,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			throw createError("ValidationError", "Avatar file is required");
 		}
 
-		const user = await this.userRepository.findByPublicId(command.userPublicId);
+		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
@@ -45,7 +47,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 				const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
 				newAvatarUrl = uploadResult.url;
 
-				await this.userRepository.updateAvatar(userId, newAvatarUrl, session);
+				await this.userWriteRepository.updateAvatar(userId, newAvatarUrl, session);
 
 				if (oldAvatarUrl) {
 					try {
@@ -65,12 +67,12 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			);
 			await this.eventBus.publish(avatarChangedEvent);
 
-			const updatedUser = await this.userRepository.findByPublicId(command.userPublicId);
+			const updatedUser = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!updatedUser) {
 				throw createError("NotFoundError", "User not found after avatar update");
 			}
 
-			const postCount = await this.postRepository.countDocuments({ user: updatedUser.id });
+			const postCount = await this.postReadRepository.countDocuments({ user: updatedUser.id });
 			(updatedUser as any).postCount = postCount;
 
 			return this.dtoService.toPublicDTO(updatedUser);
