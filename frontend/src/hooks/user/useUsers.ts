@@ -38,7 +38,8 @@ export const useCurrentUser = () => {
 	return useQuery<AuthenticatedUserDTO | AdminUserDTO>({
 		queryKey: ["currentUser"],
 		queryFn: ({ signal }) => fetchCurrentUser(signal),
-		staleTime: 6000,
+		staleTime: 0, // always consider stale so invalidation triggers refetch
+		refetchOnWindowFocus: true,
 	});
 };
 

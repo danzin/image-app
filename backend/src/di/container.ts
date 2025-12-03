@@ -90,8 +90,9 @@ import { LikeActionByPublicIdCommand } from "../application/commands/users/likeA
 import { LikeActionByPublicIdCommandHandler } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.handler";
 import { PostUploadHandler } from "../application/events/post/post-uploaded.handler";
 import { PostDeleteHandler } from "../application/events/post/post-deleted.handler";
-import { UserAvatarChangedEvent } from "../application/events/user/user-interaction.event";
+import { UserAvatarChangedEvent, UserUsernameChangedEvent } from "../application/events/user/user-interaction.event";
 import { UserAvatarChangedHandler } from "../application/events/user/user-avatar-change.handler";
+import { UserUsernameChangedHandler } from "../application/events/user/user-username-change.handler";
 import { RealTimeFeedService } from "../services/real-time-feed.service";
 import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
 import { CreateCommentCommandHandler } from "../application/commands/comments/createComment/create-comment.handler";
@@ -356,6 +357,7 @@ export function registerCQRS(): void {
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
 	container.register("UserAvatarChangedHandler", { useClass: UserAvatarChangedHandler });
+	container.register("UserUsernameChangedHandler", { useClass: UserUsernameChangedHandler });
 	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
 	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
 
@@ -448,6 +450,10 @@ export function initCQRS(): void {
 	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
 	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(
+		UserUsernameChangedEvent,
+		container.resolve<UserUsernameChangedHandler>("UserUsernameChangedHandler")
+	);
 	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
 	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
 	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));

@@ -24,6 +24,17 @@ export class UserAvatarChangedEvent implements IEvent {
 	) {}
 }
 
+export class UserUsernameChangedEvent implements IEvent {
+	readonly type = "UserUsernameChangedEvent";
+	readonly timestamp: Date = new Date();
+
+	constructor(
+		public readonly userPublicId: string,
+		public readonly oldUsername: string,
+		public readonly newUsername: string
+	) {}
+}
+
 export class UserCoverChangedEvent implements IEvent {
 	readonly type = "UserCoverChangedEvent";
 	readonly timestamp: Date = new Date();

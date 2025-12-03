@@ -118,7 +118,12 @@ export const useFeedSocketIntegration = () => {
 			console.log("Real-time: Avatar update received", data);
 
 			// Invalidate user data and any feed that shows avatars
+			const currentUser = queryClient.getQueryData<{ publicId?: string }>(["currentUser"]);
+			if (currentUser?.publicId === data.userId) {
+				queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+			}
 			queryClient.invalidateQueries({ queryKey: ["user", data.userId] });
+			queryClient.invalidateQueries({ queryKey: ["user", "publicId", data.userId] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });

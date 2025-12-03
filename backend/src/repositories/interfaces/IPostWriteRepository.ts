@@ -18,4 +18,15 @@ export interface IPostWriteRepository {
 
 	// bulk operations
 	deleteManyByUserId(userId: string, session?: ClientSession): Promise<number>;
+
+	// author snapshot sync
+	updateAuthorSnapshot(
+		userObjectId: mongoose.Types.ObjectId,
+		updates: {
+			username?: string;
+			avatarUrl?: string;
+			displayName?: string;
+			publicId?: string;
+		}
+	): Promise<number>;
 }

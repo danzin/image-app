@@ -21,6 +21,16 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	const [content, setContent] = useState<string>("");
 	const [tags, setTags] = useState<string[]>([]);
 
+	const BASE_URL = "/api";
+	const avatarPath = user?.avatar || "";
+	const fullAvatarUrl = avatarPath.startsWith("http")
+		? avatarPath
+		: avatarPath.startsWith("/")
+			? `${BASE_URL}${avatarPath}`
+			: avatarPath
+				? `${BASE_URL}/${avatarPath}`
+				: undefined;
+
 	if (!isLoggedIn) {
 		return null;
 	}
@@ -90,7 +100,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 		>
 			<Box sx={{ display: "flex", gap: 2 }}>
 				<Avatar
-					src={user?.avatar}
+					src={fullAvatarUrl}
 					alt={user?.username}
 					sx={{
 						width: 48,

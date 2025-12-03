@@ -20,7 +20,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 			const followerTags = [`user_feed:${event.userPublicId}`]; // User's own feed
 			await this.redis.invalidateByTags(followerTags);
 
-			// Publish real-time avatar update
+			// Publish real-time avatar update for connected clients
 			await this.redis.publish(
 				"feed_updates",
 				JSON.stringify({
@@ -31,6 +31,14 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 					timestamp: new Date().toISOString(),
 				})
 			);
+
+			// Publish to profile_snapshot_updates channel for background worker to update embedded author snapshots in posts
+			await this.redis.publish("profile_snapshot_updates", {
+				type: "avatar_changed",
+				userPublicId: event.userPublicId,
+				avatarUrl: event.newAvatarUrl ?? "",
+				timestamp: new Date().toISOString(),
+			});
 
 			console.log(`Smart cache invalidation completed for avatar change of user ${event.userPublicId}`);
 		} catch (error) {

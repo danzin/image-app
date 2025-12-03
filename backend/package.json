@@ -10,6 +10,9 @@
 		"start:trending-worker": "ts-node ./src/workers/trending.worker.ts",
 		"start:trending-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/trending.worker.ts",
 		"start:trending-worker:prod": "node ./dist/workers/trending.worker.js",
+		"start:profile-sync-worker": "ts-node ./src/workers/profile-sync.worker.ts",
+		"start:profile-sync-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/profile-sync.worker.ts",
+		"start:profile-sync-worker:prod": "node ./dist/workers/profile-sync.worker.js",
 		"seed:dev": "ts-node ./src/scripts/seed.ts --dev",
 		"seed:docker": "ts-node ./src/scripts/seed.ts --docker",
 		"build": "tsc"

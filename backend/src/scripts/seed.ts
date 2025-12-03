@@ -33,10 +33,10 @@ import { PublicUserDTO } from "../services/dto.service";
 import { setupContainerCore, registerCQRS, initCQRS } from "../di/container";
 
 const API_BASE_URL = "http://localhost:8000/api";
-const NUM_BOTS = 10;
+const NUM_BOTS = 15;
 const POSTS_PER_BOT = 5;
 const LIKES_PER_BOT = 10;
-const FOLLOWS_PER_BOT = 4;
+const FOLLOWS_PER_BOT = 5;
 const COMMENTS_PER_BOT = 5;
 // IMPORTANT: The script requires at least some sample images in the sample-images folder!
 
@@ -81,7 +81,7 @@ async function createBots() {
 		const password = "password123";
 
 		try {
-			const { data } = await axios.post(`${API_BASE_URL}/users/register`, {
+			await axios.post(`${API_BASE_URL}/users/register`, {
 				username,
 				email,
 				password,

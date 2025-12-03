@@ -3,7 +3,7 @@ import { container } from "tsyringe";
 import { UserActionService } from "../services/userAction.service";
 
 export function logUserAction(req: Request, res: Response, next: NextFunction): void {
-	const userId = req?.decodedUser?._id;
+	const userId = req?.decodedUser?.publicId;
 	const actionType = req.route.path;
 	const targetId = req.params.id;
 

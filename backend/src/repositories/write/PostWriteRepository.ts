@@ -40,4 +40,16 @@ export class PostWriteRepository implements IPostWriteRepository {
 	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
 		return this.postRepository.deleteManyByUserId(userId, session);
 	}
+
+	async updateAuthorSnapshot(
+		userObjectId: mongoose.Types.ObjectId,
+		updates: {
+			username?: string;
+			avatarUrl?: string;
+			displayName?: string;
+			publicId?: string;
+		}
+	): Promise<number> {
+		return this.postRepository.updateAuthorSnapshot(userObjectId, updates);
+	}
 }

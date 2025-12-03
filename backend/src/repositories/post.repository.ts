@@ -639,6 +639,46 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	/**
+	 * Updates the embedded author snapshot for all posts belonging to a user
+	 * Used by the profile sync worker when a user changes avatar or username
+	 */
+	async updateAuthorSnapshot(
+		userObjectId: mongoose.Types.ObjectId,
+		updates: {
+			username?: string;
+			avatarUrl?: string;
+			displayName?: string;
+			publicId?: string;
+		}
+	): Promise<number> {
+		try {
+			const setFields: Record<string, string> = {};
+			if (updates.username !== undefined) {
+				setFields["author.username"] = updates.username;
+			}
+			if (updates.avatarUrl !== undefined) {
+				setFields["author.avatarUrl"] = updates.avatarUrl;
+			}
+			if (updates.displayName !== undefined) {
+				setFields["author.displayName"] = updates.displayName;
+			}
+			if (updates.publicId !== undefined) {
+				setFields["author.publicId"] = updates.publicId;
+			}
+
+			if (Object.keys(setFields).length === 0) {
+				return 0;
+			}
+
+			const result = await this.model.updateMany({ "author._id": userObjectId }, { $set: setFields }).exec();
+
+			return result.modifiedCount || 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to update author snapshot");
+		}
+	}
+
 	private normalizeObjectId(id: string | mongoose.Types.ObjectId, field: string): mongoose.Types.ObjectId {
 		if (id instanceof mongoose.Types.ObjectId) {
 			return id;

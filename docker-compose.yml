@@ -136,6 +136,24 @@ services:
     networks:
       - app-network
 
+  profile-sync-worker:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    container_name: profile-sync-worker
+    restart: always
+    command: ["node", "backend/dist/workers/profile-sync.worker.js"]
+    environment: *backend-environment
+    depends_on:
+      mongo:
+        condition: service_healthy
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
   api-gateway:
     build:
       context: .

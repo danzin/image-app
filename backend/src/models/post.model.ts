@@ -101,7 +101,7 @@ postSchema.set("toJSON", {
 			ret.user = {
 				publicId: ret.author.publicId,
 				username: ret.author.username,
-				avatar: ret.author.avatarUrl,
+				avatarUrl: ret.author.avatarUrl,
 			};
 		}
 
