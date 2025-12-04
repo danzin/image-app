@@ -132,11 +132,19 @@ export class FeedService {
 
 	// === Misc ===
 
-	// Enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
-	// accepts options{ refreshUserData: boolean } to control whether to refresh user data or not
-	// in order to avoid rebuilding the entire feed for small changes like an avatar update
-	// Basically this separates the feed structure from the easily changed presentation data
-	// This should make the feed more responsive and efficient
+	/**
+	 * Enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
+	 * accepts options to control whether to refresh user data or not
+	 *
+	 * in order to avoid rebuilding the entire feed for small changes like an avatar update
+	 * Basically this separates the feed structure from the easily changed presentation data
+	 *
+	 * It should make the feed more responsive and efficient
+	 *
+	 * @param coreFeedData
+	 * @param options { refreshUserData: boolean }
+	 * @returns Promise<FeedPost[]>
+	 */
 	private async enrichFeedWithCurrentData(
 		coreFeedData: FeedPost[],
 		options: { refreshUserData: boolean } = { refreshUserData: true }
