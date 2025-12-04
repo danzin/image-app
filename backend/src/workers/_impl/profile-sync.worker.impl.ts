@@ -14,6 +14,7 @@ interface ProfileSnapshotMessage {
 }
 
 /**
+ * @class ProfileSyncWorker
  * Background worker responsible for propagating user profile changes (Avatar, Username)
  * to historical content.
  *
