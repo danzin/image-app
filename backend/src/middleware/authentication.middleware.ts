@@ -69,7 +69,7 @@ export class AuthenticationMiddleware {
 				console.log(`[AUTH] User authenticated: ${req.decodedUser.username} (${req.decodedUser.publicId})`);
 				next();
 			} catch (error) {
-				// Preserve original AppError with statusCode
+				// Preserve original AppError Wwith statusCode
 				if (
 					typeof error === "object" &&
 					error !== null &&
