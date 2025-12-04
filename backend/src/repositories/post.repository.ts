@@ -164,7 +164,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			// If viewerPublicId is provided, we could potentially add isLiked/isFavorited fields here
 			// but that logic is usually handled in the service/DTO layer or via separate lookups.
-			// For now, we just return the posts.
+			// For now, just return the posts.
 
 			const results = await this.model.aggregate(pipeline).exec();
 			return results;

@@ -14,15 +14,13 @@ interface NotificationHash extends RedisHash {
 }
 
 /**
- * Partial updates are done with SADD/SREM/SCARD which mutate members
- * directly without touching other entries which is O(1)
+ * Advanced Redis wrapper implementing Tag-based caching, Streams, and Pipelining.
  *
- * No more complex cleanup,TTLs handle cleanup naturally as tag TTLs will
- * expire orphaned entries
- *
- * Notifications now use List + Hash Pattern
- *
- * Feeds use Sorted Sets
+ * @description
+ * Implements a "Smart Cache" layer that solves the "Stale Data" problem in distributed systems.
+ * - **Tag-based Invalidation**: Maps logical tags (e.g., 'user:123') to sets of keys.
+ * - **Pipelines**: Uses Redis pipelines for atomicity on multi-step operations.
+ * - **Streams**: Implements consumer groups for high-throughput features.
  */
 
 @injectable()
@@ -168,8 +166,18 @@ export class RedisService {
 	}
 
 	/**
-	 * Set cache with tags for smart invalidation
-	 * cache key + all tag operations in single pipeline
+	 * Stores a value in the cache and associates it with invalidation tags using a Pipeline.
+	 *
+	 * @pattern Write-Behind / Smart Caching
+	 * @why Uses a pipeline to execute the SET and SADD (tag association) commands
+	 * atomically. This prevents race conditions where a cache key exists without
+	 * its corresponding invalidation tags.
+	 *
+	 * @param key - The main cache key (e.g., `user:profile:123`).
+	 * @param value - The data to store. Will be JSON stringified automatically.
+	 * @param tags - An array of string tags (e.g., `['user:123', 'feed:global']`) used for group invalidation.
+	 * @param ttl - (Optional) Time-to-live in seconds. Defaults to 600s.
+	 * @returns {Promise<void>} Resolves when the pipeline executes successfully.
 	 */
 	async setWithTags<T>(key: string, value: T, tags: string[], ttl?: number): Promise<void> {
 		if (tags.length === 0) {
@@ -214,8 +222,14 @@ export class RedisService {
 	}
 
 	/**
-	 * Smart invalidation invalidating cache by tags
-	 * batch fetch all tag members in single pipeline
+	 * Invalidates (deletes) all cache keys associated with the provided tags.
+	 *
+	 * @complexity O(N) where N is the number of keys linked to these tags.
+	 * @strategy Fan-out Invalidation. When a user creates a post, invalidate
+	 * 'user_feed:ID', 'global_feed', and 'tag:typescript' in one operation.
+	 *
+	 * @param tags - The list of tags to invalidate (e.g. `['user:123']`).
+	 * @returns {Promise<void>} Resolves after all associated keys have been deleted.
 	 */
 	async invalidateByTags(tags: string[]): Promise<void> {
 		if (tags.length === 0) return;
@@ -268,9 +282,16 @@ export class RedisService {
 	// ====== NOTIFICATIONS ======
 
 	/**
-	 * Push notification to user's list (FIFO queue)
-	 * stores metadata in separate hash for O(1) updates
-	 * uses LPUSH to add to the head
+	 * Pushes a notification to a user's list using a "List + Hash" pattern.
+	 *
+	 * @why Storing the full notification object in a List is inefficient for updates.
+	 * Instead, store ID references in a List (for O(1) insertion/pagination) and
+	 * the actual data in a Hash (for O(1) updates like 'mark as read').
+	 *
+	 * @param userId - The public ID of the user receiving the notification.
+	 * @param notification - The full notification object to be stored.
+	 * @param maxCount - (Optional) Max size of the list. Oldest items are trimmed. Default 200.
+	 * @returns {Promise<void>}
 	 */
 	async pushNotification(userId: string, notification: INotification, maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
@@ -570,7 +591,7 @@ export class RedisService {
 		for (const [k, v] of Object.entries(payload)) {
 			prepared[k] = typeof v === "string" ? v : JSON.stringify(v);
 		}
-		// The `xAdd` command is not part of the base `RedisClientType`, so we cast to any.
+		// The `xAdd` command is not part of the base `RedisClientType`, so just cast to any.
 		const id = await this.client.xAdd(stream, "*", prepared);
 		return id;
 	}
