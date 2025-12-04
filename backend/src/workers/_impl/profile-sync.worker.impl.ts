@@ -14,11 +14,14 @@ interface ProfileSnapshotMessage {
 }
 
 /**
- * Background worker that subscribes to profile_snapshot_updates channel
- * and updates embedded author snapshots in posts when users change their avatar or username
+ * Background worker responsible for propagating user profile changes (Avatar, Username)
+ * to historical content.
  *
- * This decouples the expensive bulk update from the main request/response cycle
- * Uses Redis Pub/Sub for simplicity (fire-and-forget, no persistence)
+ * @architecture Eventual Consistency / Fan-out on Read
+ * @problem Changing an avatar requires updating potentially thousands of old posts.
+ * Doing this synchronously in the request handler would cause high latency.
+ * @solution This worker listens for change events and performs bulk updates in the background.
+ * It effectively decouples the "User Write" from the "System Consistency" overhead.
  */
 export class ProfileSyncWorker {
 	private redisService!: RedisService;
@@ -72,6 +75,17 @@ export class ProfileSyncWorker {
 		console.info("[profile-sync] worker stopped");
 	}
 
+	/**
+	 * Handles incoming profile change events with In-Memory Debouncing.
+	 *
+	 * @pattern Debounce / Coalescing
+	 * @why If a user updates their profile 5 times in 1 second it shouldn't run
+	 * 5 heavy database updates. Store the latest state in a Map and
+	 * only flush to MongoDB once per interval.
+	 *
+	 * @param message - The raw Pub/Sub message containing the userPublicId and changed fields.
+	 * @returns {Promise<void>}
+	 */
 	private async handleMessage(message: ProfileSnapshotMessage): Promise<void> {
 		const { type, userPublicId, avatarUrl, username } = message;
 
@@ -91,6 +105,15 @@ export class ProfileSyncWorker {
 		this.pendingUpdates.set(userPublicId, existing);
 	}
 
+	/**
+	 * Executes the bulk update against MongoDB.
+	 *
+	 * @optimization Batch Processing
+	 * @strategy Flushes all pending updates in one loop to minimize database connection
+	 * overhead and index thrashing.
+	 *
+	 * @returns {Promise<void>} Resolves when the batch update is complete.
+	 */
 	private async flushPendingUpdates(): Promise<void> {
 		if (this.pendingUpdates.size === 0) return;
 
