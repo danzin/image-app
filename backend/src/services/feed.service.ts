@@ -11,6 +11,14 @@ import { EventBus } from "../application/common/buses/event.bus";
 import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "../types";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
 
+/**
+ * @class FeedService
+ * @description Manages the generation and delivery of various types of feeds,
+ * such as personalized, trending, and new feeds. It uses a two-layer approach
+ * (core feed and enrichment) to efficiently build and cache feeds. This service
+ * is responsible for pre-computing feeds ("fanout on write") for followers and
+ * handling real-time updates.
+ */
 @injectable()
 export class FeedService {
 	constructor(
@@ -24,12 +32,20 @@ export class FeedService {
 		@inject("EventBus") private eventBus: EventBus
 	) {}
 
-	// New partitioned implementation of core feed layer
-	// generates personalized feed based on user's following list
-	// in 2 layers: Core feed and Enrichment.
-	// This way when a user changes avatar, I don't rebuild the whole feed. Just refresh the user data layer
-	// The service implements "fanout on write" pattern for precomputing feeds for followers
-
+	/**
+	 * @description Generates a personalized feed for a user based on their followings and interests.
+	 * Implements a two-layer caching strategy:
+	 * 1.  **Core Feed:** Caches the basic structure (post IDs and order).
+	 * 2.  **Enrichment:** Fetches and caches fresh user and post metadata, which is then merged
+	 *     with the core feed. This separation prevents rebuilding the entire feed for minor
+	 *     updates like an avatar change.
+	 *
+	 * @param {string} userId - The public ID of the user requesting the feed.
+	 * @param {number} page - The page number for pagination.
+	 * @param {number} limit - The number of items per page.
+	 * @returns {Promise<PaginationResult<PostDTO>>} A paginated list of enriched post DTOs.
+	 * @throws {UnknownError} If the feed generation fails for any reason.
+	 */
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
 
@@ -67,9 +83,20 @@ export class FeedService {
 		}
 	}
 
-	// The feed builder.
-	// New user - Discovery/Trending feed(getRankedFeed)
-	// Established user - Images from following + tag preferences (getFeedForUserCore)
+	/**
+	 * @description Generates the core structure of a user's feed.
+	 * If the user is new (no followers or favorite tags), it returns a "discovery" feed of new posts.
+	 * If the user has established preferences, it builds a feed from posts by users they follow
+	 * and posts matching their favorite tags.
+	 * For new users, it also publishes a `ColdStartFeedGeneratedEvent`.
+	 *
+	 * @private
+	 * @param {string} userId - The public ID of the user.
+	 * @param {number} page - The page number for pagination.
+	 * @param {number} limit - The number of items per page.
+	 * @returns {Promise<CoreFeed>} The core feed structure, containing post IDs and minimal data.
+	 * @throws {NotFoundError} If the user is not found.
+	 */
 	private async generateCoreFeed(userId: string, page: number, limit: number): Promise<CoreFeed> {
 		const user = await this.userRepository.findByPublicId(userId);
 		if (!user) {
@@ -100,7 +127,15 @@ export class FeedService {
 
 	// === Specialized feeds ===
 
-	// Trending - ranked by popularity + recency
+	/**
+	 * @description Retrieves a trending feed ranked by popularity and recency
+	 * Results are cached to improve performance. The feed is enriched with current user and post
+	 * metadata before being returned.
+	 *
+	 * @param {number} page - The page number for pagination.
+	 * @param {number} limit - The number of items per page.
+	 * @returns {Promise<PaginationResult<PostDTO>>} A paginated list of trending post DTOs.
+	 */
 	public async getTrendingFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		const key = `trending_feed:${page}:${limit}`;
 		let cached = await this.redisService.getWithTags<CoreFeed>(key);
@@ -115,7 +150,14 @@ export class FeedService {
 		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
-	// New feed - sorted by recency
+	/**
+	 * @description Retrieves a feed of the newest posts, sorted by creation date.
+	 * Results are cached briefly. The feed is enriched with current user and post metadata.
+	 *
+	 * @param {number} page - The page number for pagination.
+	 * @param {number} limit - The number of items per page.
+	 * @returns {Promise<PaginationResult<PostDTO>>} A paginated list of new post DTOs.
+	 */
 	public async getNewFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		const key = `new_feed:${page}:${limit}`;
 		let cached = await this.redisService.getWithTags<CoreFeed>(key);
@@ -133,17 +175,16 @@ export class FeedService {
 	// === Misc ===
 
 	/**
-	 * Enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
-	 * accepts options to control whether to refresh user data or not
+	 * @description Enrichment layer that fetches current user data and dynamic post metadata (likes, comments).
+	 * This separation of data allows for efficient caching, preventing the need to rebuild the entire
+	 * feed for small changes like an avatar update. It conditionally refreshes user data based on
+	 * cache status to optimize performance.
 	 *
-	 * in order to avoid rebuilding the entire feed for small changes like an avatar update
-	 * Basically this separates the feed structure from the easily changed presentation data
-	 *
-	 * It should make the feed more responsive and efficient
-	 *
-	 * @param coreFeedData
-	 * @param options { refreshUserData: boolean }
-	 * @returns Promise<FeedPost[]>
+	 * @private
+	 * @param {FeedPost[]} coreFeedData - The core feed structure containing post IDs and user IDs.
+	 * @param {object} [options={ refreshUserData: true }] - Options to control data refreshing.
+	 * @param {boolean} options.refreshUserData - Whether to fetch fresh user data.
+	 * @returns {Promise<FeedPost[]>} A list of enriched feed posts with up-to-date metadata.
 	 */
 	private async enrichFeedWithCurrentData(
 		coreFeedData: FeedPost[],
@@ -207,10 +248,23 @@ export class FeedService {
 		});
 	}
 
+	/**
+	 * @description Maps an array of `FeedPost` objects to an array of `PostDTO` objects.
+	 * @private
+	 * @param {FeedPost[]} entries - The array of feed posts to map.
+	 * @returns {PostDTO[]} The resulting array of post DTOs.
+	 */
 	private mapToPostDTOArray(entries: FeedPost[]): PostDTO[] {
 		return entries.map((entry) => this.dtoService.toPostDTO(this.ensurePlain(entry)));
 	}
 
+	/**
+	 * @description Ensures that a given entry is a plain JavaScript object. If the entry is a
+	 * Mongoose document with a `toObject` method, it will be converted.
+	 * @private
+	 * @param {*} entry - The item to process.
+	 * @returns {FeedPost} The plain object representation of the entry.
+	 */
 	private ensurePlain(entry: any): FeedPost {
 		if (entry && typeof entry.toObject === "function") {
 			return entry.toObject() as FeedPost;
@@ -218,7 +272,16 @@ export class FeedService {
 		return entry as FeedPost;
 	}
 
-	// Real time invalidation
+	/**
+	 * @description Records a user interaction, updates tag preferences, invalidates relevant caches,
+	 * and publishes a real-time event.
+	 * @param {string} userPublicId - The public ID of the user performing the action.
+	 * @param {string} actionType - The type of action (e.g., "like", "comment").
+	 * @param {string} targetIdentifier - The public ID of the target entity (e.g., post).
+	 * @param {string[]} tags - An array of tags associated with the target, used for updating preferences.
+	 * @returns {Promise<void>}
+	 * @throws {NotFoundError} If the user is not found.
+	 */
 	public async recordInteraction(
 		userPublicId: string,
 		actionType: string,
@@ -284,8 +347,14 @@ export class FeedService {
 		console.log("Feed invalidation completed for user interaction");
 	}
 
+	//=== Post Meta Update Operations ===
+
 	/**
-	 * Update post meta cache after like/unlike without regenerating entire feed partition.
+	 * @description Updates the cached metadata for a post's like count and broadcasts the change
+	 * to connected clients for real-time updates.
+	 * @param {string} postPublicId - The public ID of the post to update.
+	 * @param {number} newTotalLikes - The new total number of likes.
+	 * @returns {Promise<void>}
 	 */
 	public async updatePostLikeMeta(postPublicId: string, newTotalLikes: number): Promise<void> {
 		const metaKey = `post_meta:${postPublicId}`;
@@ -318,7 +387,10 @@ export class FeedService {
 	}
 
 	/**
-	 * Update post meta meta cache after a view is recorded
+	 * @description Updates the cached metadata for a post's view count.
+	 * @param {string} postPublicId - The public ID of the post.
+	 * @param {number} newViewsCount - The new total view count.
+	 * @returns {Promise<void>}
 	 */
 	public async updatePostViewMeta(postPublicId: string, newViewsCount: number): Promise<void> {
 		const metaKey = `post_meta:${postPublicId}`;
@@ -340,7 +412,10 @@ export class FeedService {
 	}
 
 	/**
-	 * Update per post meta cache after comment count changes
+	 * @description Updates the cached metadata for a post's comment count.
+	 * @param {string} postPublicId - The public ID of the post.
+	 * @param {number} newCommentsCount - The new total comment count.
+	 * @returns {Promise<void>}
 	 */
 	public async updatePostCommentMeta(postPublicId: string, newCommentsCount: number): Promise<void> {
 		const metaKey = `post_meta:${postPublicId}`;
@@ -361,6 +436,12 @@ export class FeedService {
 		);
 	}
 
+	/**
+	 * @description Determines the scoer increment for a given user action type
+	 * @private
+	 * @param {"like" | "unlike"} actionType - The type of action performed.
+	 * @returns {number} The score increment or decrement. Returns 2 for "like", -2 for "unlike".
+	 */
 	private getScoreIncrementForAction(actionType: "like" | "unlike"): number {
 		const scoreMap: Record<"like" | "unlike", number> = {
 			like: 2,
@@ -372,7 +453,12 @@ export class FeedService {
 	// === Batch Feed Operations (for post creatring and deleting posts) ===
 
 	/**
-	 * Add post to followers' feeds in batch (when user creates post)
+	 * @description Adds a new post to the feeds of all followers of the author
+	 * This fan-out on write approach precomputes the feed for better read performance
+	 * @param {string} authorId public ID of the author
+	 * @param {string} postId id of the new post
+	 * @param {number} timestamp epoch time of post creation
+	 * @returns {Promise<void>}
 	 */
 	public async fanOutPostToFollowers(postId: string, authorId: string, timestamp: number): Promise<void> {
 		console.log(`Fanning out post ${postId} from author ${authorId} to followers`);
@@ -400,7 +486,10 @@ export class FeedService {
 	}
 
 	/**
-	 * Remove post from followers' feeds (when user deletes post)
+	 * @description Removes a deleted post from feeds of all followers of th author
+	 * @param {string} postId ID of the post to remove
+	 * @param {string} authorId Public ID of the author whose followers' feeds to update
+	 * @returns {Promise<void>}
 	 */
 	public async removePostFromFollowers(postId: string, authorId: string): Promise<void> {
 		console.log(`Removing post ${postId} from followers of ${authorId}`);
