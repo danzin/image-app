@@ -115,6 +115,8 @@ import { GetPostBySlugQuery } from "../application/queries/post/getPostBySlug/ge
 import { GetPostBySlugQueryHandler } from "../application/queries/post/getPostBySlug/getPostBySlug.handler";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
 import { GetPostsQueryHandler } from "../application/queries/post/getPosts/getPosts.handler";
+import { GetAllPostsAdminQuery } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.query";
+import { GetAllPostsAdminQueryHandler } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.handler";
 import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/getPostsByUser.query";
 import { GetPostsByUserQueryHandler } from "../application/queries/post/getPostsByUser/getPostsByUser.handler";
 import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
@@ -388,6 +390,7 @@ export function registerCQRS(): void {
 	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
 
 	// Admin query handlers
+	container.register("GetAllPostsAdminQueryHandler", { useClass: GetAllPostsAdminQueryHandler });
 	container.register("GetAllUsersAdminQueryHandler", { useClass: GetAllUsersAdminQueryHandler });
 	container.register("GetAdminUserProfileQueryHandler", { useClass: GetAdminUserProfileQueryHandler });
 	container.register("GetUserStatsQueryHandler", { useClass: GetUserStatsQueryHandler });
@@ -517,6 +520,10 @@ export function initCQRS(): void {
 	queryBus.register(GetFollowersQuery, container.resolve<GetFollowersQueryHandler>("GetFollowersQueryHandler"));
 	queryBus.register(GetFollowingQuery, container.resolve<GetFollowingQueryHandler>("GetFollowingQueryHandler"));
 
+	queryBus.register(
+		GetAllPostsAdminQuery,
+		container.resolve<GetAllPostsAdminQueryHandler>("GetAllPostsAdminQueryHandler")
+	);
 	queryBus.register(
 		GetAllUsersAdminQuery,
 		container.resolve<GetAllUsersAdminQueryHandler>("GetAllUsersAdminQueryHandler")

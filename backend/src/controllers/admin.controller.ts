@@ -5,7 +5,7 @@ import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
-import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
+import { GetAllPostsAdminQuery } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.query";
 import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
 import { DashboardStatsResult } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { PaginationResult, PostDTO } from "../types";
@@ -117,12 +117,12 @@ export class AdminUserController {
 			const { page, limit, sortBy, sortOrder } = req.query;
 			const options = {
 				page: page ? parseInt(page as string, 10) : 1,
-				limit: limit ? parseInt(limit as string, 10) : 20,
+				limit: limit ? parseInt(limit as string, 10) : 10,
 				sortBy: sortBy as string | undefined,
 				sortOrder: sortOrder as "asc" | "desc" | undefined,
 			};
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
-				new GetPostsQuery(options.page, options.limit)
+				new GetAllPostsAdminQuery(options.page, options.limit, options.sortBy, options.sortOrder)
 			);
 			res.status(200).json(posts);
 		} catch (error) {

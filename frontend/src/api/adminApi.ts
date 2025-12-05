@@ -1,5 +1,5 @@
 import axiosClient from "./axiosClient";
-import { AdminUserDTO, PaginatedResponse, IImage } from "../types";
+import { AdminUserDTO, PaginatedResponse, IPost } from "../types";
 
 export interface DashboardStats {
 	totalUsers: number;
@@ -84,7 +84,7 @@ export const fetchAllImagesAdmin = async (params: {
 	limit?: number;
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";
-}): Promise<PaginatedResponse<IImage>> => {
+}): Promise<PaginatedResponse<IPost>> => {
 	const { data } = await axiosClient.get("/api/admin/images", { params });
 	return data;
 };
