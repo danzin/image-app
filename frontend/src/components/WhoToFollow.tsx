@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography, Avatar, Button, Card, Skeleton, useTheme } from "@mui/material";
+import { Box, Typography, Avatar, Button, Skeleton, useTheme, ListItemButton, alpha } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useWhoToFollow } from "../hooks/user/useWhoToFollow";
 import { useFollowUser } from "../hooks/user/useUserAction";
@@ -37,28 +37,21 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 
 	if (isLoading) {
 		return (
-			<Card
-				sx={{
-					bgcolor: "background.paper",
-					borderRadius: 2,
-					p: 3,
-					boxShadow: theme.shadows[2],
-				}}
-			>
-				<Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-					Who to Follow
+			<Box sx={{ p: 2 }}>
+				<Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
+					Who to follow
 				</Typography>
 				{Array.from({ length: 3 }).map((_, index) => (
 					<Box key={index} sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-						<Skeleton variant="circular" width={48} height={48} />
+						<Skeleton variant="circular" width={40} height={40} />
 						<Box sx={{ ml: 2, flex: 1 }}>
-							<Skeleton variant="text" width="60%" height={24} />
-							<Skeleton variant="text" width="40%" height={20} />
+							<Skeleton variant="text" width="60%" height={20} />
+							<Skeleton variant="text" width="40%" height={16} />
 						</Box>
-						<Skeleton variant="rectangular" width={80} height={32} sx={{ borderRadius: 2 }} />
+						<Skeleton variant="rectangular" width={70} height={32} sx={{ borderRadius: 9999 }} />
 					</Box>
 				))}
-			</Card>
+			</Box>
 		);
 	}
 
@@ -66,7 +59,9 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 		return null;
 	}
 
-	const handleFollow = async (publicId: string) => {
+	const handleFollow = async (e: React.MouseEvent, publicId: string) => {
+		e.preventDefault();
+		e.stopPropagation();
 		const currentlyFollowing = followStates[publicId] || false;
 
 		try {
@@ -96,54 +91,41 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 		}
 	};
 	return (
-		<Card
-			sx={{
-				bgcolor: "background.paper",
-				borderRadius: 2,
-				p: 3,
-				boxShadow: theme.shadows[2],
-			}}
-		>
-			<Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: "text.primary" }}>
-				Who to Follow
+		<Box>
+			<Typography variant="h6" sx={{ mb: 1, px: 2, py: 1.5, fontWeight: 800 }}>
+				Who to follow
 			</Typography>
 
 			{data.suggestions.map((user: SuggestedUser) => (
-				<Box
+				<ListItemButton
+					component={Link}
+					to={`/profile/${user.username}`}
 					key={user.publicId}
 					sx={{
+						px: 2,
+						py: 1.5,
 						display: "flex",
 						alignItems: "center",
-						mb: 2,
-						"&:last-child": { mb: 0 },
+						"&:hover": {
+							backgroundColor: alpha(theme.palette.text.primary, 0.03),
+						},
 					}}
 				>
 					<Avatar
-						component={Link}
-						to={`/profile/${user.username}`}
 						src={user.avatar}
 						alt={user.username}
 						sx={{
-							width: 48,
-							height: 48,
-							cursor: "pointer",
-							transition: "transform 0.2s",
-							"&:hover": {
-								transform: "scale(1.05)",
-							},
+							width: 40,
+							height: 40,
 						}}
 					/>
 
-					<Box sx={{ ml: 2, flex: 1, minWidth: 0 }}>
+					<Box sx={{ ml: 1.5, flex: 1, minWidth: 0 }}>
 						<Typography
-							component={Link}
-							to={`/profile/${user.username}`}
 							variant="body1"
 							sx={{
-								fontWeight: 600,
+								fontWeight: 700,
 								color: "text.primary",
-								textDecoration: "none",
-								display: "block",
 								overflow: "hidden",
 								textOverflow: "ellipsis",
 								whiteSpace: "nowrap",
@@ -158,7 +140,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 							variant="body2"
 							sx={{
 								color: "text.secondary",
-								fontSize: "0.875rem",
+								fontSize: "0.9rem",
 								overflow: "hidden",
 								textOverflow: "ellipsis",
 								whiteSpace: "nowrap",
@@ -169,33 +151,32 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 					</Box>
 
 					<Button
-						onClick={() => handleFollow(user.publicId)}
+						onClick={(e) => handleFollow(e, user.publicId)}
 						disabled={followMutation.isPending}
 						variant={followStates[user.publicId] ? "outlined" : "contained"}
 						size="small"
 						sx={{
 							textTransform: "none",
-							fontWeight: 600,
-							borderRadius: 2,
+							fontWeight: 700,
+							borderRadius: 9999,
 							px: 2,
-							minWidth: 90,
-							bgcolor: followStates[user.publicId] ? "transparent" : "primary.main",
-							color: followStates[user.publicId] ? "primary.main" : "primary.contrastText",
-							borderColor: followStates[user.publicId] ? "primary.main" : "transparent",
+							minWidth: 78,
+							height: 32,
+							bgcolor: followStates[user.publicId] ? "transparent" : "common.white",
+							color: followStates[user.publicId] ? "text.primary" : "common.black",
+							borderColor: followStates[user.publicId] ? "divider" : "transparent",
 							"&:hover": {
-								bgcolor: followStates[user.publicId] ? "action.hover" : "primary.dark",
-								borderColor: "primary.main",
-							},
-							"&:disabled": {
-								opacity: 0.6,
+								bgcolor: followStates[user.publicId] ? "action.hover" : alpha(theme.palette.common.white, 0.9),
+								borderColor: followStates[user.publicId] ? "error.main" : "transparent",
+								color: followStates[user.publicId] ? "error.main" : "common.black",
 							},
 						}}
 					>
 						{followMutation.isPending ? "..." : followStates[user.publicId] ? "Unfollow" : "Follow"}
 					</Button>
-				</Box>
+				</ListItemButton>
 			))}
-		</Card>
+		</Box>
 	);
 };
 

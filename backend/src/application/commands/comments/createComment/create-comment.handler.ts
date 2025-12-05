@@ -1,28 +1,29 @@
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { CreateCommentCommand } from "./createComment.command";
-import { TransformedComment } from "../../../../repositories/comment.repository";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "../../../../repositories/comment.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { NotificationService } from "../../../../services/notification.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
-import { IComment } from "types/index";
+import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
 
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
@@ -31,11 +32,11 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 	/**
 	 * Handles the execution of the CreateCommentCommand.
 	 * Creates a comment, updates counts, sends notifications, and publishes events.
-	 * @param command - The command containing user ID, image public ID, and content.
+	 * @param command - The command containing user ID, image publicId, and content.
 	 * @returns The created comment object.
 	 */
 	async execute(command: CreateCommentCommand): Promise<TransformedComment> {
-		// Validate input
+		// Validate input straight away
 		if (typeof command.content !== "string") {
 			throw createError("ValidationError", "Comment content must be a string");
 		}
@@ -66,16 +67,14 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		try {
 			console.log(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
 
-			// Find user by public ID
-			const user = await this.userRepository.findByPublicId(command.userPublicId);
+			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with public ID ${command.userPublicId} not found`);
+				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 			}
 
-			// Find post by public ID
-			const post = await this.postRepository.findByPublicId(command.postPublicId);
+			const post = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!post) {
-				throw createError("NotFoundError", `Post with public ID ${command.postPublicId} not found`);
+				throw createError("NotFoundError", `Post with publicId ${command.postPublicId} not found`);
 			}
 
 			postTags = Array.isArray(post.tags) ? post.tags.map((t: any) => t.tag ?? t) : [];
@@ -98,11 +97,10 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				createdComment = await this.commentRepository.create(safePayload as Partial<IComment>, session);
 
 				// Increment comment count on post
-				await this.postRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
+				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
-					// get post preview
 					const postPreview = post.body
 						? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
 						: post.image
@@ -122,14 +120,54 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					});
 				}
 
-				// Queue event for feed interaction handling and real-time updates
+				// Handle mentions
+				const mentionRegex = /@(\w+)/g;
+				console.log(`[CreateComment] Content for mention parsing: "${safeContent}"`);
+				const mentions = [...safeContent.matchAll(mentionRegex)].map((match) => match[1]);
+				console.log(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
+
+				if (mentions.length > 0) {
+					const uniqueMentions = [...new Set(mentions)];
+					console.log(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
+					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
+					console.log(`[CreateComment] Found ${mentionedUsers.length} users`);
+
+					for (const mentionedUser of mentionedUsers) {
+						console.log(`[CreateComment] Checking user ${mentionedUser.username} (${mentionedUser.publicId})`);
+
+						// Filter: Remove comment author
+						if (mentionedUser.publicId === command.userPublicId) {
+							console.log(`[CreateComment] Skipping self-mention`);
+							continue;
+						}
+
+						// Filter: Remove post owner since I already notified them above
+						if (mentionedUser.publicId === postOwnerId) {
+							console.log(`[CreateComment] Skipping post owner (already notified)`);
+							continue;
+						}
+
+						console.log(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
+						await this.notificationService.createNotification({
+							receiverId: mentionedUser.publicId,
+							actionType: "mention",
+							actorId: command.userPublicId,
+							actorUsername: user.username,
+							actorAvatar: user.avatar,
+							targetId: command.postPublicId,
+							targetType: "post",
+							targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+							session,
+						});
+					}
+				}
+
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(command.userPublicId, "comment", sanitizedPostId, postTags, postOwnerId),
 					this.feedInteractionHandler
 				);
 			});
 
-			// Return the populated comment
 			const populatedComment = await this.commentRepository.findByIdTransformed(createdComment._id.toString());
 			if (!populatedComment) {
 				throw createError("InternalError", "Failed to retrieve created comment");

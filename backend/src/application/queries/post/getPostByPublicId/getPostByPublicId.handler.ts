@@ -1,9 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetPostByPublicIdQuery } from "./getPostByPublicId.query";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
-import { LikeRepository } from "../../../../repositories/like.repository";
+import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
 import { FavoriteRepository } from "../../../../repositories/favorite.repository";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
@@ -12,15 +10,14 @@ import { PostDTO } from "../../../../types";
 @injectable()
 export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPublicIdQuery, PostDTO> {
 	constructor(
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetPostByPublicIdQuery): Promise<PostDTO> {
-		const post = await this.postRepository.findByPublicId(query.publicId);
+		const post = await this.postReadRepository.findByPublicId(query.publicId);
 		if (!post) {
 			throw createError("NotFoundError", "Post not found");
 		}
@@ -30,11 +27,11 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 		// add viewer-specific fields if viewer is logged in
 		if (query.viewerPublicId) {
 			const postInternalId = (post as any)._id?.toString();
-			const viewerInternalId = await this.userRepository.findInternalIdByPublicId(query.viewerPublicId);
+			const viewerInternalId = await this.userReadRepository.findInternalIdByPublicId(query.viewerPublicId);
 
 			if (postInternalId && viewerInternalId) {
-				const likeRecord = await this.likeRepository.findByUserAndPost(viewerInternalId, postInternalId);
-				dto.isLikedByViewer = !!likeRecord;
+				const likes = Array.isArray((post as any).likes) ? (post as any).likes : [];
+				dto.isLikedByViewer = likes.some((likeEntry: any) => likeEntry?.toString?.() === viewerInternalId);
 
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;

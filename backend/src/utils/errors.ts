@@ -1,8 +1,41 @@
 import express from "express";
 import { errorLogger } from "./winston";
 
+// type guard interfaces for error handling
+export interface ErrorWithStatusCode extends Error {
+	statusCode: number;
+}
+
+export interface MongoDBDuplicateKeyError extends Error {
+	code: number;
+	keyValue: Record<string, unknown>;
+}
+
+// type guards for error checking
+export function isAppError(error: unknown): error is AppError {
+	return error instanceof AppError;
+}
+
+export function isErrorWithStatusCode(error: unknown): error is ErrorWithStatusCode {
+	return typeof error === "object" && error !== null && "statusCode" in error && error instanceof Error;
+}
+
+export function isMongoDBDuplicateKeyError(error: unknown): error is MongoDBDuplicateKeyError {
+	return (
+		typeof error === "object" &&
+		error !== null &&
+		"code" in error &&
+		(error as MongoDBDuplicateKeyError).code === 11000 &&
+		"keyValue" in error
+	);
+}
+
+export function isNamedError(error: unknown): error is Error {
+	return error instanceof Error && "name" in error;
+}
+
 //improved err factory
-class AppError extends Error {
+export class AppError extends Error {
 	public statusCode: number;
 	public context: any;
 	constructor(name: string, message: string, statusCode: number, context?: any) {
@@ -21,7 +54,7 @@ class ValidationError extends AppError {
 
 class UnauthorizedError extends AppError {
 	constructor(message: string) {
-		super("UnauthorizedError", message, 403);
+		super("UnauthorizedError", message, 401);
 	}
 }
 
@@ -97,6 +130,24 @@ class StorageError extends AppError {
 	}
 }
 
+class InternalError extends AppError {
+	constructor(message: string) {
+		super("InternalError", message, 500);
+	}
+}
+
+class ConfigError extends AppError {
+	constructor(message: string) {
+		super("ConfigError", message, 500);
+	}
+}
+
+class ConflictError extends AppError {
+	constructor(message: string) {
+		super("ConflictError", message, 409);
+	}
+}
+
 const errorMap: { [key: string]: new (message: string) => AppError } = {
 	ValidationError,
 	UnauthorizedError,
@@ -106,12 +157,15 @@ const errorMap: { [key: string]: new (message: string) => AppError } = {
 	ForbiddenError,
 	DuplicateError,
 	InternalServerError,
+	InternalError,
 	StorageError,
 	UnknownError,
 	TransactionError,
 	UoWError,
 	DatabaseError,
 	SecurityError,
+	ConfigError,
+	ConflictError,
 };
 
 export function createError(type: string, message: string, context?: any): AppError {
@@ -124,7 +178,7 @@ export function createError(type: string, message: string, context?: any): AppEr
 }
 
 export class ErrorHandler {
-	static handleError(err: AppError, req: express.Request, res: express.Response, next: express.NextFunction): void {
+	static handleError(err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction): void {
 		const response: any = {
 			type: err.name,
 			message: err.message,

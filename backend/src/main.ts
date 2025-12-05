@@ -1,14 +1,12 @@
-//enables the usage of decorators and metadata reflection in TypeScript
 import "reflect-metadata";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config({ path: "../.env" });
+console.log("MONGODB_URI in main:", process.env.MONGODB_URI);
 // Register global mongoose plugin before individual models
 mongoose.plugin((schema) => {
 	schema.set("toJSON", {
 		transform: (doc, ret: Record<string, any>) => {
-			// console.log('Global plugin transforming document:', ret);
-			// Only transform if _id exists (main documents have it, subdocuments might not)
 			if (ret._id) {
 				ret.id = ret._id.toString();
 				delete ret._id;
@@ -23,12 +21,12 @@ import { createServer } from "http";
 import { container } from "tsyringe";
 import { DatabaseConfig } from "./config/dbConfig";
 import { Server } from "./server/server";
-import { setupContainer } from "./di/container";
+import { setupContainerCore, registerCQRS, initCQRS } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
 import { RealTimeFeedService } from "./services/real-time-feed.service";
 import { errorLogger } from "./utils/winston";
 
-// Global error handlers for uncaught exceptions
+// Global error handlers
 process.on("uncaughtException", (error: Error) => {
 	errorLogger.error({
 		type: "UncaughtException",
@@ -53,17 +51,19 @@ process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
 
 async function bootstrap(): Promise<void> {
 	try {
-		// Connect to database
+		// make sure core registrations are in place
+		setupContainerCore();
 
-		// containter.resolve() asks the tsyringe DI container
-		// to construct the instance and automatically inject dependencies
-		// instead of new-ing it and injecting manually
+		// Register CQRS tokens
+
+		registerCQRS();
+
+		// Connect to database
 		const dbConfig = container.resolve(DatabaseConfig);
 		await dbConfig.connect();
 
-		// Setup dependency injection
-
-		setupContainer(); // Registers all deps in the DI container
+		// Now that DB connection is established, resolve & wire CQRS handlers (buses, handlers, subscriptions).
+		initCQRS();
 
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);

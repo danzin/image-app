@@ -2,7 +2,7 @@ import { Document } from "mongoose";
 
 export interface INotification extends Document {
 	userId: string; // receiver publicId
-	actionType: string; // like | comment | follow
+	actionType: string; // like | comment | follow | message | mention
 	actorId: string; // actor publicId
 	actorUsername?: string; // optional, provided by frontend or resolved from actorId
 	actorAvatar?: string; // actor avatar URL for quick display
@@ -11,4 +11,22 @@ export interface INotification extends Document {
 	targetPreview?: string; // preview text/snippet of the target content
 	isRead: boolean;
 	timestamp: Date;
+}
+
+// interface for notification plain object after toJSON()
+// all fields optional except the base ones that should always exist
+export interface NotificationPlain {
+	id?: string;
+	_id?: string;
+	$__?: unknown;
+	userId?: string;
+	actionType?: string;
+	actorId?: string;
+	actorUsername?: string;
+	actorAvatar?: string;
+	targetId?: string;
+	targetType?: string;
+	targetPreview?: string;
+	isRead?: boolean;
+	timestamp?: Date;
 }

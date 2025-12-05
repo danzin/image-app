@@ -17,10 +17,6 @@ export class CommentController {
 		@inject("CommandBus") private readonly commandBus: CommandBus
 	) {}
 
-	/**
-	 * Create a new comment on a post
-	 * POST /api/posts/:postPublicId/comments
-	 */
 	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { postPublicId } = req.params;
@@ -44,10 +40,6 @@ export class CommentController {
 		}
 	};
 
-	/**
-	 * Get comments for a post with pagination
-	 * GET /api/posts/:postPublicId/comments?page=1&limit=10
-	 */
 	getCommentsByPostId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { postPublicId } = req.params;
@@ -68,10 +60,6 @@ export class CommentController {
 		}
 	};
 
-	/**
-	 * Update comment content
-	 * PUT /api/comments/:commentId
-	 */
 	updateComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { commentId } = req.params;
@@ -93,10 +81,6 @@ export class CommentController {
 		}
 	};
 
-	/**
-	 * Delete a comment
-	 * DELETE /api/comments/:commentId
-	 */
 	deleteComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { commentId } = req.params;
@@ -120,20 +104,16 @@ export class CommentController {
 		}
 	};
 
-	/**
-	 * Get comments by user ID
-	 * GET /api/users/:userId/comments?page=1&limit=10
-	 */
 	getCommentsByUserId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { userId } = req.params;
+			const { publicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
 
 			// Limit max comments per page
-			const maxLimit = Math.min(limit, 50);
+			const maxLimit = Math.min(limit, 10);
 
-			const result = await this.commentService.getCommentsByUserId(userId, page, maxLimit);
+			const result = await this.commentService.getCommentsByUserPublicId(publicId, page, maxLimit);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {

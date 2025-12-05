@@ -54,7 +54,7 @@ export class TagService {
 			if (!tag) continue;
 			const existing = await this.tagRepository.findByTag(tag);
 			if (existing) {
-				ids.push((existing as any)._id.toString());
+				ids.push(existing._id.toString());
 			}
 		}
 

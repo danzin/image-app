@@ -1,25 +1,22 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import { container } from "tsyringe";
 import { createError } from "../utils/errors";
 import rateLimit from "express-rate-limit";
+import { DecodedUser, AdminContext } from "../types";
+import { IUserReadRepository } from "../repositories/interfaces/IUserReadRepository";
 
 declare global {
 	namespace Express {
 		interface Request {
-			decodedUser?: JwtPayload;
-			adminContext?: {
-				adminId: string;
-				adminUsername: string;
-				timestamp: Date;
-				ip?: string;
-				userAgent?: string;
-			};
+			decodedUser?: DecodedUser;
+			adminContext?: AdminContext;
 		}
 	}
 }
 
 export abstract class AuthStrategy {
-	abstract authenticate(req: Request): Promise<JwtPayload>;
+	abstract authenticate(req: Request): Promise<DecodedUser>;
 }
 
 export class BearerTokenStrategy extends AuthStrategy {
@@ -27,7 +24,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 		super();
 	}
 
-	async authenticate(req: Request): Promise<JwtPayload> {
+	async authenticate(req: Request): Promise<DecodedUser> {
 		// Prefer secure httpOnly cookie but fall back to Authorization header if present
 		let token: string | undefined = req.cookies?.token;
 		if (!token) {
@@ -47,9 +44,14 @@ export class BearerTokenStrategy extends AuthStrategy {
 			throw createError("AuthenticationError", "Missing token");
 		}
 		try {
-			const user = jwt.verify(token, this.secret) as JwtPayload;
-			console.log(`[AUTH] User from token: ${JSON.stringify(user)}`);
-			return user;
+			const payload = jwt.verify(token, this.secret) as DecodedUser;
+
+			if (!payload.publicId || !payload.email || !payload.username) {
+				throw createError("AuthenticationError", "Invalid token payload");
+			}
+
+			console.log(`[AUTH] User from token: ${payload.username} (${payload.publicId})`);
+			return payload;
 		} catch (err) {
 			console.error("[AUTH] Token verification failed", (err as Error).message);
 			throw createError("AuthenticationError", "Invalid or expired token");
@@ -64,10 +66,10 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
-				console.log(`[AUTH] User authenticated: ${JSON.stringify(req.decodedUser)}`);
+				console.log(`[AUTH] User authenticated: ${req.decodedUser.username} (${req.decodedUser.publicId})`);
 				next();
 			} catch (error) {
-				// Preserve original AppError (with statusCode) if present
+				// Preserve original AppError Wwith statusCode
 				if (
 					typeof error === "object" &&
 					error !== null &&
@@ -95,10 +97,9 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
-				console.log(`[AUTH] Optional auth - User authenticated: ${JSON.stringify(req.decodedUser)}`);
-			} catch (_e) {
+				console.log(`[AUTH] Optional auth - User authenticated: ${req.decodedUser.username}`);
+			} catch {
 				// Silently fail for optional authentication
-				console.log(`[AUTH] Optional auth - No valid token provided, continuing as anonymous`);
 				req.decodedUser = undefined;
 			}
 			next();
@@ -119,36 +120,52 @@ export const adminRateLimit = rateLimit({
 // Enhanced admin-only middleware (requires authentication first)
 export const enhancedAdminOnly = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const user = req.decodedUser;
+		const decodedUser = req.decodedUser;
 
 		// Check authentication (should already be done by auth middleware)
-		if (!user) {
+		if (!decodedUser) {
 			console.warn(`[SECURITY] Unauthenticated admin access attempt from IP: ${req.ip}`);
 			return res.status(401).json({ error: "Authentication required" });
 		}
 
-		// Check admin privileges
-		if (!user.isAdmin) {
+		// Check admin privileges from JWT
+		if (!decodedUser.isAdmin) {
 			console.warn(
-				`[SECURITY] Unauthorized admin access attempt by user ${user.username} (${user.publicId}) from IP ${req.ip}`
+				`[SECURITY] Unauthorized admin access attempt by user ${decodedUser.username} (${decodedUser.publicId}) from IP ${req.ip}`
 			);
 			return res.status(403).json({ error: "Admin privileges required" });
 		}
 
-		// Check if user is banned
+		// Fetch fresh user data from DB to check current ban status
+		// JWT may have been issued before user was banned
+		const userReadRepository = container.resolve<IUserReadRepository>("UserReadRepository");
+		const user = await userReadRepository.findByPublicId(decodedUser.publicId);
+
+		if (!user) {
+			console.warn(`[SECURITY] Admin user ${decodedUser.publicId} not found in database`);
+			return res.status(401).json({ error: "User not found" });
+		}
+
+		// Check if user is banned (from fresh DB data)
 		if (user.isBanned) {
-			console.warn(`[SECURITY] Banned admin ${user.username} attempted access from IP ${req.ip}`);
+			console.warn(`[SECURITY] Banned admin ${decodedUser.username} attempted access from IP ${req.ip}`);
 			return res.status(403).json({ error: "Account banned" });
 		}
 
+		// Verify admin status from DB as well (in case JWT was issued before admin revocation)
+		if (!user.isAdmin) {
+			console.warn(`[SECURITY] User ${decodedUser.username} has admin JWT but is no longer admin in DB`);
+			return res.status(403).json({ error: "Admin privileges required" });
+		}
+
 		console.log(
-			`[ADMIN_AUDIT] ${user.username} (${user.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`
+			`[ADMIN_AUDIT] ${decodedUser.username} (${decodedUser.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`
 		);
 
 		// Add admin context to request
 		req.adminContext = {
-			adminId: user.publicId,
-			adminUsername: user.username,
+			adminId: decodedUser.publicId,
+			adminUsername: decodedUser.username,
 			timestamp: new Date(),
 			ip: req.ip,
 			userAgent: req.get("User-Agent"),

@@ -1,7 +1,7 @@
 import { ClientSession } from "mongoose";
 import { NotificationRepository } from "../repositories/notification.respository";
-import { INotification } from "../types";
-import { createError } from "../utils/errors";
+import { INotification, NotificationPlain } from "../types";
+import { createError, isErrorWithStatusCode } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
@@ -30,17 +30,15 @@ export class NotificationService {
 
 	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			// emit a plain JSON object using toJSON to ensure proper serialization
-			const plain = notification.toJSON ? notification.toJSON() : { ...notification };
+			// emit a plain JSON object using toJSON for proper serialization
+			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
-			// ensure id field exists
-			if ((plain as any)._id && !plain.id) {
-				plain.id = String((plain as any)._id);
+			if (plain._id && !plain.id) {
+				plain.id = String(plain._id);
 			}
 
-			// remove mongoose internals
-			delete (plain as any)._id;
-			delete (plain as any).$__;
+			delete plain._id;
+			delete plain.$__;
 
 			console.log(`Sending new_notification to user ${userPublicId}:`, plain);
 			io.to(userPublicId).emit("new_notification", plain);
@@ -57,17 +55,14 @@ export class NotificationService {
 
 	private readNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
 		try {
-			// emit a plain JSON object using toJSON to ensure proper serialization
-			const plain = notification.toJSON ? notification.toJSON() : { ...notification };
+			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
 
-			// ensure id field exists
-			if ((plain as any)._id && !plain.id) {
-				plain.id = String((plain as any)._id);
+			if (plain._id && !plain.id) {
+				plain.id = String(plain._id);
 			}
 
-			// remove mongoose internals
-			delete (plain as any)._id;
-			delete (plain as any).$__;
+			delete plain._id;
+			delete plain.$__;
 
 			console.log(`Sending notification_read to user ${userPublicId}:`, plain);
 			io.to(userPublicId).emit("notification_read", plain);
@@ -93,13 +88,12 @@ export class NotificationService {
 		actorAvatar?: string; // optional actor avatar URL
 		session?: ClientSession;
 	}): Promise<INotification> {
-		// Validate required fields
 		if (!data.receiverId || !data.actionType || !data.actorId) {
 			throw createError("ValidationError", "Missing required notification fields");
 		}
 
 		try {
-			// No ObjectId resolution; trust publicIds from frontend
+			//trust publicIds from frontend
 			const userPublicId = data.receiverId.trim();
 			const actorPublicId = data.actorId.trim();
 			const targetPublicId = data.targetId?.trim();
@@ -110,7 +104,6 @@ export class NotificationService {
 
 			const io = this.getIO();
 
-			// Save notification to the database
 			const notification = await this.notificationRepository.create(
 				{
 					userId: userPublicId,
@@ -124,10 +117,10 @@ export class NotificationService {
 					isRead: false,
 					timestamp: new Date(),
 				},
-				data.session // Pass session to ensure transaction safety\
+				data.session // pass the session
 			);
 
-			//Send instant notification to user via Socket.io
+			// emit via WebSocket
 			this.sendNotification(io, userPublicId, notification);
 
 			// push to Redis List+Hash using new pattern
@@ -222,15 +215,15 @@ export class NotificationService {
 
 			return updatedNotification;
 		} catch (error) {
-			// If already an AppError (has statusCode) rethrow
-			if (typeof error === "object" && error && "statusCode" in (error as any)) throw error as any;
+			// if already an AppError with statuscode then rethrow
+			if (isErrorWithStatusCode(error)) throw error;
 			if (error instanceof Error) throw createError(error.name, error.message);
 			throw createError("UnknownError", String(error));
 		}
 	}
 
 	/**
-	 * Get unread notification count for a user (using Redis)
+	 * Get unread notification count for a user using Redis
 	 */
 	async getUnreadCount(userPublicId: string): Promise<number> {
 		try {
@@ -249,15 +242,13 @@ export class NotificationService {
 		}
 	}
 
-	/**
-	 * Mark all notifications as read for a user
-	 */
 	async markAllAsRead(userPublicId: string): Promise<number> {
 		try {
 			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);
 
 			if (modifiedCount > 0) {
-				// update all notification hashes in Redis (fetch list and update each)
+				// update all notification hashes in Redis
+				// fetch the list and update each one
 				const notificationIds = await this.redisService.get(`notifications:user:${userPublicId}`);
 				if (Array.isArray(notificationIds)) {
 					await Promise.all(notificationIds.map((id: string) => this.redisService.markNotificationRead(id)));

@@ -5,11 +5,21 @@ import { MessageRepository } from "../repositories/message.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { createError } from "../utils/errors";
-import { ConversationSummaryDTO, MessageDTO, SendMessagePayload } from "../types";
+import {
+	ConversationSummaryDTO,
+	HydratedConversation,
+	IMessageWithPopulatedSender,
+	MaybePopulatedParticipant,
+	MessageDTO,
+	SendMessagePayload,
+	UserPublicIdLean,
+} from "../types";
 import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { MessageSentEvent } from "../application/events/message/message.event";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+import { NotificationService } from "./notification.service";
+
 /*
 Notes on messaging system:
 
@@ -42,7 +52,8 @@ export class MessagingService {
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler
+		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler,
+		@inject("NotificationService") private readonly notificationService: NotificationService
 	) {}
 
 	async listConversations(
@@ -99,17 +110,14 @@ export class MessagingService {
 		if (!conversation) {
 			conversation = await this.unitOfWork.executeInTransaction(async (session) => {
 				const participantObjectIds = participantIds.map((id) => new mongoose.Types.ObjectId(id));
-				const unreadSeed = participantIds.reduce<Record<string, number>>((acc, id) => {
-					acc[id] = 0;
-					return acc;
-				}, {});
+				const unreadSeed = new Map<string, number>(participantIds.map((id) => [id, 0]));
 
 				return this.conversationRepository.create(
 					{
 						participantHash,
 						participants: participantObjectIds,
 						lastMessageAt: new Date(),
-						unreadCounts: unreadSeed as any,
+						unreadCounts: unreadSeed,
 						isGroup: false,
 					},
 					session
@@ -126,7 +134,7 @@ export class MessagingService {
 			throw createError("InternalError", "Conversation could not be loaded");
 		}
 
-		return this.mapConversationSummary(hydratedConversation, userInternalId);
+		return this.mapConversationSummary(hydratedConversation as unknown as HydratedConversation, userInternalId);
 	}
 
 	async getConversationMessages(
@@ -218,17 +226,14 @@ export class MessagingService {
 
 				if (!conversationDoc) {
 					const participantObjectIds = participantIds.map((id) => new mongoose.Types.ObjectId(id));
-					const unreadSeed = participantIds.reduce<Record<string, number>>((acc, id) => {
-						acc[id] = id === senderInternalId ? 0 : 1;
-						return acc;
-					}, {});
+					const unreadSeed = new Map<string, number>(participantIds.map((id) => [id, id === senderInternalId ? 0 : 1]));
 
 					conversationDoc = await this.conversationRepository.create(
 						{
 							participantHash,
 							participants: participantObjectIds,
 							lastMessageAt: new Date(),
-							unreadCounts: unreadSeed as any,
+							unreadCounts: unreadSeed,
 						},
 						session
 					);
@@ -283,6 +288,7 @@ export class MessagingService {
 			);
 
 			await message.populate("sender", "publicId username avatar");
+			const populatedMessage = message as unknown as IMessageWithPopulatedSender;
 
 			const participantObjectIds = participantIds.map(
 				(participantId: string) => new mongoose.Types.ObjectId(participantId)
@@ -291,18 +297,29 @@ export class MessagingService {
 				.find({ _id: { $in: participantObjectIds } })
 				.select("publicId")
 				.session(session)
-				.lean()
+				.lean<UserPublicIdLean[]>()
 				.exec();
 
-			const participantPublicIds = participantDocs.map((doc: any) => doc.publicId);
+			const participantPublicIds = participantDocs.map((doc) => doc.publicId);
+
+			// Create notifications for recipients
+			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
+			for (const recipientId of recipients) {
+				await this.notificationService.createNotification({
+					receiverId: recipientId,
+					actionType: "message",
+					actorId: senderPublicId,
+					actorUsername: populatedMessage.sender?.username,
+					actorAvatar: populatedMessage.sender?.avatar,
+					targetId: conversationDoc!.publicId,
+					targetType: "conversation",
+					targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+					session,
+				});
+			}
 
 			this.eventBus.queueTransactional(
-				new MessageSentEvent(
-					conversationDoc!.publicId,
-					senderPublicId,
-					participantPublicIds.filter((id: string) => id !== senderPublicId),
-					message.publicId
-				),
+				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),
 				this.messageSentHandler
 			);
 
@@ -324,23 +341,36 @@ export class MessagingService {
 			.join(":");
 	}
 
-	private mapConversationSummary(conversation: any, userInternalId: string): ConversationSummaryDTO {
+	private mapConversationSummary(conversation: HydratedConversation, userInternalId: string): ConversationSummaryDTO {
 		const unreadCounts = this.extractUnreadCounts(conversation.unreadCounts);
 		const participants = Array.isArray(conversation.participants)
 			? conversation.participants
-					.map((participant: any) => ({
-						publicId: participant?.publicId ?? this.extractParticipantId(participant) ?? "",
-						username: participant?.username ?? "",
-						avatar: participant?.avatar ?? "",
-					}))
-					.filter((participant: any) => Boolean(participant.publicId))
+					.map((participant) => {
+						// handle ObjectId case
+						if (participant instanceof mongoose.Types.ObjectId) {
+							return {
+								publicId: "",
+								username: "",
+								avatar: "",
+							};
+						}
+						// handle populated participant case
+						const populatedParticipant = participant as MaybePopulatedParticipant;
+						return {
+							publicId: populatedParticipant?.publicId ?? this.extractParticipantId(participant) ?? "",
+							username: populatedParticipant?.username ?? "",
+							avatar: populatedParticipant?.avatar ?? "",
+						};
+					})
+					.filter((participant) => Boolean(participant.publicId))
 			: [];
 
 		const hasLastMessage =
 			conversation.lastMessage && (conversation.lastMessage.publicId || conversation.lastMessage._id);
-		const lastMessage = hasLastMessage
-			? this.dtoService.toPublicMessageDTO(conversation.lastMessage as any, conversation.publicId)
-			: null;
+		const lastMessage =
+			hasLastMessage && conversation.lastMessage
+				? this.dtoService.toPublicMessageDTO(conversation.lastMessage, conversation.publicId)
+				: null;
 
 		return {
 			publicId: conversation.publicId,
@@ -353,16 +383,18 @@ export class MessagingService {
 		};
 	}
 
-	private extractUnreadCounts(unreadCounts: any): Record<string, number> {
+	private extractUnreadCounts(
+		unreadCounts: Map<string, number> | Record<string, number> | null | undefined
+	): Record<string, number> {
 		if (!unreadCounts) {
 			return {};
 		}
 
 		if (unreadCounts instanceof Map) {
-			return Object.fromEntries((unreadCounts as Map<string, number>).entries());
+			return Object.fromEntries(unreadCounts.entries());
 		}
 
-		return unreadCounts as Record<string, number>;
+		return unreadCounts;
 	}
 
 	private async ensureConversationAccess(userPublicId: string, conversationPublicId: string) {
@@ -390,7 +422,10 @@ export class MessagingService {
 		return conversation;
 	}
 
-	private participantMatchesUser(participant: any, userInternalId: string): boolean {
+	private participantMatchesUser(
+		participant: MaybePopulatedParticipant | mongoose.Types.ObjectId | string | null,
+		userInternalId: string
+	): boolean {
 		if (!participant) {
 			return false;
 		}
@@ -407,7 +442,9 @@ export class MessagingService {
 		return candidateId ? candidateId === userInternalId : false;
 	}
 
-	private extractParticipantId(participant: any): string | null {
+	private extractParticipantId(
+		participant: MaybePopulatedParticipant | mongoose.Types.ObjectId | string | null
+	): string | null {
 		if (!participant) {
 			return null;
 		}
@@ -439,13 +476,15 @@ export class MessagingService {
 		return null;
 	}
 
-	private getParticipantIds(participants: any): string[] {
+	private getParticipantIds(
+		participants: Array<MaybePopulatedParticipant | mongoose.Types.ObjectId | string> | null | undefined
+	): string[] {
 		if (!Array.isArray(participants)) {
 			return [];
 		}
 
 		return participants
-			.map((participant: any) => this.extractParticipantId(participant))
-			.filter((id: string | null): id is string => Boolean(id));
+			.map((participant) => this.extractParticipantId(participant))
+			.filter((id): id is string => Boolean(id));
 	}
 }

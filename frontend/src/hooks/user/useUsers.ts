@@ -11,8 +11,13 @@ import {
 	fetchUserByPublicId,
 	fetchUserByUsername,
 	fetchUserPosts,
+	fetchUserLikedPosts,
+	fetchUserComments,
 	updateUserAvatar as updateUserAvatarApi,
 	updateUserCover as updateUserCoverApi,
+	fetchFollowers,
+	fetchFollowing,
+	FollowListResponse,
 } from "../../api/userApi";
 import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../../types";
 import { editUserRequest, changePasswordRequest } from "../../api/userApi";
@@ -22,16 +27,30 @@ type UseUserImagesOptions = Omit<
 	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
 >;
 
-// Get current authenticated user /me
+type UseUserCommentsOptions = Omit<
+	UseInfiniteQueryOptions<
+		{ comments: unknown[]; total: number; page: number; limit: number; totalPages: number },
+		Error,
+		InfiniteData<{ comments: unknown[]; total: number; page: number; limit: number; totalPages: number }, number>
+	>,
+	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
+>;
+
+type UseFollowListOptions = Omit<
+	UseInfiniteQueryOptions<FollowListResponse, Error, InfiniteData<FollowListResponse, number>>,
+	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
+>;
+
+// Get current authenticated user at /me
 export const useCurrentUser = () => {
 	return useQuery<AuthenticatedUserDTO | AdminUserDTO>({
 		queryKey: ["currentUser"],
 		queryFn: ({ signal }) => fetchCurrentUser(signal),
-		staleTime: 6000,
+		staleTime: 0, // always consider stale so invalidation triggers refetch
+		refetchOnWindowFocus: true,
 	});
 };
 
-// Get user by public ID
 export const useGetUserByPublicId = (publicId: string | undefined) => {
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", "publicId", publicId],
@@ -41,7 +60,6 @@ export const useGetUserByPublicId = (publicId: string | undefined) => {
 	});
 };
 
-// Get user by username
 export const useGetUserByUsername = (username: string | undefined) => {
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", "username", username],
@@ -76,11 +94,31 @@ export const useGetUser = (identifier: string | undefined) => {
 		staleTime: isViewingSelf ? 0 : 60000,
 	});
 };
-// Get user posts by user public ID
+
 export const useUserPosts = (userPublicId: string, options?: UseUserImagesOptions) => {
 	return useInfiniteQuery({
 		queryKey: ["userPosts", userPublicId] as const,
 		queryFn: ({ pageParam = 1 }) => fetchUserPosts(pageParam as number, userPublicId),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		...options,
+	});
+};
+
+export const useUserLikedPosts = (userPublicId: string, options?: UseUserImagesOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["userLikedPosts", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchUserLikedPosts(pageParam as number, userPublicId),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		...options,
+	});
+};
+
+export const useUserComments = (userPublicId: string, options?: UseUserCommentsOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["userComments", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchUserComments(pageParam as number, userPublicId),
 		initialPageParam: 1,
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		...options,
@@ -132,10 +170,9 @@ export const useEditUser = () => {
 		onSuccess: (data) => {
 			console.log("User updated successfully:", data);
 
-			// Update current user cache
 			queryClient.setQueryData(["currentUser"], data);
 
-			// Invalidate all user-related queries - this covers all patterns
+			// Invalidate all user  queries
 			queryClient.invalidateQueries({
 				queryKey: ["user"],
 			});
@@ -152,7 +189,28 @@ export const useChangePassword = () => {
 
 		onError: (error) => {
 			console.error("Change password failed:", error);
-			// Error handled via notifyError and local state in the form
 		},
+	});
+};
+
+export const useFollowers = (userPublicId: string, options?: UseFollowListOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["followers", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchFollowers(userPublicId, pageParam as number),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		enabled: !!userPublicId,
+		...options,
+	});
+};
+
+export const useFollowing = (userPublicId: string, options?: UseFollowListOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["following", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchFollowing(userPublicId, pageParam as number),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		enabled: !!userPublicId,
+		...options,
 	});
 };

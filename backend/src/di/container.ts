@@ -4,6 +4,7 @@ import { container } from "tsyringe";
 import User from "../models/user.model";
 import Image, { Tag } from "../models/image.model";
 import Post from "../models/post.model";
+import PostLike from "../models/postLike.model";
 import PostView from "../models/postView.model";
 import { Comment } from "../models/comment.model";
 import Favorite from "../models/favorite.model";
@@ -12,6 +13,7 @@ import Message from "../models/message.model";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { PostRepository } from "../repositories/post.repository";
+import { PostLikeRepository } from "../repositories/postLike.repository";
 import { PostViewRepository } from "../repositories/postView.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { CommentRepository } from "../repositories/comment.repository";
@@ -20,6 +22,7 @@ import { ConversationRepository } from "../repositories/conversation.repository"
 import { MessageRepository } from "../repositories/message.repository";
 import { CloudinaryService } from "../services/cloudinary.service";
 import { UserService } from "../services/user.service";
+import { AuthService } from "../services/auth.service";
 import { ImageService } from "../services/image.service";
 import { FavoriteService } from "../services/favorite.service";
 import { CommentService } from "../services/comment.service";
@@ -50,8 +53,6 @@ import { FollowService } from "../services/follow.service";
 import Follow from "../models/follow.model";
 import Notification from "../models/notification.model";
 import { NotificationService } from "../services/notification.service";
-import Like from "../models/like.model";
-import { LikeRepository } from "../repositories/like.repository";
 import UserAction from "../models/userAction.model";
 import { FollowRepository } from "../repositories/follow.repository";
 import { UserActionRepository } from "../repositories/userAction.repository";
@@ -67,8 +68,12 @@ import { LocalStorageService } from "../services/localStorage.service";
 import { IImageStorageService } from "../types/index";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
+import { FollowUserCommand } from "../application/commands/users/followUser/followUser.command";
+import { FollowUserCommandHandler } from "../application/commands/users/followUser/followUser.handler";
 import { RegisterUserCommandHandler } from "../application/commands/users/register/register.handler";
 import { RegisterUserCommand } from "../application/commands/users/register/register.command";
+import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
+import { GetDashboardStatsQueryHandler } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { GetMeQueryHandler } from "../application/queries/users/getMe/getMe.handler";
 import { GetMeQuery } from "../application/queries/users/getMe/getMe.query";
 import { GetWhoToFollowQueryHandler } from "../application/queries/users/getWhoToFollow/getWhoToFollow.handler";
@@ -85,8 +90,9 @@ import { LikeActionByPublicIdCommand } from "../application/commands/users/likeA
 import { LikeActionByPublicIdCommandHandler } from "../application/commands/users/likeActionByPublicId/likeActionByPublicId.handler";
 import { PostUploadHandler } from "../application/events/post/post-uploaded.handler";
 import { PostDeleteHandler } from "../application/events/post/post-deleted.handler";
-import { UserAvatarChangedEvent } from "../application/events/user/user-interaction.event";
+import { UserAvatarChangedEvent, UserUsernameChangedEvent } from "../application/events/user/user-interaction.event";
 import { UserAvatarChangedHandler } from "../application/events/user/user-avatar-change.handler";
+import { UserUsernameChangedHandler } from "../application/events/user/user-username-change.handler";
 import { RealTimeFeedService } from "../services/real-time-feed.service";
 import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
 import { CreateCommentCommandHandler } from "../application/commands/comments/createComment/create-comment.handler";
@@ -109,12 +115,16 @@ import { GetPostBySlugQuery } from "../application/queries/post/getPostBySlug/ge
 import { GetPostBySlugQueryHandler } from "../application/queries/post/getPostBySlug/getPostBySlug.handler";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
 import { GetPostsQueryHandler } from "../application/queries/post/getPosts/getPosts.handler";
+import { GetAllPostsAdminQuery } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.query";
+import { GetAllPostsAdminQueryHandler } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.handler";
 import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/getPostsByUser.query";
 import { GetPostsByUserQueryHandler } from "../application/queries/post/getPostsByUser/getPostsByUser.handler";
 import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { SearchPostsByTagsQueryHandler } from "../application/queries/post/searchPostsByTags/searchPostsByTags.handler";
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
 import { GetAllTagsQueryHandler } from "../application/queries/tags/getAllTags/getAllTags.handler";
+import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
+import { GetLikedPostsByUserHandler } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.handler";
 import { NewPostMessageHandler } from "../application/handlers/realtime/NewPostMessageHandler";
 import { GlobalNewPostMessageHandler } from "../application/handlers/realtime/GlobalNewPostMessageHandler";
 import { PostDeletedMessageHandler } from "../application/handlers/realtime/PostDeletedMessageHandler";
@@ -124,6 +134,8 @@ import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/Ava
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { GetForYouFeedQueryHandler } from "../application/queries/feed/getForYouFeed/getForYouFeed.handler";
 import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { GetTrendingFeedQueryHandler } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.handler";
+import { GetTrendingFeedQuery } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.query";
 import { UserActionService } from "../services/userAction.service";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
 import { DeleteUserCommandHandler } from "../application/commands/users/deleteUser/deleteUser.handler";
@@ -131,16 +143,57 @@ import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/
 import { UpdateAvatarCommandHandler } from "../application/commands/users/updateAvatar/updateAvatar.handler";
 import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
 import { UpdateCoverCommandHandler } from "../application/commands/users/updateCover/updateCover.handler";
-import { UserCoverChangedEvent } from "../application/events/user/user-interaction.event";
+import { UserCoverChangedEvent, UserDeletedEvent } from "../application/events/user/user-interaction.event";
 import { UserCoverChangedHandler } from "../application/events/user/user-cover-change.handler";
+import { UserDeletedHandler } from "../application/events/user/user-deleted.handler";
+import { PostReadRepository } from "../repositories/read/PostReadRepository";
+import { UserReadRepository } from "../repositories/read/UserReadRepository";
+import { PostWriteRepository } from "../repositories/write/PostWriteRepository";
+import { UserWriteRepository } from "../repositories/write/UserWriteRepository";
 
-export function setupContainer(): void {
+import { GetUserByPublicIdQuery } from "../application/queries/users/getUserByPublicId/getUserByPublicId.query";
+import { GetUserByPublicIdQueryHandler } from "../application/queries/users/getUserByPublicId/getUserByPublicId.handler";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByUsernameQueryHandler } from "../application/queries/users/getUserByUsername/getUserByUsername.handler";
+import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.query";
+import { GetUsersQueryHandler } from "../application/queries/users/getUsers/getUsers.handler";
+import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
+import { CheckFollowStatusQueryHandler } from "../application/queries/users/checkFollowStatus/checkFollowStatus.handler";
+import { GetFollowersQuery } from "../application/queries/users/getFollowers/getFollowers.query";
+import { GetFollowersQueryHandler } from "../application/queries/users/getFollowers/getFollowers.handler";
+import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
+import { GetFollowingQueryHandler } from "../application/queries/users/getFollowing/getFollowing.handler";
+
+import { UpdateProfileCommand } from "../application/commands/users/updateProfile/updateProfile.command";
+import { UpdateProfileCommandHandler } from "../application/commands/users/updateProfile/updateProfile.handler";
+import { ChangePasswordCommand } from "../application/commands/users/changePassword/changePassword.command";
+import { ChangePasswordCommandHandler } from "../application/commands/users/changePassword/changePassword.handler";
+
+import { GetAllUsersAdminQuery } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
+import { GetAllUsersAdminQueryHandler } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.handler";
+import { GetAdminUserProfileQuery } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
+import { GetAdminUserProfileQueryHandler } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.handler";
+import { GetUserStatsQuery } from "../application/queries/admin/getUserStats/getUserStats.query";
+import { GetUserStatsQueryHandler } from "../application/queries/admin/getUserStats/getUserStats.handler";
+import { GetRecentActivityQuery } from "../application/queries/admin/getRecentActivity/getRecentActivity.query";
+import { GetRecentActivityQueryHandler } from "../application/queries/admin/getRecentActivity/getRecentActivity.handler";
+
+import { BanUserCommand } from "../application/commands/admin/banUser/banUser.command";
+import { BanUserCommandHandler } from "../application/commands/admin/banUser/banUser.handler";
+import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanUser.command";
+import { UnbanUserCommandHandler } from "../application/commands/admin/unbanUser/unbanUser.handler";
+import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
+import { PromoteToAdminCommandHandler } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.handler";
+import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
+import { DemoteFromAdminCommandHandler } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.handler";
+
+export function setupContainerCore(): void {
 	registerCoreComponents();
 	registerRepositories();
 	registerServices();
 	registerControllers();
 	registerRoutes();
-	registerCQRS();
+
 	container.registerSingleton("Server", Server);
 }
 
@@ -162,12 +215,12 @@ function registerCoreComponents(): void {
 	container.register("UserModel", { useValue: User });
 	container.register("ImageModel", { useValue: Image });
 	container.register("PostModel", { useValue: Post });
+	container.register("PostLikeModel", { useValue: PostLike });
 	container.register("PostViewModel", { useValue: PostView });
 	container.register("TagModel", { useValue: Tag });
 	container.register("CommentModel", { useValue: Comment });
 	container.register("FollowModel", { useValue: Follow });
 	container.register("NotificationModel", { useValue: Notification });
-	container.register("LikeModel", { useValue: Like });
 	container.register("UserActionModel", { useValue: UserAction });
 	container.register("UserPreferenceModel", { useValue: UserPreference });
 	container.register("FavoriteModel", { useValue: Favorite });
@@ -182,17 +235,25 @@ function registerRepositories(): void {
 	container.registerSingleton("UserRepository", UserRepository);
 	container.registerSingleton("ImageRepository", ImageRepository);
 	container.registerSingleton("PostRepository", PostRepository);
+	container.registerSingleton("PostLikeRepository", PostLikeRepository);
 	container.registerSingleton("PostViewRepository", PostViewRepository);
 	container.registerSingleton("CommentRepository", CommentRepository);
 	container.registerSingleton("UserActionRepository", UserActionRepository);
 	container.registerSingleton("TagRepository", TagRepository);
 	container.registerSingleton("FollowRepository", FollowRepository);
 	container.registerSingleton("NotificationRepository", NotificationRepository);
-	container.registerSingleton("LikeRepository", LikeRepository);
 	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
 	container.registerSingleton("FavoriteRepository", FavoriteRepository);
 	container.registerSingleton("ConversationRepository", ConversationRepository);
 	container.registerSingleton("MessageRepository", MessageRepository);
+
+	// read repositories for CQRS query handlers
+	container.registerSingleton("PostReadRepository", PostReadRepository);
+	container.registerSingleton("UserReadRepository", UserReadRepository);
+
+	// write repositories for CQRS command handlers
+	container.registerSingleton("PostWriteRepository", PostWriteRepository);
+	container.registerSingleton("UserWriteRepository", UserWriteRepository);
 }
 
 // Register Services
@@ -208,6 +269,7 @@ function registerServices(): void {
 
 	container.registerSingleton("SearchService", SearchService);
 	container.registerSingleton("UserService", UserService);
+	container.registerSingleton("AuthService", AuthService);
 	container.registerSingleton("ImageService", ImageService);
 	container.registerSingleton("CommentService", CommentService);
 	container.registerSingleton("FollowService", FollowService);
@@ -265,61 +327,88 @@ function registerRoutes(): void {
 }
 
 // Register CQRS components
-function registerCQRS(): void {
+export function registerCQRS(): void {
+	// Register buses
 	container.registerSingleton("CommandBus", CommandBus);
 	container.registerSingleton("QueryBus", QueryBus);
 	container.registerSingleton("EventBus", EventBus);
 
-	// Register command handlers
+	// Register handler classes as transient/registration tokens.
+	// This only binds the class to a token without resolvin the handler yet
 	container.register("RegisterUserCommandHandler", { useClass: RegisterUserCommandHandler });
+	container.register("FollowUserCommandHandler", { useClass: FollowUserCommandHandler });
 	container.register("DeleteUserCommandHandler", { useClass: DeleteUserCommandHandler });
 	container.register("UpdateAvatarCommandHandler", { useClass: UpdateAvatarCommandHandler });
 	container.register("UpdateCoverCommandHandler", { useClass: UpdateCoverCommandHandler });
+	container.register("UpdateProfileCommandHandler", { useClass: UpdateProfileCommandHandler });
+	container.register("ChangePasswordCommandHandler", { useClass: ChangePasswordCommandHandler });
+
 	container.register("LikeActionCommandHandler", { useClass: LikeActionCommandHandler });
 	container.register("LikeActionByPublicIdCommandHandler", { useClass: LikeActionByPublicIdCommandHandler });
+
 	container.register("CreateCommentCommandHandler", { useClass: CreateCommentCommandHandler });
 	container.register("DeleteCommentCommandHandler", { useClass: DeleteCommentCommandHandler });
 	container.register("CreatePostCommandHandler", { useClass: CreatePostCommandHandler });
 	container.register("DeletePostCommandHandler", { useClass: DeletePostCommandHandler });
-	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
 
-	// Register reactive event handlers
+	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
+	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
+
+	container.register("BanUserCommandHandler", { useClass: BanUserCommandHandler });
+	container.register("UnbanUserCommandHandler", { useClass: UnbanUserCommandHandler });
+	container.register("PromoteToAdminCommandHandler", { useClass: PromoteToAdminCommandHandler });
+	container.register("DemoteFromAdminCommandHandler", { useClass: DemoteFromAdminCommandHandler });
+
+	// Reactive event handlers
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
 	container.register("UserAvatarChangedHandler", { useClass: UserAvatarChangedHandler });
+	container.register("UserUsernameChangedHandler", { useClass: UserUsernameChangedHandler });
 	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
-	// Register query handlers
+	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
+
+	// Query handlers
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
+	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
+	container.register("GetUserByUsernameQueryHandler", { useClass: GetUserByUsernameQueryHandler });
+	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
+	container.register("CheckFollowStatusQueryHandler", { useClass: CheckFollowStatusQueryHandler });
+	container.register("GetFollowersQueryHandler", { useClass: GetFollowersQueryHandler });
+	container.register("GetFollowingQueryHandler", { useClass: GetFollowingQueryHandler });
+	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 	container.register("GetPersonalizedFeedQueryHandler", { useClass: GetPersonalizedFeedQueryHandler });
 	container.register("GetForYouFeedQueryHandler", { useClass: GetForYouFeedQueryHandler });
+	container.register("GetTrendingFeedQueryHandler", { useClass: GetTrendingFeedQueryHandler });
 	container.register("GetPostByPublicIdQueryHandler", { useClass: GetPostByPublicIdQueryHandler });
 	container.register("GetPostBySlugQueryHandler", { useClass: GetPostBySlugQueryHandler });
 	container.register("GetPostsQueryHandler", { useClass: GetPostsQueryHandler });
 	container.register("GetPostsByUserQueryHandler", { useClass: GetPostsByUserQueryHandler });
 	container.register("SearchPostsByTagsQueryHandler", { useClass: SearchPostsByTagsQueryHandler });
 	container.register("GetAllTagsQueryHandler", { useClass: GetAllTagsQueryHandler });
+	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
 
-	// Register interaction handlers
+	// Admin query handlers
+	container.register("GetAllPostsAdminQueryHandler", { useClass: GetAllPostsAdminQueryHandler });
+	container.register("GetAllUsersAdminQueryHandler", { useClass: GetAllUsersAdminQueryHandler });
+	container.register("GetAdminUserProfileQueryHandler", { useClass: GetAdminUserProfileQueryHandler });
+	container.register("GetUserStatsQueryHandler", { useClass: GetUserStatsQueryHandler });
+	container.register("GetRecentActivityQueryHandler", { useClass: GetRecentActivityQueryHandler });
+
+	// Interaction handlers (token-only registration)
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
+}
 
-	// Setup the buses
+export function initCQRS(): void {
 	const commandBus = container.resolve<CommandBus>("CommandBus");
 	const queryBus = container.resolve<QueryBus>("QueryBus");
 	const eventBus = container.resolve<EventBus>("EventBus");
 
-	// Subscribe handlers
-	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
-	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
-	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
-	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
-	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
-	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
-
-	// Register command handlers with command bus
+	// Resolve handler instances (they will be constructed now)
 	commandBus.register(RegisterUserCommand, container.resolve<RegisterUserCommandHandler>("RegisterUserCommandHandler"));
+	commandBus.register(FollowUserCommand, container.resolve<FollowUserCommandHandler>("FollowUserCommandHandler"));
 	commandBus.register(DeleteUserCommand, container.resolve<DeleteUserCommandHandler>("DeleteUserCommandHandler"));
 	commandBus.register(UpdateAvatarCommand, container.resolve<UpdateAvatarCommandHandler>("UpdateAvatarCommandHandler"));
 	commandBus.register(UpdateCoverCommand, container.resolve<UpdateCoverCommandHandler>("UpdateCoverCommandHandler"));
@@ -332,23 +421,58 @@ function registerCQRS(): void {
 		CreateCommentCommand,
 		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
 	);
-
 	commandBus.register(
 		DeleteCommentCommand,
 		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
 	);
-
 	commandBus.register(CreatePostCommand, container.resolve<CreatePostCommandHandler>("CreatePostCommandHandler"));
-
 	commandBus.register(DeletePostCommand, container.resolve<DeletePostCommandHandler>("DeletePostCommandHandler"));
-
 	commandBus.register(
 		RecordPostViewCommand,
 		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler")
 	);
 
-	// Register query handlers with query bus
+	// User profile commands
+	commandBus.register(
+		UpdateProfileCommand,
+		container.resolve<UpdateProfileCommandHandler>("UpdateProfileCommandHandler")
+	);
+	commandBus.register(
+		ChangePasswordCommand,
+		container.resolve<ChangePasswordCommandHandler>("ChangePasswordCommandHandler")
+	);
+
+	// Admin commands
+	commandBus.register(BanUserCommand, container.resolve<BanUserCommandHandler>("BanUserCommandHandler"));
+	commandBus.register(UnbanUserCommand, container.resolve<UnbanUserCommandHandler>("UnbanUserCommandHandler"));
+	commandBus.register(
+		PromoteToAdminCommand,
+		container.resolve<PromoteToAdminCommandHandler>("PromoteToAdminCommandHandler")
+	);
+	commandBus.register(
+		DemoteFromAdminCommand,
+		container.resolve<DemoteFromAdminCommandHandler>("DemoteFromAdminCommandHandler")
+	);
+
+	// Register event handlers
+	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
+	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
+	eventBus.subscribe(PostDeletedEvent, container.resolve<PostDeleteHandler>("PostDeleteHandler"));
+	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
+	eventBus.subscribe(
+		UserUsernameChangedEvent,
+		container.resolve<UserUsernameChangedHandler>("UserUsernameChangedHandler")
+	);
+	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
+	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
+	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
+
+	// Register queries
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
+	queryBus.register(
+		GetDashboardStatsQuery,
+		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler")
+	);
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
 	queryBus.register(
 		GetTrendingTagsQuery,
@@ -359,6 +483,10 @@ function registerCQRS(): void {
 		container.resolve<GetPersonalizedFeedQueryHandler>("GetPersonalizedFeedQueryHandler")
 	);
 	queryBus.register(GetForYouFeedQuery, container.resolve<GetForYouFeedQueryHandler>("GetForYouFeedQueryHandler"));
+	queryBus.register(
+		GetTrendingFeedQuery,
+		container.resolve<GetTrendingFeedQueryHandler>("GetTrendingFeedQueryHandler")
+	);
 	queryBus.register(
 		GetPostByPublicIdQuery,
 		container.resolve<GetPostByPublicIdQueryHandler>("GetPostByPublicIdQueryHandler")
@@ -371,4 +499,56 @@ function registerCQRS(): void {
 		container.resolve<SearchPostsByTagsQueryHandler>("SearchPostsByTagsQueryHandler")
 	);
 	queryBus.register(GetAllTagsQuery, container.resolve<GetAllTagsQueryHandler>("GetAllTagsQueryHandler"));
+	queryBus.register(
+		GetLikedPostsByUserQuery,
+		container.resolve<GetLikedPostsByUserHandler>("GetLikedPostsByUserHandler")
+	);
+
+	queryBus.register(
+		GetUserByPublicIdQuery,
+		container.resolve<GetUserByPublicIdQueryHandler>("GetUserByPublicIdQueryHandler")
+	);
+	queryBus.register(
+		GetUserByUsernameQuery,
+		container.resolve<GetUserByUsernameQueryHandler>("GetUserByUsernameQueryHandler")
+	);
+	queryBus.register(GetUsersQuery, container.resolve<GetUsersQueryHandler>("GetUsersQueryHandler"));
+	queryBus.register(
+		CheckFollowStatusQuery,
+		container.resolve<CheckFollowStatusQueryHandler>("CheckFollowStatusQueryHandler")
+	);
+	queryBus.register(GetFollowersQuery, container.resolve<GetFollowersQueryHandler>("GetFollowersQueryHandler"));
+	queryBus.register(GetFollowingQuery, container.resolve<GetFollowingQueryHandler>("GetFollowingQueryHandler"));
+
+	queryBus.register(
+		GetAllPostsAdminQuery,
+		container.resolve<GetAllPostsAdminQueryHandler>("GetAllPostsAdminQueryHandler")
+	);
+	queryBus.register(
+		GetAllUsersAdminQuery,
+		container.resolve<GetAllUsersAdminQueryHandler>("GetAllUsersAdminQueryHandler")
+	);
+	queryBus.register(
+		GetAdminUserProfileQuery,
+		container.resolve<GetAdminUserProfileQueryHandler>("GetAdminUserProfileQueryHandler")
+	);
+	queryBus.register(GetUserStatsQuery, container.resolve<GetUserStatsQueryHandler>("GetUserStatsQueryHandler"));
+	queryBus.register(
+		GetRecentActivityQuery,
+		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
+	);
+
+	// Resolve and register realtime handlers array
+	const realtimeHandlers = [
+		container.resolve(NewPostMessageHandler),
+		container.resolve(GlobalNewPostMessageHandler),
+		container.resolve(PostDeletedMessageHandler),
+		container.resolve(InteractionMessageHandler),
+		container.resolve(LikeUpdateMessageHandler),
+		container.resolve(AvatarUpdateMessageHandler),
+		container.resolve(RealtimeMessageSentHandler),
+	];
+	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
+
+	console.info("[di] CQRS initialized (handlers resolved)");
 }

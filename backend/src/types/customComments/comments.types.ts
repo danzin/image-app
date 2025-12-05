@@ -1,4 +1,5 @@
 import mongoose, { Document } from "mongoose";
+import { Types } from "mongoose";
 
 export interface IComment extends Document {
 	_id: mongoose.Types.ObjectId;
@@ -40,4 +41,29 @@ export interface CommentsPaginationResponse {
 	page: number;
 	limit: number;
 	totalPages: number;
+}
+
+export interface TransformedComment {
+	id: string;
+	content: string;
+	postPublicId: string;
+	user: {
+		publicId: string;
+		username: string;
+		avatar?: string;
+	};
+	createdAt: Date;
+	updatedAt: Date;
+	isEdited: boolean;
+}
+
+// interface for populated comment from lean() query
+export interface PopulatedCommentLean {
+	_id: Types.ObjectId;
+	content: string;
+	postId: { publicId: string };
+	userId: { publicId: string; username: string; avatar?: string };
+	createdAt: Date;
+	updatedAt: Date;
+	isEdited: boolean;
 }

@@ -21,6 +21,13 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 		try {
 			await this.feedService.recordInteraction(event.userId, event.interactionType, event.postId, event.tags);
 
+			await this.redis.pushToStream("stream:interactions", {
+				postId: event.postId,
+				userId: event.userId,
+				type: event.interactionType,
+				timestamp: Date.now().toString(),
+				tags: event.tags ? JSON.stringify(event.tags) : undefined,
+			});
 			await this.invalidateRelevantFeeds(event);
 
 			// Publish real-time interaction event for WebSocket notifications
@@ -93,8 +100,8 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 			return [...new Set(affectedUsers)].filter((id) => id !== event.userId);
 		} catch (error) {
 			console.error("Error determining affected users:", error);
-			// Fallback: invalidate global feeds using tags
-			await this.redis.invalidateByTags(["trending_feed", "new_feed", "for_you_feed"]);
+			// Fallback: invalidate global feeds using tags (except new_feed - lazy refresh)
+			await this.redis.invalidateByTags(["trending_feed", "for_you_feed"]);
 			return [];
 		}
 	}

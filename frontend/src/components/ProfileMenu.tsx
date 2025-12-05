@@ -22,7 +22,7 @@ const modalStyle = {
 
 const ProfileMenu = () => {
 	const { logout } = useAuth(); // Only need logout from auth context
-	const { data: user, isLoading } = useCurrentUser(); // Get user from React Query
+	const { data: user, isLoading } = useCurrentUser();
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 

@@ -54,11 +54,31 @@ export class PostRepository extends BaseRepository<IPost> {
 	 */
 	private getStandardLookups(): PipelineStage[] {
 		return [
-			{ $lookup: { from: "users", localField: "user", foreignField: "_id", as: "userInfo" } },
-			{ $unwind: { path: "$userInfo", preserveNullAndEmptyArrays: true } },
 			{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
 			{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
 			{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+			{
+				$lookup: {
+					from: "users",
+					localField: "user",
+					foreignField: "_id",
+					as: "userDoc",
+					pipeline: [
+						{
+							$project: {
+								_id: 1,
+								publicId: 1,
+								username: 1,
+								avatar: {
+									$ifNull: ["$avatar", { $ifNull: ["$profile.avatarUrl", ""] }],
+								},
+								displayName: { $ifNull: ["$profile.displayName", "$username"] },
+							},
+						},
+					],
+				},
+			},
+			{ $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
 		];
 	}
 
@@ -66,6 +86,13 @@ export class PostRepository extends BaseRepository<IPost> {
 	 * returns standard projection fields for shaping post output
 	 */
 	private getStandardProjectionFields() {
+		const authorPublicIdFallback: any = { $ifNull: ["$author.publicId", "$userDoc.publicId"] };
+		const authorUsernameFallback: any = {
+			$ifNull: ["$author.username", { $ifNull: ["$userDoc.username", "$userDoc.displayName"] }],
+		};
+		const authorAvatarFallback: any = {
+			$ifNull: [{ $ifNull: ["$author.avatarUrl", null] }, { $ifNull: ["$userDoc.avatar", ""] }],
+		};
 		return {
 			_id: 0,
 			publicId: 1,
@@ -73,8 +100,9 @@ export class PostRepository extends BaseRepository<IPost> {
 			slug: 1,
 			createdAt: 1,
 			likes: "$likesCount",
+			viewsCount: { $ifNull: ["$viewsCount", 0] },
 			commentsCount: 1,
-			userPublicId: "$userInfo.publicId",
+			userPublicId: authorPublicIdFallback,
 			tags: {
 				$map: {
 					input: { $ifNull: ["$tagObjects", []] },
@@ -83,9 +111,9 @@ export class PostRepository extends BaseRepository<IPost> {
 				},
 			},
 			user: {
-				publicId: "$userInfo.publicId",
-				username: "$userInfo.username",
-				avatar: "$userInfo.avatar",
+				publicId: authorPublicIdFallback,
+				username: authorUsernameFallback,
+				avatar: authorAvatarFallback,
 			},
 			image: {
 				$cond: {
@@ -114,7 +142,6 @@ export class PostRepository extends BaseRepository<IPost> {
 		try {
 			const query = this.model
 				.findById(id)
-				.populate("user", "username avatar publicId")
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "_id url publicId slug createdAt" });
 
@@ -125,16 +152,33 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async findPostsByIds(ids: string[], _viewerPublicId?: string): Promise<IPost[]> {
+		try {
+			const objectIds = ids.map((id) => this.normalizeObjectId(id, "id"));
+
+			const pipeline: PipelineStage[] = [
+				{ $match: { _id: { $in: objectIds } } },
+				...this.getStandardLookups(),
+				this.getStandardProjection(),
+			];
+
+			// If viewerPublicId is provided, we could potentially add isLiked/isFavorited fields here
+			// but that logic is usually handled in the service/DTO layer or via separate lookups.
+			// For now, just return the posts.
+
+			const results = await this.model.aggregate(pipeline).exec();
+			return results;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to find posts by ids");
+		}
+	}
+
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
 		try {
-			const query = this.model
-				.findOne({ publicId })
-				.populate("user", "username avatar publicId")
-				.populate("tags", "tag")
-				.populate({
-					path: "image",
-					select: "_id url publicId slug createdAt",
-				});
+			const query = this.model.findOne({ publicId }).populate("tags", "tag").populate({
+				path: "image",
+				select: "_id url publicId slug createdAt",
+			});
 
 			if (session) query.session(session);
 			return await query.exec();
@@ -147,7 +191,6 @@ export class PostRepository extends BaseRepository<IPost> {
 		try {
 			const query = this.model
 				.findOne({ slug })
-				.populate("user", "username avatar publicId")
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "url publicId slug createdAt -_id" });
 
@@ -176,7 +219,6 @@ export class PostRepository extends BaseRepository<IPost> {
 			const [data, total] = await Promise.all([
 				this.model
 					.find({ user: userId })
-					.populate("user", "username avatar publicId")
 					.populate("tags", "tag")
 					.populate({ path: "image", select: "url publicId slug -_id" })
 					.sort(sort)
@@ -244,7 +286,6 @@ export class PostRepository extends BaseRepository<IPost> {
 			const [data, total] = await Promise.all([
 				this.model
 					.find({ tags: { $in: tagIds } })
-					.populate("user", "username avatar publicId")
 					.populate("tags", "tag")
 					.populate({ path: "image", select: "url publicId slug -_id" })
 					.sort(sort)
@@ -290,6 +331,8 @@ export class PostRepository extends BaseRepository<IPost> {
 				pipeline.push({ $match: { $or: orConditions } });
 			}
 
+			const feedProjection = this.getStandardProjectionFields();
+
 			pipeline.push(
 				...this.getStandardLookups(),
 				{
@@ -308,32 +351,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $sort: { isPersonalized: -1, createdAt: -1 } },
 				{ $skip: skip },
 				{ $limit: limit },
-				{
-					$project: {
-						_id: 0,
-						publicId: 1,
-						body: 1,
-						slug: 1,
-						createdAt: 1,
-						likes: "$likesCount",
-						commentsCount: 1,
-						viewsCount: { $ifNull: ["$viewsCount", 0] },
-						userPublicId: "$userInfo.publicId",
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
-						user: {
-							publicId: "$userInfo.publicId",
-							username: "$userInfo.username",
-							avatar: "$userInfo.avatar",
-						},
-						image: {
-							publicId: "$imageDoc.publicId",
-							url: "$imageDoc.url",
-							slug: "$imageDoc.slug",
-						},
-					},
-				}
+				{ $project: feedProjection }
 			);
 			let results = await this.model.aggregate(pipeline).exec();
 
@@ -347,32 +365,7 @@ export class PostRepository extends BaseRepository<IPost> {
 					...this.getStandardLookups(),
 					{ $sort: { createdAt: -1 } },
 					{ $limit: needed },
-					{
-						$project: {
-							_id: 0,
-							publicId: 1,
-							body: 1,
-							slug: 1,
-							createdAt: 1,
-							likes: "$likesCount",
-							commentsCount: 1,
-							viewsCount: { $ifNull: ["$viewsCount", 0] },
-							userPublicId: "$userInfo.publicId",
-							tags: {
-								$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-							},
-							user: {
-								publicId: "$userInfo.publicId",
-								username: "$userInfo.username",
-								avatar: "$userInfo.avatar",
-							},
-							image: {
-								publicId: "$imageDoc.publicId",
-								url: "$imageDoc.url",
-								slug: "$imageDoc.slug",
-							},
-						},
-					},
+					{ $project: feedProjection },
 				];
 
 				const backfillResults = await this.model.aggregate(backfillPipeline).exec();
@@ -434,28 +427,8 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $limit: limit },
 				{
 					$project: {
-						_id: 0,
-						publicId: 1,
-						body: 1,
-						slug: 1,
-						createdAt: 1,
-						likes: "$likesCount",
-						commentsCount: 1,
+						...this.getStandardProjectionFields(),
 						viewsCount: { $ifNull: ["$viewsCount", 0] },
-						userPublicId: "$userInfo.publicId",
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
-						user: {
-							publicId: "$userInfo.publicId",
-							username: "$userInfo.username",
-							avatar: "$userInfo.avatar",
-						},
-						image: {
-							publicId: "$imageDoc.publicId",
-							url: "$imageDoc.url",
-							slug: "$imageDoc.slug",
-						},
 						rankScore: 1,
 					},
 				},
@@ -506,8 +479,11 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
+						// Calculate the popularity and comments score using natural logarithm to dampen the effect of very high like counts allowing newer posts to compete
 						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
+
 						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+
 						trendScore: {
 							$add: [
 								{ $multiply: [weights.recency, "$recencyScore"] },
@@ -522,28 +498,8 @@ export class PostRepository extends BaseRepository<IPost> {
 				{ $limit: limit },
 				{
 					$project: {
-						_id: 0,
-						publicId: 1,
-						body: 1,
-						slug: 1,
-						createdAt: 1,
-						likes: "$likesCount",
-						commentsCount: 1,
+						...this.getStandardProjectionFields(),
 						viewsCount: { $ifNull: ["$viewsCount", 0] },
-						userPublicId: "$userInfo.publicId",
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
-						user: {
-							publicId: "$userInfo.publicId",
-							username: "$userInfo.username",
-							avatar: "$userInfo.avatar",
-						},
-						image: {
-							publicId: "$imageDoc.publicId",
-							url: "$imageDoc.url",
-							slug: "$imageDoc.slug",
-						},
 						trendScore: 1,
 					},
 				},
@@ -553,7 +509,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				this.model.countDocuments({ createdAt: { $gte: sinceDate }, likesCount: { $gte: minLikes } }),
 			]);
 
-			console.info(`Trending feed generated with results: ${JSON.stringify(results)} `);
+			// console.info(`Trending feed generated with results: ${JSON.stringify(results)} `);
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
 
@@ -566,36 +522,11 @@ export class PostRepository extends BaseRepository<IPost> {
 	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
 		try {
 			const pipeline: PipelineStage[] = [
-				...this.getStandardLookups(),
 				{ $sort: { createdAt: -1 } },
 				{ $skip: skip },
 				{ $limit: limit },
-				{
-					$project: {
-						_id: 0,
-						publicId: 1,
-						body: 1,
-						slug: 1,
-						createdAt: 1,
-						likes: "$likesCount",
-						commentsCount: 1,
-						viewsCount: { $ifNull: ["$viewsCount", 0] },
-						userPublicId: "$userInfo.publicId",
-						tags: {
-							$map: { input: "$tagObjects", as: "tag", in: { tag: "$$tag.tag", publicId: "$$tag.publicId" } },
-						},
-						user: {
-							publicId: "$userInfo.publicId",
-							username: "$userInfo.username",
-							avatar: "$userInfo.avatar",
-						},
-						image: {
-							publicId: "$imageDoc.publicId",
-							url: "$imageDoc.url",
-							slug: "$imageDoc.slug",
-						},
-					},
-				},
+				...this.getStandardLookups(),
+				{ $project: { ...this.getStandardProjectionFields(), viewsCount: { $ifNull: ["$viewsCount", 0] } } },
 			];
 
 			const [results, total] = await Promise.all([
@@ -705,6 +636,57 @@ export class PostRepository extends BaseRepository<IPost> {
 			return result.deletedCount || 0;
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to delete posts by user");
+		}
+	}
+
+	/**
+	 * Updates the embedded author snapshot for all posts belonging to a user
+	 * Used by the profile sync worker when a user changes avatar or username
+	 */
+	async updateAuthorSnapshot(
+		userObjectId: mongoose.Types.ObjectId,
+		updates: {
+			username?: string;
+			avatarUrl?: string;
+			displayName?: string;
+			publicId?: string;
+		}
+	): Promise<number> {
+		try {
+			const setFields: Record<string, string> = {};
+			if (updates.username !== undefined) {
+				setFields["author.username"] = updates.username;
+			}
+			if (updates.avatarUrl !== undefined) {
+				setFields["author.avatarUrl"] = updates.avatarUrl;
+			}
+			if (updates.displayName !== undefined) {
+				setFields["author.displayName"] = updates.displayName;
+			}
+			if (updates.publicId !== undefined) {
+				setFields["author.publicId"] = updates.publicId;
+			}
+
+			if (Object.keys(setFields).length === 0) {
+				return 0;
+			}
+
+			const result = await this.model.updateMany({ "author._id": userObjectId }, { $set: setFields }).exec();
+
+			return result.modifiedCount || 0;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to update author snapshot");
+		}
+	}
+
+	private normalizeObjectId(id: string | mongoose.Types.ObjectId, field: string): mongoose.Types.ObjectId {
+		if (id instanceof mongoose.Types.ObjectId) {
+			return id;
+		}
+		try {
+			return new mongoose.Types.ObjectId(String(id));
+		} catch {
+			throw createError("ValidationError", `${field} is not a valid ObjectId`);
 		}
 	}
 }

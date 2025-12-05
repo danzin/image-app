@@ -1,9 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { UserService } from "../services/user.service";
+import { AuthService } from "../services/auth.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
-import { FollowService } from "../services/follow.service";
-import { IUser } from "../types";
 import { cookieOptions } from "../config/cookieConfig";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
@@ -18,6 +17,18 @@ import { UpdateAvatarCommand } from "../application/commands/users/updateAvatar/
 import { UpdateCoverCommand } from "../application/commands/users/updateCover/updateCover.command";
 import { PublicUserDTO } from "../services/dto.service";
 import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
+import { FollowUserCommand } from "../application/commands/users/followUser/followUser.command";
+import { FollowUserResult } from "../application/commands/users/followUser/followUser.handler";
+import { UpdateProfileCommand } from "../application/commands/users/updateProfile/updateProfile.command";
+import { ChangePasswordCommand } from "../application/commands/users/changePassword/changePassword.command";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByPublicIdQuery } from "../application/queries/users/getUserByPublicId/getUserByPublicId.query";
+import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.query";
+import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
+import { GetFollowersQuery } from "../application/queries/users/getFollowers/getFollowers.query";
+import { GetFollowersResult } from "../application/queries/users/getFollowers/getFollowers.handler";
+import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
+import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -37,12 +48,11 @@ import { DeleteUserCommand } from "../application/commands/users/deleteUser/dele
 export class UserController {
 	constructor(
 		@inject("UserService") private readonly userService: UserService,
-		@inject("FollowService") private readonly followService: FollowService,
+		@inject("AuthService") private readonly authService: AuthService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
 
-	//Register and login users
 	register = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { username, email, password } = req.body;
@@ -74,7 +84,7 @@ export class UserController {
 	login = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { email, password } = req.body;
-			const { user, token } = await this.userService.login(email, password);
+			const { user, token } = await this.authService.login(email, password);
 			res.cookie("token", token, cookieOptions);
 			res.status(200).json({ user, token }); // Return both user and token
 		} catch (error) {
@@ -91,7 +101,6 @@ export class UserController {
 		}
 	};
 
-	// Profile updates
 	updateProfile = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
@@ -103,11 +112,9 @@ export class UserController {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			const updatedUser = await this.userService.updateProfileByPublicId(
-				decodedUser.publicId,
-				userData,
-				decodedUser as IUser
-			);
+
+			const command = new UpdateProfileCommand(decodedUser.publicId, userData);
+			const updatedUser = await this.commandBus.dispatch<PublicUserDTO>(command);
 			res.status(200).json(updatedUser);
 		} catch (error) {
 			next(error);
@@ -117,15 +124,17 @@ export class UserController {
 	changePassword = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const { currentPassword, newPassword } = req.body; // Already validated by Zod middleware
+			const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
 
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}
 			if (!decodedUser.publicId) return next(createError("UnauthorizedError", "User not authenticated."));
-			await this.userService.changePasswordByPublicId(decodedUser.publicId, currentPassword, newPassword);
 
-			// res.clearCookie('token'); // Might clear cookies on password change to force re-login
+			const command = new ChangePasswordCommand(decodedUser.publicId, currentPassword, newPassword);
+			await this.commandBus.dispatch(command);
+
+			// res.clearCookie('token'); // might clear cookies on password change to force re-login
 
 			res.status(200).json({ message: "Password changed successfully." });
 		} catch (error) {
@@ -136,7 +145,7 @@ export class UserController {
 	updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const file = req.file?.buffer;
+			const file = req.file?.path;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
@@ -155,7 +164,7 @@ export class UserController {
 	updateCover = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
-			const file = req.file?.buffer;
+			const file = req.file?.path;
 			if (!file) throw createError("ValidationError", "No file provided");
 			if (!decodedUser) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
@@ -171,13 +180,11 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get user profile by username (public endpoint)
-	 */
 	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { username } = req.params;
-			const userDTO = await this.userService.getPublicProfileByUsername(username);
+			const query = new GetUserByUsernameQuery(username);
+			const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
 			res.status(200).json(userDTO);
 		} catch (error) {
@@ -191,13 +198,11 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get user profile by public ID (for API integrations)
-	 */
 	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const userDTO = await this.userService.getPublicProfileByPublicId(publicId);
+			const query = new GetUserByPublicIdQuery(publicId);
+			const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
 			res.status(200).json(userDTO);
 		} catch (error) {
@@ -224,7 +229,8 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.toggleFollow(followerPublicId, publicId);
+			const command = new FollowUserCommand(followerPublicId, publicId);
+			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -254,7 +260,8 @@ export class UserController {
 				return;
 			}
 
-			const result = await this.userService.toggleFollow(followerPublicId, publicId);
+			const command = new FollowUserCommand(followerPublicId, publicId);
+			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -282,11 +289,56 @@ export class UserController {
 				return;
 			}
 
-			const isFollowing = await this.userService.checkFollowStatusByPublicId(followerPublicId, publicId);
+			const query = new CheckFollowStatusQuery(followerPublicId, publicId);
+			const isFollowing = await this.queryBus.execute<boolean>(query);
 			res.status(200).json({ isFollowing });
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			res.status(500).json({ error: errorMessage });
+		}
+	};
+
+	/**
+	 * Get a user's followers list (paginated)
+	 */
+	getFollowers = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 20;
+
+			const query = new GetFollowersQuery(publicId, page, limit);
+			const result = await this.queryBus.execute<GetFollowersResult>(query);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Get a user's following list (paginated)
+	 */
+	getFollowing = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 20;
+
+			const query = new GetFollowingQuery(publicId, page, limit);
+			const result = await this.queryBus.execute<GetFollowingResult>(query);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
 		}
 	};
 
@@ -312,22 +364,13 @@ export class UserController {
 		}
 	};
 
-	//User getters
+	// user getters
 	getUsers = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const options = { ...req.query } as any;
-			const result = await this.userService.getUsers(options);
+			const query = new GetUsersQuery(options);
+			const result = await this.queryBus.execute(query);
 			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
-
-	getUserById = async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const { decodedUser } = req;
-			const user = await this.userService.getUserById(req.params.userId, decodedUser as IUser);
-			res.status(200).json(user);
 		} catch (error) {
 			next(error);
 		}

@@ -167,6 +167,7 @@ export interface GalleryProps {
 	isLoadingAll?: boolean;
 	emptyTitle?: string;
 	emptyDescription?: string;
+	variant?: "feed" | "media";
 }
 
 export interface Notification {

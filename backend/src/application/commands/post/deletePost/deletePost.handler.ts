@@ -2,8 +2,10 @@ import { inject, injectable } from "tsyringe";
 import mongoose, { ClientSession } from "mongoose";
 import { DeletePostCommand } from "./deletePost.command";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import { CommentRepository } from "../../../../repositories/comment.repository";
 import { TagService } from "../../../../services/tag.service";
 import { ImageService } from "../../../../services/image.service";
@@ -22,8 +24,10 @@ export interface DeletePostResult {
 export class DeletePostCommandHandler implements ICommandHandler<DeletePostCommand, DeletePostResult> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("ImageService") private readonly imageService: ImageService,
@@ -40,7 +44,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 			const { postOwnerInternalId, postOwnerPublicId } = this.extractPostOwnerInfo(post);
 			const postOwnerDoc = postOwnerInternalId
-				? await this.userRepository.findById(postOwnerInternalId, session)
+				? await this.userReadRepository.findById(postOwnerInternalId, session)
 				: null;
 
 			postAuthorPublicId = postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId;
@@ -58,6 +62,9 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 			// delete post and associated comments
 			await this.deletePostAndComments(post, session);
+			if (postOwnerInternalId) {
+				await this.userWriteRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } }, session);
+			}
 
 			// decrement tag usage counts
 			await this.decrementTagUsage(post, session);
@@ -70,7 +77,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private async validatePostExists(publicId: string, session: ClientSession): Promise<IPost> {
-		const post = await this.postRepository.findByPublicId(publicId, session);
+		const post = await this.postReadRepository.findByPublicId(publicId, session);
 		if (!post) {
 			throw createError("NotFoundError", "Post not found");
 		}
@@ -78,7 +85,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private async validateUserExists(publicId: string, session: ClientSession): Promise<any> {
-		const user = await this.userRepository.findByPublicId(publicId, session);
+		const user = await this.userReadRepository.findByPublicId(publicId, session);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
@@ -86,15 +93,22 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private extractPostOwnerInfo(post: IPost): { postOwnerInternalId: string; postOwnerPublicId?: string } {
-		const postOwnerInternalId =
-			typeof post.user === "object" && post.user !== null && "_id" in post.user
-				? (post.user as any)._id.toString()
-				: ((post.user as any)?.toString?.() ?? "");
+		const rawUser = (post as any).user;
+		const authorSnapshot = (post as any).author;
+
+		let postOwnerInternalId = "";
+		if (rawUser && typeof rawUser === "object" && "_id" in rawUser) {
+			postOwnerInternalId = (rawUser as any)._id?.toString?.() ?? "";
+		} else if (authorSnapshot?._id) {
+			postOwnerInternalId = authorSnapshot._id.toString();
+		} else if (typeof rawUser?.toString === "function") {
+			postOwnerInternalId = rawUser.toString();
+		}
 
 		const postOwnerPublicId =
-			typeof post.user === "object" && post.user !== null && "publicId" in post.user
-				? (post.user as any).publicId
-				: undefined;
+			typeof rawUser === "object" && rawUser !== null && "publicId" in rawUser
+				? (rawUser as any).publicId
+				: authorSnapshot?.publicId;
 
 		return { postOwnerInternalId, postOwnerPublicId };
 	}
@@ -143,7 +157,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 	private async deletePostAndComments(post: IPost, session: ClientSession): Promise<void> {
 		const postInternalId = (post as any)._id.toString();
-		await this.postRepository.delete(postInternalId, session);
+		await this.postWriteRepository.delete(postInternalId, session);
 		await this.commentRepository.deleteCommentsByPostId(postInternalId, session);
 	}
 

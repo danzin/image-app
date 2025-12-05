@@ -2,9 +2,10 @@ import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 import { RecordPostViewCommand } from "./recordPostView.command";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { PostViewRepository } from "../../../../repositories/postView.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { FeedService } from "../../../../services/feed.service";
 import { createError } from "../../../../utils/errors";
 import { isValidPublicId } from "../../../../utils/sanitizers";
@@ -12,9 +13,10 @@ import { isValidPublicId } from "../../../../utils/sanitizers";
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
 	constructor(
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("FeedService") private readonly feedService: FeedService
 	) {}
 
@@ -29,7 +31,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 		}
 
 		// resolve post by publicId (without transaction for better performance)
-		const post = await this.postRepository.findOneByPublicId(command.postPublicId);
+		const post = await this.postReadRepository.findOneByPublicId(command.postPublicId);
 
 		if (!post) {
 			throw createError("NotFoundError", "Post not found");
@@ -38,7 +40,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 		const postId = post._id as mongoose.Types.ObjectId;
 
 		// resolve user
-		const user = await this.userRepository.findByPublicId(command.userPublicId);
+		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
@@ -57,10 +59,10 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 
 		// increment viewsCount only if this is a new unique view
 		if (isNewView) {
-			await this.postRepository.incrementViewCount(postId);
+			await this.postWriteRepository.incrementViewCount(postId);
 
 			// update the post meta cache with new view count
-			const updatedPost = await this.postRepository.findOneByPublicId(command.postPublicId);
+			const updatedPost = await this.postReadRepository.findOneByPublicId(command.postPublicId);
 			if (updatedPost?.viewsCount !== undefined) {
 				await this.feedService.updatePostViewMeta(command.postPublicId, updatedPost.viewsCount);
 			}

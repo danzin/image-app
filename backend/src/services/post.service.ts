@@ -1,20 +1,21 @@
 import { inject, injectable } from "tsyringe";
 import { PostRepository } from "../repositories/post.repository";
+import { PostLikeRepository } from "../repositories/postLike.repository";
 import { UserRepository } from "../repositories/user.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { DTOService } from "./dto.service";
 import { createError } from "../utils/errors";
-import { IPost, ITag, PaginationResult, PostDTO } from "../types";
+import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "../types";
 import { TagService } from "./tag.service";
 
 @injectable()
 export class PostService {
 	constructor(
 		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: any,
-		@inject("LikeRepository") private readonly likeRepository: any,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
@@ -30,7 +31,7 @@ export class PostService {
 
 		// Add viewer-specific fields if viewer is logged in
 		if (viewerPublicId) {
-			const postInternalId = (post as any)._id?.toString();
+			const postInternalId = (post as IPostWithId)._id?.toString();
 			const viewerInternalId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
 
 			console.log(
@@ -41,12 +42,9 @@ export class PostService {
 			);
 
 			if (postInternalId && viewerInternalId) {
-				// Check if viewer liked this post (using LikeRepository)
-				const likeRecord = await this.likeRepository.findByUserAndPost(viewerInternalId, postInternalId);
-				dto.isLikedByViewer = !!likeRecord;
-				console.log("[PostService.getPostByPublicId] likeRecord:", !!likeRecord);
+				dto.isLikedByViewer = await this.postLikeRepository.hasUserLiked(postInternalId, viewerInternalId);
+				console.log("[PostService.getPostByPublicId] like match:", dto.isLikedByViewer);
 
-				// Check if viewer favorited this post (using FavoriteRepository)
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;
 				console.log("[PostService.getPostByPublicId] favoriteRecord:", !!favoriteRecord);

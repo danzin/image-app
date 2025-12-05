@@ -39,27 +39,6 @@ export const useFeedSocketIntegration = () => {
 		};
 
 		/**
-		 * Handle global discovery feed updates
-		 * Backend event: "discovery_new_post" with type: "new_post_global"
-		 */
-		const handleDiscoveryNewPost = (data: {
-			type: "new_post_global";
-			authorId: string;
-			postId: string;
-			tags: string[];
-			timestamp: string;
-		}) => {
-			console.log("Real-time: Global new post received for discovery feeds", data);
-
-			// Immediately invalidate discovery feeds for all users
-			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
-			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
-
-			// Also invalidate general images query
-			queryClient.invalidateQueries({ queryKey: ["images"] });
-		};
-
-		/**
 		 * Handle like count updates
 		 * Backend event: "like_update" with type: "like_count_changed"
 		 */
@@ -139,7 +118,12 @@ export const useFeedSocketIntegration = () => {
 			console.log("Real-time: Avatar update received", data);
 
 			// Invalidate user data and any feed that shows avatars
+			const currentUser = queryClient.getQueryData<{ publicId?: string }>(["currentUser"]);
+			if (currentUser?.publicId === data.userId) {
+				queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+			}
 			queryClient.invalidateQueries({ queryKey: ["user", data.userId] });
+			queryClient.invalidateQueries({ queryKey: ["user", "publicId", data.userId] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });
@@ -178,7 +162,6 @@ export const useFeedSocketIntegration = () => {
 
 		// Register all socket event listeners
 		socket.on("feed_update", handleNewPost);
-		socket.on("discovery_new_post", handleDiscoveryNewPost);
 		socket.on("like_update", handleLikeUpdate);
 		socket.on("avatar_update", handleAvatarUpdate);
 		socket.on("feed_interaction", handleFeedInteraction);
@@ -186,7 +169,6 @@ export const useFeedSocketIntegration = () => {
 		return () => {
 			// Cleanup listeners
 			socket.off("feed_update", handleNewPost);
-			socket.off("discovery_new_post", handleDiscoveryNewPost);
 			socket.off("like_update", handleLikeUpdate);
 			socket.off("avatar_update", handleAvatarUpdate);
 			socket.off("feed_interaction", handleFeedInteraction);

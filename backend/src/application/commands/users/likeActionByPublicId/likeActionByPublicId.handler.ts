@@ -4,26 +4,27 @@ import { LikeActionByPublicIdCommand } from "./likeActionByPublicId.command";
 import { IPost, PostDTO } from "../../../../types/index";
 import { EventBus } from "../../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { LikeRepository } from "../../../../repositories/like.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
+import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { NotificationService } from "../../../../services/notification.service";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
-import { convertToObjectId } from "../../../../utils/helpers";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
@@ -41,7 +42,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				`[LIKEACTIONHANDLER]:\r\n  User public ID: ${command.userPublicId},
 			 Post public ID: ${command.postPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
-			const user = await this.userRepository.findByPublicId(command.userPublicId);
+			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
 				throw createError("PathError", `User with public ID ${command.userPublicId} not found`);
 			}
@@ -58,7 +59,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 
 			const actorUsername = (user as any).username || (user as any).name || "Unknown";
 
-			existingPost = await this.postRepository.findByPublicId(command.postPublicId);
+			existingPost = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!existingPost) {
 				throw createError("PathError", `Post with public ID ${command.postPublicId} not found`);
 			}
@@ -71,7 +72,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				? (existingPost as any).tags.map((t: any) => t.tag ?? t)
 				: [];
 
-			// Get _id from the document - handle both Mongoose document and plain object
+			// Get _id from the document to handle both Mongoose document and plain object
 			const postInternalId = (existingPost as any)._id
 				? (existingPost as any)._id.toString()
 				: (existingPost as any).id?.toString() || null;
@@ -82,19 +83,24 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			}
 
 			const postOwner = (existingPost as any).user;
-			const postOwnerPublicId =
-				typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-					? (postOwner as any).publicId
-					: (postOwner?.toString?.() ?? "");
+			let postOwnerPublicId = "";
+			if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
+				postOwnerPublicId = (postOwner as any).publicId;
+			} else if (postOwner) {
+				const ownerUser = await this.userReadRepository.findById(postOwner.toString());
+				if (ownerUser) {
+					postOwnerPublicId = ownerUser.publicId;
+				}
+			}
 
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const existingLike = await this.likeRepository.findByUserAndPost(userMongoId, postInternalId, session);
+				const existingLike = await this.postLikeRepository.hasUserLiked(postInternalId, userMongoId, session);
 
 				if (existingLike) {
 					await this.handleUnlike(command, userMongoId, postInternalId, session);
 					isLikeAction = false;
 				} else {
-					await this.handleLike(command, userMongoId, existingPost!, actorUsername, session);
+					await this.handleLike(command, userMongoId, existingPost!, actorUsername, postOwnerPublicId, session);
 				}
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(
@@ -108,7 +114,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				);
 			});
 
-			const updatedPost = await this.postRepository.findByPublicId(command.postPublicId);
+			const updatedPost = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!updatedPost) {
 				throw createError("PathError", `Post with public ID ${command.postPublicId} not found after update`);
 			}
@@ -131,25 +137,18 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		userMongoId: string,
 		post: IPost,
 		actorUsername: string,
+		postOwnerPublicId: string,
 		session: ClientSession
 	) {
-		await this.likeRepository.create(
-			{
-				userId: convertToObjectId(userMongoId),
-				postId: convertToObjectId((post as any)._id),
-			},
-			session
-		);
+		const postId = (post as any)._id.toString();
+		const added = await this.postLikeRepository.addLike(postId, userMongoId, session);
+		if (!added) {
+			throw createError("ConflictError", "like already exists for user and post");
+		}
 
-		await this.postRepository.updateLikeCount((post as any)._id.toString(), 1, session);
+		await this.postWriteRepository.updateLikeCount(postId, 1, session);
 
 		await this.userActionRepository.logAction(userMongoId, "like", (post as any)._id.toString(), session);
-
-		const postOwner = (post as any).user;
-		const postOwnerPublicId =
-			typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-				? (postOwner as any).publicId.toString()
-				: postOwner?.toString?.();
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
 			// get post preview (first 50 chars of body or image indicator)
@@ -178,8 +177,11 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		postId: string,
 		session: ClientSession
 	) {
-		await this.likeRepository.deleteLike(userMongoId, postId, session);
-		await this.postRepository.updateLikeCount(postId, -1, session);
+		const removed = await this.postLikeRepository.removeLike(postId, userMongoId, session);
+		if (!removed) {
+			throw createError("NotFoundError", "like does not exist for user and post");
+		}
 		await this.userActionRepository.logAction(userMongoId, "unlike", postId, session);
+		await this.postWriteRepository.updateLikeCount(postId, -1, session);
 	}
 }

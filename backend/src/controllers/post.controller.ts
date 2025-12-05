@@ -1,6 +1,5 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { UserService } from "../services/user.service";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { QueryBus } from "../application/common/buses/query.bus";
 import { CreatePostCommand } from "../application/commands/post/createPost/createPost.command";
@@ -10,17 +9,19 @@ import { GetPostByPublicIdQuery } from "../application/queries/post/getPostByPub
 import { GetPostBySlugQuery } from "../application/queries/post/getPostBySlug/getPostBySlug.query";
 import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
 import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/getPostsByUser.query";
+import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
 import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
+import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
 import { createError } from "../utils/errors";
 import { errorLogger } from "../utils/winston";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "../types";
 import { safeFireAndForget } from "../utils/helpers";
+import { PublicUserDTO } from "../services/dto.service";
 
 @injectable()
 export class PostController {
 	constructor(
-		@inject("UserService") private readonly userService: UserService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
 	) {}
@@ -41,7 +42,7 @@ export class PostController {
 			}
 
 			const originalName = file?.originalname || `post-${Date.now()}`;
-			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.buffer, originalName);
+			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.path, originalName);
 			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);
 		} catch (error) {
@@ -90,13 +91,34 @@ export class PostController {
 		}
 	};
 
+	getLikedPostsByUserPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		const { publicId } = req.params;
+		const page = parseInt(req.query.page as string) || 1;
+		const limit = parseInt(req.query.limit as string) || 10;
+		const viewerPublicId = req.decodedUser?.publicId;
+
+		try {
+			const query = new GetLikedPostsByUserQuery(publicId, page, limit, viewerPublicId);
+			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
+			res.json(posts);
+		} catch (error) {
+			if (error instanceof Error) {
+				errorLogger.error(error.stack);
+			} else {
+				errorLogger.error("Unknown error occurred");
+			}
+			next(createError("UnknownError", "Failed to fetch liked posts"));
+		}
+	};
+
 	getPostsByUsername = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { username } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 
-			const user = await this.userService.getUserByUsername(username);
+			const userQuery = new GetUserByUsernameQuery(username);
+			const user = await this.queryBus.execute<PublicUserDTO>(userQuery);
 
 			const query = new GetPostsByUserQuery(user.publicId, page, limit);
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);

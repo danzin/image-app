@@ -20,6 +20,7 @@ import {
 	PersonAdd as PersonAddIcon,
 	CheckCircle as CheckCircleIcon,
 	ExpandMore as ExpandMoreIcon,
+	AlternateEmail as AlternateEmailIcon,
 } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
@@ -62,6 +63,8 @@ const Notifications: React.FC = () => {
 				return <CommentIcon sx={{ color: "#3b82f6", fontSize: 20 }} />;
 			case "follow":
 				return <PersonAddIcon sx={{ color: "#10b981", fontSize: 20 }} />;
+			case "mention":
+				return <AlternateEmailIcon sx={{ color: "#f59e0b", fontSize: 20 }} />;
 			default:
 				return null;
 		}
@@ -75,6 +78,8 @@ const Notifications: React.FC = () => {
 				return "commented on your post";
 			case "follow":
 				return "started following you";
+			case "mention":
+				return "mentioned you in a comment";
 			default:
 				return notification.actionType;
 		}
@@ -131,7 +136,6 @@ const Notifications: React.FC = () => {
 				sx={{
 					mb: 3,
 					fontWeight: 700,
-					background: "linear-gradient(45deg, #6366f1, #ec4899)",
 					backgroundClip: "text",
 					WebkitBackgroundClip: "text",
 					color: "transparent",
@@ -147,7 +151,6 @@ const Notifications: React.FC = () => {
 						py: 8,
 						px: 3,
 						borderRadius: 3,
-						background: "linear-gradient(145deg, rgba(26, 26, 46, 0.6) 0%, rgba(22, 33, 62, 0.6) 100%)",
 						border: "1px solid rgba(99, 102, 241, 0.2)",
 					}}
 				>
@@ -171,8 +174,8 @@ const Notifications: React.FC = () => {
 									mb: 1,
 									borderRadius: 3,
 									background: notification.isRead
-										? "linear-gradient(145deg, rgba(26, 26, 46, 0.4) 0%, rgba(22, 33, 62, 0.4) 100%)"
-										: "linear-gradient(145deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)",
+										? "linear-gradient(145deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)"
+										: "linear-gradient(145deg, rgba(26, 26, 46, 0.4) 0%, rgba(22, 33, 62, 0.4) 100%)",
 									border: notification.isRead
 										? "1px solid rgba(99, 102, 241, 0.1)"
 										: "1px solid rgba(99, 102, 241, 0.3)",
@@ -282,7 +285,6 @@ const Notifications: React.FC = () => {
 					{/* Infinite scroll trigger */}
 					<div ref={observerTarget} style={{ height: 20 }} />
 
-					{/* Loading indicator for next page */}
 					{isFetchingNextPage && (
 						<Box sx={{ display: "flex", justifyContent: "center", py: 3 }}>
 							<CircularProgress size={24} />
@@ -310,7 +312,6 @@ const Notifications: React.FC = () => {
 						</Box>
 					)}
 
-					{/* End of list indicator */}
 					{!hasNextPage && notifications.length > 0 && (
 						<Typography
 							variant="caption"

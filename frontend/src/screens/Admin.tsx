@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
 	Box,
 	Container,
@@ -54,7 +55,7 @@ import {
 	useDeleteImageAdmin,
 	useClearCache,
 } from "../hooks/admin/useAdmin";
-import { AdminUserDTO, IImage } from "../types";
+import { AdminUserDTO, IPost } from "../types";
 import { formatDistanceToNow } from "date-fns";
 
 interface TabPanelProps {
@@ -115,6 +116,7 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
 };
 
 export const AdminDashboard: React.FC = () => {
+	const navigate = useNavigate();
 	const [currentTab, setCurrentTab] = useState(0);
 	const [userPage, setUserPage] = useState(0);
 	const [imagePage, setImagePage] = useState(0);
@@ -174,7 +176,7 @@ export const AdminDashboard: React.FC = () => {
 			<Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)} sx={{ mb: 3 }}>
 				<Tab icon={<DashboardIcon />} label="overview" />
 				<Tab icon={<PeopleIcon />} label="users" />
-				<Tab icon={<ImageIcon />} label="images" />
+				<Tab icon={<ImageIcon />} label="posts" />
 			</Tabs>
 
 			{/* overview tab */}
@@ -196,7 +198,7 @@ export const AdminDashboard: React.FC = () => {
 
 						<Grid item xs={12} sm={6} md={3}>
 							<StatCard
-								title="Total Images"
+								title="Total Posts"
 								value={stats?.totalImages || 0}
 								change={`+${stats?.recentImages || 0} this month`}
 								icon={<ImageIcon sx={{ fontSize: 40 }} />}
@@ -429,40 +431,80 @@ export const AdminDashboard: React.FC = () => {
 							<Table>
 								<TableHead>
 									<TableRow>
-										<TableCell>image</TableCell>
-										<TableCell>title</TableCell>
-										<TableCell>uploader</TableCell>
+										<TableCell>preview</TableCell>
+										<TableCell>content</TableCell>
+										<TableCell>author</TableCell>
 										<TableCell>likes</TableCell>
-										<TableCell>uploaded</TableCell>
+										<TableCell>posted</TableCell>
 										<TableCell>actions</TableCell>
 									</TableRow>
 								</TableHead>
 								<TableBody>
-									{imagesData?.data.map((image: IImage) => (
-										<TableRow key={image.publicId}>
-											<TableCell>
-												<Avatar variant="rounded" src={image.url} sx={{ width: 60, height: 60 }} />
-											</TableCell>
-											<TableCell>{image.title || "untitled"}</TableCell>
-											<TableCell>{image.user?.username}</TableCell>
-											<TableCell>{image.likes || 0}</TableCell>
-											<TableCell>{formatDistanceToNow(new Date(image.createdAt), { addSuffix: true })}</TableCell>
-											<TableCell>
-												<IconButton
-													size="small"
-													color="error"
-													onClick={() => {
-														if (window.confirm("delete this image? this cannot be undone.")) {
-															deleteImageMutation.mutate(image.publicId);
+									{imagesData?.data.map((post: IPost) => {
+										const imageUrl = post.image?.url || post.url;
+										const hasImage = !!imageUrl;
+										const contentPreview = post.body
+											? post.body.length > 50
+												? post.body.substring(0, 50) + "..."
+												: post.body
+											: hasImage
+												? "[image only]"
+												: "[no content]";
+										return (
+											<TableRow
+												key={post.publicId}
+												sx={{
+													cursor: "pointer",
+													"&:hover": { bgcolor: "rgba(255,255,255,0.05)" },
+												}}
+												onClick={() => navigate(`/posts/${post.publicId}`)}
+											>
+												<TableCell>
+													{hasImage ? (
+														<Avatar variant="rounded" src={imageUrl} sx={{ width: 60, height: 60 }} />
+													) : (
+														<Avatar variant="rounded" sx={{ width: 60, height: 60, bgcolor: "grey.800" }}>
+															<ImageIcon />
+														</Avatar>
+													)}
+												</TableCell>
+												<TableCell>
+													<Typography variant="body2" sx={{ maxWidth: 200 }}>
+														{contentPreview}
+													</Typography>
+												</TableCell>
+												<TableCell
+													onClick={(e) => {
+														e.stopPropagation();
+														if (post.user?.publicId) {
+															navigate(`/profile/${post.user.publicId}`);
 														}
 													}}
-													title="delete image"
+													sx={{
+														"&:hover": { color: "primary.main", textDecoration: "underline" },
+													}}
 												>
-													<DeleteIcon />
-												</IconButton>
-											</TableCell>
-										</TableRow>
-									))}
+													{post.user?.username}
+												</TableCell>
+												<TableCell>{post.likes || 0}</TableCell>
+												<TableCell>{formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}</TableCell>
+												<TableCell onClick={(e) => e.stopPropagation()}>
+													<IconButton
+														size="small"
+														color="error"
+														onClick={() => {
+															if (window.confirm("delete this post? this cannot be undone.")) {
+																deleteImageMutation.mutate(post.publicId);
+															}
+														}}
+														title="delete post"
+													>
+														<DeleteIcon />
+													</IconButton>
+												</TableCell>
+											</TableRow>
+										);
+									})}
 								</TableBody>
 							</Table>
 						</TableContainer>

@@ -5,22 +5,19 @@ import {
 	Typography,
 	Avatar,
 	Modal,
-	Grid,
 	Paper,
-	Divider,
 	CircularProgress,
 	useTheme,
 	IconButton,
-	Card,
-	Container,
 	alpha,
-	useMediaQuery,
-	Stack,
+	Tabs,
+	Tab,
 	Tooltip,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { useNavigate, useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
@@ -28,12 +25,18 @@ import "react-toastify/dist/ReactToastify.css";
 
 import Gallery from "../components/Gallery";
 import { EditProfile } from "../components/EditProfile";
-import { useGetUser, useUpdateUserAvatar, useUpdateUserCover, useUserPosts } from "../hooks/user/useUsers";
+import {
+	useGetUser,
+	useUpdateUserAvatar,
+	useUpdateUserCover,
+	useUserPosts,
+	useUserLikedPosts,
+	useUserComments,
+} from "../hooks/user/useUsers";
 import { useFollowUser, useIsFollowing } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import ImageEditor from "../components/ImageEditor";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChangePassword } from "../components/ChangePassword";
 import { useInitiateConversation } from "../hooks/messaging/useInitiateConversation";
 
 const BASE_URL = "/api";
@@ -43,8 +46,8 @@ const Profile: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const { user, isLoggedIn } = useAuth();
 	const theme = useTheme();
-	const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 	const queryClient = useQueryClient();
+	const [activeTab, setActiveTab] = useState(0);
 
 	const profileUserId = id || user?.publicId;
 
@@ -62,7 +65,23 @@ const Profile: React.FC = () => {
 		hasNextPage,
 		isFetchingNextPage,
 		isLoading: isLoadingImages,
-	} = useUserPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId });
+	} = useUserPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 0 });
+
+	const {
+		data: likedPostsData,
+		fetchNextPage: fetchNextLikedPage,
+		hasNextPage: hasNextLikedPage,
+		isFetchingNextPage: isFetchingNextLikedPage,
+		isLoading: isLoadingLikedPosts,
+	} = useUserLikedPosts(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 3 });
+
+	const {
+		data: commentsData,
+		fetchNextPage: fetchNextCommentsPage,
+		hasNextPage: hasNextCommentsPage,
+		isFetchingNextPage: isFetchingNextCommentsPage,
+		isLoading: isLoadingComments,
+	} = useUserComments(profileData?.publicId || "", { enabled: !!profileData?.publicId && activeTab === 1 });
 
 	const { data: isFollowing, isLoading: isCheckingFollow } = useIsFollowing(profileData?.publicId || "", {
 		enabled: isLoggedIn && !!profileData?.publicId && profileData?.publicId !== user?.publicId,
@@ -72,7 +91,6 @@ const Profile: React.FC = () => {
 	const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 	const [isCoverModalOpen, setIsCoverModalOpen] = useState(false);
 	const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-	const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
 
 	//check if user is the owner of the profile
 	const isProfileOwner = isLoggedIn && profileData?.publicId === user?.publicId;
@@ -87,11 +105,12 @@ const Profile: React.FC = () => {
 	const notifyError = useCallback((message: string) => toast.error(message), []);
 
 	const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
+	const flattenedLikedPosts = likedPostsData?.pages?.flatMap((page) => page.data) || [];
+	const flattenedComments = commentsData?.pages?.flatMap((page) => page.comments) || [];
 
-	// Proper check for data in imagesData. totalPages can't be accessed because it's a property of each page object within pages array,
-	// not a direct property of imagesData. This was causing the TS error, `imagesData` is of type `InfiniteData<ImagePageData, number> | undefined`
-	// so I needed to check if it exists and then if it has any pages
 	const isLoadingAll = isLoadingImages || imagesData?.pages.length === 0;
+	const isLoadingAllLiked = isLoadingLikedPosts || likedPostsData?.pages.length === 0;
+	const isLoadingAllComments = isLoadingComments || commentsData?.pages.length === 0;
 
 	const handleFollowUser = () => {
 		if (!isLoggedIn) return navigate("/login");
@@ -129,7 +148,7 @@ const Profile: React.FC = () => {
 		});
 	};
 
-	// Handler for Avatar upload (receives Blob)
+	// Handler for Avatar upload
 	const handleAvatarUpload = useCallback(
 		(croppedImage: Blob | null) => {
 			if (!croppedImage) {
@@ -152,7 +171,6 @@ const Profile: React.FC = () => {
 		[avatarMutation, notifyError, notifySuccess]
 	);
 
-	// Handler for Cover upload (receives Blob)
 	const handleCoverUpload = useCallback(
 		(croppedImage: Blob | null) => {
 			if (!croppedImage) {
@@ -185,23 +203,19 @@ const Profile: React.FC = () => {
 
 	if (getUserError) {
 		return (
-			<Container maxWidth="lg" sx={{ mt: 3 }}>
-				<Card sx={{ p: 3, textAlign: "center" }}>
-					<Typography color="error">
-						Error loading profile: {(getUserError as Error)?.message || "Unknown error"}
-					</Typography>
-				</Card>
-			</Container>
+			<Box sx={{ p: 3, textAlign: "center" }}>
+				<Typography color="error">
+					Error loading profile: {(getUserError as Error)?.message || "Unknown error"}
+				</Typography>
+			</Box>
 		);
 	}
 
 	if (!profileData) {
 		return (
-			<Container maxWidth="lg" sx={{ mt: 3 }}>
-				<Card sx={{ p: 3, textAlign: "center" }}>
-					<Typography>User not found.</Typography>
-				</Card>
-			</Container>
+			<Box sx={{ p: 3, textAlign: "center" }}>
+				<Typography>User not found.</Typography>
+			</Box>
 		);
 	}
 
@@ -219,380 +233,413 @@ const Profile: React.FC = () => {
 	const fullCoverUrl = getFullUrl(profileData?.cover);
 
 	return (
-		<Box sx={{ height: "100%", overflowY: "auto", bgcolor: "background.default" }}>
+		<Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
+			{/* Sticky Header */}
+			<Box
+				sx={{
+					position: "sticky",
+					top: 0,
+					zIndex: 1000,
+					bgcolor: "rgba(0, 0, 0, 0.65)",
+					backdropFilter: "blur(12px)",
+					borderBottom: `1px solid ${theme.palette.divider}`,
+					px: 2,
+					py: 0.5,
+					display: "flex",
+					alignItems: "center",
+					gap: 3,
+				}}
+			>
+				<IconButton onClick={() => navigate(-1)} size="small">
+					<ArrowBackIcon />
+				</IconButton>
+				<Box>
+					<Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+						{profileData.username}
+					</Typography>
+					<Typography variant="caption" color="text.secondary">
+						{flattenedImages.length} posts
+					</Typography>
+				</Box>
+			</Box>
+
 			{/* Cover Photo */}
 			<Box
 				sx={{
 					position: "relative",
-					height: { xs: "25vh", sm: "30vh", md: "35vh" },
+					height: { xs: 150, sm: 200 },
 					bgcolor: theme.palette.mode === "dark" ? "grey.800" : "grey.200",
 					backgroundSize: "cover",
 					backgroundPosition: "center",
 					backgroundImage: fullCoverUrl ? `url(${fullCoverUrl})` : "none",
 				}}
 			>
-				{/* Dark overlay gradient */}
-				<Box
-					sx={{
-						position: "absolute",
-						bottom: 0,
-						left: 0,
-						right: 0,
-						height: "80px",
-						background: `linear-gradient(to top, ${alpha(theme.palette.common.black, 0.7)}, transparent)`,
-					}}
-				/>
-
 				{/* Edit Cover Button */}
 				{isProfileOwner && (
 					<IconButton
-						size="medium"
+						size="small"
 						onClick={() => setIsCoverModalOpen(true)}
 						sx={{
 							position: "absolute",
 							bottom: 16,
 							right: 16,
-							bgcolor: alpha(theme.palette.background.paper, 0.8),
-							color: theme.palette.text.primary,
+							bgcolor: alpha(theme.palette.common.black, 0.5),
+							color: theme.palette.common.white,
 							"&:hover": {
-								bgcolor: theme.palette.background.paper,
+								bgcolor: alpha(theme.palette.common.black, 0.7),
 							},
-							zIndex: 10,
-							boxShadow: theme.shadows[2],
 						}}
-						aria-label="Edit cover photo"
 					>
-						<EditIcon />
+						<CameraAltIcon fontSize="small" />
 					</IconButton>
 				)}
 			</Box>
 
-			{/* Main Content Container */}
-			<Container maxWidth="lg" sx={{ position: "relative" }}>
-				{/* Profile Header Section */}
-				<Box
-					sx={{
-						mt: { xs: -8, sm: -10 },
-						px: { xs: 2, sm: 3 },
-						mb: 4,
-						position: "relative",
-					}}
-				>
-					<Grid container spacing={2} alignItems="flex-end">
-						{/* Avatar Section */}
-						<Grid item xs={12} sm="auto">
-							<Box sx={{ position: "relative", display: "inline-block" }}>
-								<Avatar
-									src={fullAvatarUrl}
-									alt={`${profileData?.username}'s avatar`}
-									sx={{
-										width: { xs: 120, sm: 140, md: 160 },
-										height: { xs: 120, sm: 140, md: 160 },
-										border: `4px solid ${theme.palette.background.paper}`,
-										boxShadow: theme.shadows[4],
-									}}
-								/>
-
-								{/* Edit Avatar Button */}
-								{isProfileOwner && (
-									<IconButton
-										size="small"
-										onClick={() => setIsAvatarModalOpen(true)}
-										sx={{
-											position: "absolute",
-											bottom: 8,
-											right: 8,
-											bgcolor: alpha(theme.palette.background.paper, 0.9),
-											color: theme.palette.primary.main,
-											"&:hover": { bgcolor: theme.palette.background.paper },
-											boxShadow: theme.shadows[2],
-										}}
-										aria-label="Edit profile picture"
-									>
-										<CameraAltIcon fontSize="small" />
-									</IconButton>
-								)}
-							</Box>
-						</Grid>
-
-						{/* User Info Section */}
-						<Grid item xs={12} sm>
-							<Box
+			{/* Profile Info Section */}
+			<Box sx={{ px: 2, pb: 2 }}>
+				{/* Top Row: Avatar and Edit/Follow Button */}
+				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+					{/* Avatar Container */}
+					<Box sx={{ mt: "-15%" }}>
+						<Box sx={{ position: "relative", display: "inline-block" }}>
+							<Avatar
+								src={fullAvatarUrl}
+								alt={`${profileData?.username}'s avatar`}
 								sx={{
-									pt: { xs: 2, sm: 0 },
-									pl: { xs: 0, sm: 2 },
-									display: "flex",
-									flexDirection: { xs: "column", sm: "row" },
-									alignItems: { xs: "flex-start", sm: "center" },
-									justifyContent: "space-between",
-									gap: 2,
+									width: { xs: 80, sm: 134 },
+									height: { xs: 80, sm: 134 },
+									border: `4px solid ${theme.palette.background.default}`,
+								}}
+							/>
+							{isProfileOwner && (
+								<IconButton
+									size="small"
+									onClick={() => setIsAvatarModalOpen(true)}
+									sx={{
+										position: "absolute",
+										bottom: 0,
+										right: 0,
+										bgcolor: alpha(theme.palette.common.black, 0.5),
+										color: theme.palette.common.white,
+										"&:hover": { bgcolor: alpha(theme.palette.common.black, 0.7) },
+									}}
+								>
+									<CameraAltIcon fontSize="small" />
+								</IconButton>
+							)}
+						</Box>
+					</Box>
+
+					{/* Action Buttons */}
+					<Box sx={{ mt: 1.5 }}>
+						{isProfileOwner ? (
+							<Button
+								variant="outlined"
+								onClick={() => setIsEditProfileOpen(true)}
+								sx={{
+									borderRadius: 9999,
+									textTransform: "none",
+									fontWeight: 700,
+									borderColor: theme.palette.divider,
+									color: theme.palette.text.primary,
+									"&:hover": {
+										bgcolor: alpha(theme.palette.text.primary, 0.1),
+										borderColor: theme.palette.divider,
+									},
 								}}
 							>
-								{/* Name and Bio */}
-								<Box>
-									<Typography variant="h4" fontWeight="bold" color="text.primary" gutterBottom={!isMobile}>
-										{profileData?.username}
-									</Typography>
-									<Typography variant="body1" color="text.secondary" sx={{ mb: { xs: 2, sm: 0 } }}>
-										{profileData?.bio || "No bio available"}
-									</Typography>
-								</Box>
-
-								{/* Action Buttons */}
-								<Box
+								Edit profile
+							</Button>
+						) : isLoggedIn ? (
+							<Box sx={{ display: "flex", gap: 1 }}>
+								<Tooltip title="Message">
+									<IconButton
+										onClick={handleMessageUser}
+										sx={{
+											border: `1px solid ${theme.palette.divider}`,
+											color: theme.palette.text.primary,
+										}}
+									>
+										<MailOutlineIcon />
+									</IconButton>
+								</Tooltip>
+								<Button
+									variant={isFollowing ? "outlined" : "contained"}
+									onClick={handleFollowUser}
+									disabled={isCheckingFollow || followPending}
 									sx={{
-										display: "flex",
-										gap: 2,
-										width: { xs: "100%", sm: "auto" },
+										borderRadius: 9999,
+										textTransform: "none",
+										fontWeight: 700,
+										minWidth: 100,
+										bgcolor: isFollowing ? "transparent" : "common.white",
+										color: isFollowing ? "text.primary" : "common.black",
+										borderColor: isFollowing ? "divider" : "transparent",
+										"&:hover": {
+											bgcolor: isFollowing ? "rgba(244, 33, 46, 0.1)" : alpha(theme.palette.common.white, 0.9),
+											color: isFollowing ? "error.main" : "common.black",
+											borderColor: isFollowing ? "error.main" : "transparent",
+										},
 									}}
 								>
-									{isProfileOwner ? (
-										<>
-											<Button
-												variant="outlined"
-												color="primary"
-												onClick={() => setIsEditProfileOpen(true)}
-												startIcon={<EditIcon />}
-												fullWidth={isMobile}
-											>
-												Edit Profile
-											</Button>
-											<Button
-												variant="outlined"
-												color="secondary"
-												onClick={() => setIsChangePasswordOpen(true)}
-												startIcon={<EditIcon />}
-												fullWidth={isMobile}
-											>
-												Change Password
-											</Button>
-										</>
-									) : isLoggedIn ? (
-										<>
-											<Button
-												variant={isFollowing ? "outlined" : "contained"}
-												color={isFollowing ? "primary" : "primary"}
-												onClick={handleFollowUser}
-												disabled={isCheckingFollow || followPending}
-												fullWidth={isMobile}
-												sx={{ minWidth: 120 }}
-											>
-												{isCheckingFollow || followPending ? (
-													<CircularProgress size={24} color="inherit" />
-												) : isFollowing ? (
-													"Unfollow"
-												) : (
-													"Follow"
-												)}
-											</Button>
-											<Tooltip title="Message">
-												<span>
-													<IconButton
-														aria-label="Start conversation"
-														onClick={handleMessageUser}
-														disabled={initiateConversationMutation.isPending}
-														sx={{
-															width: 44,
-															height: 44,
-															borderRadius: "50%",
-															border: `1px solid ${alpha(theme.palette.primary.main, 0.4)}`,
-															bgcolor: alpha(theme.palette.primary.main, 0.15),
-															color: theme.palette.primary.light,
-															"&:hover": {
-																bgcolor: alpha(theme.palette.primary.main, 0.25),
-															},
-														}}
-													>
-														{initiateConversationMutation.isPending ? (
-															<CircularProgress size={18} color="inherit" />
-														) : (
-															<MailOutlineIcon fontSize="small" />
-														)}
-													</IconButton>
-												</span>
-											</Tooltip>
-										</>
-									) : (
-										<Button variant="contained" color="primary" onClick={() => navigate("/login")} fullWidth={isMobile}>
-											Log in to follow
-										</Button>
-									)}
-								</Box>
+									{isFollowing ? "Unfollow" : "Follow"}
+								</Button>
 							</Box>
-						</Grid>
-					</Grid>
+						) : (
+							<Button
+								variant="contained"
+								onClick={() => navigate("/login")}
+								sx={{
+									borderRadius: 9999,
+									bgcolor: "common.white",
+									color: "common.black",
+									fontWeight: 700,
+									"&:hover": { bgcolor: alpha(theme.palette.common.white, 0.9) },
+								}}
+							>
+								Follow
+							</Button>
+						)}
+					</Box>
 				</Box>
 
-				{/* Stats Summary - Quick overview */}
-				<Paper elevation={1} sx={{ mb: 3, p: 2, borderRadius: 2 }}>
-					<Grid container spacing={3} justifyContent="center">
-						{[
-							{ label: "Posts", value: flattenedImages.length || 0 },
-							{ label: "Followers", value: profileData?.followerCount || 0 },
-							{ label: "Following", value: profileData?.followingCount || 0 },
-						].map((stat) => (
-							<Grid item xs={4} key={stat.label} sx={{ textAlign: "center" }}>
-								<Typography variant="h5" fontWeight="medium" color="primary">
-									{stat.value}
+				{/* Name and Handle */}
+				<Box sx={{ mt: 1 }}>
+					<Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+						{profileData.username}
+					</Typography>
+					<Typography variant="body2" color="text.secondary">
+						@{profileData.username}
+					</Typography>
+				</Box>
+
+				{/* Bio */}
+				{profileData.bio && (
+					<Typography variant="body1" sx={{ mt: 1.5, whiteSpace: "pre-wrap" }}>
+						{profileData.bio}
+					</Typography>
+				)}
+
+				{/* Metadata (Join Date, etc) */}
+				<Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 1.5, color: "text.secondary" }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+						<CalendarMonthIcon fontSize="small" />
+						<Typography variant="body2">
+							Joined {profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : "Unknown"}
+						</Typography>
+					</Box>
+				</Box>
+
+				{/* Follow Counts */}
+				<Box sx={{ display: "flex", gap: 2.5, mt: 1.5 }}>
+					<Box
+						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=following`)}
+					>
+						<Typography variant="body2" fontWeight={700} color="text.primary">
+							{profileData.followingCount || 0}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							Following
+						</Typography>
+					</Box>
+					<Box
+						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=followers`)}
+					>
+						<Typography variant="body2" fontWeight={700} color="text.primary">
+							{profileData.followerCount || 0}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							Followers
+						</Typography>
+					</Box>
+				</Box>
+			</Box>
+
+			{/* Tabs Navigation */}
+			<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+				<Tabs
+					value={activeTab}
+					onChange={(_, newValue) => setActiveTab(newValue)}
+					variant="fullWidth"
+					textColor="inherit"
+					indicatorColor="primary"
+					sx={{
+						"& .MuiTab-root": {
+							textTransform: "none",
+							fontWeight: 700,
+							fontSize: "0.95rem",
+							minHeight: 53,
+							color: "text.secondary",
+							"&:hover": {
+								bgcolor: alpha(theme.palette.text.primary, 0.1),
+							},
+							"&.Mui-selected": {
+								color: "text.primary",
+							},
+						},
+						"& .MuiTabs-indicator": {
+							height: 4,
+							borderRadius: 2,
+						},
+					}}
+				>
+					<Tab label="Posts" />
+					<Tab label="Replies" />
+					<Tab label="Media" />
+					<Tab label="Likes" />
+				</Tabs>
+			</Box>
+
+			{/* Feed Content */}
+			<Box>
+				{activeTab === 0 && (
+					<>
+						{flattenedImages.length === 0 && !isLoadingImages ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't posted yet
 								</Typography>
 								<Typography variant="body2" color="text.secondary">
-									{stat.label}
+									When they do, their posts will show up here.
 								</Typography>
-							</Grid>
-						))}
-					</Grid>
-				</Paper>
-
-				{/* Main Content Grid */}
-				<Grid container spacing={3}>
-					{/* Gallery Section */}
-					<Grid item xs={12} md={8}>
-						<Paper elevation={1} sx={{ p: 3, borderRadius: 2, height: "100%" }}>
-							<Typography variant="h6" gutterBottom fontWeight="medium">
-								Uploads
-							</Typography>
-							<Divider sx={{ mb: 3 }} />
-
-							{flattenedImages.length === 0 && !isLoadingImages ? (
-								<Box
-									sx={{
-										textAlign: "center",
-										py: 6,
-										color: "text.secondary",
-										bgcolor: alpha(theme.palette.background.default, 0.5),
-										borderRadius: 1,
-									}}
-								>
-									<Typography variant="body1">
-										{isProfileOwner
-											? "You haven't uploaded any images yet."
-											: "This user hasn't uploaded any images yet."}
-									</Typography>
-								</Box>
-							) : (
-								<Gallery
-									posts={flattenedImages}
-									fetchNextPage={fetchNextPage}
-									hasNextPage={!!hasNextPage}
-									isFetchingNext={isFetchingNextPage}
-									isLoadingAll={isLoadingAll}
-								/>
-							)}
-						</Paper>
-					</Grid>
-
-					{/* About + Stats Section */}
-					<Grid item xs={12} md={4}>
-						<Stack spacing={3}>
-							{/* About Section */}
-							<Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-								<Typography variant="h6" gutterBottom fontWeight="medium">
-									About
+							</Box>
+						) : (
+							<Gallery
+								posts={flattenedImages}
+								fetchNextPage={fetchNextPage}
+								hasNextPage={!!hasNextPage}
+								isFetchingNext={isFetchingNextPage}
+								isLoadingAll={isLoadingAll}
+							/>
+						)}
+					</>
+				)}
+				{activeTab === 1 && (
+					<Box sx={{ p: 2 }}>
+						{flattenedComments.length === 0 && !isLoadingComments ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't replied yet
 								</Typography>
-								<Divider sx={{ mb: 2 }} />
-								<Typography variant="body1" color="text.secondary" sx={{ whiteSpace: "pre-wrap" }}>
-									{profileData?.bio || "This user hasn't added a bio yet."}
+							</Box>
+						) : (
+							<Box>
+								{isLoadingAllComments && (
+									<Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
+										<CircularProgress />
+									</Box>
+								)}
+								{flattenedComments.map((comment) => {
+									const typedComment = comment as {
+										id: string;
+										content: string;
+										postPublicId: string;
+										createdAt: string;
+									};
+									return (
+										<Paper key={typedComment.id} sx={{ p: 2, mb: 2 }}>
+											<Typography variant="body1" sx={{ mb: 1 }}>
+												{typedComment.content}
+											</Typography>
+											<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+												<Typography
+													variant="caption"
+													color="primary"
+													sx={{
+														cursor: "pointer",
+														fontWeight: 600,
+														"&:hover": { textDecoration: "underline" },
+													}}
+													onClick={() => navigate(`/posts/${typedComment.postPublicId}`)}
+												>
+													View Post
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													{new Date(typedComment.createdAt).toLocaleDateString(undefined, {
+														year: "numeric",
+														month: "short",
+														day: "numeric",
+													})}
+												</Typography>
+											</Box>
+										</Paper>
+									);
+								})}
+								{hasNextCommentsPage && (
+									<Button onClick={() => fetchNextCommentsPage()} disabled={isFetchingNextCommentsPage}>
+										{isFetchingNextCommentsPage ? "Loading..." : "Load More"}
+									</Button>
+								)}
+							</Box>
+						)}
+					</Box>
+				)}
+				{activeTab === 2 && (
+					<>
+						{flattenedImages.length === 0 && !isLoadingImages ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't posted media yet
 								</Typography>
-							</Paper>
-
-							{/* Additional Info (maybe should expand)*/}
-							<Paper elevation={1} sx={{ p: 3, borderRadius: 2 }}>
-								<Typography variant="h6" gutterBottom fontWeight="medium">
-									User Stats
+							</Box>
+						) : (
+							<Gallery
+								posts={flattenedImages.filter((post) => post.image)}
+								fetchNextPage={fetchNextPage}
+								hasNextPage={!!hasNextPage}
+								isFetchingNext={isFetchingNextPage}
+								isLoadingAll={isLoadingAll}
+								variant="media"
+							/>
+						)}
+					</>
+				)}
+				{activeTab === 3 && (
+					<>
+						{flattenedLikedPosts.length === 0 && !isLoadingLikedPosts ? (
+							<Box sx={{ p: 4, textAlign: "center" }}>
+								<Typography variant="h6" fontWeight={700} gutterBottom>
+									@{profileData.username} hasn't liked any posts yet
 								</Typography>
-								<Divider sx={{ mb: 2 }} />
-								<Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-									<Box sx={{ display: "flex", justifyContent: "space-between" }}>
-										<Typography variant="body2" color="text.secondary">
-											Join date:
-										</Typography>
-										<Typography variant="body2">
-											{profileData?.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : "Unknown"}
-										</Typography>
-									</Box>
-									<Box sx={{ display: "flex", justifyContent: "space-between" }}>
-										<Typography variant="body2" color="text.secondary">
-											Total uploads:
-										</Typography>
-										<Typography variant="body2">{flattenedImages.length || 0}</Typography>
-									</Box>
-									<Box sx={{ display: "flex", justifyContent: "space-between" }}>
-										<Typography variant="body2" color="text.secondary">
-											Followers:
-										</Typography>
-										<Typography variant="body2">{profileData?.followerCount || 0}</Typography>
-									</Box>
-									<Box sx={{ display: "flex", justifyContent: "space-between" }}>
-										<Typography variant="body2" color="text.secondary">
-											Following:
-										</Typography>
-										<Typography variant="body2">{profileData?.followingCount || 0}</Typography>
-									</Box>
-								</Box>
-							</Paper>
-						</Stack>
-					</Grid>
-				</Grid>
-			</Container>
+							</Box>
+						) : (
+							<Gallery
+								posts={flattenedLikedPosts}
+								fetchNextPage={fetchNextLikedPage}
+								hasNextPage={!!hasNextLikedPage}
+								isFetchingNext={isFetchingNextLikedPage}
+								isLoadingAll={isLoadingAllLiked}
+							/>
+						)}
+					</>
+				)}
+			</Box>
 
-			{/* Avatar Edit Modal */}
+			{/* Modals */}
 			<Modal
 				open={isAvatarModalOpen}
 				onClose={() => setIsAvatarModalOpen(false)}
-				aria-labelledby="avatar-modal"
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					p: 2,
-				}}
+				sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 2 }}
 			>
-				<Paper
-					elevation={24}
-					sx={{
-						p: 3,
-						borderRadius: 2,
-						maxWidth: "90vw",
-						maxHeight: "90vh",
-						overflowY: "auto",
-						width: { xs: "100%", sm: 500 },
-					}}
-				>
-					<Typography variant="h6" gutterBottom>
+				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 500, width: "100%" }}>
+					<Typography variant="h6" gutterBottom fontWeight={700}>
 						Update Profile Picture
 					</Typography>
-					<Divider sx={{ mb: 2 }} />
 					<ImageEditor type="avatar" onImageUpload={handleAvatarUpload} onClose={() => setIsAvatarModalOpen(false)} />
 				</Paper>
 			</Modal>
 
-			{/* Cover Edit Modal */}
 			<Modal
 				open={isCoverModalOpen}
 				onClose={() => setIsCoverModalOpen(false)}
-				aria-labelledby="cover-modal"
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					p: 2,
-				}}
+				sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 2 }}
 			>
-				<Paper
-					elevation={24}
-					sx={{
-						p: 3,
-						borderRadius: 2,
-						maxWidth: "95vw",
-						maxHeight: "90vh",
-						overflowY: "auto",
-						width: { xs: "100%", sm: 700 },
-					}}
-				>
-					<Typography variant="h6" gutterBottom>
+				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 600, width: "100%" }}>
+					<Typography variant="h6" gutterBottom fontWeight={700}>
 						Update Cover Photo
 					</Typography>
-					<Divider sx={{ mb: 2 }} />
 					<ImageEditor
 						type="cover"
 						aspectRatio={3}
@@ -602,65 +649,20 @@ const Profile: React.FC = () => {
 				</Paper>
 			</Modal>
 
-			{/* Edit Profile Modal */}
 			<Modal
 				open={isEditProfileOpen}
 				onClose={() => setIsEditProfileOpen(false)}
-				aria-labelledby="edit-profile-modal"
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					p: 2,
-				}}
+				sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 2 }}
 			>
-				<Paper
-					elevation={24}
-					sx={{
-						p: 3,
-						borderRadius: 2,
-						maxWidth: "90vw",
-						maxHeight: "90vh",
-						overflowY: "auto",
-						width: { xs: "100%", sm: 600 },
-					}}
-				>
-					<Typography variant="h6" gutterBottom>
-						Edit Your Profile
+				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 600, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+					<Typography variant="h6" gutterBottom fontWeight={700}>
+						Edit Profile
 					</Typography>
-					<Divider sx={{ mb: 2 }} />
 					<EditProfile
 						onComplete={() => setIsEditProfileOpen(false)}
 						notifySuccess={notifySuccess}
 						notifyError={notifyError}
 						initialData={profileData}
-					/>
-				</Paper>
-			</Modal>
-
-			{/* Change Password Modal */}
-			<Modal
-				open={isChangePasswordOpen}
-				onClose={() => setIsChangePasswordOpen(false)}
-				aria-labelledby="change-password-modal"
-				sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 2 }}
-			>
-				<Paper
-					elevation={24}
-					sx={{
-						p: 3,
-						borderRadius: 2,
-						maxWidth: "90vw",
-						maxHeight: "90vh",
-						overflowY: "auto",
-						width: { xs: "100%", sm: 600 },
-					}}
-				>
-					{/* Maybe add a Title and Divider */}
-					<ChangePassword
-						onComplete={() => setIsChangePasswordOpen(false)}
-						notifySuccess={notifySuccess}
-						notifyError={notifyError}
 					/>
 				</Paper>
 			</Modal>

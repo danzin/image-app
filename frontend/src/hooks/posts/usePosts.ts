@@ -63,7 +63,6 @@ export const usePosts = () => {
 	});
 };
 
-// Get post by public ID (preferred method)
 export const usePostByPublicId = (publicId: string) => {
 	const { user, loading } = useAuth();
 
@@ -79,7 +78,6 @@ export const usePostByPublicId = (publicId: string) => {
 	});
 };
 
-// Get post by slug (SEO-friendly URLs)
 export const usePostBySlug = (slug: string) => {
 	return useQuery<IPost, Error>({
 		queryKey: ["post", "slug", slug],
@@ -93,11 +91,10 @@ export const usePostBySlug = (slug: string) => {
 	});
 };
 
-// Legacy method - always fetches by publicId (strips file extensions if present)
 export const usePostById = (identifier: string) => {
 	const { user } = useAuth();
 
-	// Strip file extension if present (e.g., "abc-123.png" -> "abc-123")
+	// Strip file extension
 	const cleanIdentifier = identifier ? identifier.replace(/\.(png|jpg|jpeg|gif|webp)$/i, "") : identifier;
 
 	return useQuery<IPost, Error>({
@@ -169,11 +166,9 @@ export const useUploadPost = () => {
 	return useMutation<IPost, Error, FormData>({
 		mutationFn: uploadPost,
 		onSuccess: async () => {
-			// invalidate and refetch current user to update postCount immediately
 			await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 			await queryClient.refetchQueries({ queryKey: ["currentUser"] });
 
-			// invalidate all post-related queries
 			queryClient.invalidateQueries({ queryKey: ["posts"] });
 			queryClient.invalidateQueries({ queryKey: ["post"] });
 			queryClient.invalidateQueries({ queryKey: ["user"] });
@@ -181,7 +176,6 @@ export const useUploadPost = () => {
 			queryClient.invalidateQueries({ queryKey: ["tags"] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 
-			// refetch active queries to show the new post immediately
 			queryClient.refetchQueries({ queryKey: ["posts"], type: "active" });
 			queryClient.refetchQueries({ queryKey: ["personalizedFeed"], type: "active" });
 		},
@@ -304,8 +298,7 @@ export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
 		},
 		initialPageParam: 1,
 		enabled,
-		staleTime: 1 * 60 * 1000,
-		refetchOnWindowFocus: false,
+		staleTime: 5 * 60 * 1000,
 	});
 };
 

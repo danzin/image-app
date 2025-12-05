@@ -1,0 +1,7 @@
+import { ICommand } from "../../../common/interfaces/command.interface";
+
+export class DemoteFromAdminCommand implements ICommand {
+	readonly type = "DemoteFromAdminCommand";
+
+	constructor(public readonly userPublicId: string) {}
+}

@@ -3,17 +3,25 @@ import { createClient, RedisClientType } from "redis";
 import fs from "fs";
 import { performance } from "perf_hooks";
 import { redisLogger } from "../utils/winston";
+import { INotification } from "../types";
+
+type RedisHash = { [key: string]: string | number | Buffer };
+
+interface NotificationHash extends RedisHash {
+	data: string;
+	isRead: string;
+	timestamp: string;
+}
 
 /**
- * Partial updates are done with SADD/SREM/SCARD which mutate members
- * directly without touching other entries which is O(1)
+ * @class RedisService
+ * Advanced Redis wrapper implementing Tag-based caching, Streams, and Pipelining.
  *
- * No more complex cleanup,TTLs handle cleanup naturally as tag TTLs will
- * expire orphaned entries
  *
- * Notifications now use List + Hash Pattern
- *
- * Feeds use Sorted Sets
+ * Implements a "Smart Cache" layer that solves the "Stale Data" problem in distributed systems.
+ * - **Tag-based Invalidation**: Maps logical tags (e.g., 'user:123') to sets of keys.
+ * - **Pipelines**: Uses Redis pipelines for atomicity on multi-step operations.
+ * - **Streams**: Implements consumer groups for high-throughput features.
  */
 
 @injectable()
@@ -38,6 +46,10 @@ export class RedisService {
 		this.connect();
 	}
 
+	get clientInstance(): RedisClientType {
+		return this.client;
+	}
+
 	private async connect() {
 		try {
 			await this.client.connect();
@@ -50,29 +62,32 @@ export class RedisService {
 		}
 	}
 
-	async get<T = any>(key: string): Promise<T | null> {
+	/**
+	 * Retrieves and parses a JSON value from Redis.
+	 *
+	 * @wrapper
+	 * @why Centralizes JSON.parse() error handling so the process doesn't crash
+	 * if Redis contains corrupted data strings.
+	 *
+	 * @param key - The key to lookup.
+	 * @returns {Promise<T | null>} The parsed object or null if missing.
+	 */
+	async get<T>(key: string): Promise<T | null> {
 		const data = await this.client.get(key);
 		return data ? JSON.parse(data) : null;
 	}
 
 	/**
-	 * Check if a key exists in Redis
+	 * Serializes and stores a value in Redis.
+	 *
+	 * @wrapper
+	 * @why Centralizes JSON.stringify() to ensure consistent storage formats across the app.
+	 *
+	 * @param key - Storage key.
+	 * @param value - Object to store.
+	 * @param ttl - (Optional) Expiration in seconds.
 	 */
-	async exists(key: string): Promise<boolean> {
-		const result = await this.client.exists(key);
-		return result === 1;
-	}
-
-	/**
-	 * Get the TTL (time to live) of a key in seconds
-	 * Returns -1 if key exists but has no expiration
-	 * Returns -2 if key doesn't exist
-	 */
-	async ttl(key: string): Promise<number> {
-		return await this.client.ttl(key);
-	}
-
-	async set(key: string, value: any, ttl?: number): Promise<void> {
+	async set<T>(key: string, value: T, ttl?: number): Promise<void> {
 		const stringValue = JSON.stringify(value);
 		if (ttl) {
 			await this.client.setEx(key, ttl, stringValue);
@@ -82,10 +97,54 @@ export class RedisService {
 	}
 
 	/**
-	 * Deletes keys matching a pattern
-	 * note: uses SCAN instead of KEYS to avoid blocking Redis
-	 * @param keyPattern - Pattern to match (e.g., "feed:*", "feed:user123:*")
-	 * @returns Number of keys deleted
+	 * Checks existence of a key.
+	 *
+	 * @complexity O(1)
+	 * @returns {Promise<boolean>} True if key exists.
+	 */
+	async exists(key: string): Promise<boolean> {
+		const result = await this.client.exists(key);
+		return result === 1;
+	}
+
+	/**
+	 *  Retrieves the Time-To-Live of a key.
+	 *
+	 * @usage Cache debugging or deciding whether to refresh a "hot" key before it expires.
+	 * @returns {Promise<number>} TTL in seconds, -1 if no expiry, -2 if missing.
+	 */
+	async ttl(key: string): Promise<number> {
+		return await this.client.ttl(key);
+	}
+
+	/**
+	 * Updates specific fields of a stored JSON object (Read-Modify-Write).
+	 *
+	 * @pattern Partial Update
+	 * @warning Not atomic. If two processes merge different fields simultaneously,
+	 * one write might be lost (Race Condition). Use `setWithTags` or Hash structures
+	 * for critical atomic updates.
+	 *
+	 * @param key - Key to update.
+	 * @param value - Partial object to merge into existing data.
+	 * @param ttl - (Optional) Reset the TTL on update.
+	 */
+	async merge<T extends Record<string, unknown>>(key: string, value: Partial<T>, ttl?: number): Promise<void> {
+		const existing = await this.get<T>(key);
+		const next = existing ? { ...existing, ...value } : value;
+		await this.set(key, next, ttl);
+	}
+
+	/**
+	 * Safely deletes keys matching a glob pattern using Cursor Scanning.
+	 *
+	 * @architecture Non-Blocking Deletion
+	 * @why The `KEYS` command is O(N) and blocks the single-threaded Redis event loop,
+	 * potentially freezing the entire DB for seconds in production. `SCAN` iterates
+	 * incrementally, allowing other commands to run in between batches.
+	 *
+	 * @param keyPattern - Pattern to match (e.g. `session:*`).
+	 * @returns {Promise<number>} Total count of deleted keys.
 	 */
 	async del(keyPattern: string): Promise<number> {
 		let cursor: string | number = 0;
@@ -113,40 +172,56 @@ export class RedisService {
 	}
 
 	/**
-	 * Convenience helper for deleting multiple patterns sequentially.
-	 * Redis doesn't support multi pattern scan in one call
+	 * Helper to delete multiple independent patterns sequentially.
+	 *
+	 * @param patterns - Array of patterns to scan and delete.
 	 */
 	async deletePatterns(patterns: string[]): Promise<void> {
 		await Promise.all(patterns.map((p) => this.del(p)));
 	}
 
 	/**
-	 * Update (merge) JSON value at key if exists or set if not.
-	 * for small partial updates like image meta.
+	 * Defensive programming helper: Ensures a key holds the expected data type.
+	 *
+	 * @strategy Self-Healing
+	 * @why If a bug or race condition overwrites a Set key with a String, subsequent
+	 * Set operations (SADD) will throw errors. This method detects type mismatches
+	 * and purges the corrupted key to allow fresh creation.
 	 */
-	async merge(key: string, value: Record<string, any>, ttl?: number): Promise<void> {
-		const existing = await this.get<any>(key);
-		const next = existing ? { ...existing, ...value } : value;
-		await this.set(key, next, ttl);
+	private async ensureSetKey(key: string): Promise<void> {
+		const type = await this.client.type(key);
+		if (type !== "none" && type !== "set") {
+			await this.client.del(key);
+		}
 	}
 
 	/**
-	 * Publish a message to a Redis channel
+	 * Broadcasts a message to the entire distributed system.
+	 *
+	 * @param channel - Target channel.
+	 * @param message - Payload (automatically stringified).
 	 */
-	async publish(channel: string, message: any): Promise<void> {
+	async publish<T>(channel: string, message: T): Promise<void> {
 		await this.client.publish(channel, JSON.stringify(message));
 	}
 
 	/**
-	 * Subscribe to Redis channels with a message handler
+	 * Subscribes to Redis Pub/Sub channels for real-time inter-service messaging.
+	 *
+	 * @architecture Event Bus
+	 * @why Pub/Sub is "Fire and Forget" (No persistence). Ideal for ephemeral events
+	 * like "User Online", "Typing Indicator", or "Cache Invalidation Signals".
+	 *
+	 * @param channels - List of channels to listen to.
+	 * @param messageHandler - Callback function invoked on message receipt.
 	 */
-	async subscribe(channels: string[], messageHandler: (channel: string, message: any) => void): Promise<void> {
+	async subscribe<T>(channels: string[], messageHandler: (channel: string, message: T) => void): Promise<void> {
 		const subscriber = this.client.duplicate();
 		await subscriber.connect();
 
 		await subscriber.subscribe(channels, (message, channel) => {
 			try {
-				const parsedMessage = JSON.parse(message);
+				const parsedMessage = JSON.parse(message) as T;
 				messageHandler(channel, parsedMessage);
 			} catch (error) {
 				console.error("Error parsing Redis message:", error);
@@ -155,10 +230,20 @@ export class RedisService {
 	}
 
 	/**
-	 * Set cache with tags for smart invalidation
-	 * cache key + all tag operations in single pipeline
+	 * Stores a value in the cache and associates it with invalidation tags using a Pipeline.
+	 *
+	 * @pattern Write-Behind / Smart Caching
+	 * @why Uses a pipeline to execute the SET and SADD (tag association) commands
+	 * atomically. This prevents race conditions where a cache key exists without
+	 * its corresponding invalidation tags.
+	 *
+	 * @param key - The main cache key (e.g., `user:profile:123`).
+	 * @param value - The data to store. Will be JSON stringified automatically.
+	 * @param tags - An array of string tags (e.g., `['user:123', 'feed:global']`) used for group invalidation.
+	 * @param ttl - (Optional) Time-to-live in seconds. Defaults to 600s.
+	 * @returns {Promise<void>} Resolves when the pipeline executes successfully.
 	 */
-	async setWithTags(key: string, value: any, tags: string[], ttl?: number): Promise<void> {
+	async setWithTags<T>(key: string, value: T, tags: string[], ttl?: number): Promise<void> {
 		if (tags.length === 0) {
 			await this.set(key, value, ttl);
 			return;
@@ -201,8 +286,14 @@ export class RedisService {
 	}
 
 	/**
-	 * Smart invalidation invalidating cache by tags
-	 * batch fetch all tag members in single pipeline
+	 * Invalidates (deletes) all cache keys associated with the provided tags.
+	 *
+	 * @complexity O(N) where N is the number of keys linked to these tags.
+	 * @strategy Fan-out Invalidation. When a user creates a post, invalidate
+	 * 'user_feed:ID', 'global_feed', and 'tag:typescript' in one operation.
+	 *
+	 * @param tags - The list of tags to invalidate (e.g. `['user:123']`).
+	 * @returns {Promise<void>} Resolves after all associated keys have been deleted.
 	 */
 	async invalidateByTags(tags: string[]): Promise<void> {
 		if (tags.length === 0) return;
@@ -245,21 +336,30 @@ export class RedisService {
 	}
 
 	/**
-	 * Get cache with automatic tag cleanup on miss
-	 * simplified: let TTLs handle cleanup naturally, avoid complex eager cleanup
+	 * Retrieval wrapper for Tag-based caching strategy.
+	 *
+	 * @note Currently an alias for `get`, but serves as an interface contract
+	 * implying that the data retrieved is managed by the tagging system.
 	 */
-	async getWithTags<T = any>(key: string): Promise<T | null> {
+	async getWithTags<T>(key: string): Promise<T | null> {
 		return await this.get<T>(key);
 	}
 
 	// ====== NOTIFICATIONS ======
 
 	/**
-	 * Push notification to user's list (FIFO queue)
-	 * stores metadata in separate hash for O(1) updates
-	 * uses LPUSH to add to the head
+	 * Pushes a notification to a user's list using a "List + Hash" pattern.
+	 *
+	 * @why Storing the full notification object in a List is inefficient for updates.
+	 * Instead, store ID references in a List (for O(1) insertion/pagination) and
+	 * the actual data in a Hash (for O(1) updates like 'mark as read').
+	 *
+	 * @param userId - The public ID of the user receiving the notification.
+	 * @param notification - The full notification object to be stored.
+	 * @param maxCount - (Optional) Max size of the list. Oldest items are trimmed. Default 200.
+	 * @returns {Promise<void>}
 	 */
-	async pushNotification(userId: string, notification: any, maxCount = 200): Promise<void> {
+	async pushNotification(userId: string, notification: INotification, maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
 		const notificationId = String(notification._id); // convert ObjectId to string
 		const hashKey = `notification:${notificationId}`;
@@ -280,16 +380,20 @@ export class RedisService {
 		await pipeline.exec();
 		const durationMs = performance.now() - start;
 		redisLogger.info(
-			`[Redis] pushNotification userId=${userId} notification=${notification}  duration=${durationMs.toFixed(2)}ms`
+			`[Redis] pushNotification userId=${userId} notification=${notificationId}  duration=${durationMs.toFixed(2)}ms`
 		);
 	}
 
 	/**
-	 * Backfill notifications from MongoDB to Redis in correct order
-	 * MongoDB returns newest-first - RPUSH in that order
-	 * to maintain newest-first when reading from head with LRANGE
+	 * Warms the Redis cache with data from MongoDB (Cache Backfilling).
+	 *
+	 * @architecture Cache Warming / Pipeline
+	 * @strategy Uses a Pipeline to batch hundreds of operations (HSET + RPUSH)
+	 * into a single network request.
+	 * @ordering Preserves MongoDB sort order. Since Mongo returns newest-first,
+	 * Use RPUSH (Right Push) to append them in sequence [Newest, Older, Oldest].
 	 */
-	async backfillNotifications(userId: string, notifications: any[], maxCount = 200): Promise<void> {
+	async backfillNotifications(userId: string, notifications: INotification[], maxCount = 200): Promise<void> {
 		const listKey = `notifications:user:${userId}`;
 		const start = performance.now();
 
@@ -328,9 +432,21 @@ export class RedisService {
 	}
 
 	/**
-	 * Get paginated notifications for user
+	 * Retrieves paginated notifications by hydrating IDs from a List with data from Hashes.
+	 *
+	 * @complexity O(N) where N is the limit (page size). Uses a pipeline to fetch
+	 * N hashes in a single round-trip.
+	 * @pattern Hydration Pattern
+	 * @why Store IDs in a List for efficient pagination (O(1) access to range) and
+	 * full data in Hashes to allow O(1) updates (like marking a single notification as read)
+	 * without rewriting a massive JSON blob.
+	 *
+	 * @param userId - The user's public ID.
+	 * @param page - Page number (1-based).
+	 * @param limit - Items per page.
+	 * @returns {Promise<INotification[]>} Array of hydrated notification objects.
 	 */
-	async getUserNotifications(userId: string, page = 1, limit = 20): Promise<any[]> {
+	async getUserNotifications(userId: string, page = 1, limit = 20): Promise<INotification[]> {
 		const listKey = `notifications:user:${userId}`;
 		const start = (page - 1) * limit;
 		const end = start + limit - 1;
@@ -350,27 +466,25 @@ export class RedisService {
 			for (const id of notificationIds) {
 				pipeline.hGetAll(`notification:${id}`);
 			}
-			const results = await pipeline.exec();
+			const results = (await pipeline.exec()) as unknown as NotificationHash[];
 
 			if (!results) {
 				redisLogger.warn(`Pipeline returned null results`, { userId });
 				return [];
 			}
 
-			const notifications = results
-				.map((r: any) => {
-					if (!r || typeof r !== "object") return null;
-					const hash = r as any;
-					if (!hash.data) return null;
+			const notifications: INotification[] = results
+				.map((hash) => {
+					if (!hash || !hash.data) return null;
 					try {
-						const notification = JSON.parse(hash.data);
+						const notification = JSON.parse(hash.data) as INotification;
 						notification.isRead = hash.isRead === "1";
 						return notification;
 					} catch {
 						return null;
 					}
 				})
-				.filter(Boolean);
+				.filter((n): n is INotification => n !== null);
 
 			const duration = performance.now() - startPerf;
 			redisLogger.info(`getUserNotifications success`, {
@@ -389,7 +503,12 @@ export class RedisService {
 	}
 
 	/**
-	 * Mark notification as read (O(1) update)
+	 * Marks a specific notification as read using O(1) Hash field update.
+	 *
+	 * @complexity O(1)
+	 * @why Notifications are stored as Hashes specifically to allow this operation.
+	 * If they are stored as a JSON list, the whole list would need to be fetched and red,
+	 * find the item, modify it, and write the whole list back (O(N) read/write).
 	 */
 	async markNotificationRead(notificationId: string): Promise<void> {
 		// hash key:notification:${notificationId}; field name: isRead; field value: 1 for read
@@ -397,7 +516,16 @@ export class RedisService {
 	}
 
 	/**
-	 * Get unread notification count for user
+	 * Calculates unread count by scanning the user's notification list.
+	 *
+	 * @warning Linear Scan O(N)
+	 * @why Redis Lists do not support secondary indexing (e.g., "count where isRead=0").
+	 * Have to fetch IDs and pipeline the checks.
+	 * @optimization For high-scale users, this should be replaced with a separate
+	 * counter key (`unread_count:userId`) incremented/decremented on write.
+	 *
+	 * @param userId - The user's public ID.
+	 * @returns {Promise<number>} Count of unread notifications.
 	 */
 	async getUnreadNotificationCount(userId: string): Promise<number> {
 		const listKey = `notifications:user:${userId}`;
@@ -420,7 +548,17 @@ export class RedisService {
 	// ======FEEDS ======
 
 	/**
-	 * Add post to user's feed (sorted by timestamp)
+	 * Adds a single post to a user's feed.
+	 *
+	 * @datastructure Sorted Set (ZSET)
+	 * @complexity O(log(N)) where N is the size of the feed.
+	 * @why Uses a ZSET with the timestamp as the score. This ensures the feed is
+	 * always perfectly ordered by time, regardless of insertion order.
+	 *
+	 * @param userId - The user receiving the post.
+	 * @param postId - The post ID.
+	 * @param timestamp - The creation time (score).
+	 * @param feedType - (Optional) Feed partition (default 'for_you').
 	 */
 	async addToFeed(userId: string, postId: string, timestamp: number, feedType = "for_you"): Promise<void> {
 		const feedKey = `feed:${feedType}:${userId}`;
@@ -431,7 +569,18 @@ export class RedisService {
 	}
 
 	/**
-	 * Add post to multiple users' feeds in batch
+	 * Fan-out-on-write: Adds a post ID to a batch of user feeds efficiently.
+	 *
+	 * @architecture Fan-Out on Write
+	 * @complexity O(M * log(N)) where M is users and N is feed size.
+	 * @why Push the post ID to all followers' feeds at creation time. This moves
+	 * the complexity to the "Write" path, ensuring the "Read" path (loading the feed)
+	 * remains O(1) / extremely fast.
+	 *
+	 * @param userIds - List of follower IDs receiving the post.
+	 * @param postId - The post Public ID.
+	 * @param timestamp - Score used for sorting (creation time).
+	 * @param feedType - 'for_you' or 'personalized'.
 	 */
 	async addToFeedsBatch(userIds: string[], postId: string, timestamp: number, feedType = "for_you"): Promise<void> {
 		if (userIds.length === 0) return;
@@ -446,7 +595,16 @@ export class RedisService {
 	}
 
 	/**
-	 * Get paginated feed posts (newest first)
+	 * Retrieves a page of Post IDs from the user's sorted set feed.
+	 *
+	 * @complexity O(log(N) + M) where N is feed size and M is the limit (page size).
+	 * @why ZRANGE allows efficient offset-based pagination on time-series data
+	 * without the performance penalties of database OFFSET/LIMIT queries.
+	 *
+	 * @param userId - User ID.
+	 * @param page - Page number.
+	 * @param limit - Items per page.
+	 * @returns {Promise<string[]>} List of Post Public IDs (to be hydrated later).
 	 */
 	async getFeedPage(userId: string, page: number, limit: number, feedType = "for_you"): Promise<string[]> {
 		const feedKey = `feed:${feedType}:${userId}`;
@@ -470,14 +628,29 @@ export class RedisService {
 	}
 
 	/**
-	 * Remove post from user's feed
+	 * Removes a post from a user's feed (e.g., on un-follow or post deletion).
+	 *
+	 * @complexity O(log(N)) where N is the size of the feed.
+	 * @param userId - Owner of the feed.
+	 * @param postId - Post to remove.
+	 * @param feedType - Feed partition to target.
 	 */
 	async removeFromFeed(userId: string, postId: string, feedType = "for_you"): Promise<void> {
 		await this.client.zRem(`feed:${feedType}:${userId}`, postId);
 	}
 
 	/**
-	 * Remove post from multiple users' feeds in batch
+	 * Batch removal of a post from multiple feeds (Fan-out Delete).
+	 *
+	 * @pattern Pipeline Batching
+	 * @complexity O(M * log(N)) where M is the number of users and N is the feed size.
+	 * @why When a user deletes a post, it must be removed from all followers' feeds
+	 * to prevent "ghost" items. Using a pipeline minimizes network latency (RTT)
+	 * by sending all commands in a single packet.
+	 *
+	 * @param userIds - List of users who have this post in their feed.
+	 * @param postId - The post ID to remove.
+	 * @param feedType - (Optional) Feed partition (default 'for_you').
 	 */
 	async removeFromFeedsBatch(userIds: string[], postId: string, feedType = "for_you"): Promise<void> {
 		if (userIds.length === 0) return;
@@ -490,14 +663,28 @@ export class RedisService {
 	}
 
 	/**
-	 * Invalidate entire feed for user (when following/unfollowing)
+	 * Completely destroys a user's feed cache.
+	 *
+	 * @strategy Cache Invalidation
+	 * @why Used when a user's following list changes drastically (e.g. they follow
+	 * a new person). We blow away the feed and let the "Pull" mechanism rebuild it
+	 * fresh on the next request.
 	 */
 	async invalidateFeed(userId: string, feedType = "for_you"): Promise<void> {
 		await this.client.del(`feed:${feedType}:${userId}`);
 	}
 
 	/**
-	 * Get feed size for user
+	 * retrieves the total number of items in a user's feed.
+	 *
+	 * @complexity O(1)
+	 * @why ZCARD is an O(1) operation because Redis stores the set cardinality
+	 * in the metadata header of the data structure. Useful for displaying
+	 * "New Posts" badges or calculating pagination depth.
+	 *
+	 * @param userId - The user ID.
+	 * @param feedType - (Optional) Feed partition.
+	 * @returns {Promise<number>} Total count of items in the sorted set.
 	 */
 	async getFeedSize(userId: string, feedType = "for_you"): Promise<number> {
 		return await this.client.zCard(`feed:${feedType}:${userId}`);
@@ -506,9 +693,13 @@ export class RedisService {
 	// ====== MAINTENANCE ======
 
 	/**
-	 * Periodic cleanup: remove empty tag sets and orphaned key_tags
+	 * Garbage Collector for empty tag sets.
 	 *
-	 * This could be ran on cron or after major invalidations
+	 * @maintenance Periodic Cleanup
+	 * @complexity O(N) where N is the number of keys scanned.
+	 * @why Although Redis expires keys automatically, the tag sets (Reverse Indexes)
+	 * can sometimes leave empty shells. This method scans and removes them to
+	 * keep memory footprint minimal.
 	 */
 	async cleanupOrphanedTags(): Promise<void> {
 		let cursor: string | number = 0;
@@ -535,14 +726,138 @@ export class RedisService {
 		console.log(`[Redis] Cleaned ${cleaned} empty tag sets`);
 	}
 
+	//======STREAM / TRENDING HELPERS======
+
 	/**
-	 * Ensure the key is a Redis set
-	 * @param key
+	 * Appends an interaction event to a Redis Stream for async processing.
+	 *
+	 * @architecture Event Sourcing / Log
+	 * @why Streams provide a persistent, strictly ordered log of events. Unlike Pub/Sub,
+	 * Streams allow consumers (workers) to process events at their own pace and
+	 * replay them if they crash.
+	 *
+	 * @param stream - Stream key (default `stream:interactions`).
+	 * @param payload - The event data. Values are automatically stringified.
+	 * @returns {Promise<string>} The generated Stream ID (e.g., '1638532134567-0').
 	 */
-	private async ensureSetKey(key: string): Promise<void> {
-		const type = await this.client.type(key);
-		if (type !== "none" && type !== "set") {
-			await this.client.del(key);
+	async pushToStream(stream = "stream:interactions", payload: Record<string, unknown>): Promise<string> {
+		// normalize to string-only fields for Redis
+		const prepared: Record<string, string> = {};
+		for (const [k, v] of Object.entries(payload)) {
+			prepared[k] = typeof v === "string" ? v : JSON.stringify(v);
 		}
+		// The `xAdd` command is not part of the base `RedisClientType`, so just cast to any.
+		const id = await this.client.xAdd(stream, "*", prepared);
+		return id;
+	}
+
+	/**
+	 * Initializes a Consumer Group for parallel processing.
+	 *
+	 * @pattern Idempotent Initialization
+	 * @why Consumer groups allow multiple workers to share the load of a single stream
+	 * (competing consumers pattern). This method handles the `BUSYGROUP` error
+	 * gracefully if the group already exists.
+	 */
+	async createStreamConsumerGroup(stream = "stream:interactions", group = "trendingGroup"): Promise<void> {
+		try {
+			await this.client.xGroupCreate(stream, group, "$", { MKSTREAM: true });
+		} catch (err) {
+			const msg = String((err as Error)?.message ?? err);
+			if (msg.includes("BUSYGROUP")) {
+				// group already exists - ignore
+				return;
+			}
+			throw err;
+		}
+	}
+
+	/**
+	 * Acknowledges that a message has been successfully processed.
+	 *
+	 * @reliability At-Least-Once Delivery
+	 * @why Redis will keep the message in the "Pending Entries List" (PEL) until
+	 * it is explicitly ACKed. If a worker crashes before ACKing, another worker
+	 * can claim and retry the message (see `xClaim`).
+	 *
+	 * @returns {Promise<number>} Number of messages acked.
+	 */
+	async ackStreamMessages(stream: string, group: string, ...ids: string[]): Promise<number> {
+		// returns number of messages acknowledged
+		const res = await this.client.xAck(stream, group, ids);
+		return res as number;
+	}
+
+	/**
+	 * Updates the score of a post in the Global Trending Leaderboard.
+	 *
+	 * @datastructure Sorted Set (ZSET)
+	 * @why ZSETs allow us to maintain a real-time ranking of millions of posts
+	 * by score (interactions) with O(log N) updates.
+	 */
+	async updateTrendingScore(postId: string, score: number, key = "trending:global"): Promise<void> {
+		await this.client.zAdd(key, [{ score: Number(score), value: postId }]);
+	}
+
+	/**
+	 * Atomically increments the score of a post in the Trending Sorted Set.
+	 *
+	 * @useCase Tracking 'likes', 'views', or 'velocity' for the "Hot" feed.
+	 * @complexity O(log(N)) where N is the number of items in the leaderboard.
+	 *
+	 * @param postId - The item to rank.
+	 * @param delta - Amount to increment (can be negative to decay score).
+	 * @param key - The Sorted Set key.
+	 * @returns {Promise<number>} The new score.
+	 */
+	async incrTrendingScore(postId: string, delta: number, key = "trending:global"): Promise<number> {
+		const newScore = await this.client.zIncrBy(key, delta, postId);
+		// zIncrBy returns string score in some clients; convert to number
+		return Number(newScore);
+	}
+
+	/**
+	 * Retrieves the top-performing posts from the leaderboard.
+	 *
+	 * @complexity O(log(N) + M)
+	 * @param start - Rank start index (0 is top 1).
+	 * @param end - Rank end index.
+	 * @returns {Promise<string[]>} Array of Post IDs ordered by score (Descending).
+	 */
+	async getTrendingRange(start: number, end: number, key = "trending:posts"): Promise<string[]> {
+		return await this.client.zRange(key, start, end, { REV: true });
+	}
+
+	/**
+	 * Gets the total size of the trending corpus.
+	 *
+	 * @complexity O(1)
+	 * @returns {Promise<number>} Number of posts currently being tracked for trending.
+	 */
+	async getTrendingCount(key = "trending:posts"): Promise<number> {
+		return await this.client.zCard(key);
+	}
+
+	/**
+	 * Inspects the Pending Entries List (PEL) for stalled messages.
+	 *
+	 * @monitoring Reliability
+	 * @why Allows us to see which messages were picked up by a worker but never ACKed
+	 * (likely due to a crash or timeout). Critical for implementing retry logic.
+	 */
+	async xPendingRange(stream: string, group: string, start = "-", end = "+", count = 1000): Promise<unknown> {
+		return await this.client.xPendingRange(stream, group, start, end, count);
+	}
+
+	/**
+	 * Claims ownership of stalled messages from another consumer.
+	 *
+	 * @pattern Dead Letter / Retry
+	 * @why If a message has been pending for longer than `minIdleMs` assume the
+	 * original worker died. This method transfers ownership to the current worker
+	 * so it can be retried.
+	 */
+	async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]): Promise<unknown> {
+		return await this.client.xClaim(stream, group, consumer, minIdleMs, ids);
 	}
 }

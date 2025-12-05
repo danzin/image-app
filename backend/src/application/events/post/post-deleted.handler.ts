@@ -17,7 +17,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 		try {
 			const tagsToInvalidate: string[] = [];
 
-			tagsToInvalidate.push("trending_feed", "new_feed");
+			tagsToInvalidate.push("trending_feed");
 			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
 			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
 			tagsToInvalidate.push(`user_post_count:${event.authorPublicId}`);
@@ -38,7 +38,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 				`core_feed:${event.authorPublicId}:*`,
 				`for_you_feed:${event.authorPublicId}:*`,
 				"trending_feed:*",
-				"new_feed:*",
+				// do NOT clear new_feed - lazy refresh only
 			];
 
 			followers.forEach((publicId) => {
@@ -61,7 +61,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 			console.log(`Feed invalidation complete for post deletion`);
 		} catch (error) {
 			console.error("Error handling post deletion:", error);
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*"];
+			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

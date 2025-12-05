@@ -1,11 +1,11 @@
 import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { DeleteUserCommand } from "./deleteUser.command";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import { ImageRepository } from "../../../../repositories/image.repository";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "../../../../repositories/comment.repository";
-import { LikeRepository } from "../../../../repositories/like.repository";
 import { FollowRepository } from "../../../../repositories/follow.repository";
 import { FavoriteRepository } from "../../../../repositories/favorite.repository";
 import { NotificationRepository } from "../../../../repositories/notification.respository";
@@ -14,18 +14,22 @@ import { UserPreferenceRepository } from "../../../../repositories/userPreferenc
 import { ConversationRepository } from "../../../../repositories/conversation.repository";
 import { MessageRepository } from "../../../../repositories/message.repository";
 import { PostViewRepository } from "../../../../repositories/postView.repository";
+import { PostLikeRepository } from "../../../../repositories/postLike.repository";
 import { IImageStorageService } from "../../../../types";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { createError } from "../../../../utils/errors";
+import { EventBus } from "../../../common/buses/event.bus";
+import { UserDeletedEvent } from "../../../events/user/user-interaction.event";
 
 @injectable()
 export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserCommand, void> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
+		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("LikeRepository") private readonly likeRepository: LikeRepository,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("NotificationRepository") private readonly notificationRepository: NotificationRepository,
@@ -35,18 +39,35 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		@inject("MessageRepository") private readonly messageRepository: MessageRepository,
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
 		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("EventBus") private readonly eventBus: EventBus
 	) {}
 
 	async execute(command: DeleteUserCommand): Promise<void> {
+		// capture follower public IDs before deletion for cache invalidation
+		let followerPublicIds: string[] = [];
+		let userPublicId: string = command.userPublicId;
+		let userId: string = "";
+
 		try {
+			// get followers before transaction since findUsersFollowing doesn't support sessions
+			const followers = await this.userReadRepository.findUsersFollowing(command.userPublicId);
+			followerPublicIds = followers.map((f) => f.publicId);
+
 			await this.unitOfWork.executeInTransaction(async (session) => {
-				const user = await this.userRepository.findByPublicId(command.userPublicId, session);
+				const user = await this.userReadRepository.findByPublicId(command.userPublicId, session);
 				if (!user) {
 					throw createError("NotFoundError", "User not found");
 				}
 
-				const userId = user.id;
+				userId = user.id;
+				userPublicId = user.publicId;
+
+				// get users that the deleted user was following (they need followerCount decremented)
+				const followingIds = await this.followRepository.getFollowingObjectIds(userId);
+
+				// get users that were following the deleted user (they need followingCount decremented)
+				const followerIds = await this.followRepository.getFollowerObjectIds(userId);
 
 				// delete all user-related cloud storage assets first (outside transaction)
 				// this includes images, avatars, covers, etc.
@@ -56,38 +77,35 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				}
 
 				// delete all user relationships and content in proper order
-				// delete comments first (no dependencies)
 				await this.commentRepository.deleteCommentsByUserId(userId, session);
 
-				// delete likes
-				await this.likeRepository.deleteManyByUserId(userId, session);
+				await this.postLikeRepository.removeLikesByUser(userId, session);
 
-				// delete favorites
 				await this.favoriteRepository.deleteManyByUserId(userId, session);
 
-				// delete post views
 				await this.postViewRepository.deleteManyByUserId(userId, session);
 
-				// delete posts (this will cascade to post-related data via post deletion handlers if needed)
-				await this.postRepository.deleteManyByUserId(userId, session);
+				await this.postWriteRepository.deleteManyByUserId(userId, session);
 
-				// delete images
 				await this.imageRepository.deleteMany(userId, session);
 
-				// delete follows (both as follower and followee)
 				await this.followRepository.deleteAllFollowsByUserId(userId, session);
 
-				// delete user preferences
+				for (const followedUserId of followingIds) {
+					await this.userWriteRepository.updateFollowerCount(followedUserId, -1, session);
+				}
+
+				for (const followerUserId of followerIds) {
+					await this.userWriteRepository.updateFollowingCount(followerUserId, -1, session);
+				}
+
 				await this.userPreferenceRepository.deleteManyByUserId(userId, session);
 
-				// delete user actions
 				await this.userActionRepository.deleteManyByUserId(userId, session);
 
-				// delete notifications (both as receiver and as actor who triggered them)
 				await this.notificationRepository.deleteManyByUserId(user.publicId, session);
 				await this.notificationRepository.deleteManyByActorId(user.publicId, session);
 
-				// handle conversations - delete if only 2 participants, otherwise just remove user
 				const userConversations = await this.conversationRepository.findByParticipant(userId, session);
 
 				for (const conversation of userConversations) {
@@ -95,7 +113,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 					if (!conversationId) continue;
 
 					if (conversation.participants.length <= 2) {
-						// delete the entire conversation
+						// delete the conversation
 						await this.conversationRepository.delete(conversationId, session);
 					} else {
 						// remove user from participants array
@@ -103,15 +121,16 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 					}
 				}
 
-				// delete messages sent by this user
 				await this.messageRepository.deleteManyBySender(userId, session);
 
-				// remove user from readBy arrays in other messages
 				await this.messageRepository.removeUserFromReadBy(userId, session);
 
 				// finally, delete the user
-				await this.userRepository.delete(userId, session);
+				await this.userWriteRepository.delete(userId, session);
 			});
+
+			// emit event after successful deletion to trigger cache cleanup
+			await this.eventBus.publish(new UserDeletedEvent(userPublicId, userId, followerPublicIds));
 		} catch (error) {
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(

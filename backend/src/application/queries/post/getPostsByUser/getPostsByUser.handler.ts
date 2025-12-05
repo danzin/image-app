@@ -1,27 +1,48 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetPostsByUserQuery } from "./getPostsByUser.query";
-import { PostRepository } from "../../../../repositories/post.repository";
-import { DTOService } from "../../../../services/dto.service";
+import { IPostReadRepository } from "../../../../repositories/interfaces";
+import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
 import { UserPostsResult } from "../../../../types";
-import { UserService } from "../../../../services/user.service";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { FollowRepository } from "../../../../repositories/follow.repository";
+import { createError } from "../../../../utils/errors";
 
 @injectable()
 export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQuery, UserPostsResult> {
 	constructor(
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
 		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("UserService") private readonly userService: UserService
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("FollowRepository") private readonly followRepository: FollowRepository
 	) {}
 
 	async execute(query: GetPostsByUserQuery): Promise<UserPostsResult> {
-		const [result, profile] = await Promise.all([
-			this.postRepository.findByUserPublicId(query.userPublicId, {
+		const [result, user] = await Promise.all([
+			this.postReadRepository.findByUserPublicId(query.userPublicId, {
 				page: query.page,
 				limit: query.limit,
 			}),
-			this.userService.getPublicProfileByPublicId(query.userPublicId),
+			this.userReadRepository.findByPublicId(query.userPublicId),
 		]);
+
+		if (!user) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		// attach follow counts
+		const userId = (user as any)._id?.toString() || (user as any).id;
+		const [followerCount, followingCount] = await Promise.all([
+			this.followRepository.countFollowersByUserId(userId),
+			this.followRepository.countFollowingByUserId(userId),
+		]);
+
+		// set follow counts on the user object
+		user.followerCount = followerCount;
+		user.followingCount = followingCount;
+
+		const profile: PublicUserDTO = this.dtoService.toPublicDTO(user);
+
 		return {
 			...result,
 			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry)),

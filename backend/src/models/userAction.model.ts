@@ -8,5 +8,7 @@ const userActionSchema = new Schema<IUserAction>({
 	timestamp: { type: Date, default: Date.now },
 });
 
+userActionSchema.index({ userId: 1, timestamp: -1 });
+
 const UserAction = mongoose.model<IUserAction>("UserAction", userActionSchema);
 export default UserAction;

@@ -3,10 +3,10 @@ import { PublicUserDTO } from "../customUsers/dto.types";
 
 export interface PostDTO {
 	publicId: string;
-	body?: string; // text
+	body?: string; // text content of the post
 	slug?: string;
 
-	// Image data - nested format (preferred)
+	// Image data - nested format
 	image?: {
 		url: string;
 		publicId: string;
@@ -16,8 +16,8 @@ export interface PostDTO {
 	url?: string;
 	imagePublicId?: string;
 
-	tags: string[]; // Resolved to tag names (not ObjectIds)
-	likes: number; // Match frontend expectation
+	tags: string[];
+	likes: number;
 	commentsCount: number;
 	viewsCount: number;
 	createdAt: Date;

@@ -8,15 +8,14 @@ import {
 	ListItemIcon,
 	ListItemText,
 	Avatar,
-	Modal,
 	Typography,
-	Drawer,
 	useTheme,
-	useMediaQuery,
 	alpha,
 	Button,
-	Divider,
 	Badge,
+	Menu,
+	MenuItem,
+	IconButton,
 } from "@mui/material";
 import {
 	Home as HomeIcon,
@@ -28,63 +27,51 @@ import {
 	ChatBubbleOutline as ChatBubbleOutlineIcon,
 	AdminPanelSettings as AdminPanelSettingsIcon,
 	Notifications as NotificationsIcon,
+	MoreHoriz as MoreHorizIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
-import UploadForm from "./UploadForm";
 import { useNotifications } from "../hooks/notifications/useNotification";
 
-// TODO: Probably instead of a drawer sidebar for mobile, use a bottom navbar? That'd
-// defenitely be better
-const SIDEBAR_WIDTH = 240;
 const BASE_URL = "/api";
-const modalStyle = {
-	position: "absolute",
-	top: "50%",
-	left: "50%",
-	transform: "translate(-50%, -50%)",
-	width: 400,
-	bgcolor: "background.paper",
-	boxShadow: 24,
-	p: 4,
-	borderRadius: 2,
-};
 
 interface NavigationItem {
 	label: string;
 	icon: React.ReactNode;
 	path?: string;
 	onClick?: () => void;
-	hideOnMobile?: boolean;
 }
 
 interface LeftSidebarProps {
-	mobileOpen?: boolean;
-	onMobileClose?: () => void;
+	onPostClick: () => void;
 }
 
-const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
+const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 	const { isLoggedIn, logout, user } = useAuth();
 	const { notifications } = useNotifications();
 	const location = useLocation();
 	const navigate = useNavigate();
 	const theme = useTheme();
-	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const open = Boolean(anchorEl);
 
 	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		setAnchorEl(event.currentTarget);
+	};
+
+	const handleClose = () => {
+		setAnchorEl(null);
+	};
+
 	const handleLogout = () => {
+		handleClose();
 		logout();
 		navigate("/");
-		if (onMobileClose) onMobileClose();
 	};
-
-	const openUploadModal = () => {
-		setIsUploadModalOpen(true);
-		if (onMobileClose) onMobileClose();
-	};
-
-	const closeUploadModal = () => setIsUploadModalOpen(false);
 
 	// Handle undefined avatar safely
 	const avatarUrl = user?.avatar || "";
@@ -107,12 +94,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 	const navigationItems: NavigationItem[] = [
 		{
 			label: "Home",
-			icon: <HomeIcon />,
+			icon: <HomeIcon sx={{ fontSize: 28 }} />,
 			path: "/",
 		},
 		{
 			label: "Discover",
-			icon: <ExploreIcon />,
+			icon: <ExploreIcon sx={{ fontSize: 28 }} />,
 			path: "/discover",
 		},
 		{
@@ -120,19 +107,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 			icon: (
 				<Badge
 					badgeContent={unreadCount}
-					max={9}
+					color="primary"
 					sx={{
 						"& .MuiBadge-badge": {
-							background: "linear-gradient(45deg, #ec4899, #f472b6)",
-							color: "white",
-							fontWeight: 600,
-							fontSize: "0.65rem",
-							minWidth: 16,
-							height: 16,
+							right: 2,
+							top: 2,
 						},
 					}}
 				>
-					<NotificationsIcon />
+					<NotificationsIcon sx={{ fontSize: 28 }} />
 				</Badge>
 			),
 			path: "/notifications",
@@ -140,22 +123,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 		{
 			label: "Profile",
 			icon: user ? (
-				<Avatar src={fullAvatarUrl} sx={{ width: 24, height: 24 }}>
+				<Avatar src={fullAvatarUrl} sx={{ width: 28, height: 28 }}>
 					{user.username?.charAt(0).toUpperCase()}
 				</Avatar>
 			) : (
-				<PersonIcon />
+				<PersonIcon sx={{ fontSize: 28 }} />
 			),
 			path: user?.publicId ? `/profile/${user.publicId}` : "/profile",
 		},
 		{
 			label: "Favorites",
-			icon: <BookmarkIcon />,
+			icon: <BookmarkIcon sx={{ fontSize: 28 }} />,
 			path: "/favorites",
 		},
 		{
 			label: "Messages",
-			icon: <ChatBubbleOutlineIcon />,
+			icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28 }} />,
 			path: "/messages",
 		},
 	];
@@ -163,23 +146,25 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 	if (isAdmin) {
 		navigationItems.push({
 			label: "Admin",
-			icon: <AdminPanelSettingsIcon />,
+			icon: <AdminPanelSettingsIcon sx={{ fontSize: 28 }} />,
 			path: "/admin",
 		});
 	}
 
-	const sidebarContent = (
+	return (
 		<Box
 			sx={{
 				height: "100%",
 				display: "flex",
 				flexDirection: "column",
+				px: 2,
 			}}
 		>
 			{/* Logo Section */}
 			<Box
 				sx={{
-					p: 3,
+					py: 2,
+					px: 1,
 					display: "flex",
 					alignItems: "center",
 				}}
@@ -188,73 +173,44 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 					component={RouterLink}
 					to="/"
 					sx={{
-						background: "linear-gradient(45deg, #6366f1, #ec4899)",
-						mr: 2,
-						width: 40,
-						height: 40,
+						bgcolor: "transparent",
+						width: 50,
+						height: 50,
 						cursor: "pointer",
 						"&:hover": {
-							transform: "scale(1.05)",
+							bgcolor: alpha(theme.palette.primary.main, 0.1),
 						},
-						transition: "transform 0.2s ease",
+						transition: "background-color 0.2s ease",
 					}}
 				>
-					<CameraAltIcon sx={{ fontSize: 20 }} />
+					<CameraAltIcon sx={{ fontSize: 30, color: theme.palette.primary.main }} />
 				</Avatar>
-				{!isMobile && (
-					<Typography
-						variant="h5"
-						component={RouterLink}
-						to="/"
-						sx={{
-							color: "transparent",
-							backgroundImage: "linear-gradient(45deg, #6366f1, #ec4899)",
-							backgroundClip: "text",
-							WebkitBackgroundClip: "text",
-							fontWeight: 700,
-							textDecoration: "none",
-							"&:hover": {
-								opacity: 0.8,
-							},
-						}}
-					>
-						Peek
-					</Typography>
-				)}
 			</Box>
 
 			{/* Navigation Section */}
-			<Box sx={{ flex: 1, py: 2 }}>
+			<Box sx={{ flex: 1 }}>
 				{isLoggedIn ? (
-					<List sx={{ px: 2 }}>
+					<List>
 						{navigationItems.map((item) => (
 							<ListItem key={item.label} disablePadding sx={{ mb: 1 }}>
 								<ListItemButton
 									component={item.path ? RouterLink : "button"}
 									to={item.path}
-									onClick={() => {
-										if (item.onClick) item.onClick();
-										if (isMobile && onMobileClose) onMobileClose();
-									}}
-									selected={isRouteActive(item.path)}
+									onClick={item.onClick}
 									sx={{
-										borderRadius: 2,
-										minHeight: 56,
-										"&.Mui-selected": {
-											backgroundColor: alpha(theme.palette.primary.main, 0.15),
-											"&:hover": {
-												backgroundColor: alpha(theme.palette.primary.main, 0.2),
-											},
-										},
+										borderRadius: 9999,
+										py: 1.5,
+										px: 2,
 										"&:hover": {
-											backgroundColor: alpha(theme.palette.common.white, 0.05),
+											backgroundColor: alpha(theme.palette.text.primary, 0.1),
 										},
 									}}
 								>
 									<ListItemIcon
 										sx={{
-											color: isRouteActive(item.path) ? theme.palette.primary.main : theme.palette.text.secondary,
-											minWidth: 40,
+											color: isRouteActive(item.path) ? theme.palette.primary.main : theme.palette.text.primary,
+											minWidth: 0,
+											mr: 2,
 										}}
 									>
 										{item.icon}
@@ -262,9 +218,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 									<ListItemText
 										primary={item.label}
 										sx={{
+											display: { xs: "none", lg: "block" },
 											"& .MuiListItemText-primary": {
-												fontWeight: isRouteActive(item.path) ? 600 : 400,
-												color: isRouteActive(item.path) ? theme.palette.primary.main : theme.palette.text.primary,
+												fontWeight: isRouteActive(item.path) ? 700 : 400,
+												fontSize: "1.25rem",
+												color: theme.palette.text.primary,
 											},
 										}}
 									/>
@@ -272,178 +230,142 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ mobileOpen = false, onMobileC
 							</ListItem>
 						))}
 
-						{/* Divider */}
-						<Divider sx={{ my: 2, borderColor: "rgba(99, 102, 241, 0.1)" }} />
-
-						{/* Upload/Post Button */}
-						<ListItem sx={{ px: 0 }}>
-							<ListItemButton
-								onClick={openUploadModal}
-								data-testid="post-button"
+						{/* Post Button */}
+						<ListItem sx={{ px: 0, mt: 2 }}>
+							<Button
+								onClick={onPostClick}
+								variant="contained"
+								fullWidth
 								sx={{
-									backgroundColor: alpha(theme.palette.primary.main, 0.9),
-									borderRadius: 3,
-									minHeight: 56,
-									mx: 2,
-									"&:hover": {
-										backgroundColor: theme.palette.primary.main,
-									},
-									background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+									borderRadius: 9999,
+									py: 1.5,
+									fontSize: "1.1rem",
+									fontWeight: 700,
+									textTransform: "none",
+									boxShadow: "none",
+									border: `1px solid ${theme.palette.primary.main}`,
+									background: "transparent",
+									display: { xs: "none", lg: "flex" },
 								}}
 							>
-								<ListItemIcon sx={{ color: "white", minWidth: 40 }}>
-									<AddIcon />
-								</ListItemIcon>
-								<ListItemText
-									primary="Post"
-									sx={{
-										"& .MuiListItemText-primary": {
-											color: "white",
-											fontWeight: 600,
-										},
-									}}
-								/>
-							</ListItemButton>
+								Post
+							</Button>
+							<Button
+								onClick={onPostClick}
+								variant="contained"
+								sx={{
+									borderRadius: "50%",
+									minWidth: 50,
+									width: 50,
+									height: 50,
+									p: 0,
+									boxShadow: "none",
+									display: { xs: "flex", lg: "none" },
+									justifyContent: "center",
+									alignItems: "center",
+								}}
+							>
+								<AddIcon />
+							</Button>
 						</ListItem>
 					</List>
 				) : (
-					<Box sx={{ p: 3, textAlign: "center", display: "flex", flexDirection: "column", gap: 2 }}>
+					<Box
+						sx={{
+							p: 3,
+							textAlign: "center",
+							display: "flex",
+							flexDirection: "column",
+							gap: 2,
+						}}
+					>
 						<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
 							Sign in to access all features
 						</Typography>
-						<Button
-							component={RouterLink}
-							to="/login"
-							variant="outlined"
-							size="small"
-							sx={{
-								borderColor: alpha(theme.palette.primary.main, 0.5),
-								color: theme.palette.primary.light,
-								"&:hover": {
-									borderColor: theme.palette.primary.main,
-									backgroundColor: alpha(theme.palette.primary.main, 0.1),
-								},
-							}}
-						>
+						<Button component={RouterLink} to="/login" variant="outlined" fullWidth sx={{ borderRadius: 9999 }}>
 							Log In
 						</Button>
-						<Button
-							component={RouterLink}
-							to="/register"
-							variant="contained"
-							size="small"
-							sx={{
-								background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
-								"&:hover": {
-									background: "linear-gradient(45deg, #4f46e5, #7c3aed)",
-								},
-							}}
-						>
+						<Button component={RouterLink} to="/register" variant="contained" fullWidth sx={{ borderRadius: 9999 }}>
 							Join
 						</Button>
 					</Box>
 				)}
 			</Box>
 
-			{/* User Section - Bottom */}
 			{isLoggedIn && user && (
-				<Box
-					sx={{
-						p: 2,
-						borderTop: "1px solid rgba(99, 102, 241, 0.1)",
-					}}
-				>
+				<Box sx={{ py: 3 }}>
 					<ListItemButton
-						onClick={handleLogout}
+						component={RouterLink}
+						to={`/profile/${user.publicId}`}
 						sx={{
-							borderRadius: 2,
-							minHeight: 48,
+							borderRadius: 9999,
+							p: 1.5,
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
 							"&:hover": {
-								backgroundColor: alpha(theme.palette.error.main, 0.1),
+								backgroundColor: alpha(theme.palette.text.primary, 0.1),
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 40 }}>
-							<Avatar src={fullAvatarUrl} sx={{ width: 24, height: 24 }}>
-								{user.username?.charAt(0).toUpperCase()}
-							</Avatar>
-						</ListItemIcon>
-						<ListItemText
-							primary="Logout"
-							secondary={`@${user.username}`}
-							sx={{
-								"& .MuiListItemText-primary": {
-									fontSize: "0.875rem",
-								},
-								"& .MuiListItemText-secondary": {
-									fontSize: "0.75rem",
-								},
-							}}
-						/>
+						<Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+							<ListItemIcon sx={{ minWidth: 0, mr: { xs: 0, lg: 1.5 } }}>
+								<Avatar src={fullAvatarUrl} sx={{ width: 40, height: 40 }}>
+									{user.username?.charAt(0).toUpperCase()}
+								</Avatar>
+							</ListItemIcon>
+							<Box
+								sx={{
+									display: { xs: "none", lg: "block" },
+									overflow: "hidden",
+								}}
+							>
+								<Typography variant="subtitle1" fontWeight={700} noWrap>
+									{user.username}
+								</Typography>
+								<Typography variant="body2" color="text.secondary" noWrap>
+									@{user.username}
+								</Typography>
+							</Box>
+						</Box>
+
+						<Box sx={{ display: { xs: "none", lg: "block" } }}>
+							<IconButton
+								size="small"
+								onClick={handleMenuClick}
+								sx={{
+									color: theme.palette.text.primary,
+									"&:hover": {
+										backgroundColor: alpha(theme.palette.primary.main, 0.1),
+									},
+								}}
+							>
+								<MoreHorizIcon />
+							</IconButton>
+						</Box>
 					</ListItemButton>
+
+					<Menu
+						anchorEl={anchorEl}
+						open={open}
+						onClose={handleClose}
+						PaperProps={{
+							sx: {
+								borderRadius: 3,
+								boxShadow: theme.shadows[3],
+								minWidth: 180,
+							},
+						}}
+						transformOrigin={{ horizontal: "center", vertical: "bottom" }}
+						anchorOrigin={{ horizontal: "center", vertical: "top" }}
+					>
+						<MenuItem onClick={handleLogout} sx={{ py: 1.5, fontWeight: 700 }}>
+							Log out @{user.username}
+						</MenuItem>
+					</Menu>
 				</Box>
 			)}
-
-			{/* Upload Modal */}
-			<Modal
-				open={isUploadModalOpen}
-				onClose={closeUploadModal}
-				aria-labelledby="upload-modal-title"
-				aria-describedby="upload-modal-description"
-			>
-				<Box sx={modalStyle}>
-					<Typography id="upload-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-						Create post
-					</Typography>
-					<UploadForm onClose={closeUploadModal} />
-				</Box>
-			</Modal>
 		</Box>
-	);
-
-	if (isMobile) {
-		return (
-			<Drawer
-				variant="temporary"
-				open={mobileOpen}
-				onClose={onMobileClose}
-				ModalProps={{
-					keepMounted: true,
-				}}
-				sx={{
-					display: { xs: "block", md: "none" },
-					"& .MuiDrawer-paper": {
-						boxSizing: "border-box",
-						width: SIDEBAR_WIDTH,
-						backgroundColor: theme.palette.background.default,
-						backgroundImage: "none",
-						border: "none",
-					},
-				}}
-			>
-				{sidebarContent}
-			</Drawer>
-		);
-	}
-
-	return (
-		<Drawer
-			variant="permanent"
-			data-testid="left-sidebar"
-			sx={{
-				display: { xs: "none", md: "block" },
-				"& .MuiDrawer-paper": {
-					boxSizing: "border-box",
-					width: SIDEBAR_WIDTH,
-					position: "relative",
-					borderRight: "none",
-					backgroundColor: "transparent",
-					backgroundImage: "none",
-				},
-			}}
-		>
-			{sidebarContent}
-		</Drawer>
 	);
 };
 
