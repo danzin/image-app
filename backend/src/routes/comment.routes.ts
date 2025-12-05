@@ -3,7 +3,12 @@ import { CommentController } from "../controllers/comment.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { createCommentSchema, updateCommentSchema, commentIdSchema } from "../utils/schemas/comment.schemas";
+import {
+	createCommentSchema,
+	updateCommentSchema,
+	commentIdSchema,
+	commentsQuerySchema,
+} from "../utils/schemas/comment.schemas";
 import { postPublicIdSchema } from "../utils/schemas/post.schemas";
 import { publicIdSchema as userPublicIdSchema } from "../utils/schemas/user.schemas";
 
@@ -27,7 +32,7 @@ export class CommentRoutes {
 
 		this.router.get(
 			"/posts/:postPublicId/comments",
-			new ValidationMiddleware({ params: postPublicIdSchema }).validate(),
+			new ValidationMiddleware({ params: postPublicIdSchema, query: commentsQuerySchema }).validate(),
 			this.commentController.getCommentsByPostId
 		);
 
@@ -37,6 +42,13 @@ export class CommentRoutes {
 			this.auth,
 			new ValidationMiddleware({ params: commentIdSchema, body: updateCommentSchema }).validate(),
 			this.commentController.updateComment
+		);
+
+		this.router.post(
+			"/comments/:commentId/like",
+			this.auth,
+			new ValidationMiddleware({ params: commentIdSchema }).validate(),
+			this.commentController.likeComment
 		);
 
 		this.router.delete(

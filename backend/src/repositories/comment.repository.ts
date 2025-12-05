@@ -15,7 +15,8 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async getCommentsByPostId(
 		postId: string,
 		page: number = 1,
-		limit: number = 10
+		limit: number = 10,
+		parentId: string | null = null
 	): Promise<{
 		comments: TransformedComment[];
 		total: number;
@@ -24,17 +25,19 @@ export class CommentRepository extends BaseRepository<IComment> {
 		totalPages: number;
 	}> {
 		const skip = (page - 1) * limit;
+		const filter: any = { postId };
+		filter.parentId = parentId ? parentId : null;
 
 		const [comments, total] = await Promise.all([
 			this.model
-				.find({ postId })
+				.find(filter)
 				.populate("userId", "publicId username avatar")
 				.populate("postId", "publicId")
 				.sort({ createdAt: -1 }) // Newest first
 				.skip(skip)
 				.limit(limit)
 				.lean<PopulatedCommentLean[]>(),
-			this.model.countDocuments({ postId }),
+			this.model.countDocuments(filter),
 		]);
 
 		// Transform the data to match frontend interface
@@ -42,6 +45,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 			id: comment._id.toString(),
 			content: comment.content,
 			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -91,6 +98,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 			id: comment._id.toString(),
 			content: comment.content,
 			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -135,6 +146,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 			id: comment._id.toString(),
 			content: comment.content,
 			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -163,6 +178,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 			id: comment._id.toString(),
 			content: comment.content,
 			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
 			user: {
 				publicId: comment.userId.publicId,
 				username: comment.userId.username,
@@ -172,6 +191,14 @@ export class CommentRepository extends BaseRepository<IComment> {
 			updatedAt: comment.updatedAt,
 			isEdited: comment.isEdited,
 		};
+	}
+
+	async updateReplyCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
+		await this.model.updateOne({ _id: commentId }, { $inc: { replyCount: delta } }, { session });
+	}
+
+	async updateLikesCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
+		await this.model.updateOne({ _id: commentId }, { $inc: { likesCount: delta } }, { session });
 	}
 	async deleteComment(commentId: string, session?: ClientSession): Promise<IComment | null> {
 		return await this.model.findByIdAndDelete(commentId, { session }).populate("userId", "username avatar").lean();

@@ -16,6 +16,8 @@ import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers"
 import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
 
+const MAX_REPLY_DEPTH = 5;
+
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
 	constructor(
@@ -63,6 +65,8 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		let createdComment: any;
 		let postTags: string[] = [];
 		let postOwnerId: string;
+		let parentComment: IComment | null = null;
+		let depth = 0;
 
 		try {
 			console.log(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
@@ -75,6 +79,24 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 			const post = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!post) {
 				throw createError("NotFoundError", `Post with publicId ${command.postPublicId} not found`);
+			}
+
+			if (command.parentId) {
+				parentComment = await this.commentRepository.findById(command.parentId);
+				if (!parentComment) {
+					throw createError("NotFoundError", "Parent comment not found");
+				}
+
+				if (parentComment.postId.toString() !== (post._id as mongoose.Types.ObjectId).toString()) {
+					throw createError("ValidationError", "Parent comment does not belong to the same post");
+				}
+
+				const parentDepth = (parentComment as any).depth ?? 0;
+				if (parentDepth >= MAX_REPLY_DEPTH) {
+					throw createError("ValidationError", `Maximum reply depth of ${MAX_REPLY_DEPTH} reached`);
+				}
+
+				depth = parentDepth + 1;
 			}
 
 			postTags = Array.isArray(post.tags) ? post.tags.map((t: any) => t.tag ?? t) : [];
@@ -90,6 +112,9 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					content: safeContent,
 					postId: post._id as mongoose.Types.ObjectId,
 					userId: user._id as mongoose.Types.ObjectId,
+					parentId: command.parentId ? new mongoose.Types.ObjectId(command.parentId) : null,
+					replyCount: 0,
+					depth,
 				};
 
 				const safePayload = sanitizeForMongo(payload);
@@ -98,6 +123,10 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Increment comment count on post
 				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
+
+				if (command.parentId) {
+					await this.commentRepository.updateReplyCount(command.parentId, 1, session);
+				}
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
@@ -118,6 +147,32 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 						targetPreview: postPreview,
 						session,
 					});
+				}
+
+				// Send notification to parent comment owner (for replies), but avoid double notifying post owner
+				if (command.parentId && parentComment) {
+					const parentOwnerId = (parentComment as any).userId?.toString?.();
+					if (parentOwnerId) {
+						const parentOwner = await this.userReadRepository.findById(parentOwnerId);
+						const parentOwnerPublicId = parentOwner?.publicId;
+						if (
+							parentOwnerPublicId &&
+							parentOwnerPublicId !== command.userPublicId &&
+							parentOwnerPublicId !== postOwnerId
+						) {
+							await this.notificationService.createNotification({
+								receiverId: parentOwnerPublicId,
+								actionType: "comment_reply",
+								actorId: command.userPublicId,
+								actorUsername: user.username,
+								actorAvatar: user.avatar,
+								targetId: command.postPublicId,
+								targetType: "comment",
+								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+								session,
+							});
+						}
+					}
 				}
 
 				// Handle mentions

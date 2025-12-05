@@ -6,6 +6,7 @@ export class CreateCommentCommand implements ICommand {
 	constructor(
 		public readonly userPublicId: string,
 		public readonly postPublicId: string,
-		public readonly content: string
+		public readonly content: string,
+		public readonly parentId: string | null = null
 	) {}
 }

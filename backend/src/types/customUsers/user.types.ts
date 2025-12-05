@@ -1,4 +1,5 @@
 import { Document, Types } from "mongoose";
+import { IPost } from "../customPosts/posts.types";
 
 export interface IUser extends Document {
 	publicId: string;
@@ -19,6 +20,7 @@ export interface IUser extends Document {
 	followerCount?: number;
 	followingCount?: number;
 	comparePassword(candidatePassword: string): Promise<boolean>;
+	canViewPost(post: Pick<IPost, "canBeViewedBy" | "user" | "author">): boolean;
 }
 
 // Create a user lookup map using publicId

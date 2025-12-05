@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient, InfiniteData } from "@tanstack/react-query";
 import {
 	fetchPosts,
 	fetchPostByPublicId,
@@ -11,6 +11,7 @@ import {
 	fetchTrendingFeed,
 	fetchNewFeed,
 	fetchForYouFeed,
+	repostPost,
 } from "../../api/postApi";
 import { IPost, ITag } from "../../types";
 import { useAuth } from "../context/useAuth";
@@ -199,6 +200,65 @@ export const useDeletePost = () => {
 		},
 		onError: (error: Error) => {
 			console.error("Error deleting post:", error);
+		},
+	});
+};
+
+export const useRepostPost = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation<IPost, Error, { postPublicId: string; body?: string }>({
+		mutationFn: ({ postPublicId, body }) => repostPost(postPublicId, body),
+		onSuccess: (_newPost, { postPublicId }) => {
+			const bumpRepostCountInInfinite = (key: unknown[]) => {
+				queryClient.setQueriesData<
+					InfiniteData<{
+						data: IPost[];
+						total: number;
+						page: number;
+						limit: number;
+						totalPages: number;
+					}>
+				>({ queryKey: key }, (existing) => {
+					if (!existing) return existing;
+					return {
+						...existing,
+						pages: existing.pages.map((page) => ({
+							...page,
+							data: page.data.map((post) =>
+								post.publicId === postPublicId ? { ...post, repostCount: (post.repostCount || 0) + 1 } : post
+							),
+						})),
+					};
+				});
+			};
+
+			queryClient.setQueriesData<IPost>({ queryKey: ["post", "publicId", postPublicId] }, (existing) =>
+				existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1 } : existing
+			);
+			queryClient.setQueriesData<IPost>({ queryKey: ["post", postPublicId] }, (existing) =>
+				existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1 } : existing
+			);
+
+			bumpRepostCountInInfinite(["posts"]);
+			bumpRepostCountInInfinite(["personalizedFeed"]);
+			bumpRepostCountInInfinite(["trendingFeed"]);
+			bumpRepostCountInInfinite(["newFeed"]);
+			bumpRepostCountInInfinite(["forYouFeed"]);
+			bumpRepostCountInInfinite(["postsByTag"]);
+
+			queryClient.invalidateQueries({ queryKey: ["post", "publicId", postPublicId] });
+			queryClient.invalidateQueries({ queryKey: ["post", postPublicId] });
+
+			// Invalidate feeds to show the new repost
+			queryClient.invalidateQueries({ queryKey: ["posts"] });
+			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["newFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["userPosts"] });
+		},
+		onError: (error: Error) => {
+			console.error("Error reposting post:", error);
 		},
 	});
 };

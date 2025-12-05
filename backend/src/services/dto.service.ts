@@ -57,10 +57,15 @@ export class DTOService {
 
 		const userSnapshot = this.resolvePostUserSnapshot(post);
 
+		const repostOf = this.buildRepostOf(post.repostOf);
+
 		return {
 			publicId: post.publicId,
 			body: post.body,
 			slug: post.slug,
+			type: post.type ?? "original",
+			repostCount: post.repostCount ?? 0,
+			repostOf: repostOf,
 			// Nested format
 			image,
 			// Legacy flat format for backward compatibility
@@ -78,6 +83,24 @@ export class DTOService {
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
+		};
+	}
+
+	private buildRepostOf(source: any) {
+		if (!source) return undefined;
+		const imageData = source.image ? (source.image as any) : null;
+		const image = imageData?.url && imageData?.publicId ? { url: imageData.url, publicId: imageData.publicId } : null;
+		const userSnapshot = this.resolvePostUserSnapshot(source);
+		return {
+			publicId: source.publicId,
+			user: {
+				publicId: userSnapshot.publicId,
+				username: userSnapshot.username,
+				avatar: userSnapshot.avatar,
+			},
+			body: source.body,
+			slug: source.slug,
+			image,
 		};
 	}
 

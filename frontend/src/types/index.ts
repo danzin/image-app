@@ -48,6 +48,25 @@ export interface IPost {
 	publicId: string;
 	slug?: string;
 	body?: string; // Post text
+	type?: "original" | "repost";
+	repostCount?: number;
+	repostOf?: {
+		publicId: string;
+		user: {
+			publicId: string;
+			username: string;
+			avatar: string;
+		};
+		body?: string;
+		slug?: string;
+		image?: {
+			url: string;
+			publicId: string;
+		} | null;
+		likes?: number;
+		repostCount?: number;
+		commentsCount?: number;
+	};
 
 	// Image data
 	image?: {
@@ -102,6 +121,11 @@ export interface IComment {
 	id: string;
 	content: string;
 	postPublicId: string;
+	parentId?: string | null;
+	replyCount?: number;
+	depth?: number;
+	likesCount?: number;
+	isLikedByViewer?: boolean;
 	user: {
 		publicId: string;
 		username: string;
@@ -114,6 +138,7 @@ export interface IComment {
 
 export interface CommentCreateDto {
 	content: string;
+	parentId?: string;
 }
 
 export interface CommentUpdateDto {

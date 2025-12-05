@@ -302,7 +302,11 @@ export class TrendingWorker {
 			// use the repository's trending feed aggregation to get candidate posts
 			const timeWindowDays = 14;
 			const limit = 500; // refresh top 500 posts
-			const result = await this.postRepo.getTrendingFeed(limit, 0, { timeWindowDays, minLikes: 0 });
+			const result = (await (this.postRepo as any).getTrendingFeedWithCursor({
+				limit,
+				timeWindowDays,
+				minLikes: 0,
+			})) as any;
 
 			if (!result.data || result.data.length === 0) {
 				console.warn("[trending] no posts found for full refresh");

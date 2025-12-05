@@ -20,6 +20,7 @@ import { createError } from "../../../../utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "../../../../utils/sanitizers";
 import { AttachmentSummary, IPost, PostDTO } from "../../../../types";
 import { NotificationService } from "../../../../services/notification.service";
+import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 
 const MAX_BODY_LENGTH = 300;
 
@@ -123,14 +124,18 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			if (uploadedImagePublicId) {
 				await this.rollbackImageUpload(uploadedImagePublicId);
 			}
-			throw this.handleError(error);
+			throw mapPostError(error, {
+				action: "create-post",
+				userPublicId: command.userPublicId,
+				imageUploaded: Boolean(uploadedImagePublicId),
+			});
 		}
 	}
 
 	private async validateUser(publicId: string): Promise<any> {
 		const user = await this.userReadRepository.findByPublicId(publicId);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw new UserNotFoundError();
 		}
 		return user;
 	}
@@ -245,7 +250,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	private async finalizePost(result: { post: IPost; user: any; tagNames: string[] }): Promise<PostDTO> {
 		const hydratedPost = await this.postReadRepository.findByPublicId(result.post.publicId);
 		if (!hydratedPost) {
-			throw createError("NotFoundError", "Post not found after creation");
+			throw new PostNotFoundError("Post not found after creation");
 		}
 
 		await this.redisService.invalidateByTags([`user_feed:${result.user.publicId}`]);
@@ -255,18 +260,5 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 	private async rollbackImageUpload(publicId: string): Promise<void> {
 		await this.imageService.rollbackUpload(publicId);
-	}
-
-	private handleError(error: unknown): never {
-		if (error instanceof Error) {
-			throw createError(error.name, error.message, {
-				function: "CreatePostCommand",
-				file: "createPost.handler.ts",
-			});
-		}
-		throw createError("UnknownError", String(error), {
-			function: "CreatePostCommand",
-			file: "createPost.handler.ts",
-		});
 	}
 }

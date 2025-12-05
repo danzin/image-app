@@ -47,11 +47,11 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			} else {
 				// fallback: worker hasn't populated sorted set yet, use MongoDB sort
 				redisLogger.warn("trending:posts empty, falling back to MongoDB sort");
-				const skip = (page - 1) * limit;
-				const result = await this.postReadRepository.getTrendingFeed(limit, skip, {
+				const result = (await (this.postReadRepository as any).getTrendingFeedWithCursor({
+					limit,
 					timeWindowDays: 14,
 					minLikes: 1,
-				});
+				})) as any;
 				posts = result.data;
 				total = result.total;
 			}
@@ -79,6 +79,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			const plainPost = typeof post.toObject === "function" ? post.toObject() : post;
 			const userDoc = this.getUserSnapshot(plainPost);
 			const imageDoc = plainPost.image as any;
+			const repostOfDoc = plainPost.repostOf as any;
 			const tagsArray = Array.isArray(plainPost.tags) ? plainPost.tags : [];
 			const normalizedTags = tagsArray
 				.map((tag: any) => (tag && typeof tag === "object" ? { tag: tag.tag, publicId: tag.publicId } : null))
@@ -100,10 +101,38 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 					avatar: userDoc?.avatar ?? userDoc?.avatarUrl ?? "",
 				},
 				image: imageDoc ? { publicId: imageDoc.publicId, url: imageDoc.url, slug: imageDoc.slug } : undefined,
+				repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
 				rankScore: plainPost.rankScore,
 				trendScore: plainPost.trendScore,
 			};
 		});
+	}
+
+	private transformRepostOf(repostOf: any): any {
+		const originalUserDoc = this.getUserSnapshot(repostOf);
+		const originalImageDoc = repostOf.image as any;
+		const originalTagsArray = Array.isArray(repostOf.tags) ? repostOf.tags : [];
+		const normalizedOriginalTags = originalTagsArray
+			.map((tag: any) => (tag && typeof tag === "object" ? { tag: tag.tag, publicId: tag.publicId } : null))
+			.filter((tag: any): tag is { tag: string; publicId?: string } => Boolean(tag?.tag));
+
+		return {
+			publicId: repostOf.publicId,
+			body: repostOf.body,
+			slug: repostOf.slug,
+			createdAt: repostOf.createdAt,
+			likes: repostOf.likesCount ?? 0,
+			commentsCount: repostOf.commentsCount ?? 0,
+			tags: normalizedOriginalTags,
+			user: {
+				publicId: originalUserDoc?.publicId,
+				username: originalUserDoc?.username,
+				avatar: originalUserDoc?.avatar ?? originalUserDoc?.avatarUrl ?? "",
+			},
+			image: originalImageDoc
+				? { publicId: originalImageDoc.publicId, url: originalImageDoc.url, slug: originalImageDoc.slug }
+				: undefined,
+		};
 	}
 
 	private getUserSnapshot(post: any) {

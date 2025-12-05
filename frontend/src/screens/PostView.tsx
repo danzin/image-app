@@ -3,7 +3,7 @@ import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
 import { usePostById } from "../hooks/posts/usePosts";
 import { useLikePost, useFavoritePost } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
-import { useDeletePost } from "../hooks/posts/usePosts";
+import { useDeletePost, useRepostPost } from "../hooks/posts/usePosts";
 import RichText from "../components/RichText";
 import { Box, Typography, Button, CircularProgress, Alert, IconButton, Avatar, Modal, useTheme } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -13,6 +13,7 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import DeleteIcon from "@mui/icons-material/Delete";
+import RepeatIcon from "@mui/icons-material/Repeat";
 import CommentSection from "../components/comments/CommentSection";
 
 const BASE_URL = "/api";
@@ -27,6 +28,7 @@ const PostView = () => {
 	const { mutate: likePostMutation } = useLikePost();
 	const { mutate: toggleFavoriteMutation } = useFavoritePost();
 	const deleteMutation = useDeletePost();
+	const { mutate: triggerRepost } = useRepostPost();
 
 	const [isFavorited, setIsFavorited] = useState<boolean>(post?.isFavoritedByViewer ?? false);
 	const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -90,6 +92,14 @@ const PostView = () => {
 	const handleLikePost = () => {
 		if (!isLoggedIn) return navigate("/login");
 		likePostMutation(post.publicId);
+	};
+
+	const handleRepostClick = () => {
+		if (!isLoggedIn) {
+			navigate("/login");
+			return;
+		}
+		triggerRepost({ postPublicId: post.publicId });
 	};
 
 	const handleToggleFavorite = () => {
@@ -228,12 +238,17 @@ const PostView = () => {
 					</Typography>
 				</Box>
 
-				{/* Stats (Likes/Comments) */}
-				{(post.likes > 0 || post.commentsCount > 0) && (
+				{/* Stats (Likes/Comments/Reposts) */}
+				{(post.likes > 0 || post.commentsCount > 0 || (post.repostCount || 0) > 0) && (
 					<Box sx={{ py: 1.5, borderBottom: `1px solid ${theme.palette.divider}`, display: "flex", gap: 3 }}>
 						{post.likes > 0 && (
 							<Typography variant="body2" color="text.secondary">
 								<span style={{ color: theme.palette.text.primary, fontWeight: 700 }}>{post.likes}</span> Likes
+							</Typography>
+						)}
+						{(post.repostCount || 0) > 0 && (
+							<Typography variant="body2" color="text.secondary">
+								<span style={{ color: theme.palette.text.primary, fontWeight: 700 }}>{post.repostCount}</span> Reposts
 							</Typography>
 						)}
 						{post.commentsCount > 0 && (
@@ -256,6 +271,9 @@ const PostView = () => {
 				>
 					<IconButton onClick={handleLikePost} color={isLiked ? "error" : "default"}>
 						{isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
+					</IconButton>
+					<IconButton onClick={handleRepostClick} color="default">
+						<RepeatIcon />
 					</IconButton>
 					<IconButton onClick={handleToggleFavorite} color={isFavorited ? "primary" : "default"}>
 						{isFavorited ? <BookmarkIcon /> : <BookmarkBorderIcon />}
