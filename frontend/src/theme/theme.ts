@@ -192,7 +192,7 @@ export const theme = createTheme({
 				root: {
 					color: "#71767b",
 					"&.Mui-focused": {
-						color: "#d97706",
+						color: "#71767b",
 					},
 				},
 			},

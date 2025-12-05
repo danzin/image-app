@@ -11,7 +11,7 @@ const SearchResults = () => {
 	// Parse the search query
 	const rawQuery = new URLSearchParams(location.search).get("q") || "";
 
-	// Memoize search terms to prevent unnecessary re-renders
+	// prevent unnecessary re-renders
 	const searchTerms = useMemo(
 		() =>
 			rawQuery
