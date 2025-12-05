@@ -63,6 +63,12 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				userId = user.id;
 				userPublicId = user.publicId;
 
+				// get users that the deleted user was following (they need followerCount decremented)
+				const followingIds = await this.followRepository.getFollowingObjectIds(userId);
+
+				// get users that were following the deleted user (they need followingCount decremented)
+				const followerIds = await this.followRepository.getFollowerObjectIds(userId);
+
 				// delete all user-related cloud storage assets first (outside transaction)
 				// this includes images, avatars, covers, etc.
 				const cloudResult = await this.imageStorageService.deleteMany(user.publicId);
@@ -84,6 +90,14 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				await this.imageRepository.deleteMany(userId, session);
 
 				await this.followRepository.deleteAllFollowsByUserId(userId, session);
+
+				for (const followedUserId of followingIds) {
+					await this.userWriteRepository.updateFollowerCount(followedUserId, -1, session);
+				}
+
+				for (const followerUserId of followerIds) {
+					await this.userWriteRepository.updateFollowingCount(followerUserId, -1, session);
+				}
 
 				await this.userPreferenceRepository.deleteManyByUserId(userId, session);
 

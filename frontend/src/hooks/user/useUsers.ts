@@ -15,6 +15,9 @@ import {
 	fetchUserComments,
 	updateUserAvatar as updateUserAvatarApi,
 	updateUserCover as updateUserCoverApi,
+	fetchFollowers,
+	fetchFollowing,
+	FollowListResponse,
 } from "../../api/userApi";
 import { ImagePageData, PublicUserDTO, AuthenticatedUserDTO, AdminUserDTO } from "../../types";
 import { editUserRequest, changePasswordRequest } from "../../api/userApi";
@@ -30,6 +33,11 @@ type UseUserCommentsOptions = Omit<
 		Error,
 		InfiniteData<{ comments: unknown[]; total: number; page: number; limit: number; totalPages: number }, number>
 	>,
+	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
+>;
+
+type UseFollowListOptions = Omit<
+	UseInfiniteQueryOptions<FollowListResponse, Error, InfiniteData<FollowListResponse, number>>,
 	"queryKey" | "queryFn" | "initialPageParam" | "getNextPageParam"
 >;
 
@@ -182,5 +190,27 @@ export const useChangePassword = () => {
 		onError: (error) => {
 			console.error("Change password failed:", error);
 		},
+	});
+};
+
+export const useFollowers = (userPublicId: string, options?: UseFollowListOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["followers", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchFollowers(userPublicId, pageParam as number),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		enabled: !!userPublicId,
+		...options,
+	});
+};
+
+export const useFollowing = (userPublicId: string, options?: UseFollowListOptions) => {
+	return useInfiniteQuery({
+		queryKey: ["following", userPublicId] as const,
+		queryFn: ({ pageParam = 1 }) => fetchFollowing(userPublicId, pageParam as number),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		enabled: !!userPublicId,
+		...options,
 	});
 };

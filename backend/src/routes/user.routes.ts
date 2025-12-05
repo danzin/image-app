@@ -52,6 +52,19 @@ export class UserRoutes {
 			this.userController.getUserByPublicId
 		);
 
+		// followers/following lists (public)
+		this.router.get(
+			"/:publicId/followers",
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.userController.getFollowers
+		);
+
+		this.router.get(
+			"/:publicId/following",
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.userController.getFollowing
+		);
+
 		// === Protected Routes (authentication required) ===
 		this.router.use(this.auth);
 

@@ -16,6 +16,7 @@ const Layout: React.FC = () => {
 	const { user } = useAuth();
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
+	const isAdminPage = location.pathname.startsWith("/admin");
 
 	const handleOpenUploadModal = () => setIsUploadModalOpen(true);
 	const handleCloseUploadModal = () => setIsUploadModalOpen(false);
@@ -51,7 +52,7 @@ const Layout: React.FC = () => {
 					<Box
 						component="header"
 						sx={{
-							width: { md: 88, lg: 275 }, // Icon-only on medium, full on large
+							width: { md: 88, lg: 275 },
 							flexShrink: 0,
 							display: "flex",
 							flexDirection: "column",
@@ -81,8 +82,8 @@ const Layout: React.FC = () => {
 						display: "flex",
 						flexDirection: "column",
 						minWidth: 0,
-						borderRight: !isMobile && !isMessagesPage ? `1px solid ${theme.palette.divider}` : "none",
-						maxWidth: isMessagesPage ? "100%" : 600, // Allow full width for messages
+						borderRight: !isMobile && !isMessagesPage && !isAdminPage ? `1px solid ${theme.palette.divider}` : "none",
+						maxWidth: isMessagesPage || isAdminPage ? "100%" : 600, // Allow full width for messages and admin
 						width: "100%",
 					}}
 				>
@@ -123,7 +124,7 @@ const Layout: React.FC = () => {
 				</Box>
 
 				{/* --- Right Sidebar (Desktop) --- */}
-				{!isMobile && !isMessagesPage && (
+				{!isMobile && !isMessagesPage && !isAdminPage && (
 					<Box
 						sx={{
 							marginLeft: 3,

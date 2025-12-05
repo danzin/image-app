@@ -157,6 +157,10 @@ import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.qu
 import { GetUsersQueryHandler } from "../application/queries/users/getUsers/getUsers.handler";
 import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
 import { CheckFollowStatusQueryHandler } from "../application/queries/users/checkFollowStatus/checkFollowStatus.handler";
+import { GetFollowersQuery } from "../application/queries/users/getFollowers/getFollowers.query";
+import { GetFollowersQueryHandler } from "../application/queries/users/getFollowers/getFollowers.handler";
+import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
+import { GetFollowingQueryHandler } from "../application/queries/users/getFollowing/getFollowing.handler";
 
 import { UpdateProfileCommand } from "../application/commands/users/updateProfile/updateProfile.command";
 import { UpdateProfileCommandHandler } from "../application/commands/users/updateProfile/updateProfile.handler";
@@ -367,6 +371,8 @@ export function registerCQRS(): void {
 	container.register("GetUserByUsernameQueryHandler", { useClass: GetUserByUsernameQueryHandler });
 	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
 	container.register("CheckFollowStatusQueryHandler", { useClass: CheckFollowStatusQueryHandler });
+	container.register("GetFollowersQueryHandler", { useClass: GetFollowersQueryHandler });
+	container.register("GetFollowingQueryHandler", { useClass: GetFollowingQueryHandler });
 	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
@@ -508,6 +514,8 @@ export function initCQRS(): void {
 		CheckFollowStatusQuery,
 		container.resolve<CheckFollowStatusQueryHandler>("CheckFollowStatusQueryHandler")
 	);
+	queryBus.register(GetFollowersQuery, container.resolve<GetFollowersQueryHandler>("GetFollowersQueryHandler"));
+	queryBus.register(GetFollowingQuery, container.resolve<GetFollowingQueryHandler>("GetFollowingQueryHandler"));
 
 	queryBus.register(
 		GetAllUsersAdminQuery,

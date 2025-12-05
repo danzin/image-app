@@ -19,6 +19,7 @@ import PostView from "./screens/PostView";
 import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
 import Notifications from "./screens/Notifications";
+import FollowList from "./screens/FollowList";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 
@@ -40,6 +41,7 @@ function App() {
 									<Route path="login" element={<Login />} />
 									<Route path="register" element={<Register />} />
 									<Route path="profile/:id" element={<Profile />} />
+									<Route path="profile/:id/follow" element={<FollowList />} />
 									<Route path="/results" element={<SearchResults />} />
 									<Route path="posts/:id" element={<PostView />} />
 									<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />

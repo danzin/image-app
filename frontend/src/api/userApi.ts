@@ -152,3 +152,36 @@ export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowRe
 	const { data } = await axiosClient.get(`/api/users/suggestions/who-to-follow?limit=${limit}`);
 	return data;
 };
+
+export interface FollowUserItem {
+	publicId: string;
+	username: string;
+	avatar: string;
+	bio?: string;
+}
+
+export interface FollowListResponse {
+	users: FollowUserItem[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+export const fetchFollowers = async (
+	userPublicId: string,
+	page: number = 1,
+	limit: number = 20
+): Promise<FollowListResponse> => {
+	const { data } = await axiosClient.get(`/api/users/${userPublicId}/followers?page=${page}&limit=${limit}`);
+	return data;
+};
+
+export const fetchFollowing = async (
+	userPublicId: string,
+	page: number = 1,
+	limit: number = 20
+): Promise<FollowListResponse> => {
+	const { data } = await axiosClient.get(`/api/users/${userPublicId}/following?page=${page}&limit=${limit}`);
+	return data;
+};

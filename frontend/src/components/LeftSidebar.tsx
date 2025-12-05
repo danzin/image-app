@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import {
 	Box,
@@ -13,6 +13,9 @@ import {
 	alpha,
 	Button,
 	Badge,
+	Menu,
+	MenuItem,
+	IconButton,
 } from "@mui/material";
 import {
 	Home as HomeIcon,
@@ -24,6 +27,7 @@ import {
 	ChatBubbleOutline as ChatBubbleOutlineIcon,
 	AdminPanelSettings as AdminPanelSettingsIcon,
 	Notifications as NotificationsIcon,
+	MoreHoriz as MoreHorizIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useNotifications } from "../hooks/notifications/useNotification";
@@ -48,9 +52,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 	const navigate = useNavigate();
 	const theme = useTheme();
 
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const open = Boolean(anchorEl);
+
 	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+		event.preventDefault();
+		event.stopPropagation();
+		setAnchorEl(event.currentTarget);
+	};
+
+	const handleClose = () => {
+		setAnchorEl(null);
+	};
+
 	const handleLogout = () => {
+		handleClose();
 		logout();
 		navigate("/");
 	};
@@ -200,7 +218,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 									<ListItemText
 										primary={item.label}
 										sx={{
-											display: { xs: "none", lg: "block" }, // Hide text on medium screens
+											display: { xs: "none", lg: "block" },
 											"& .MuiListItemText-primary": {
 												fontWeight: isRouteActive(item.path) ? 700 : 400,
 												fontSize: "1.25rem",
@@ -227,7 +245,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 									boxShadow: "none",
 									border: `1px solid ${theme.palette.primary.main}`,
 									background: "transparent",
-									display: { xs: "none", lg: "flex" }, // Full button on large
+									display: { xs: "none", lg: "flex" },
 								}}
 							>
 								Post
@@ -242,7 +260,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 									height: 50,
 									p: 0,
 									boxShadow: "none",
-									display: { xs: "flex", lg: "none" }, // Icon button on medium
+									display: { xs: "flex", lg: "none" },
 									justifyContent: "center",
 									alignItems: "center",
 								}}
@@ -252,7 +270,15 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 						</ListItem>
 					</List>
 				) : (
-					<Box sx={{ p: 3, textAlign: "center", display: "flex", flexDirection: "column", gap: 2 }}>
+					<Box
+						sx={{
+							p: 3,
+							textAlign: "center",
+							display: "flex",
+							flexDirection: "column",
+							gap: 2,
+						}}
+					>
 						<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
 							Sign in to access all features
 						</Typography>
@@ -266,33 +292,77 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 				)}
 			</Box>
 
-			{/* User Section - Bottom */}
 			{isLoggedIn && user && (
 				<Box sx={{ py: 3 }}>
 					<ListItemButton
-						onClick={handleLogout}
+						component={RouterLink}
+						to={`/profile/${user.publicId}`}
 						sx={{
 							borderRadius: 9999,
 							p: 1.5,
+							display: "flex",
+							justifyContent: "space-between",
+							alignItems: "center",
 							"&:hover": {
 								backgroundColor: alpha(theme.palette.text.primary, 0.1),
 							},
 						}}
 					>
-						<ListItemIcon sx={{ minWidth: 0, mr: { xs: 0, lg: 1.5 } }}>
-							<Avatar src={fullAvatarUrl} sx={{ width: 40, height: 40 }}>
-								{user.username?.charAt(0).toUpperCase()}
-							</Avatar>
-						</ListItemIcon>
-						<Box sx={{ display: { xs: "none", lg: "block" }, overflow: "hidden" }}>
-							<Typography variant="subtitle1" fontWeight={700} noWrap>
-								{user.username}
-							</Typography>
-							<Typography variant="body2" color="text.secondary" noWrap>
-								@{user.username}
-							</Typography>
+						<Box sx={{ display: "flex", alignItems: "center", minWidth: 0 }}>
+							<ListItemIcon sx={{ minWidth: 0, mr: { xs: 0, lg: 1.5 } }}>
+								<Avatar src={fullAvatarUrl} sx={{ width: 40, height: 40 }}>
+									{user.username?.charAt(0).toUpperCase()}
+								</Avatar>
+							</ListItemIcon>
+							<Box
+								sx={{
+									display: { xs: "none", lg: "block" },
+									overflow: "hidden",
+								}}
+							>
+								<Typography variant="subtitle1" fontWeight={700} noWrap>
+									{user.username}
+								</Typography>
+								<Typography variant="body2" color="text.secondary" noWrap>
+									@{user.username}
+								</Typography>
+							</Box>
+						</Box>
+
+						<Box sx={{ display: { xs: "none", lg: "block" } }}>
+							<IconButton
+								size="small"
+								onClick={handleMenuClick}
+								sx={{
+									color: theme.palette.text.primary,
+									"&:hover": {
+										backgroundColor: alpha(theme.palette.primary.main, 0.1),
+									},
+								}}
+							>
+								<MoreHorizIcon />
+							</IconButton>
 						</Box>
 					</ListItemButton>
+
+					<Menu
+						anchorEl={anchorEl}
+						open={open}
+						onClose={handleClose}
+						PaperProps={{
+							sx: {
+								borderRadius: 3,
+								boxShadow: theme.shadows[3],
+								minWidth: 180,
+							},
+						}}
+						transformOrigin={{ horizontal: "center", vertical: "bottom" }}
+						anchorOrigin={{ horizontal: "center", vertical: "top" }}
+					>
+						<MenuItem onClick={handleLogout} sx={{ py: 1.5, fontWeight: 700 }}>
+							Log out @{user.username}
+						</MenuItem>
+					</Menu>
 				</Box>
 			)}
 		</Box>

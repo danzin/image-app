@@ -25,6 +25,10 @@ import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUs
 import { GetUserByPublicIdQuery } from "../application/queries/users/getUserByPublicId/getUserByPublicId.query";
 import { GetUsersQuery } from "../application/queries/users/getUsers/getUsers.query";
 import { CheckFollowStatusQuery } from "../application/queries/users/checkFollowStatus/checkFollowStatus.query";
+import { GetFollowersQuery } from "../application/queries/users/getFollowers/getFollowers.query";
+import { GetFollowersResult } from "../application/queries/users/getFollowers/getFollowers.handler";
+import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
+import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -291,6 +295,50 @@ export class UserController {
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			res.status(500).json({ error: errorMessage });
+		}
+	};
+
+	/**
+	 * Get a user's followers list (paginated)
+	 */
+	getFollowers = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 20;
+
+			const query = new GetFollowersQuery(publicId, page, limit);
+			const result = await this.queryBus.execute<GetFollowersResult>(query);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
+		}
+	};
+
+	/**
+	 * Get a user's following list (paginated)
+	 */
+	getFollowing = async (req: Request, res: Response): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 20;
+
+			const query = new GetFollowingQuery(publicId, page, limit);
+			const result = await this.queryBus.execute<GetFollowingResult>(query);
+			res.status(200).json(result);
+		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			if (errorMessage.includes("not found")) {
+				res.status(404).json({ error: "User not found" });
+			} else {
+				res.status(500).json({ error: errorMessage });
+			}
 		}
 	};
 

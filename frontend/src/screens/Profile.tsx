@@ -432,7 +432,10 @@ const Profile: React.FC = () => {
 
 				{/* Follow Counts */}
 				<Box sx={{ display: "flex", gap: 2.5, mt: 1.5 }}>
-					<Box sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}>
+					<Box
+						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=following`)}
+					>
 						<Typography variant="body2" fontWeight={700} color="text.primary">
 							{profileData.followingCount || 0}
 						</Typography>
@@ -440,7 +443,10 @@ const Profile: React.FC = () => {
 							Following
 						</Typography>
 					</Box>
-					<Box sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}>
+					<Box
+						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=followers`)}
+					>
 						<Typography variant="body2" fontWeight={700} color="text.primary">
 							{profileData.followerCount || 0}
 						</Typography>
