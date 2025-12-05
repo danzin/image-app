@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearch } from "../hooks/search/useSearch";
 import { usePostsByTag } from "../hooks/posts/usePosts";
-import { Box, Button, CircularProgress, Typography } from "@mui/material";
+import { Avatar, Box, Button, CircularProgress, Typography } from "@mui/material";
 import Gallery from "../components/Gallery";
 import { Link, useLocation } from "react-router-dom";
 
@@ -58,6 +58,13 @@ const SearchResults = () => {
 
 	const isLoading = isLoadingPosts || isSearchingUsers;
 
+	const getFullAvatarUrl = (avatar?: string) => {
+		if (!avatar) return undefined;
+		if (avatar.startsWith("http")) return avatar;
+		if (avatar.startsWith("/")) return `/api${avatar}`;
+		return `/api/${avatar}`;
+	};
+
 	return (
 		<Box sx={{ maxWidth: "800px", mx: "auto", p: 3 }}>
 			{/* Tab Buttons */}
@@ -110,11 +117,9 @@ const SearchResults = () => {
 											"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
 										}}
 									>
-										<img
-											src={user.avatar}
-											alt={user.username}
-											style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
-										/>
+										<Avatar src={getFullAvatarUrl(user.avatar)} alt={user.username} sx={{ width: 40, height: 40 }}>
+											{user.username}
+										</Avatar>
 										<Link
 											to={`/profile/${user.publicId}`}
 											style={{ textDecoration: "none", fontWeight: "bold", color: "inherit" }}
