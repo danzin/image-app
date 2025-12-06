@@ -74,43 +74,14 @@ export class PostRepository extends BaseRepository<IPost> {
 			{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
 			{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
 			{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
-			{
-				$lookup: {
-					from: "users",
-					localField: "user",
-					foreignField: "_id",
-					as: "userDoc",
-					pipeline: [
-						{
-							$project: {
-								_id: 1,
-								publicId: 1,
-								username: 1,
-								avatar: {
-									$ifNull: ["$avatar", { $ifNull: ["$profile.avatarUrl", ""] }],
-								},
-								displayName: { $ifNull: ["$profile.displayName", "$username"] },
-							},
-						},
-					],
-				},
-			},
-			{ $unwind: { path: "$userDoc", preserveNullAndEmptyArrays: true } },
+
 			{
 				$lookup: {
 					from: "posts",
 					let: { repostId: "$repostOf" },
 					pipeline: [
 						{ $match: { $expr: { $eq: ["$_id", "$$repostId"] } } },
-						{
-							$lookup: {
-								from: "users",
-								localField: "user",
-								foreignField: "_id",
-								as: "repostUserDoc",
-							},
-						},
-						{ $unwind: { path: "$repostUserDoc", preserveNullAndEmptyArrays: true } },
+
 						{
 							$lookup: {
 								from: "images",
@@ -132,13 +103,6 @@ export class PostRepository extends BaseRepository<IPost> {
 	 * returns standard projection fields for shaping post output
 	 */
 	private getStandardProjectionFields() {
-		const authorPublicIdFallback: any = { $ifNull: ["$author.publicId", "$userDoc.publicId"] };
-		const authorUsernameFallback: any = {
-			$ifNull: ["$author.username", { $ifNull: ["$userDoc.username", "$userDoc.displayName"] }],
-		};
-		const authorAvatarFallback: any = {
-			$ifNull: [{ $ifNull: ["$author.avatarUrl", null] }, { $ifNull: ["$userDoc.avatar", ""] }],
-		};
 		return {
 			_id: 0,
 			publicId: 1,
@@ -150,7 +114,10 @@ export class PostRepository extends BaseRepository<IPost> {
 			likes: "$likesCount",
 			viewsCount: { $ifNull: ["$viewsCount", 0] },
 			commentsCount: 1,
-			userPublicId: authorPublicIdFallback,
+
+			// Map the root userPublicId directly to the author snapshot
+			userPublicId: "$author.publicId",
+
 			tags: {
 				$map: {
 					input: { $ifNull: ["$tagObjects", []] },
@@ -158,11 +125,15 @@ export class PostRepository extends BaseRepository<IPost> {
 					in: { tag: "$$tag.tag", publicId: "$$tag.publicId" },
 				},
 			},
+
+			// Construct the User object from the Snapshot
 			user: {
-				publicId: authorPublicIdFallback,
-				username: authorUsernameFallback,
-				avatar: authorAvatarFallback,
+				publicId: "$author.publicId",
+				username: "$author.username",
+				avatar: "$author.avatarUrl",
+				displayName: "$author.displayName",
 			},
+
 			image: {
 				$cond: {
 					if: { $ne: ["$imageDoc", null] },
@@ -174,6 +145,7 @@ export class PostRepository extends BaseRepository<IPost> {
 					else: {},
 				},
 			},
+
 			repostOf: {
 				$cond: {
 					if: { $ne: ["$repostDoc", null] },
@@ -184,20 +156,13 @@ export class PostRepository extends BaseRepository<IPost> {
 						likesCount: "$repostDoc.likesCount",
 						commentsCount: "$repostDoc.commentsCount",
 						repostCount: "$repostDoc.repostCount",
+
 						user: {
-							publicId: {
-								$ifNull: ["$repostDoc.author.publicId", "$repostDoc.repostUserDoc.publicId"],
-							},
-							username: {
-								$ifNull: ["$repostDoc.author.username", "$repostDoc.repostUserDoc.username"],
-							},
-							avatar: {
-								$ifNull: [
-									{ $ifNull: ["$repostDoc.author.avatarUrl", null] },
-									{ $ifNull: ["$repostDoc.repostUserDoc.avatar", ""] },
-								],
-							},
+							publicId: "$repostDoc.author.publicId",
+							username: "$repostDoc.author.username",
+							avatar: "$repostDoc.author.avatarUrl",
 						},
+
 						image: {
 							$cond: {
 								if: { $ne: ["$repostDoc.repostImageDoc", null] },
