@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery, InfiniteData }
 import {
 	createComment,
 	getCommentsByPostId,
+	getCommentReplies,
 	updateComment,
 	deleteComment,
 	getCommentsByUserId,
@@ -22,6 +23,22 @@ export const useCommentsByPostId = (postPublicId: string, limit: number = 10) =>
 		initialPageParam: 1,
 		enabled: !!postPublicId,
 		staleTime: 0, // Comments should be fresh
+	});
+};
+
+export const useCommentReplies = (postPublicId: string, parentCommentId: string, limit: number = 10) => {
+	return useInfiniteQuery<CommentsPaginationResponse, Error>({
+		queryKey: ["comments", "post", postPublicId, "replies", parentCommentId],
+		queryFn: ({ pageParam = 1 }) => getCommentReplies(postPublicId, parentCommentId, pageParam as number, limit),
+		getNextPageParam: (lastPage) => {
+			if (lastPage.page < lastPage.totalPages) {
+				return lastPage.page + 1;
+			}
+			return undefined;
+		},
+		initialPageParam: 1,
+		enabled: !!postPublicId && !!parentCommentId,
+		staleTime: 0,
 	});
 };
 

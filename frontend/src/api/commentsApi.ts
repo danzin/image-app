@@ -29,21 +29,21 @@ export const getCommentsByPostId = async (
 		params: { page, limit },
 	});
 
-	/**
-	 * Get replies for a comment with pagination
-	 */
-	const getCommentReplies = async (
-		postPublicId: string,
-		parentCommentId: string,
-		page: number = 1,
-		limit: number = 10
-	): Promise<CommentsPaginationResponse> => {
-		const response = await axiosClient.get(`${BASE_URL}/posts/${postPublicId}/comments`, {
-			params: { page, limit, parentId: parentCommentId },
-		});
-		return response.data;
-	};
+	return response.data;
+};
 
+/**
+ * Get replies for a comment with pagination
+ */
+export const getCommentReplies = async (
+	postPublicId: string,
+	parentCommentId: string,
+	page: number = 1,
+	limit: number = 10
+): Promise<CommentsPaginationResponse> => {
+	const response = await axiosClient.get(`${BASE_URL}/posts/${postPublicId}/comments`, {
+		params: { page, limit, parentId: parentCommentId },
+	});
 	return response.data;
 };
 
