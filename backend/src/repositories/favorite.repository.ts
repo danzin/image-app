@@ -33,27 +33,20 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 
 		// Use an aggregation pipeline to join Favorite documents with the Post documents
 		const aggregation = this.model.aggregate([
-			// find favorites for the given user
 			{ $match: { userId: new mongoose.Types.ObjectId(userId) } },
-			//  sort by most recent
 			{ $sort: { createdAt: -1 } },
-			//  pagination
 			{ $skip: skip },
 			{ $limit: limit },
-			// "Join" with the posts collection
 			{
 				$lookup: {
-					from: "posts", // collection name in db
+					from: "posts",
 					localField: "postId",
 					foreignField: "_id",
 					as: "postDetails",
 				},
 			},
-			// deconstruct the array field to get object instead of array
 			{ $unwind: "$postDetails" },
-			// replace root to have postDetails at the top level
 			{ $replaceRoot: { newRoot: "$postDetails" } },
-			// populate the image field in the post
 			{
 				$lookup: {
 					from: "images",
@@ -73,7 +66,6 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 					},
 				},
 			},
-			// populate the user field in the post
 			{
 				$lookup: {
 					from: "users",
@@ -83,8 +75,8 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 				},
 			},
 			{ $unwind: "$userDetails" },
-			{ $addFields: { user: "$userDetails" } }, // replace user field
-			{ $project: { userDetails: 0, imageDetails: 0 } }, // clean up
+			{ $addFields: { user: "$userDetails" } },
+			{ $project: { userDetails: 0, imageDetails: 0 } },
 		]);
 
 		const totalFavorites = await this.model.countDocuments({ userId });
