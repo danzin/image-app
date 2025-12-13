@@ -15,6 +15,7 @@ import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
 import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
+import { logger } from "../../../../utils/winston";
 
 const MAX_REPLY_DEPTH = 5;
 
@@ -69,7 +70,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		let depth = 0;
 
 		try {
-			console.log(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
+			logger.info(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
 
 			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
@@ -177,32 +178,32 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Handle mentions
 				const mentionRegex = /@(\w+)/g;
-				console.log(`[CreateComment] Content for mention parsing: "${safeContent}"`);
+				logger.info(`[CreateComment] Content for mention parsing: "${safeContent}"`);
 				const mentions = [...safeContent.matchAll(mentionRegex)].map((match) => match[1]);
-				console.log(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
+				logger.info(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
 
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
-					console.log(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
+					logger.info(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
 					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
-					console.log(`[CreateComment] Found ${mentionedUsers.length} users`);
+					logger.info(`[CreateComment] Found ${mentionedUsers.length} users`);
 
 					for (const mentionedUser of mentionedUsers) {
-						console.log(`[CreateComment] Checking user ${mentionedUser.username} (${mentionedUser.publicId})`);
+						logger.info(`[CreateComment] Checking user ${mentionedUser.username} (${mentionedUser.publicId})`);
 
 						// Filter: Remove comment author
 						if (mentionedUser.publicId === command.userPublicId) {
-							console.log(`[CreateComment] Skipping self-mention`);
+							logger.info(`[CreateComment] Skipping self-mention`);
 							continue;
 						}
 
 						// Filter: Remove post owner since I already notified them above
 						if (mentionedUser.publicId === postOwnerId) {
-							console.log(`[CreateComment] Skipping post owner (already notified)`);
+							logger.info(`[CreateComment] Skipping post owner (already notified)`);
 							continue;
 						}
 
-						console.log(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
+						logger.info(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
 						await this.notificationService.createNotification({
 							receiverId: mentionedUser.publicId,
 							actionType: "mention",

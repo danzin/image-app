@@ -19,6 +19,7 @@ import { errorLogger } from "../utils/winston";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "../types";
 import { safeFireAndForget } from "../utils/helpers";
 import { PublicUserDTO } from "../services/dto.service";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class PostController {
@@ -61,7 +62,7 @@ export class PostController {
 
 		// Get authenticated user's publicId if available
 		const userId = (req as any).decodedUser?.publicId;
-		console.log("listPosts called with page:", page, "limit:", limit, "userId:", userId);
+		logger.info("listPosts called with page:", page, "limit:", limit, "userId:", userId);
 		try {
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(new GetPostsQuery(page, limit, userId));
 			res.json(posts);
@@ -161,7 +162,7 @@ export class PostController {
 
 	getPostByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			console.log("getPostByPublicId called");
+			logger.info("getPostByPublicId called");
 			const { publicId } = req.params;
 			const viewerPublicId = req.decodedUser?.publicId; // Get viewer's publicId if logged in
 			// Strip file extension if present (e.g., "abc-123.png" -> "abc-123")

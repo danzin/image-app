@@ -4,6 +4,7 @@ import { createError, isMongoDBDuplicateKeyError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
+import { logger } from "../utils/winston";
 
 /**
  * UserRepository provides database access for user-related operations.
@@ -54,13 +55,13 @@ export class UserRepository extends BaseRepository<IUser> {
 	 */
 	async update(id: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
 		try {
-			console.log("updateData in user repo:", updateData);
+			logger.info("updateData in user repo:", updateData);
 
 			const query = this.model.findOneAndUpdate({ _id: id }, updateData, { new: true });
 
 			if (session) query.session(session);
 			const result = await query.exec();
-			console.log("[UserRepository.update] Result:", result);
+			logger.info("[UserRepository.update] Result:", result);
 			return result;
 		} catch (error) {
 			if (isMongoDBDuplicateKeyError(error)) {

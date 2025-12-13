@@ -7,6 +7,7 @@ import { DTOService } from "./dto.service";
 import { createError } from "../utils/errors";
 import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "../types";
 import { TagService } from "./tag.service";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class PostService {
@@ -27,31 +28,26 @@ export class PostService {
 		}
 		const dto = this.dtoService.toPostDTO(post);
 
-		console.log("[PostService.getPostByPublicId] viewerPublicId:", viewerPublicId);
+		logger.info("[PostService.getPostByPublicId] viewerPublicId:", { viewerPublicId });
 
 		// Add viewer-specific fields if viewer is logged in
 		if (viewerPublicId) {
 			const postInternalId = (post as IPostWithId)._id?.toString();
 			const viewerInternalId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
 
-			console.log(
-				"[PostService.getPostByPublicId] postInternalId:",
-				postInternalId,
-				"viewerInternalId:",
-				viewerInternalId
-			);
+			logger.info("[PostService.getPostByPublicId] IDs:", { postInternalId, viewerInternalId });
 
 			if (postInternalId && viewerInternalId) {
 				dto.isLikedByViewer = await this.postLikeRepository.hasUserLiked(postInternalId, viewerInternalId);
-				console.log("[PostService.getPostByPublicId] like match:", dto.isLikedByViewer);
+				logger.info("[PostService.getPostByPublicId] like match:", { isLikedByViewer: dto.isLikedByViewer });
 
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;
-				console.log("[PostService.getPostByPublicId] favoriteRecord:", !!favoriteRecord);
+				logger.info("[PostService.getPostByPublicId] favoriteRecord:", { isFavoritedByViewer: !!favoriteRecord });
 			}
 		}
 
-		console.log("[PostService.getPostByPublicId] Returning DTO:", {
+		logger.info("[PostService.getPostByPublicId] Returning DTO:", {
 			publicId: dto.publicId,
 			isLikedByViewer: dto.isLikedByViewer,
 			isFavoritedByViewer: dto.isFavoritedByViewer,

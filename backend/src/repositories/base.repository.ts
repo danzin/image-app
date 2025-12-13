@@ -1,6 +1,7 @@
 import mongoose, { ClientSession, FilterQuery, ModifyResult, UpdateQuery } from "mongoose";
 import { IRepository } from "../types";
 import { createError } from "../utils/errors";
+import { logger } from "../utils/winston";
 
 /**
  * BaseRepository provides generic CRUD operations for MongoDB models.
@@ -55,7 +56,7 @@ export abstract class BaseRepository<T extends mongoose.Document> implements IRe
 			const query = this.model.findOneAndDelete({ _id: id });
 			if (session) query.session(session);
 			const result = await query.exec();
-			console.log(`result from execution of delete in imageRepository: ${result}`);
+			logger.info(`result from execution of delete in imageRepository: ${result}`);
 			return result !== null;
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

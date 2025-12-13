@@ -2,6 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
 import { WebSocketServer } from "../server/socketServer";
 import { IRealtimeMessageHandler } from "../application/handlers/realtime/IRealtimeMessageHandler.interface";
+import { logger } from "../utils/winston";
 
 export interface FeedUpdateMessage {
 	type:
@@ -60,7 +61,7 @@ export class RealTimeFeedService {
 				this.handlerRegistry.set("new_image_global", handler);
 			}
 		}
-		console.log(`Registered ${this.handlerRegistry.size} realtime message handlers`);
+		logger.info(`Registered ${this.handlerRegistry.size} realtime message handlers`);
 	}
 
 	/**
@@ -76,7 +77,7 @@ export class RealTimeFeedService {
 					try {
 						parsedMessage = JSON.parse(message);
 					} catch (error) {
-						console.error("Failed to parse feed update message:", error);
+						logger.error("Failed to parse feed update message:", { error });
 						return;
 					}
 				} else {
@@ -84,9 +85,9 @@ export class RealTimeFeedService {
 				}
 				this.handleFeedUpdate(parsedMessage, channel);
 			});
-			console.log("Real-time feed update listener initialized");
+			logger.info("Real-time feed update listener initialized");
 		} catch (error) {
-			console.error("Failed to initialize real-time feed listener:", error);
+			logger.error("Failed to initialize real-time feed listener:", { error });
 		}
 	}
 
@@ -95,17 +96,17 @@ export class RealTimeFeedService {
 	 */
 	private async handleFeedUpdate(message: FeedUpdateMessage, channel?: string): Promise<void> {
 		try {
-			console.log("Real-time service received message:", JSON.stringify(message, null, 2));
+			logger.info("Real-time service received message:", { message });
 			const io = this.webSocketServer.getIO();
 
 			const handler = this.handlerRegistry.get(message.type);
 			if (handler) {
 				await handler.handle(io, message, channel);
 			} else {
-				console.warn("Unknown feed update type:", message.type);
+				logger.warn("Unknown feed update type:", { type: message.type });
 			}
 		} catch (error) {
-			console.error("Error handling feed update:", error);
+			logger.error("Error handling feed update:", { error });
 		}
 	}
 

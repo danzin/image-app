@@ -5,6 +5,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { IPostReadRepository } from "../../../../repositories/interfaces";
 import { createError } from "../../../../utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "types/index";
+import { logger } from "../../../../utils/winston";
 
 @injectable()
 export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTagsQuery, GetTrendingTagsResult> {
@@ -24,7 +25,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			// try to get from cache first
 			const cached = await this.redisService.get<GetTrendingTagsResult>(cacheKey);
 			if (cached) {
-				console.log("[GetTrendingTagsQuery] Returning cached trending tags");
+				logger.info("[GetTrendingTagsQuery] Returning cached trending tags");
 				return cached;
 			}
 
@@ -36,7 +37,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			// cache the result for a short window since aggregation touches many posts
 			await this.redisService.set(cacheKey, result, this.CACHE_TTL);
 
-			console.log(`[GetTrendingTagsQuery] Computed and cached ${tags.length} trending tags`);
+			logger.info(`[GetTrendingTagsQuery] Computed and cached ${tags.length} trending tags`);
 			return result;
 		} catch (error) {
 			console.error("[GetTrendingTagsQuery] Error:", error);
@@ -53,7 +54,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	async invalidateCache(): Promise<void> {
 		try {
 			const deleted = await this.redisService.del(`${this.CACHE_KEY_PREFIX}:*`);
-			console.log(`[GetTrendingTagsQuery] Cache invalidated (keys deleted: ${deleted})`);
+			logger.info(`[GetTrendingTagsQuery] Cache invalidated (keys deleted: ${deleted})`);
 		} catch (error) {
 			console.error("[GetTrendingTagsQuery] Failed to invalidate cache:", error);
 		}
@@ -68,9 +69,9 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	private async computeTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]> {
 		const trendingTags = await this.postReadRepository.getTrendingTags(limit, timeWindowHours);
 
-		console.log(`[GetTrendingTagsQuery] Found ${trendingTags.length} trending tags`);
+		logger.info(`[GetTrendingTagsQuery] Found ${trendingTags.length} trending tags`);
 		if (trendingTags.length > 0) {
-			console.log(`[GetTrendingTagsQuery] Top tag: ${trendingTags[0].tag} (count: ${trendingTags[0].count})`);
+			logger.info(`[GetTrendingTagsQuery] Top tag: ${trendingTags[0].tag} (count: ${trendingTags[0].count})`);
 		}
 
 		return trendingTags;

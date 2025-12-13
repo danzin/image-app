@@ -9,6 +9,7 @@ import { ColdStartFeedGeneratedEvent } from "../../../events/ColdStartFeedGenera
 import { createError } from "../../../../utils/errors";
 import { FollowRepository } from "../../../../repositories/follow.repository";
 import { CoreFeed, FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
+import { logger } from "../../../../utils/winston";
 
 @injectable()
 export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersonalizedFeedQuery, any> {
@@ -23,7 +24,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 
 	async execute(query: GetPersonalizedFeedQuery): Promise<PaginatedFeedResult> {
 		const { userId, page, limit } = query;
-		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
+		logger.info(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
 		const safePage = Math.max(1, Math.floor(page || 1));
 		const safeLimit = Math.min(100, Math.max(1, Math.floor(limit || 20)));
 
@@ -34,14 +35,14 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 
 			if (!coreFeed) {
 				// cache miss - generate core feed
-				console.log("Core feed cache miss, generating...");
+				logger.info("Core feed cache miss, generating...");
 				coreFeed = await this.generateCoreFeed(userId, safePage, safeLimit);
 
 				// store in redis with tags for smart invalidation
 				const tags = [`user_feed:${userId}`, `feed_safePage:${safePage}`, `feed_safeLimit:${safeLimit}`];
 				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
 			} else {
-				console.log("Core feed cache hit");
+				logger.info("Core feed cache hit");
 			}
 
 			// Enrich core feed with fresh user data

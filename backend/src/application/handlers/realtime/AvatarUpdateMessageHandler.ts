@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class AvatarUpdateMessageHandler implements IRealtimeMessageHandler {
@@ -18,6 +19,6 @@ export class AvatarUpdateMessageHandler implements IRealtimeMessageHandler {
 			timestamp: message.timestamp,
 		});
 
-		console.log(`Real-time avatar update sent for user ${message.userId}`);
+		logger.info(`Real-time avatar update sent for user ${message.userId}`);
 	}
 }

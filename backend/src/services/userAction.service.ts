@@ -1,5 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { UserActionRepository } from "../repositories/userAction.repository";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class UserActionService {
@@ -9,7 +10,7 @@ export class UserActionService {
 		try {
 			await this.userActionRepository.logAction(userId, actionType, targetId);
 		} catch (error) {
-			console.error("Error logging user action:", error);
+			logger.error("Error logging user action:", { error });
 			// Don't throw, as logging failure shouldn't break the request
 		}
 	}

@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "../realtime/IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class PostDeletedMessageHandler implements IRealtimeMessageHandler {
@@ -16,6 +17,6 @@ export class PostDeletedMessageHandler implements IRealtimeMessageHandler {
 			timestamp: message.timestamp,
 		});
 
-		console.log(`Real-time notification sent for post deletion ${postId}`);
+		logger.info(`Real-time notification sent for post deletion ${postId}`);
 	}
 }

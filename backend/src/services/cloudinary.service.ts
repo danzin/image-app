@@ -4,6 +4,7 @@ import { createError } from "../utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "../types";
 import { injectable } from "tsyringe";
 import { IImageStorageService } from "../types/customImageStorage/imageStorage.types";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class CloudinaryService implements IImageStorageService {
@@ -48,10 +49,10 @@ export class CloudinaryService implements IImageStorageService {
 		}
 
 		try {
-			console.log("URL of image about to delete:", url);
+			logger.info("URL of image about to delete:", url);
 			const assetPath = `${username}/${publicId}`;
 			const result = await cloudinary.uploader.destroy(assetPath);
-			console.log(result);
+			logger.info(result);
 
 			// Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
 			return { result: result.result };

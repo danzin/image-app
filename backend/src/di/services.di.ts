@@ -25,6 +25,7 @@ import { LikeUpdateMessageHandler } from "../application/handlers/realtime/LikeU
 import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/AvatarUpdateMessageHandler";
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { SearchService } from "../services/search.service";
+import { logger } from "../utils/winston";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -32,7 +33,7 @@ export function registerServices(): void {
 
 	const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
 	if (!isCloudinaryConfigured) {
-		console.log("No Cloudinary credentials detected. \r\nDefaulting to local storage.");
+		logger.info("No Cloudinary credentials detected. \r\nDefaulting to local storage.");
 	}
 
 	container.registerSingleton("SearchService", SearchService);

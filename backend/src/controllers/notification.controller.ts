@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { NotificationService } from "../services/notification.service";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class NotificationController {
@@ -31,7 +32,7 @@ export class NotificationController {
 
 			const notifications = await this.notificationService.getNotifications(userPublicId, limit, before);
 
-			console.log(
+			logger.info(
 				`[NOTIFICATIONS] Fetched ${notifications.length} notifications for user: ${userPublicId}` +
 					(before ? ` (before: ${new Date(before).toISOString()})` : " (initial load)")
 			);

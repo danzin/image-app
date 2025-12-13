@@ -2,6 +2,7 @@ import { ClientSession, Model } from "mongoose";
 import { INotification } from "../types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class NotificationRepository extends BaseRepository<INotification> {
@@ -61,7 +62,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			console.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
 			return null;
 		}
-		console.log(`[NotificationRepository] markAsRead start id=${notificationId} userId=${userId}`);
+		logger.info(`[NotificationRepository] markAsRead start id=${notificationId} userId=${userId}`);
 		try {
 			const updated = await this.model
 				.findOneAndUpdate({ _id: notificationId, userId }, { $set: { isRead: true } }, { new: true })
@@ -72,7 +73,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 					`[NotificationRepository] markAsRead miss (not found or ownership mismatch) id=${notificationId} userId=${userId}`
 				);
 			} else {
-				console.log(
+				logger.info(
 					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${updated.isRead}`
 				);
 			}

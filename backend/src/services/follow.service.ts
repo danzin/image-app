@@ -6,6 +6,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { RedisService } from "./redis.service";
 import { UnitOfWork } from "../database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class FollowService {
@@ -106,7 +107,7 @@ export class FollowService {
 				`user_suggestions:${userId}`,
 			]);
 
-			console.log(`Invalidated feed cache for user ${userId} after follow/unfollow action`);
+			logger.info(`Invalidated feed cache for user ${userId} after follow/unfollow action`);
 		} catch (error) {
 			console.error(`Error invalidating feed cache for user ${userId}:`, error);
 		}

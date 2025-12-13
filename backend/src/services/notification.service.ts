@@ -8,7 +8,7 @@ import { WebSocketServer } from "../server/socketServer";
 import { UserRepository } from "../repositories/user.repository";
 import { ImageRepository } from "../repositories/image.repository";
 import { RedisService } from "./redis.service";
-import { redisLogger, errorLogger } from "../utils/winston";
+import { redisLogger, errorLogger, logger } from "../utils/winston";
 
 @injectable()
 export class NotificationService {
@@ -40,11 +40,11 @@ export class NotificationService {
 			delete plain._id;
 			delete plain.$__;
 
-			console.log(`Sending new_notification to user ${userPublicId}:`, plain);
+			logger.info(`Sending new_notification to user ${userPublicId}:`, { notification: plain });
 			io.to(userPublicId).emit("new_notification", plain);
-			console.log("Notification sent successfully");
+			logger.info("Notification sent successfully");
 		} catch (error) {
-			console.error("Error sending notification:", error);
+			logger.error("Error sending notification:", { error });
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			} else {
@@ -64,11 +64,11 @@ export class NotificationService {
 			delete plain._id;
 			delete plain.$__;
 
-			console.log(`Sending notification_read to user ${userPublicId}:`, plain);
+			logger.info(`Sending notification_read to user ${userPublicId}:`, { notification: plain });
 			io.to(userPublicId).emit("notification_read", plain);
-			console.log("Notification read event sent successfully");
+			logger.info("Notification read event sent successfully");
 		} catch (error) {
-			console.error("Error sending notification read event:", error);
+			logger.error("Error sending notification read event:", { error });
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			} else {
@@ -128,7 +128,7 @@ export class NotificationService {
 
 			return notification;
 		} catch (error) {
-			console.error(`notificationRepository.create error: ${error}`);
+			logger.error(`notificationRepository.create error:`, { error });
 			throw createError("InternalServerError", "Failed to create notification");
 		}
 	}
@@ -200,14 +200,14 @@ export class NotificationService {
 
 	async markAsRead(notificationId: string, userPublicId: string) {
 		try {
-			console.log(`[NotificationService] markAsRead requested id=${notificationId} userPublicId=${userPublicId}`);
+			logger.info(`[NotificationService] markAsRead requested`, { notificationId, userPublicId });
 			const io = this.getIO();
 			const updatedNotification = await this.notificationRepository.markAsRead(notificationId, userPublicId);
 			if (!updatedNotification) {
-				console.log(`[NotificationService] markAsRead not found id=${notificationId} userPublicId=${userPublicId}`);
+				logger.info(`[NotificationService] markAsRead not found`, { notificationId, userPublicId });
 				throw createError("PathError", "Notification not found");
 			}
-			console.log(`[NotificationService] markAsRead updated id=${notificationId} userPublicId=${userPublicId}`);
+			logger.info(`[NotificationService] markAsRead updated`, { notificationId, userPublicId });
 			this.readNotification(io, userPublicId, updatedNotification);
 
 			// update in Redis hash (O(1) operation)
@@ -237,7 +237,7 @@ export class NotificationService {
 			return await this.notificationRepository.getUnreadCount(userPublicId);
 		} catch (error) {
 			// fallback to DB on error
-			console.warn(`[NotificationService] Redis error getting unread count, falling back to DB:`, error);
+			logger.warn(`[NotificationService] Redis error getting unread count, falling back to DB:`, { error });
 			return await this.notificationRepository.getUnreadCount(userPublicId);
 		}
 	}
