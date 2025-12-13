@@ -1,5 +1,7 @@
 import "reflect-metadata";
 import { errorLogger, logger } from "./utils/winston";
+import { Worker } from "worker_threads";
+import path from "path";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config({ path: "../.env" });
@@ -65,6 +67,10 @@ async function bootstrap(): Promise<void> {
 		// Now that DB connection is established, resolve & wire CQRS handlers (buses, handlers, subscriptions).
 		initCQRS();
 
+		// Initialize workers
+		startWorker("trending.worker");
+		startWorker("profile-sync.worker");
+
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);
 		const app = expressServer.getExpressApp();
@@ -85,6 +91,38 @@ async function bootstrap(): Promise<void> {
 		console.error("Startup failed", error);
 		process.exit(1);
 	}
+}
+
+function startWorker(fileName: string) {
+	const extension = __filename.endsWith(".ts") ? "ts" : "js";
+	const workerFilename = fileName.replace(".ts", extension).replace(".js", extension);
+
+	const workerPath = path.resolve(__dirname, "./workers/", workerFilename);
+
+	const worker = new Worker(workerPath, {
+		workerData: { env: process.env.NODE_ENV },
+		execArgv: __filename.endsWith(".ts") ? ["-r", "ts-node/register"] : undefined,
+	});
+
+	worker.on("error", (err) => {
+		errorLogger.error({
+			type: "WorkerError",
+			worker: fileName,
+			message: err.message,
+			stack: err.stack,
+			timestamp: new Date().toISOString(),
+		});
+		logger.error(`Worker ${fileName} error:`, err);
+	});
+
+	worker.on("exit", (code) => {
+		if (code !== 0) {
+			logger.warn(`Worker ${fileName} stopped with exit code ${code}`);
+			setTimeout(() => startWorker(fileName), 5000);
+		}
+	});
+
+	logger.info(`Started worker: ${fileName}`);
 }
 
 bootstrap().catch(console.error);
