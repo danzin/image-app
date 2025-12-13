@@ -67,7 +67,12 @@ export class CommentService {
 		return this.createComment(user.id, postPublicId, content);
 	}
 
-	async getCommentsByPostPublicId(postPublicId: string, page: number = 1, limit: number = 10) {
+	async getCommentsByPostPublicId(
+		postPublicId: string,
+		page: number = 1,
+		limit: number = 10,
+		parentId: string | null = null
+	) {
 		// Validate post exists
 		const post = await this.postRepository.findByPublicId(postPublicId);
 		if (!post) {
@@ -77,7 +82,8 @@ export class CommentService {
 		return await this.commentRepository.getCommentsByPostId(
 			(post._id as mongoose.Types.ObjectId).toString(),
 			page,
-			limit
+			limit,
+			parentId
 		);
 	}
 

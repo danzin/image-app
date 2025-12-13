@@ -5,9 +5,17 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import { IComment } from "../../types";
 import { useAuth } from "../../hooks/context/useAuth";
-import { useUpdateComment, useDeleteComment } from "../../hooks/comments/useComments";
+import {
+	useUpdateComment,
+	useDeleteComment,
+	useCommentReplies,
+	useCreateComment,
+	useLikeComment,
+} from "../../hooks/comments/useComments";
 import { useNavigate } from "react-router";
 import RichText from "../RichText";
 
@@ -20,10 +28,26 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editContent, setEditContent] = useState(comment.content);
+
+	// Reply state
+	const [showReplies, setShowReplies] = useState(false);
+	const [showReplyForm, setShowReplyForm] = useState(false);
+	const [replyContent, setReplyContent] = useState("");
+
 	const navigate = useNavigate();
 
 	const updateCommentMutation = useUpdateComment();
 	const deleteCommentMutation = useDeleteComment();
+	const createCommentMutation = useCreateComment();
+	const likeCommentMutation = useLikeComment();
+
+	const {
+		data: repliesData,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		isLoading: isLoadingReplies,
+	} = useCommentReplies(comment.postPublicId, comment.id, 5);
 
 	const isOwner = user?.publicId === comment.user.publicId;
 	const isMenuOpen = Boolean(anchorEl);
@@ -34,6 +58,36 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 
 	const handleMenuClose = () => {
 		setAnchorEl(null);
+	};
+
+	const handleReplySubmit = async () => {
+		if (!replyContent.trim()) return;
+
+		try {
+			await createCommentMutation.mutateAsync({
+				imagePublicId: comment.postPublicId,
+				commentData: {
+					content: replyContent,
+					parentId: comment.id,
+				},
+			});
+			setReplyContent("");
+			setShowReplyForm(false);
+			setShowReplies(true);
+		} catch (error) {
+			console.error("Failed to post reply:", error);
+		}
+	};
+
+	const handleLike = async () => {
+		try {
+			await likeCommentMutation.mutateAsync({
+				commentId: comment.id,
+				postPublicId: comment.postPublicId,
+			});
+		} catch (error) {
+			console.error("Failed to like comment:", error);
+		}
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -180,6 +234,103 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					<Typography variant="body2" sx={{ wordBreak: "break-word" }}>
 						<RichText text={comment.content} />
 					</Typography>
+				)}
+
+				{/* Actions */}
+				<Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 0.5 }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+						<IconButton size="small" onClick={handleLike} sx={{ p: 0.5 }}>
+							{comment.isLikedByViewer ? (
+								<FavoriteIcon fontSize="small" color="error" />
+							) : (
+								<FavoriteBorderIcon fontSize="small" />
+							)}
+						</IconButton>
+						{(comment.likesCount || 0) > 0 && (
+							<Typography variant="caption" color="text.secondary">
+								{comment.likesCount}
+							</Typography>
+						)}
+					</Box>
+					<Typography
+						variant="caption"
+						sx={{ cursor: "pointer", fontWeight: 600, color: "text.secondary" }}
+						onClick={() => setShowReplyForm(!showReplyForm)}
+					>
+						Reply
+					</Typography>
+				</Box>
+
+				{/* Reply Form */}
+				{showReplyForm && (
+					<Box sx={{ mt: 1, mb: 2 }}>
+						<TextField
+							fullWidth
+							size="small"
+							placeholder={`Reply to ${comment.user.username}...`}
+							value={replyContent}
+							onChange={(e) => setReplyContent(e.target.value)}
+							multiline
+						/>
+						<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 1 }}>
+							<Button size="small" onClick={() => setShowReplyForm(false)}>
+								Cancel
+							</Button>
+							<Button
+								size="small"
+								variant="contained"
+								onClick={handleReplySubmit}
+								disabled={!replyContent.trim() || createCommentMutation.isPending}
+							>
+								Reply
+							</Button>
+						</Box>
+					</Box>
+				)}
+
+				{/* View Replies Button */}
+				{(comment.replyCount || 0) > 0 && (
+					<Box sx={{ mt: 1 }}>
+						<Typography
+							variant="caption"
+							sx={{
+								cursor: "pointer",
+								color: "primary.main",
+								fontWeight: 600,
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+							}}
+							onClick={() => setShowReplies(!showReplies)}
+						>
+							{showReplies ? "Hide replies" : `View ${comment.replyCount} replies`}
+						</Typography>
+					</Box>
+				)}
+
+				{/* Replies List */}
+				{showReplies && (
+					<Box sx={{ mt: 1, pl: 2, borderLeft: "2px solid #eee" }}>
+						{isLoadingReplies ? (
+							<Typography variant="caption">Loading replies...</Typography>
+						) : (
+							<>
+								{repliesData?.pages.map((page) =>
+									page.comments.map((reply) => <CommentItem key={reply.id} comment={reply} />)
+								)}
+								{hasNextPage && (
+									<Button
+										size="small"
+										onClick={() => fetchNextPage()}
+										disabled={isFetchingNextPage}
+										sx={{ mt: 1, textTransform: "none" }}
+									>
+										{isFetchingNextPage ? "Loading..." : "Load more replies"}
+									</Button>
+								)}
+							</>
+						)}
+					</Box>
 				)}
 			</Box>
 

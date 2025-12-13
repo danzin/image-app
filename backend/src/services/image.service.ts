@@ -12,6 +12,7 @@ import {
 	RemoveAttachmentResult,
 } from "../types";
 import { createError } from "../utils/errors";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class ImageService {
@@ -58,7 +59,7 @@ export class ImageService {
 		try {
 			await this.imageStorageService.deleteImage(publicId);
 		} catch (error) {
-			console.error("Failed to rollback image upload", error);
+			logger.error("Failed to rollback image upload", { error });
 		}
 	}
 
@@ -73,7 +74,7 @@ export class ImageService {
 
 			await this.imageStorageService
 				.deleteAssetByUrl(input.requesterPublicId, owningPublicId, imageDoc.url)
-				.catch((error) => console.error("Failed to delete attachment asset", error));
+				.catch((error) => logger.error("Failed to delete attachment asset", { error }));
 
 			await this.imageRepository.delete(imageDoc._id.toString(), input.session);
 

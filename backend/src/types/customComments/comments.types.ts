@@ -5,6 +5,10 @@ export interface IComment extends Document {
 	_id: mongoose.Types.ObjectId;
 	content: string;
 	postId: mongoose.Types.ObjectId;
+	parentId: mongoose.Types.ObjectId | null;
+	replyCount: number;
+	depth: number;
+	likesCount: number;
 	userId: mongoose.Types.ObjectId;
 	createdAt: Date;
 	updatedAt: Date;
@@ -25,6 +29,10 @@ export interface CommentResponseDto {
 	id: string;
 	content: string;
 	postId: string;
+	parentId: string | null;
+	replyCount: number;
+	depth: number;
+	likesCount: number;
 	user: {
 		id: string;
 		username: string;
@@ -47,6 +55,10 @@ export interface TransformedComment {
 	id: string;
 	content: string;
 	postPublicId: string;
+	parentId: string | null;
+	replyCount: number;
+	depth: number;
+	likesCount: number;
 	user: {
 		publicId: string;
 		username: string;
@@ -62,6 +74,10 @@ export interface PopulatedCommentLean {
 	_id: Types.ObjectId;
 	content: string;
 	postId: { publicId: string };
+	parentId: Types.ObjectId | null;
+	replyCount: number;
+	depth: number;
+	likesCount: number;
 	userId: { publicId: string; username: string; avatar?: string };
 	createdAt: Date;
 	updatedAt: Date;

@@ -1,8 +1,9 @@
 import "reflect-metadata";
+import { errorLogger, logger } from "./utils/winston";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config({ path: "../.env" });
-console.log("MONGODB_URI in main:", process.env.MONGODB_URI);
+logger.info("MONGODB_URI in main:", process.env.MONGODB_URI);
 // Register global mongoose plugin before individual models
 mongoose.plugin((schema) => {
 	schema.set("toJSON", {
@@ -24,7 +25,6 @@ import { Server } from "./server/server";
 import { setupContainerCore, registerCQRS, initCQRS } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
 import { RealTimeFeedService } from "./services/real-time-feed.service";
-import { errorLogger } from "./utils/winston";
 
 // Global error handlers
 process.on("uncaughtException", (error: Error) => {
@@ -76,7 +76,7 @@ async function bootstrap(): Promise<void> {
 
 		// Initialize real-time feed service
 		const realTimeFeedService = container.resolve<RealTimeFeedService>("RealTimeFeedService");
-		console.log("Real-time feed service initialized");
+		logger.info("Real-time feed service initialized");
 
 		// Start the HTTP server last
 		const port = 3000;

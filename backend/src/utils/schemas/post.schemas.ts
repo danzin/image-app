@@ -68,3 +68,10 @@ export const searchByTagsSchema = z
 		limit: z.coerce.number().int().positive().optional().default(10),
 	})
 	.strict();
+
+export const repostSchema = z
+	.object({
+		body: z.string().trim().max(300, "Body cannot be longer than 300 characters.").transform(sanitize).optional(),
+	})
+	.strict()
+	.transform(sanitizeForMongo);

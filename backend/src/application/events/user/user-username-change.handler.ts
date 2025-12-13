@@ -2,13 +2,14 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { UserUsernameChangedEvent } from "./user-interaction.event";
 import { RedisService } from "../../../services/redis.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class UserUsernameChangedHandler implements IEventHandler<UserUsernameChangedEvent> {
 	constructor(@inject("RedisService") private readonly redis: RedisService) {}
 
 	async handle(event: UserUsernameChangedEvent): Promise<void> {
-		console.log(`User ${event.userPublicId} changed username from "${event.oldUsername}" to "${event.newUsername}"`);
+		logger.info(`User ${event.userPublicId} changed username from "${event.oldUsername}" to "${event.newUsername}"`);
 
 		try {
 			// invalidate user data caches
@@ -27,7 +28,7 @@ export class UserUsernameChangedHandler implements IEventHandler<UserUsernameCha
 				timestamp: new Date().toISOString(),
 			});
 
-			console.log(`Cache invalidation completed for username change of user ${event.userPublicId}`);
+			logger.info(`Cache invalidation completed for username change of user ${event.userPublicId}`);
 		} catch (error) {
 			console.error(`Error while handling username change for user ${event.userPublicId}:`, error);
 		}

@@ -4,6 +4,7 @@ import * as path from "path";
 import { IImageStorageService } from "../types";
 import { injectable } from "tsyringe";
 import { createError } from "../utils/errors";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class LocalStorageService implements IImageStorageService {
@@ -14,7 +15,7 @@ export class LocalStorageService implements IImageStorageService {
 		if (!fs.existsSync(this.uploadsDir)) {
 			fs.mkdirSync(this.uploadsDir, { recursive: true });
 		}
-		console.log("LocalStorageService: Uploads directory path inside container:", this.uploadsDir);
+		logger.info("LocalStorageService: Uploads directory path inside container:", { uploadsDir: this.uploadsDir });
 	}
 
 	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
@@ -22,7 +23,7 @@ export class LocalStorageService implements IImageStorageService {
 			const safeUserId = this.validateUserId(userId);
 
 			const filename = `${uuidv4()}.png`;
-			console.log("UserID in local storage service:", safeUserId);
+			logger.info("UserID in local storage service:", { safeUserId });
 
 			// Safely join paths with traversal protection
 			const userDir = this.safeJoin(this.uploadsDir, safeUserId);
@@ -54,7 +55,7 @@ export class LocalStorageService implements IImageStorageService {
 
 			return { url, publicId: filename };
 		} catch (error) {
-			console.error(error);
+			logger.error("Failed to upload image", { error });
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			} else {
@@ -82,12 +83,12 @@ export class LocalStorageService implements IImageStorageService {
 						return;
 					}
 				} catch (err) {
-					console.warn(`Skipping invalid user directory: ${userDir}, error: ${err}`);
+					logger.warn(`Skipping invalid user directory: ${userDir}`, { error: err });
 					continue;
 				}
 			}
 		} catch (error) {
-			console.error(error);
+			logger.error("Error deleting asset", { error });
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			} else {
@@ -165,7 +166,7 @@ export class LocalStorageService implements IImageStorageService {
 						await fs.promises.unlink(filePath);
 					} catch (err) {
 						// skip files that don't match expected format
-						console.warn(`Skipping invalid file: ${file}, error: ${err}`);
+						logger.warn(`Skipping invalid file: ${file}`, { error: err });
 					}
 				})
 			);
@@ -181,7 +182,7 @@ export class LocalStorageService implements IImageStorageService {
 				message: `Successfully deleted all images for user: ${safeUsername}`,
 			};
 		} catch (error) {
-			console.error("Error deleting multiple assets:", error);
+			logger.error("Error deleting multiple assets:", { error });
 			return {
 				result: "error",
 				message: error instanceof Error ? error.message : "Error deleting local storage resources",

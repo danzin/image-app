@@ -1,7 +1,7 @@
 import { Schema, model, CallbackError } from "mongoose";
 import validator from "validator";
 import bcryptjs from "bcryptjs";
-import { IUser } from "../types";
+import { IPost, IUser } from "../types";
 import { v4 as uuidv4 } from "uuid";
 
 const userSchema = new Schema<IUser>(
@@ -11,6 +11,7 @@ const userSchema = new Schema<IUser>(
 			unique: true,
 			immutable: true,
 			default: uuidv4,
+			index: true, // explicit index for frequent publicId queries (follows, feeds, lookups)
 		},
 		username: {
 			type: String,
@@ -148,6 +149,22 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
 	return bcryptjs.compare(candidatePassword, this.password);
+};
+
+userSchema.methods.canViewPost = function (post: IPost | { canBeViewedBy?: (user: IUser) => boolean }): boolean {
+	if (!post) {
+		return false;
+	}
+
+	if (this.isBanned) {
+		return false;
+	}
+
+	if (typeof (post as any).canBeViewedBy === "function") {
+		return (post as any).canBeViewedBy(this);
+	}
+
+	return true;
 };
 
 // Transform the user object when serialized to JSON

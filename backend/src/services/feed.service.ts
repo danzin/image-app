@@ -10,6 +10,7 @@ import { DTOService } from "./dto.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "../types";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
+import { logger } from "../utils/winston";
 
 /**
  * @class FeedService
@@ -50,7 +51,7 @@ export class FeedService {
 	 * @returns {Promise<PaginationResult<PostDTO>>} A paginated list of enriched post DTOs.
 	 */
 	public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
-		console.log(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
+		logger.info(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
 
 		try {
 			// STEP 1: Get core feed structure (post IDs and order)
@@ -60,14 +61,14 @@ export class FeedService {
 
 			if (!coreFeed) {
 				// Cache miss - generate core feed
-				console.log("Core feed cache miss, generating...");
+				logger.info("Core feed cache miss, generating...");
 				coreFeed = await this.generateCoreFeed(userId, page, limit);
 
 				// Store in redis with tags for smart invalidation
 				const tags = [`user_feed:${userId}`, `feed_page:${page}`, `feed_limit:${limit}`];
 				await this.redisService.setWithTags(coreFeedKey, coreFeed, tags, 300); // 5 minutes
 			} else {
-				console.log("Core feed cache hit");
+				logger.info("Core feed cache hit");
 			}
 
 			// SSTEP2:  Enrich core feed with fresh user data, but only
@@ -251,7 +252,7 @@ export class FeedService {
 						}
 					: item.user,
 			};
-			console.log(`[FeedService] Enriched post ${item.publicId}:`, {
+			logger.info(`[FeedService] Enriched post ${item.publicId}:`, {
 				viewsCount: enriched.viewsCount,
 				commentsCount: enriched.commentsCount,
 				likes: enriched.likes,
@@ -299,7 +300,7 @@ export class FeedService {
 		targetIdentifier: string,
 		tags: string[]
 	): Promise<void> {
-		console.log(
+		logger.info(
 			`Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`
 		);
 		// Resolve user internal id
@@ -355,7 +356,7 @@ export class FeedService {
 			})
 		);
 
-		console.log("Feed invalidation completed for user interaction");
+		logger.info("Feed invalidation completed for user interaction");
 	}
 
 	//=== Post Meta Update Operations ===
@@ -474,7 +475,7 @@ export class FeedService {
 	 * @param timestamp - Epoch time of creation (used for sorting).
 	 */
 	public async fanOutPostToFollowers(postId: string, authorId: string, timestamp: number): Promise<void> {
-		console.log(`Fanning out post ${postId} from author ${authorId} to followers`);
+		logger.info(`Fanning out post ${postId} from author ${authorId} to followers`);
 
 		try {
 			const author = await this.userRepository.findByPublicId(authorId);
@@ -485,13 +486,13 @@ export class FeedService {
 
 			const followerIds = await this.followRepository.getFollowerPublicIdsByPublicId(authorId);
 			if (followerIds.length === 0) {
-				console.log(`Author ${authorId} has no followers, skipping fan-out`);
+				logger.info(`Author ${authorId} has no followers, skipping fan-out`);
 				return;
 			}
 
 			// add post to all followers' for_you feeds
 			await this.redisService.addToFeedsBatch(followerIds, postId, timestamp, "for_you");
-			console.log(`Fanned out post ${postId} to ${followerIds.length} followers`);
+			logger.info(`Fanned out post ${postId} to ${followerIds.length} followers`);
 		} catch (error) {
 			console.error(`Failed to fan out post ${postId}:`, error);
 			// non-fatal, feeds will rebuild on next read
@@ -508,7 +509,7 @@ export class FeedService {
 	 * @param authorId - Public ID of the author.
 	 */
 	public async removePostFromFollowers(postId: string, authorId: string): Promise<void> {
-		console.log(`Removing post ${postId} from followers of ${authorId}`);
+		logger.info(`Removing post ${postId} from followers of ${authorId}`);
 
 		try {
 			const author = await this.userRepository.findByPublicId(authorId);
@@ -518,7 +519,7 @@ export class FeedService {
 			if (followerIds.length === 0) return;
 
 			await this.redisService.removeFromFeedsBatch(followerIds, postId, "for_you");
-			console.log(`Removed post ${postId} from ${followerIds.length} followers' feeds`);
+			logger.info(`Removed post ${postId} from ${followerIds.length} followers' feeds`);
 		} catch (error) {
 			console.error(`Failed to remove post ${postId} from feeds:`, error);
 		}

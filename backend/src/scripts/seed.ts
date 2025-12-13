@@ -6,13 +6,14 @@ import FormData from "form-data";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
+import { logger } from "../utils/winston";
 
 const args = yargsParser(process.argv.slice(2));
 const isDocker = args.docker === true;
 
 if (isDocker) {
 	process.env.MONGODB_URI = "mongodb://root:secret@127.0.0.1:27017/PhotoAppOOP?authSource=admin&directConnection=true";
-	console.log(`--- Seeder running in [DOCKER] mode ---`);
+	logger.info(`--- Seeder running in [DOCKER] mode ---`);
 } else {
 	const envPath = path.resolve(__dirname, "../../../.env");
 	if (!fs.existsSync(envPath)) {
@@ -20,7 +21,7 @@ if (isDocker) {
 		process.exit(1);
 	}
 	dotenv.config({ path: envPath });
-	console.log(`--- Seeder running in [DEVELOPMENT] mode ---`);
+	logger.info(`--- Seeder running in [DEVELOPMENT] mode ---`);
 }
 
 if (!process.env.MONGODB_URI) {
@@ -50,16 +51,16 @@ const postPublicIds: string[] = [];
 const sampleImagePaths: string[] = [];
 
 async function bootstrap() {
-	console.log("===========Initializing Seeder===========");
+	logger.info("===========Initializing Seeder===========");
 
 	const dbConfig = new DatabaseConfig();
 	await dbConfig.connect();
-	console.log("Database connection established for seeder.");
+	logger.info("Database connection established for seeder.");
 
 	setupContainerCore();
 	registerCQRS();
 	initCQRS();
-	console.log("Dependency container initialized.");
+	logger.info("Dependency container initialized.");
 
 	await seed();
 }
@@ -71,7 +72,7 @@ const getRandomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.
 //  API ACTIONS
 
 async function createBots() {
-	console.log(`Creating ${NUM_BOTS} bots...`);
+	logger.info(`Creating ${NUM_BOTS} bots...`);
 	for (let i = 0; i < NUM_BOTS; i++) {
 		const username = faker.internet
 			.username()
@@ -90,7 +91,7 @@ async function createBots() {
 			// Log in the bot to get a token
 			const loginRes = await axios.post(`${API_BASE_URL}/users/login`, { email, password });
 			bots.push({ user: loginRes.data.user, token: loginRes.data.token });
-			console.log(`   - Created & logged in bot: ${username}`);
+			logger.info(`   - Created & logged in bot: ${username}`);
 		} catch (error: any) {
 			console.error(`   - Failed to create bot ${username}:`, error.response?.data || error.message);
 		}
@@ -99,7 +100,7 @@ async function createBots() {
 }
 
 async function botsUploadPosts() {
-	console.log(`\n Each bot will now upload ${POSTS_PER_BOT} posts...`);
+	logger.info(`\n Each bot will now upload ${POSTS_PER_BOT} posts...`);
 	for (const bot of bots) {
 		for (let i = 0; i < POSTS_PER_BOT; i++) {
 			const imagePath = getRandomElement(sampleImagePaths);
@@ -118,7 +119,7 @@ async function botsUploadPosts() {
 					},
 				});
 				postPublicIds.push(postObject.publicId);
-				console.log(`   - Bot ${bot.user.username} posted: "${body.substring(0, 30)}..."`);
+				logger.info(`   - Bot ${bot.user.username} posted: "${body.substring(0, 30)}..."`);
 			} catch (error: any) {
 				console.error(`   - Bot ${bot.user.username} failed to post:`, error.response?.data || error.message);
 			}
@@ -128,7 +129,7 @@ async function botsUploadPosts() {
 }
 
 async function botsFollowEachOther() {
-	console.log(`\n Bots will now follow ${FOLLOWS_PER_BOT} other bots each...`);
+	logger.info(`\n Bots will now follow ${FOLLOWS_PER_BOT} other bots each...`);
 	for (const bot of bots) {
 		const api = axios.create({ headers: { Authorization: `Bearer ${bot.token}` } });
 		let follows = 0;
@@ -138,7 +139,7 @@ async function botsFollowEachOther() {
 
 			try {
 				await api.post(`${API_BASE_URL}/users/follow/${otherBot.user.publicId}`);
-				console.log(`   - ${bot.user.username} followed ${otherBot.user.username}`);
+				logger.info(`   - ${bot.user.username} followed ${otherBot.user.username}`);
 				follows++;
 			} catch (e) {}
 		}
@@ -147,9 +148,9 @@ async function botsFollowEachOther() {
 }
 
 async function botsLikePosts() {
-	console.log(`\n Each bot will now like ${LIKES_PER_BOT} random posts...`);
+	logger.info(`\n Each bot will now like ${LIKES_PER_BOT} random posts...`);
 	if (postPublicIds.length === 0) {
-		console.log("   - No posts to like. Skipping.");
+		logger.info("   - No posts to like. Skipping.");
 		return;
 	}
 	for (const bot of bots) {
@@ -160,15 +161,15 @@ async function botsLikePosts() {
 				await api.post(`${API_BASE_URL}/users/like/post/${postId}`);
 			} catch (e) {}
 		}
-		console.log(`   - ${bot.user.username} liked ${LIKES_PER_BOT} posts.`);
+		logger.info(`   - ${bot.user.username} liked ${LIKES_PER_BOT} posts.`);
 		await sleep(50);
 	}
 }
 
 async function botsCommentOnPosts() {
-	console.log(`\n Each bot will now comment on ${COMMENTS_PER_BOT} random posts...`);
+	logger.info(`\n Each bot will now comment on ${COMMENTS_PER_BOT} random posts...`);
 	if (postPublicIds.length === 0) {
-		console.log("   - No posts to comment on. Skipping.");
+		logger.info("   - No posts to comment on. Skipping.");
 		return;
 	}
 	for (const bot of bots) {
@@ -181,14 +182,14 @@ async function botsCommentOnPosts() {
 				});
 			} catch (e) {}
 		}
-		console.log(`   - ${bot.user.username} commented on ${COMMENTS_PER_BOT} posts.`);
+		logger.info(`   - ${bot.user.username} commented on ${COMMENTS_PER_BOT} posts.`);
 		await sleep(50);
 	}
 }
 
 // MAIN ORCHESTRATION
 async function seed() {
-	console.log("--- Starting Database Seeding ---");
+	logger.info("--- Starting Database Seeding ---");
 
 	// Load sample images or create a placeholder if none exist so seeding can run
 	const imagesDir = path.join(__dirname, "sample-images");
@@ -216,11 +217,11 @@ async function seed() {
 	await botsFollowEachOther();
 	await botsCommentOnPosts();
 
-	console.log("\n Seeding Complete!");
-	console.log(`- Created ${bots.length} users.`);
-	console.log(`- Created ${postPublicIds.length} posts.`);
-	console.log("- Bots have followed each other and interacted with posts.");
-	console.log("\nFeeds should now be populated with data!");
+	logger.info("\n Seeding Complete!");
+	logger.info(`- Created ${bots.length} users.`);
+	logger.info(`- Created ${postPublicIds.length} posts.`);
+	logger.info("- Bots have followed each other and interacted with posts.");
+	logger.info("\nFeeds should now be populated with data!");
 }
 
 // RUN THE SCRIPT
@@ -228,7 +229,7 @@ async function seed() {
 // even though the script talks to the gateway
 bootstrap()
 	.then(() => {
-		console.log("Seeder finished successfully.");
+		logger.info("Seeder finished successfully.");
 		process.exit(0);
 	})
 	.catch((err) => {

@@ -15,6 +15,7 @@ import { createError } from "../../../../utils/errors";
 import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
+import { logger } from "../../../../utils/winston";
 
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {
@@ -38,7 +39,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		let userMongoId: string;
 
 		try {
-			console.log(
+			logger.info(
 				`[LIKEACTIONHANDLER]:\r\n  User public ID: ${command.userPublicId},
 			 Post public ID: ${command.postPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
@@ -53,9 +54,9 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				throw createError("PathError", `User internal ID not found for public ID ${command.userPublicId}`);
 			}
 
-			console.log("[LIKEACTIONHANDLER] user keys:", Object.keys(user));
-			console.log("[LIKEACTIONHANDLER] user._id:", (user as any)._id);
-			console.log("[LIKEACTIONHANDLER] user.username:", (user as any).username);
+			logger.info("[LIKEACTIONHANDLER] user keys:", Object.keys(user));
+			logger.info("[LIKEACTIONHANDLER] user._id:", (user as any)._id);
+			logger.info("[LIKEACTIONHANDLER] user.username:", (user as any).username);
 
 			const actorUsername = (user as any).username || (user as any).name || "Unknown";
 
@@ -64,9 +65,9 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				throw createError("PathError", `Post with public ID ${command.postPublicId} not found`);
 			}
 
-			console.log("[LIKEACTIONHANDLER] existingPost keys:", Object.keys(existingPost));
-			console.log("[LIKEACTIONHANDLER] existingPost._id:", (existingPost as any)._id);
-			console.log("[LIKEACTIONHANDLER] existingPost.id:", (existingPost as any).id);
+			logger.info("[LIKEACTIONHANDLER] existingPost keys:", Object.keys(existingPost));
+			logger.info("[LIKEACTIONHANDLER] existingPost._id:", (existingPost as any)._id);
+			logger.info("[LIKEACTIONHANDLER] existingPost.id:", (existingPost as any).id);
 
 			postTags = Array.isArray((existingPost as any).tags)
 				? (existingPost as any).tags.map((t: any) => t.tag ?? t)

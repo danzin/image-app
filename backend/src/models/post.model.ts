@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { IPost } from "../types";
+import { IPost, IUser } from "../types";
 
 const authorSchema = new Schema(
 	{
@@ -65,14 +65,62 @@ const postSchema = new Schema<IPost>(
 			default: 0,
 			required: true,
 		},
+		type: {
+			type: String,
+			enum: ["original", "repost"],
+			default: "original",
+			required: true,
+		},
+		repostOf: {
+			type: Schema.Types.ObjectId,
+			ref: "Post",
+			default: null,
+		},
+		repostCount: {
+			type: Number,
+			default: 0,
+			required: true,
+		},
 	},
 	{ timestamps: true }
 );
 
-postSchema.index({ user: 1, createdAt: -1 }); // profile feed qyeries
+postSchema.methods.isOwnedBy = function (userId: mongoose.Types.ObjectId | string): boolean {
+	const owner = (this as any).user ?? (this as any).author?._id;
+	if (!owner) {
+		return false;
+	}
+
+	const ownerId =
+		typeof owner === "object" && typeof (owner as any).toString === "function" ? owner.toString() : String(owner);
+	return ownerId === userId.toString();
+};
+
+postSchema.methods.canBeViewedBy = function (user?: IUser | null): boolean {
+	if (!user) {
+		return true;
+	}
+
+	const ownerId = (user as any)._id ?? user.publicId;
+	const isOwner = ownerId ? this.isOwnedBy(ownerId) : false;
+
+	if (user.isAdmin) {
+		return true;
+	}
+
+	if (user.isBanned && !isOwner) {
+		return false;
+	}
+
+	return true;
+};
+
+postSchema.index({ user: 1, createdAt: -1 }); // profile feed queries
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
+postSchema.index({ publicId: 1 }, { unique: true }); // explicit index for frequent publicId lookups
+postSchema.index({ type: 1, createdAt: -1 }); // filter by post type (original vs repost)
 postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
 postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
@@ -80,6 +128,7 @@ postSchema.index(
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
 	}
 );
+postSchema.index({ repostOf: 1, createdAt: -1 }); // fetch reposts of a given post
 
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {

@@ -35,11 +35,9 @@ export class RedisService {
 		this.client = createClient({ url: redisUrl });
 
 		this.client.on("connect", () => {
-			console.log(`Connected to Redis at ${redisUrl}`);
 			redisLogger.info(`Redis connected`, { url: redisUrl });
 		});
 		this.client.on("error", (err) => {
-			console.error("Redis error:", err);
 			redisLogger.error(`Redis client error`, { error: err.message, stack: err.stack });
 		});
 
@@ -55,7 +53,6 @@ export class RedisService {
 			await this.client.connect();
 			redisLogger.info(`Redis client connection established`);
 		} catch (error) {
-			console.error("Redis connection error:", error);
 			redisLogger.error(`Redis connection failed`, {
 				error: error instanceof Error ? error.message : String(error),
 			});
@@ -167,7 +164,7 @@ export class RedisService {
 			}
 		} while (cursor !== 0 && cursor !== "0");
 
-		console.log(`[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`);
+		redisLogger.info(`[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`);
 		return deletedCount;
 	}
 
@@ -224,7 +221,7 @@ export class RedisService {
 				const parsedMessage = JSON.parse(message) as T;
 				messageHandler(channel, parsedMessage);
 			} catch (error) {
-				console.error("Error parsing Redis message:", error);
+				redisLogger.error("Error parsing Redis message:", { error });
 			}
 		});
 	}
@@ -723,7 +720,7 @@ export class RedisService {
 			}
 		} while (cursor !== 0 && cursor !== "0");
 
-		console.log(`[Redis] Cleaned ${cleaned} empty tag sets`);
+		redisLogger.info(`[Redis] Cleaned ${cleaned} empty tag sets`);
 	}
 
 	//======STREAM / TRENDING HELPERS======

@@ -2,6 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { UserDeletedEvent } from "./user-interaction.event";
 import { RedisService } from "../../../services/redis.service";
+import { logger } from "../../../utils/winston";
 
 /**
  * Handles cache cleanup when a user is deleted
@@ -12,7 +13,7 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 	constructor(@inject("RedisService") private readonly redis: RedisService) {}
 
 	async handle(event: UserDeletedEvent): Promise<void> {
-		console.log(`[UserDeletedHandler] User deleted: ${event.userPublicId}, clearing cache entries`);
+		logger.info(`[UserDeletedHandler] User deleted: ${event.userPublicId}, clearing cache entries`);
 
 		try {
 			const tagsToInvalidate: string[] = [];
@@ -39,7 +40,7 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 
 			// clear followers' feeds since they followed this user
 			if (event.followerPublicIds.length > 0) {
-				console.log(`[UserDeletedHandler] Invalidating feeds for ${event.followerPublicIds.length} followers`);
+				logger.info(`[UserDeletedHandler] Invalidating feeds for ${event.followerPublicIds.length} followers`);
 				for (const followerPublicId of event.followerPublicIds) {
 					tagsToInvalidate.push(`user_feed:${followerPublicId}`);
 					tagsToInvalidate.push(`user_for_you_feed:${followerPublicId}`);
@@ -54,10 +55,10 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 			patternsToDelete.push("new_feed:*");
 
 			// perform cache invalidation
-			console.log(`[UserDeletedHandler] Invalidating ${tagsToInvalidate.length} tags`);
+			logger.info(`[UserDeletedHandler] Invalidating ${tagsToInvalidate.length} tags`);
 			await this.redis.invalidateByTags(tagsToInvalidate);
 
-			console.log(`[UserDeletedHandler] Deleting ${patternsToDelete.length} patterns`);
+			logger.info(`[UserDeletedHandler] Deleting ${patternsToDelete.length} patterns`);
 			await this.redis.deletePatterns(patternsToDelete);
 
 			// publish event for real-time updates
@@ -70,7 +71,7 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 				})
 			);
 
-			console.log(`[UserDeletedHandler] Cache cleanup complete for user ${event.userPublicId}`);
+			logger.info(`[UserDeletedHandler] Cache cleanup complete for user ${event.userPublicId}`);
 		} catch (error) {
 			console.error(`[UserDeletedHandler] Error clearing cache for user ${event.userPublicId}:`, error);
 			// fallback: clear broad patterns to ensure stale data doesn't persist

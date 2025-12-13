@@ -1,0 +1,154 @@
+import { inject, injectable } from "tsyringe";
+import mongoose from "mongoose";
+import { v4 as uuidv4 } from "uuid";
+import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { RepostPostCommand } from "./repostPost.command";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
+import { NotificationService } from "../../../../services/notification.service";
+import { DTOService } from "../../../../services/dto.service";
+import { UnitOfWork } from "../../../../database/UnitOfWork";
+import { createError } from "../../../../utils/errors";
+import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "../../../../utils/sanitizers";
+import { PostDTO } from "../../../../types";
+import { EventBus } from "../../../common/buses/event.bus";
+import { PostUploadedEvent } from "../../../events/post/post.event";
+import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
+
+const MAX_BODY_LENGTH = 300;
+
+@injectable()
+export class RepostPostCommandHandler implements ICommandHandler<RepostPostCommand, PostDTO> {
+	constructor(
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("NotificationService") private readonly notificationService: NotificationService,
+		@inject("DTOService") private readonly dtoService: DTOService,
+		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler
+	) {}
+
+	async execute(command: RepostPostCommand): Promise<PostDTO> {
+		if (!isValidPublicId(command.userPublicId)) {
+			throw createError("ValidationError", "Invalid userPublicId format");
+		}
+
+		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
+		if (!user) {
+			throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+		}
+
+		const targetPost = await this.postReadRepository.findByPublicId(command.targetPostPublicId);
+		if (!targetPost) {
+			throw createError("NotFoundError", `Post ${command.targetPostPublicId} not found`);
+		}
+
+		// prevent duplicate repost by same user
+		const duplicates = await this.postReadRepository.countDocuments({
+			user: (user as any)._id,
+			repostOf: (targetPost as any)._id,
+		});
+		if (duplicates > 0) {
+			throw createError("ConflictError", "Post already reposted by this user");
+		}
+
+		const normalizedBody = this.normalizeBody(command.body);
+
+		const created = await this.unitOfWork.executeInTransaction(async (session) => {
+			const postPublicId = uuidv4();
+			const payload = sanitizeForMongo({
+				publicId: postPublicId,
+				user: (user as any)._id as mongoose.Types.ObjectId,
+				author: {
+					_id: (user as any)._id,
+					publicId: user.publicId,
+					username: user.username,
+					avatarUrl: (user as any).avatar ?? (user as any).profile?.avatarUrl ?? "",
+					displayName: (user as any).profile?.displayName ?? user.username,
+				},
+				body: normalizedBody,
+				slug: `${postPublicId}`,
+				type: "repost" as const,
+				repostOf: (targetPost as any)._id as mongoose.Types.ObjectId,
+				tags: Array.isArray((targetPost as any).tags)
+					? (targetPost as any).tags.map((t: any) => (t._id ? t._id : t))
+					: [],
+				likesCount: 0,
+				commentsCount: 0,
+				viewsCount: 0,
+			});
+
+			const newPost = await this.postWriteRepository.create(payload as any, session);
+			await this.postWriteRepository.updateRepostCount((targetPost as any)._id.toString(), 1, session);
+
+			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
+			if (targetOwner && targetOwner !== command.userPublicId) {
+				await this.notificationService.createNotification({
+					receiverId: targetOwner,
+					actionType: "repost",
+					actorId: command.userPublicId,
+					actorUsername: user.username,
+					actorAvatar: (user as any).avatar,
+					targetId: targetPost.publicId,
+					targetType: "post",
+					targetPreview: this.buildPostPreview(targetPost),
+					session,
+				});
+			}
+
+			const tagNames = Array.isArray((targetPost as any).tags)
+				? (targetPost as any).tags.map((t: any) => t.tag ?? t)
+				: [];
+
+			this.eventBus.queueTransactional(
+				new PostUploadedEvent(newPost.publicId, user.publicId, Array.from(new Set(tagNames))),
+				this.postUploadHandler
+			);
+
+			return newPost;
+		});
+
+		const hydrated = await this.postReadRepository.findByPublicId((created as any).publicId);
+		if (!hydrated) {
+			throw createError("NotFoundError", "Failed to load repost after creation");
+		}
+
+		return this.dtoService.toPostDTO(hydrated);
+	}
+
+	private normalizeBody(body?: string): string {
+		if (!body) return "";
+		try {
+			return sanitizeTextInput(body, MAX_BODY_LENGTH);
+		} catch (error) {
+			if (error instanceof Error && error.message.includes("empty")) return "";
+			if (error instanceof Error && error.message.includes("exceed")) {
+				return sanitizeTextInput(body.slice(0, MAX_BODY_LENGTH), MAX_BODY_LENGTH);
+			}
+			return "";
+		}
+	}
+
+	private resolvePostOwnerPublicId(post: any): string {
+		const postUser = (post as any).user;
+		if (postUser && typeof postUser === "object" && "publicId" in postUser) {
+			return (postUser as any).publicId;
+		}
+		const author = (post as any).author;
+		if (author && typeof author === "object" && "publicId" in author) {
+			return (author as any).publicId;
+		}
+		return "";
+	}
+
+	private buildPostPreview(post: any): string {
+		const body = (post as any).body ?? "";
+		if (typeof body === "string" && body.length > 0) {
+			return body.substring(0, 50) + (body.length > 50 ? "..." : "");
+		}
+		return (post as any).image ? "[Image post]" : "[Post]";
+	}
+}

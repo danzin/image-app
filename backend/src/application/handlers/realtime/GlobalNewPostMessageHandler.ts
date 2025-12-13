@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class GlobalNewPostMessageHandler implements IRealtimeMessageHandler {
@@ -10,6 +11,6 @@ export class GlobalNewPostMessageHandler implements IRealtimeMessageHandler {
 		const postId = message.postId ?? message.imageId;
 		if (!postId) return;
 
-		console.log(`Skipping global new post notification for post ${postId} - lazy refresh strategy enabled`);
+		logger.info(`Skipping global new post notification for post ${postId} - lazy refresh strategy enabled`);
 	}
 }

@@ -4,6 +4,7 @@ import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "../../../../repositories/interfaces";
 import { RedisService } from "../../../../services/redis.service";
 import { createError } from "../../../../utils/errors";
+import { logger } from "../../../../utils/winston";
 
 export interface SuggestedUser {
 	publicId: string;
@@ -37,7 +38,7 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQ
 			// try to get from cache
 			const cached = await this.redisService.getWithTags<GetWhoToFollowResult>(cacheKey);
 			if (cached) {
-				console.log("Who to follow cache hit");
+				logger.info("Who to follow cache hit");
 				return { ...cached, cached: true };
 			}
 
@@ -59,7 +60,7 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQ
 			// cache for 30 minutes (1800 seconds)
 			await this.redisService.setWithTags(cacheKey, result, tags, 1800);
 
-			console.log(`Generated who to follow suggestions for user ${query.userPublicId}`);
+			logger.info(`Generated who to follow suggestions for user ${query.userPublicId}`);
 			return result;
 		} catch (error) {
 			console.error("Error in GetWhoToFollowQueryHandler:", error);

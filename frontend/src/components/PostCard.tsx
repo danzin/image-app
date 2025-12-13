@@ -4,8 +4,11 @@ import { Typography, Box, Avatar } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import RepeatIcon from "@mui/icons-material/Repeat";
 import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
+import { useRepostPost } from "../hooks/posts/usePosts";
+import { useAuth } from "../hooks/context/useAuth";
 
 interface PostCardProps {
 	post: IPost;
@@ -29,10 +32,22 @@ const formatCount = (count: number | undefined): string => {
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
 	const navigate = useNavigate();
+	const { isLoggedIn } = useAuth();
+	const { mutate: triggerRepost } = useRepostPost();
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	const handleClick = () => {
 		navigate(`/posts/${post.publicId}`);
+	};
+
+	const handleRepostClick = (event: React.MouseEvent) => {
+		event.stopPropagation();
+		if (!isLoggedIn) {
+			navigate("/login");
+			return;
+		}
+
+		triggerRepost({ postPublicId: post.publicId });
 	};
 
 	const fullImageUrl = post.url
@@ -99,6 +114,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				</Avatar>
 
 				<Box sx={{ flex: 1, minWidth: 0 }}>
+					{post.type === "repost" && post.repostOf?.user && (
+						<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
+							Reposted from {post.repostOf.user.username}
+						</Typography>
+					)}
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
 						<Typography
 							variant="body1"
@@ -188,12 +208,90 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 						</Box>
 					)}
 
+					{/* Reposted Content */}
+					{post.type === "repost" && post.repostOf && (
+						<Box
+							sx={{
+								mt: 1.5,
+								border: "1px solid",
+								borderColor: "divider",
+								borderRadius: 3,
+								p: 1.5,
+								cursor: "pointer",
+								"&:hover": {
+									bgcolor: "rgba(255, 255, 255, 0.03)",
+								},
+							}}
+							onClick={(e) => {
+								e.stopPropagation();
+								navigate(`/posts/${post.repostOf!.publicId}`);
+							}}
+						>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+								<Avatar
+									sx={{ width: 24, height: 24 }}
+									src={post.repostOf.user.avatar ? `/api/${post.repostOf.user.avatar}` : undefined}
+								>
+									{post.repostOf.user.username.charAt(0).toUpperCase()}
+								</Avatar>
+								<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+									{post.repostOf.user.username}
+								</Typography>
+							</Box>
+
+							{post.repostOf.body && (
+								<Typography variant="body2" sx={{ mb: post.repostOf.image ? 1.5 : 0 }}>
+									<RichText text={post.repostOf.body} />
+								</Typography>
+							)}
+
+							{post.repostOf.image && (
+								<Box
+									sx={{
+										borderRadius: 2,
+										overflow: "hidden",
+										width: "100%",
+										maxHeight: "400px",
+										display: "flex",
+										justifyContent: "center",
+										bgcolor: "black",
+									}}
+								>
+									<img
+										src={
+											post.repostOf.image.url.startsWith("http")
+												? post.repostOf.image.url
+												: post.repostOf.image.url.startsWith("/")
+													? `${BASE_URL}${post.repostOf.image.url}`
+													: `${BASE_URL}/${post.repostOf.image.url}`
+										}
+										alt="Reposted content"
+										style={{
+											width: "100%",
+											height: "auto",
+											maxHeight: "400px",
+											objectFit: "cover",
+											display: "block",
+										}}
+									/>
+								</Box>
+							)}
+
+							{/* Original Post Stats */}
+							<Box sx={{ display: "flex", gap: 2, mt: 1, color: "text.secondary" }}>
+								<Typography variant="caption">{formatCount(post.repostOf.likes || 0)} Likes</Typography>
+								<Typography variant="caption">{formatCount(post.repostOf.repostCount || 0)} Reposts</Typography>
+								<Typography variant="caption">{formatCount(post.repostOf.commentsCount || 0)} Comments</Typography>
+							</Box>
+						</Box>
+					)}
+
 					{/* Card Actions - Stats */}
 					<Box
 						sx={{
 							display: "flex",
 							justifyContent: "space-between",
-							maxWidth: 425,
+							maxWidth: 520,
 							mt: 1.5,
 						}}
 					>
@@ -208,6 +306,20 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 						>
 							<FavoriteIcon fontSize="small" sx={{ fontSize: 18 }} />
 							<Typography variant="caption">{formatCount(post.likes || 0)}</Typography>
+						</Box>
+						<Box
+							sx={{
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+								color: "text.secondary",
+								"&:hover": { color: "#22c55e" },
+								cursor: "pointer",
+							}}
+							onClick={handleRepostClick}
+						>
+							<RepeatIcon fontSize="small" sx={{ fontSize: 18 }} />
+							<Typography variant="caption">{formatCount(post.repostCount || 0)}</Typography>
 						</Box>
 						<Box
 							sx={{

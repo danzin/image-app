@@ -107,3 +107,9 @@ export const deletePostByPublicId = async (publicId: string): Promise<void> => {
 	console.log("Deleting post with public ID:", publicId);
 	await axiosClient.delete(`/api/posts/${publicId}`);
 };
+
+export const repostPost = async (postPublicId: string, body?: string): Promise<IPost> => {
+	const payload = body ? { body } : {};
+	const { data } = await axiosClient.post(`/api/posts/${postPublicId}/repost`, payload);
+	return data;
+};

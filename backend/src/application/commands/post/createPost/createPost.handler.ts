@@ -20,7 +20,8 @@ import { createError } from "../../../../utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "../../../../utils/sanitizers";
 import { AttachmentSummary, IPost, PostDTO } from "../../../../types";
 import { NotificationService } from "../../../../services/notification.service";
-
+import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
+import { logger } from "../../../../utils/winston";
 const MAX_BODY_LENGTH = 300;
 
 @injectable()
@@ -74,23 +75,23 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				const mentionRegex = /@(\w+)/g;
 				const mentions = [...normalizedBody.matchAll(mentionRegex)].map((match) => match[1]);
 
-				console.log(`[CreatePost] Body: "${normalizedBody}"`);
-				console.log(`[CreatePost] Extracted mentions: ${JSON.stringify(mentions)}`);
+				logger.info(`[CreatePost] Body: "${normalizedBody}"`);
+				logger.info(`[CreatePost] Extracted mentions: ${JSON.stringify(mentions)}`);
 
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
 					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
 
-					console.log(`[CreatePost] Found users for mentions: ${mentionedUsers.length}`);
+					logger.info(`[CreatePost] Found users for mentions: ${mentionedUsers.length}`);
 
 					for (const mentionedUser of mentionedUsers) {
 						// Filter: Remove post author - no self mention
 						if (mentionedUser.publicId === user.publicId) {
-							console.log(`[CreatePost] Skipping self-mention for ${user.username}`);
+							logger.info(`[CreatePost] Skipping self-mention for ${user.username}`);
 							continue;
 						}
 
-						console.log(`[CreatePost] Creating notification for ${mentionedUser.username} (${mentionedUser.publicId})`);
+						logger.info(`[CreatePost] Creating notification for ${mentionedUser.username} (${mentionedUser.publicId})`);
 						await this.notificationService.createNotification({
 							receiverId: mentionedUser.publicId,
 							actionType: "mention",
@@ -123,14 +124,18 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			if (uploadedImagePublicId) {
 				await this.rollbackImageUpload(uploadedImagePublicId);
 			}
-			throw this.handleError(error);
+			throw mapPostError(error, {
+				action: "create-post",
+				userPublicId: command.userPublicId,
+				imageUploaded: Boolean(uploadedImagePublicId),
+			});
 		}
 	}
 
 	private async validateUser(publicId: string): Promise<any> {
 		const user = await this.userReadRepository.findByPublicId(publicId);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw new UserNotFoundError();
 		}
 		return user;
 	}
@@ -140,7 +145,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 		try {
 			// sanitize with max length validation
-			console.log("Sanitizing body:", body);
+			logger.info("Sanitizing body:", body);
 			const sanitized = sanitizeTextInput(body, MAX_BODY_LENGTH);
 			return sanitized;
 		} catch (error) {
@@ -225,9 +230,9 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		};
 
 		// sanitize payload to prevent NoSQL injection and prototype pollution
-		console.log("Sanitizing post payload:", payload);
+		logger.info("Sanitizing post payload:", payload);
 		const safePayload = sanitizeForMongo(payload);
-		console.log("Safe post payload:", safePayload);
+		logger.info("Safe post payload:", safePayload);
 
 		return await this.postWriteRepository.create(safePayload as unknown as IPost, session);
 	}
@@ -245,7 +250,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	private async finalizePost(result: { post: IPost; user: any; tagNames: string[] }): Promise<PostDTO> {
 		const hydratedPost = await this.postReadRepository.findByPublicId(result.post.publicId);
 		if (!hydratedPost) {
-			throw createError("NotFoundError", "Post not found after creation");
+			throw new PostNotFoundError("Post not found after creation");
 		}
 
 		await this.redisService.invalidateByTags([`user_feed:${result.user.publicId}`]);
@@ -255,18 +260,5 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 	private async rollbackImageUpload(publicId: string): Promise<void> {
 		await this.imageService.rollbackUpload(publicId);
-	}
-
-	private handleError(error: unknown): never {
-		if (error instanceof Error) {
-			throw createError(error.name, error.message, {
-				function: "CreatePostCommand",
-				file: "createPost.handler.ts",
-			});
-		}
-		throw createError("UnknownError", String(error), {
-			function: "CreatePostCommand",
-			file: "createPost.handler.ts",
-		});
 	}
 }

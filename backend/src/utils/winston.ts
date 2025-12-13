@@ -1,15 +1,32 @@
 import winston from "winston";
 
+const combinedTransport = new winston.transports.File({ filename: "app.log" });
+
+export const logger = winston.createLogger({
+	level: "info",
+	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+	transports: [
+		combinedTransport,
+		...(process.env.NODE_ENV !== "production"
+			? [
+					new winston.transports.Console({
+						format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
+					}),
+				]
+			: []),
+	],
+});
+
 export const httpLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "http-requests.log" })],
+	transports: [new winston.transports.File({ filename: "http-requests.log" }), combinedTransport],
 });
 
 export const behaviourLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "app-behaviour.log" })],
+	transports: [new winston.transports.File({ filename: "app-behaviour.log" }), combinedTransport],
 });
 
 export const errorLogger = winston.createLogger({
@@ -17,6 +34,7 @@ export const errorLogger = winston.createLogger({
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
 	transports: [
 		new winston.transports.File({ filename: "errors.log" }),
+		combinedTransport,
 		// Also log to console in development
 		...(process.env.NODE_ENV !== "production"
 			? [
@@ -31,7 +49,7 @@ export const errorLogger = winston.createLogger({
 export const detailedRequestLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "detailed-requests.log" })],
+	transports: [new winston.transports.File({ filename: "detailed-requests.log" }), combinedTransport],
 });
 
 export const redisLogger = winston.createLogger({
@@ -44,5 +62,5 @@ export const redisLogger = winston.createLogger({
 			return `[${timestamp}] [REDIS] ${level}: ${message} ${metaStr}`;
 		})
 	),
-	transports: [new winston.transports.File({ filename: "redis.log" })],
+	transports: [new winston.transports.File({ filename: "redis.log" }), combinedTransport],
 });

@@ -5,6 +5,7 @@ import { inject, injectable } from "tsyringe";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
 import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
+import { LikeCommentCommand } from "../application/commands/comments/likeComment/likeComment.command";
 
 /**
  * Comment Controller
@@ -20,14 +21,14 @@ export class CommentController {
 	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { postPublicId } = req.params;
-			const { content } = req.body;
+			const { content, parentId } = req.body;
 			const { decodedUser } = req;
 
 			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User authentication required");
 			}
 
-			const command = new CreateCommentCommand(decodedUser.publicId, postPublicId, content);
+			const command = new CreateCommentCommand(decodedUser.publicId, postPublicId, content, parentId ?? null);
 			const comment = await this.commandBus.dispatch(command);
 
 			res.status(201).json(comment);
@@ -45,11 +46,12 @@ export class CommentController {
 			const { postPublicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
+			const parentId = (req.query.parentId as string | undefined) ?? null;
 
 			// Limit max comments per page to prevent abuse
 			const maxLimit = Math.min(limit, 50);
 
-			const result = await this.commentService.getCommentsByPostPublicId(postPublicId, page, maxLimit);
+			const result = await this.commentService.getCommentsByPostPublicId(postPublicId, page, maxLimit, parentId);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
@@ -95,6 +97,27 @@ export class CommentController {
 			await this.commandBus.dispatch(command);
 
 			res.status(204).send(); // No content response
+		} catch (error) {
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
+
+	likeComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { commentId } = req.params;
+			const { decodedUser } = req;
+
+			if (!decodedUser || !decodedUser.publicId) {
+				throw createError("AuthenticationError", "User authentication required");
+			}
+
+			const command = new LikeCommentCommand(decodedUser.publicId, commentId);
+			const result = await this.commandBus.dispatch(command);
+			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));

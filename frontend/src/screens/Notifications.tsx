@@ -61,6 +61,8 @@ const Notifications: React.FC = () => {
 				return <FavoriteIcon sx={{ color: "#ec4899", fontSize: 20 }} />;
 			case "comment":
 				return <CommentIcon sx={{ color: "#3b82f6", fontSize: 20 }} />;
+			case "comment_reply":
+				return <CommentIcon sx={{ color: "#3b82f6", fontSize: 20 }} />;
 			case "follow":
 				return <PersonAddIcon sx={{ color: "#10b981", fontSize: 20 }} />;
 			case "mention":
@@ -76,6 +78,8 @@ const Notifications: React.FC = () => {
 				return "liked your post";
 			case "comment":
 				return "commented on your post";
+			case "comment_reply":
+				return "replied to your comment";
 			case "follow":
 				return "started following you";
 			case "mention":
@@ -96,6 +100,10 @@ const Notifications: React.FC = () => {
 			navigate(`/posts/${notification.targetId}`);
 		} else if (notification.targetId && notification.targetType === "image") {
 			navigate(`/images/${notification.targetId}`);
+		} else if (notification.targetId && notification.targetType === "comment") {
+			// for comment replies, navigate to the post containing the comment
+			// the targetId should be the post publicId from the backend
+			navigate(`/posts/${notification.targetId}`);
 		} else if (notification.actionType === "follow") {
 			navigate(`/profile/${notification.actorId}`);
 		}

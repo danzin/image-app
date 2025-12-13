@@ -2,13 +2,14 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { UserAvatarChangedEvent } from "./user-interaction.event";
 import { RedisService } from "../../../services/redis.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChangedEvent> {
 	constructor(@inject("RedisService") private readonly redis: RedisService) {}
 
 	async handle(event: UserAvatarChangedEvent): Promise<void> {
-		console.log(
+		logger.info(
 			`User ${event.userPublicId} changed avatar from "${event.oldAvatarUrl || "none"}" to "${event.newAvatarUrl}"`
 		);
 
@@ -40,7 +41,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 				timestamp: new Date().toISOString(),
 			});
 
-			console.log(`Smart cache invalidation completed for avatar change of user ${event.userPublicId}`);
+			logger.info(`Smart cache invalidation completed for avatar change of user ${event.userPublicId}`);
 		} catch (error) {
 			console.error(`Error while handling avatar change for user ${event.userPublicId}:`, error);
 
@@ -49,7 +50,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 				await Promise.all([
 					this.redis.del("*"), // Nuke everything
 				]);
-				console.log(" Fallback: Cleared all Redis caches due to error");
+				logger.info(" Fallback: Cleared all Redis caches due to error");
 			} catch (fallbackError) {
 				console.error(" Even fallback cache clear failed:", fallbackError);
 			}

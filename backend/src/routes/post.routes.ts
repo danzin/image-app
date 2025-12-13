@@ -3,7 +3,13 @@ import { inject, injectable } from "tsyringe";
 import { PostController } from "../controllers/post.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { createPostSchema, publicIdSchema, slugSchema, searchByTagsSchema } from "../utils/schemas/post.schemas";
+import {
+	createPostSchema,
+	publicIdSchema,
+	slugSchema,
+	searchByTagsSchema,
+	repostSchema,
+} from "../utils/schemas/post.schemas";
 import { usernameSchema } from "../utils/schemas/user.schemas";
 import upload from "../config/multer";
 
@@ -65,6 +71,11 @@ export class PostRoutes {
 			upload.single("image"),
 			new ValidationMiddleware({ body: createPostSchema }).validate(),
 			this.postController.createPost
+		);
+		this.router.post(
+			"/:publicId/repost",
+			new ValidationMiddleware({ params: publicIdSchema, body: repostSchema }).validate(),
+			this.postController.repostPost
 		);
 		this.router.delete(
 			"/:publicId",
