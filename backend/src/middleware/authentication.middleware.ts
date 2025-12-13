@@ -5,6 +5,7 @@ import { createError } from "../utils/errors";
 import rateLimit from "express-rate-limit";
 import { DecodedUser, AdminContext } from "../types";
 import { IUserReadRepository } from "../repositories/interfaces/IUserReadRepository";
+import { logger } from "../utils/winston";
 
 declare global {
 	namespace Express {
@@ -30,7 +31,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 		if (!token) {
 			// Some proxies may strip cookie; log incoming headers for diagnostics in dev
 			if (process.env.NODE_ENV !== "production") {
-				console.log("[AUTH][DEBUG] No token cookie. Incoming headers:", req.headers);
+				logger.info("[AUTH][DEBUG] No token cookie. Incoming headers:", req.headers);
 			}
 		}
 		if (!token) {
@@ -50,7 +51,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 				throw createError("AuthenticationError", "Invalid token payload");
 			}
 
-			console.log(`[AUTH] User from token: ${payload.username} (${payload.publicId})`);
+			logger.info(`[AUTH] User from token: ${payload.username} (${payload.publicId})`);
 			return payload;
 		} catch (err) {
 			console.error("[AUTH] Token verification failed", (err as Error).message);
@@ -66,7 +67,7 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
-				console.log(`[AUTH] User authenticated: ${req.decodedUser.username} (${req.decodedUser.publicId})`);
+				logger.info(`[AUTH] User authenticated: ${req.decodedUser.username} (${req.decodedUser.publicId})`);
 				next();
 			} catch (error) {
 				// Preserve original AppError Wwith statusCode
@@ -97,7 +98,7 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
-				console.log(`[AUTH] Optional auth - User authenticated: ${req.decodedUser.username}`);
+				logger.info(`[AUTH] Optional auth - User authenticated: ${req.decodedUser.username}`);
 			} catch {
 				// Silently fail for optional authentication
 				req.decodedUser = undefined;
@@ -158,7 +159,7 @@ export const enhancedAdminOnly = async (req: Request, res: Response, next: NextF
 			return res.status(403).json({ error: "Admin privileges required" });
 		}
 
-		console.log(
+		logger.info(
 			`[ADMIN_AUDIT] ${decodedUser.username} (${decodedUser.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`
 		);
 

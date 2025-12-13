@@ -1,6 +1,8 @@
 import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
+import { logger } from "../utils/winston";
+
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import { container } from "tsyringe";
@@ -29,9 +31,9 @@ async function start() {
 		await worker.init();
 		await worker.start();
 
-		console.log("Profile sync worker started");
+		logger.info("Profile sync worker started");
 	} catch (err) {
-		console.error("Profile sync worker failed to start", err);
+		logger.error("Profile sync worker failed to start", { error: err });
 		process.exit(1);
 	}
 }
@@ -40,12 +42,12 @@ start();
 
 // graceful shutdown
 async function shutdown() {
-	console.log("Shutting down profile sync worker...");
+	logger.info("Shutting down profile sync worker...");
 	try {
 		await worker.stop();
 		process.exit(0);
 	} catch (err) {
-		console.error("Error during shutdown", err);
+		logger.error("Error during shutdown", { error: err });
 		process.exit(1);
 	}
 }

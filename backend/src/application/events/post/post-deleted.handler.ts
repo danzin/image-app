@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { PostDeletedEvent } from "../../events/post/post.event";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
@@ -12,7 +13,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 	) {}
 
 	async handle(event: PostDeletedEvent): Promise<void> {
-		console.log(`Post deleted: ${event.postId} by ${event.authorPublicId}, invalidating relevant feeds`);
+		logger.info(`Post deleted: ${event.postId} by ${event.authorPublicId}, invalidating relevant feeds`);
 
 		try {
 			const tagsToInvalidate: string[] = [];
@@ -24,14 +25,14 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 
 			const followers = await this.getFollowersOfUser(event.authorPublicId);
 			if (followers.length > 0) {
-				console.log(`Invalidating feeds for ${followers.length} followers`);
+				logger.info(`Invalidating feeds for ${followers.length} followers`);
 				followers.forEach((publicId) => {
 					tagsToInvalidate.push(`user_feed:${publicId}`);
 					tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
 				});
 			}
 
-			console.log(`Invalidating cache with ${tagsToInvalidate.length} tags`);
+			logger.info(`Invalidating cache with ${tagsToInvalidate.length} tags`);
 			await this.redis.invalidateByTags(tagsToInvalidate);
 
 			const patterns = [
@@ -58,7 +59,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 				})
 			);
 
-			console.log(`Feed invalidation complete for post deletion`);
+			logger.info(`Feed invalidation complete for post deletion`);
 		} catch (error) {
 			console.error("Error handling post deletion:", error);
 			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];

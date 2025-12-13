@@ -1,0 +1,67 @@
+import { container } from "tsyringe";
+
+import { CloudinaryService } from "../services/cloudinary.service";
+import { UserService } from "../services/user.service";
+import { AuthService } from "../services/auth.service";
+import { ImageService } from "../services/image.service";
+import { CommentService } from "../services/comment.service";
+import { FollowService } from "../services/follow.service";
+import { NotificationService } from "../services/notification.service";
+import { DTOService } from "../services/dto.service";
+import { FeedService } from "../services/feed.service";
+import { RedisService } from "../services/redis.service";
+import { UserActionService } from "../services/userAction.service";
+import { RealTimeFeedService } from "../services/real-time-feed.service";
+import { FavoriteService } from "../services/favorite.service";
+import { MessagingService } from "../services/messaging.service";
+import { TagService } from "../services/tag.service";
+import { LocalStorageService } from "../services/localStorage.service";
+import { IImageStorageService } from "../types";
+import { NewPostMessageHandler } from "../application/handlers/realtime/NewPostMessageHandler";
+import { GlobalNewPostMessageHandler } from "../application/handlers/realtime/GlobalNewPostMessageHandler";
+import { PostDeletedMessageHandler } from "../application/handlers/realtime/PostDeletedMessageHandler";
+import { InteractionMessageHandler } from "../application/handlers/realtime/InteractionMessageHandler";
+import { LikeUpdateMessageHandler } from "../application/handlers/realtime/LikeUpdateMessageHandler";
+import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/AvatarUpdateMessageHandler";
+import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
+import { SearchService } from "../services/search.service";
+import { logger } from "../utils/winston";
+
+export function registerServices(): void {
+	const isCloudinaryConfigured =
+		process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
+
+	const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
+	if (!isCloudinaryConfigured) {
+		logger.info("No Cloudinary credentials detected. \r\nDefaulting to local storage.");
+	}
+
+	container.registerSingleton("SearchService", SearchService);
+	container.registerSingleton("UserService", UserService);
+	container.registerSingleton("AuthService", AuthService);
+	container.registerSingleton("ImageService", ImageService);
+	container.registerSingleton("CommentService", CommentService);
+	container.registerSingleton("FollowService", FollowService);
+	container.registerSingleton("NotificationService", NotificationService);
+	container.registerSingleton<IImageStorageService>("ImageStorageService", ImageStorageService);
+	container.registerSingleton("DTOService", DTOService);
+	container.registerSingleton("FeedService", FeedService);
+	container.registerSingleton("RedisService", RedisService);
+	container.registerSingleton("UserActionService", UserActionService);
+
+	const realtimeHandlers = [
+		container.resolve(NewPostMessageHandler),
+		container.resolve(GlobalNewPostMessageHandler),
+		container.resolve(PostDeletedMessageHandler),
+		container.resolve(InteractionMessageHandler),
+		container.resolve(LikeUpdateMessageHandler),
+		container.resolve(AvatarUpdateMessageHandler),
+		container.resolve(RealtimeMessageSentHandler),
+	];
+	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
+
+	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
+	container.registerSingleton("FavoriteService", FavoriteService);
+	container.registerSingleton("MessagingService", MessagingService);
+	container.registerSingleton("TagService", TagService);
+}

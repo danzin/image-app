@@ -15,6 +15,9 @@ import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
 import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
+import { logger } from "../../../../utils/winston";
+
+const MAX_REPLY_DEPTH = 5;
 
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
@@ -63,9 +66,11 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		let createdComment: any;
 		let postTags: string[] = [];
 		let postOwnerId: string;
+		let parentComment: IComment | null = null;
+		let depth = 0;
 
 		try {
-			console.log(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
+			logger.info(`[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`);
 
 			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
@@ -75,6 +80,24 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 			const post = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!post) {
 				throw createError("NotFoundError", `Post with publicId ${command.postPublicId} not found`);
+			}
+
+			if (command.parentId) {
+				parentComment = await this.commentRepository.findById(command.parentId);
+				if (!parentComment) {
+					throw createError("NotFoundError", "Parent comment not found");
+				}
+
+				if (parentComment.postId.toString() !== (post._id as mongoose.Types.ObjectId).toString()) {
+					throw createError("ValidationError", "Parent comment does not belong to the same post");
+				}
+
+				const parentDepth = (parentComment as any).depth ?? 0;
+				if (parentDepth >= MAX_REPLY_DEPTH) {
+					throw createError("ValidationError", `Maximum reply depth of ${MAX_REPLY_DEPTH} reached`);
+				}
+
+				depth = parentDepth + 1;
 			}
 
 			postTags = Array.isArray(post.tags) ? post.tags.map((t: any) => t.tag ?? t) : [];
@@ -90,6 +113,9 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					content: safeContent,
 					postId: post._id as mongoose.Types.ObjectId,
 					userId: user._id as mongoose.Types.ObjectId,
+					parentId: command.parentId ? new mongoose.Types.ObjectId(command.parentId) : null,
+					replyCount: 0,
+					depth,
 				};
 
 				const safePayload = sanitizeForMongo(payload);
@@ -98,6 +124,10 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Increment comment count on post
 				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
+
+				if (command.parentId) {
+					await this.commentRepository.updateReplyCount(command.parentId, 1, session);
+				}
 
 				// Send notification to post owner (if not commenting on own post)
 				if (postOwnerId && postOwnerId !== command.userPublicId) {
@@ -120,34 +150,60 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					});
 				}
 
+				// Send notification to parent comment owner (for replies), but avoid double notifying post owner
+				if (command.parentId && parentComment) {
+					const parentOwnerId = (parentComment as any).userId?.toString?.();
+					if (parentOwnerId) {
+						const parentOwner = await this.userReadRepository.findById(parentOwnerId);
+						const parentOwnerPublicId = parentOwner?.publicId;
+						if (
+							parentOwnerPublicId &&
+							parentOwnerPublicId !== command.userPublicId &&
+							parentOwnerPublicId !== postOwnerId
+						) {
+							await this.notificationService.createNotification({
+								receiverId: parentOwnerPublicId,
+								actionType: "comment_reply",
+								actorId: command.userPublicId,
+								actorUsername: user.username,
+								actorAvatar: user.avatar,
+								targetId: command.postPublicId,
+								targetType: "comment",
+								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+								session,
+							});
+						}
+					}
+				}
+
 				// Handle mentions
 				const mentionRegex = /@(\w+)/g;
-				console.log(`[CreateComment] Content for mention parsing: "${safeContent}"`);
+				logger.info(`[CreateComment] Content for mention parsing: "${safeContent}"`);
 				const mentions = [...safeContent.matchAll(mentionRegex)].map((match) => match[1]);
-				console.log(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
+				logger.info(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
 
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
-					console.log(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
+					logger.info(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
 					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
-					console.log(`[CreateComment] Found ${mentionedUsers.length} users`);
+					logger.info(`[CreateComment] Found ${mentionedUsers.length} users`);
 
 					for (const mentionedUser of mentionedUsers) {
-						console.log(`[CreateComment] Checking user ${mentionedUser.username} (${mentionedUser.publicId})`);
+						logger.info(`[CreateComment] Checking user ${mentionedUser.username} (${mentionedUser.publicId})`);
 
 						// Filter: Remove comment author
 						if (mentionedUser.publicId === command.userPublicId) {
-							console.log(`[CreateComment] Skipping self-mention`);
+							logger.info(`[CreateComment] Skipping self-mention`);
 							continue;
 						}
 
 						// Filter: Remove post owner since I already notified them above
 						if (mentionedUser.publicId === postOwnerId) {
-							console.log(`[CreateComment] Skipping post owner (already notified)`);
+							logger.info(`[CreateComment] Skipping post owner (already notified)`);
 							continue;
 						}
 
-						console.log(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
+						logger.info(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
 						await this.notificationService.createNotification({
 							receiverId: mentionedUser.publicId,
 							actionType: "mention",

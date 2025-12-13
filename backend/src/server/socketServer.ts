@@ -5,6 +5,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import cookieParser from "cookie-parser";
 import { createError } from "../utils/errors";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class WebSocketServer {
@@ -48,14 +49,14 @@ export class WebSocketServer {
 		this.io.use(async (socket, next) => {
 			try {
 				const req = socket.request as Request;
-				console.log("[Socket][Auth] Incoming handshake headers:", req.headers);
-				console.log("[Socket][Auth] Incoming cookies:", (req as any).cookies);
+				logger.info("[Socket][Auth] Incoming handshake headers:", req.headers);
+				logger.info("[Socket][Auth] Incoming cookies:", (req as any).cookies);
 
 				// Allow token passed via Socket.IO auth payload as fallback
 				const handshakeAuth: any = (socket as any).handshake?.auth;
 				if (handshakeAuth?.token && !req.headers.authorization) {
 					req.headers.authorization = `Bearer ${handshakeAuth.token}`;
-					console.log("[Socket][Auth] Applied bearer token from handshake auth");
+					logger.info("[Socket][Auth] Applied bearer token from handshake auth");
 				}
 
 				// Handle authentication using the bearer token strategy
@@ -69,7 +70,7 @@ export class WebSocketServer {
 						console.error("Missing decoded user after authentication");
 						return next(createError("UnauthorizedError", "Unauthorized"));
 					}
-					console.log("[Socket][Auth] Authenticated user:", req.decodedUser);
+					logger.info("[Socket][Auth] Authenticated user:", req.decodedUser);
 
 					// Store user data in socket
 					socket.data.user = req.decodedUser;
@@ -85,14 +86,14 @@ export class WebSocketServer {
 		 * Handles new client connections to the WebSocket server.
 		 */
 		this.io.on("connection", (socket) => {
-			console.log("New client connected:", socket.id);
+			logger.info("New client connected:", socket.id);
 
 			// Join the user to their own private room
 
 			const userPublicId = socket.data.user?.publicId || socket.data.user?.id;
 			if (userPublicId) {
 				socket.join(userPublicId);
-				console.log(`User ${userPublicId} joined their room automatically`);
+				logger.info(`User ${userPublicId} joined their room automatically`);
 
 				// Send confirmation to client
 				socket.emit("join_response", {
@@ -123,12 +124,12 @@ export class WebSocketServer {
 					return;
 				}
 
-				console.log(`User join room request received`);
+				logger.info(`User join room request received`);
 				const trimmedUserId = userId.trim();
-				console.log(`Received a join event with data: ${trimmedUserId}`);
+				logger.info(`Received a join event with data: ${trimmedUserId}`);
 				socket.join(trimmedUserId);
-				console.log(`User ${trimmedUserId} joined their room`);
-				console.log(`Socket rooms:`, Array.from(socket.rooms));
+				logger.info(`User ${trimmedUserId} joined their room`);
+				logger.info(`Socket rooms:`, Array.from(socket.rooms));
 
 				// Emit success message
 				socket.emit("join_response", {
@@ -138,11 +139,11 @@ export class WebSocketServer {
 			});
 
 			socket.on("disconnect", () => {
-				console.log("Client disconnected:", socket.id);
+				logger.info("Client disconnected:", socket.id);
 			});
 		});
 
-		console.log("WebSocket server initialized.");
+		logger.info("WebSocket server initialized.");
 	}
 
 	/**

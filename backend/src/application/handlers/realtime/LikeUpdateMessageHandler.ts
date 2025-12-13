@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class LikeUpdateMessageHandler implements IRealtimeMessageHandler {
@@ -19,6 +20,6 @@ export class LikeUpdateMessageHandler implements IRealtimeMessageHandler {
 			timestamp: message.timestamp,
 		});
 
-		console.log(`Real-time like update sent for post ${targetId}: ${message.newLikes} likes`);
+		logger.info(`Real-time like update sent for post ${targetId}: ${message.newLikes} likes`);
 	}
 }

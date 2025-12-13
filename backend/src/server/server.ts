@@ -16,6 +16,7 @@ import { FeedRoutes } from "../routes/feed.routes";
 import { FavoriteRoutes } from "../routes/favorite.routes";
 import { MessagingRoutes } from "../routes/messaging.routes";
 import path from "path";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class Server {
@@ -58,7 +59,7 @@ export class Server {
 	 */
 	private initializeMiddlewares(): void {
 		this.app.use((req, res, next) => {
-			console.log(`[Backend] ${req.method} ${req.originalUrl}`);
+			logger.info(`[Backend] ${req.method} ${req.originalUrl}`);
 			next();
 		});
 
@@ -76,7 +77,7 @@ export class Server {
 	 */
 	private initializeRoutes() {
 		const uploadsPath = path.join(process.cwd(), "uploads");
-		console.log("Serving static uploads from:", uploadsPath);
+		logger.info("Serving static uploads from:", uploadsPath);
 		this.app.use("/uploads", express.static(uploadsPath));
 
 		// Add health check endpoint
@@ -90,7 +91,7 @@ export class Server {
 
 		// Debug middleware to log all incoming requests
 		this.app.use((req, res, next) => {
-			console.log(`[Backend] ${req.method} ${req.path} - Headers:`, req.headers);
+			logger.info(`[Backend] ${req.method} ${req.path} - Headers:`, req.headers);
 			next();
 		});
 
@@ -107,7 +108,7 @@ export class Server {
 
 		// Catch-all route for debugging
 		this.app.use("*", (req, res) => {
-			console.log(`[Backend] 404 - Unmatched route: ${req.method} ${req.path}`);
+			logger.info(`[Backend] 404 - Unmatched route: ${req.method} ${req.path}`);
 			res.status(404).json({
 				error: "Route not found",
 				method: req.method,
@@ -153,7 +154,7 @@ export class Server {
 	 */
 	public start(server: http.Server, port: number): void {
 		server.listen(port, () => {
-			console.log(`Server running on port ${port}`);
+			logger.info(`Server running on port ${port}`);
 		});
 	}
 }

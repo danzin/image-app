@@ -6,7 +6,7 @@ import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
 import { PostRepository } from "../../../repositories/post.repository";
-
+import { logger } from "../../../utils/winston";
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
 	constructor(
@@ -42,14 +42,14 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 	 * Invalidate feeds for users who would see this interaction change
 	 */
 	private async invalidateRelevantFeeds(event: UserInteractedWithPostEvent): Promise<void> {
-		console.log(`Smart cache handling for interaction: ${event.interactionType} on post ${event.postId}`);
+		logger.info(`Smart cache handling for interaction: ${event.interactionType} on post ${event.postId}`);
 
 		const isLikeEvent = event.interactionType === "like" || event.interactionType === "unlike";
 
 		if (isLikeEvent) {
 			// Update per-image meta so all users see new like count without structural invalidation
 			try {
-				console.log(`event.postId in invalidateRelevantFeeds: ${event.postId}`);
+				logger.info(`event.postId in invalidateRelevantFeeds: ${event.postId}`);
 				const post = await this.postRepository.findByPublicId(event.postId);
 				if (post && (post as any).publicId) {
 					await this.feedService.updatePostLikeMeta((post as any).publicId, (post as any).likesCount || 0);
@@ -59,7 +59,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 			}
 			// Invalidate only actor's structural feed using tags
 			await this.redis.invalidateByTags([`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`]);
-			console.log("Selective invalidation done (actor only) for like/unlike; others rely on meta overlay");
+			logger.info("Selective invalidation done (actor only) for like/unlike; others rely on meta overlay");
 			return;
 		}
 
@@ -72,7 +72,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 				tagsToInvalidate.push(`user_feed:${publicId}`);
 				tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
 			});
-			console.log(`Invalidating feeds for ${affectedUsers.length} affected users (non-like event)`);
+			logger.info(`Invalidating feeds for ${affectedUsers.length} affected users (non-like event)`);
 		}
 
 		await this.redis.invalidateByTags(tagsToInvalidate);
@@ -141,7 +141,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 			};
 
 			await this.redis.publish("feed_updates", JSON.stringify(interactionMessage));
-			console.log(
+			logger.info(
 				`Published real-time interaction event: ${event.interactionType} on post ${event.postId} by user ${event.userId}`
 			);
 		} catch (error) {

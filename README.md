@@ -1,217 +1,128 @@
-# Image App
+# 📸 Image App (Distributed Social Platform)
 
-A full-stack React/Node image sharing application built with TypeScript, designed for scalability, performance, and maintainability. This project combines a clean, modular backend with a modern, responsive frontend.
+[![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/node.js-6DA55F?style=flat&logo=node.js&logoColor=white)](https://nodejs.org/)
+[![React](https://img.shields.io/badge/react-%2320232a.svg?style=flat&logo=react&logoColor=%2361DAFB)](https://reactjs.org/)
+[![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=flat&logo=redis&logoColor=white)](https://redis.io/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 
-Tech stack:
+## 🚀 Overview
 
-![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=for-the-badge&logo=mongodb&logoColor=white) ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=for-the-badge&logo=socket.io&badgeColor=010101) ![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white) ![Express.js](https://img.shields.io/badge/express.js-%23404d59.svg?style=for-the-badge&logo=express&logoColor=%2361DAFB) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB)  ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+**Image App** is a production-grade, full-stack social platform architected for scalability and performance. Unlike typical CRUD applications, this system implements advanced distributed patterns including **CQRS** (Command Query Responsibility Segregation), **Event Sourcing**, and **Multi-Layered Caching**.
 
-## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Architecture & Implementation](#architecture--implementation)
-- [Future Improvements](#future-improvements)
-- [Installation & Setup](#installation--setup)
+The architecture is designed to handle high-concurrency scenarios (e.g., viral posts) by decoupling write-heavy operations from read-critical views using background workers and Redis streams.
 
-## Overview
-**Image App** offers users a seamless experience for uploading, sharing, and discovering images. With a robust React frontend and a Node.js backend leveraging TypeScript, this project embodies a clean, modular architecture built for modern web applications. 
- * **In transition to CQRS, parts of the system are already using utilizing the CQRS pattern**
+---
 
-## Features
+## 🏗 System Architecture
 
-### Feed system
- - **Personalized (Home) Feed**: user-specific partitioned feed - follows + growing personalization signals. Fast, cached per-user, primary home view for active users.
- - **ForYou Feed**:
-   -  `For You` feed is created by a ranked feed generated from a mongo aggregation ranking images by recency, popularity, tags and relevancy with weights for rankings. Current weights are: 
-    ``` 
-    recency: 0.5,
-   popularity: 0.3,
-   tagMatch: 0.2,
-   ```
- - **Trending / New**: discovery feeds. Trending = popularity + recency within time window; New = strict recency.
- - **Core feed**: internal cached structure (IDs + ordering). Not a UI feed — used to enrich and serve many view variants without recomputing rankings.
+The application transitions from a monolithic structure to a microservices-ready architecture, featuring:
 
-### **Dockerization**
-   - The docker setup includes multiple services and a few extra caveats in order to run hassle-free
-      - *Mongo-setup service* - A helper service handling the keyfile for the single-node replica set auth
-      - *MongoDB service* - Mongo database running as a single-node replica set with persistent storage volume
-      - *Redis service* - Caching solution with persistent storage volume 
-      - *Backend service* - The whole backend of the app(decoupling into microservices is in progress)
-      - *Api-Gateway service* - An extra layer providing CORS enforcement, rate limiting(very lax as of now), reverse proxy and global request logging.
-      - *Frontend service* - The react frontend of the app. It utilizes Nginx together with the Api-Gateway.
-    - Routing Architecture:
-![image](https://github.com/user-attachments/assets/be1da114-3c9e-4eb1-b5d6-433338267a9b)
+* **API Gateway:** A dedicated entry point handling rate-limiting, CORS, and request routing.
+* **Backend Core:** Node.js/Express service implementing **CQRS** via `tsyringe` for dependency injection.
+* **Worker Nodes:**
+    * `Trending Worker`: Calculates viral content scores in the background.
+    * `Profile Sync Worker`: Handles eventual consistency updates across denormalized data (e.g., updating user avatars across thousands of historical posts).
+* **Persistence Layer:** MongoDB Replica Set (supporting multi-document transactions) and Redis (Caching, Pub/Sub, Streams).
 
-### Real-Time Functionality
-  - **WebSockets with Socket.io:** Secure, token-based WebSocket server for instant notifications.
-  - **Personalized Feeds:** Logged in users are served custom feed according to their interactions with images and other users. New users are exposed to the new and trending feeds first.
-  - **Redis caching: The app uses a partitioned user feed caching strategy. Parts of the user feed are cached and invalidated when certain actions are taken by the user or other users. User cache invalidation only applies for certain actions and only the relevant users' cache is enriched/invalidated depending on the action.**
-  - Event flow diagram: 
-  ``` 
-  ┌─────────────────┐
-│  User Action    │
-│  (Upload/Like/  │
-│   Comment/etc)  │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ Command Handler │
-│ (DB Transaction)│
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ EventBus.queue  │
-│ Transactional   │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Event Handler  │
-│ (Post-Commit)   │
-└────────┬────────┘
-         │
-         ├─────────────────┐
-         │                 │
-         ▼                 ▼
-┌──────────────┐   ┌──────────────┐
-│Tag-Based     │   │Pattern-Based │
-│Invalidation  │   │Cleanup       │
-└──────┬───────┘   └──────┬───────┘
-       │                  │
-       └─────────┬────────┘
-                 │
-                 ▼
-        ┌────────────────┐
-        │ Redis.publish  │
-        │ (WebSocket)    │
-        └────────────────┘
- ```
-    
-### CQRS: Working on gradually switching from the classic modular architecture to CQRS
-  - Command, Query and Event buses are implemented and fully functional.
-  - The Event bus supports transactions. `queueTransactional`, `flushTransactionalQueue` and `clearTransactionalQueue` make it easy to integrate within the UnitOfWork pattern and other operations utilizing transactions. 
-  - Some methods from the service layer are already obsolete and replaced by their corresponding commands and queries.
-  - In order to have a gradual and seamless shift in architectures, and to make sure nothing breaks, the old functionality remains registered inside the Dependency Injection container, alongside the most recent Commands, Queries and Buses.
-    
-    
-### Modular Backend Architecture
-  - **Domain Models:** Models for images, tags, users, userActions, userPreferences, follows, and likes.
-  - **Repositories:** A base repository abstract class extended by model-specific repositories.
-  - **Service Layer & Controllers:** Clean separation of business logic from API request handling.
-  - **Routers** use authentication middleware implementing the Strategy pattern, extracting JWT from cookies and attaching a decodedUser object into Express' Request interface for controllers to work with. 
-  - **Dependency Injection:** Using TSyringe for DI, ensuring loose coupling and testability.
-  - **Custom Error Handling:** Implemented via a factory pattern for consistent error responses.
-  - **Data Transfer Objects (DTOs):** Tailored data views for guests, authenticated users, and admins.
-  - **API Gateway:** **Serves as a dedicated layer within the internal network focused solely on managing API traffic before it hits the final backend service**
-  - **Rate Limiting:**  Applies rate limiting (express-rate-limit). This logic lives within the gateway service. This ensures requests are limited before they even reach the core backend logic.
-  - **Centralized Logging (API Focus):** It provides specific logging points (onProxyReq, onProxyRes, onError) focused on the API request lifecycle as it passes between the frontend proxy and the backend service.
-  - **Decoupling & Routing Hub (Future Microservices):** Crucially, this gateway is perfectly positioned for when I break down the monolith (backend service) into microservices.
+### 📐 Key Engineering Decisions
 
-    
-- **Modern Frontend:**
-  - Developed with React and TypeScript for a responsive and maintainable UI with MUI and TailwindCSS.
-  - ReactQuery and Routes for optimal performance and state management.
-  - Cookie-based authentication using JWT. 
-  - E2E testing with Cypress
-    
-- **Transaction Management:**
-  - Uses database transactions and the Unit of Work pattern to ensure data integrity with complex operations.
-        
-- **Planned Enhancements:**
-  - **Redis:** Expanding Redis coverage for the app. 
-  - **Further frontend polishing:** Backend has been my primary focus so far. The frontend UI, performance and E2E coverege will be enhanced in later commits.
-  - **Decoupling:** Planning on decoupling functionality from the monolith into microservices
+#### 1. Partitioned Feed Architecture & Caching
+Instead of simple database queries, the Feed Service implements a **"Push-Pull" hybrid model**:
+* **Fan-out on Write:** When a post is created, post IDs are pushed to followers' feeds (Redis Sorted Sets) asynchronously.
+* **Two-Layer Caching:**
+    * **Core Feed:** Caches the *structure* (IDs and order) with long TTLs.
+    * **Enrichment Layer:** Caches mutable data (User profiles, Like counts) separately.
+    * *Result:* Changing an avatar doesn't invalidate the entire feed cache, significantly reducing database load.
 
+#### 2. Advanced Redis Patterns
+The `RedisService` goes beyond basic key-value storage:
+* **Tag-Based Invalidation:** Uses Sets to map logical tags to cache keys, allowing precise O(1) invalidation of complex dependency trees.
+* **Write-Behind Caching:** High-velocity counters (likes/views) are buffered in Redis and flushed to MongoDB in batches.
+* **Pub/Sub & Streams:** Handles real-time notifications (Socket.io) and decoupling of background jobs.
 
+#### 3. CQRS & Event-Driven Design
+* **Command Bus:** Handles writes (e.g., `CreatePostCommand`) ensuring data integrity via Unit of Work transactions.
+* **Event Bus:** Triggers side effects (Notifications, Analytics) *after* successful transaction commits to prevent ghost data.
+* **Separation of Concerns:** Read models (DTOs) are optimized for specific UI views, distinct from Domain Models.
 
-## Architecture & Implementation
-The project is built on solid architectural principles:
-- **Object-Oriented Design:**  
-  The backend is divided into models, repositories, services, and controllers, ensuring a clean separation of concerns.
-- **Dependency Injection:**  
-  TSyringe is used to inject dependencies, promoting modularity and easier testing.
-- **Custom Error Handling & DTOs:**  
-  Consistent error responses are achieved with custom error handlers, and DTOs tailor the data output based on user roles.
-- **Transaction Management:**  
-  Database transactions and the Unit of Work pattern maintain data integrity.
-- **Search Functionality:**  
-  A universal search mechanism efficiently searches across users, images, and tags.
-- **Couldinary integration:**
-  - Uploaded images are stored on Cloudinary, only relevant metadata is stored in MongoDB.
-- **Local Storage integration:**
-  - If Cloudinary is not set up, images are stored locally in /backend/uploads. 
-- **Real-Time Communication:**  
-  The WebSocket server uses advanced, token-based authentication with custom authentication middleware to secure connections. Clients join specific rooms (e.g., by user ID) to receive personalized notifications instantly.
-  
-## Future Improvements
- - **Redis Caching:**
-    Planned integration - cache frequently accessed data, greatly enhancing performance and scalability.
-      - User feed - Done ✅
- - **Enhanced Security Features:**
-    Continued enhancements to authentication, authorization, and data protection.
-      - Done ✅ 
- - **Expanded Search Capabilities:**
-    Refining the universal search to support advanced queries and more refined result filtering.
-      - Done ✅
- - **Additional API Endpoints:** 
-    Further expansion of administrative, notification, and real-time features.
- - **Polishing the frontend**:
-    So far the backend has been my primary focus and frontend has been falling behind.
-      - Done ✅
- - **Full monitoring suite**
-   
-## Installation & Setup
+---
+
+## 🛠 Tech Stack
+
+### Backend
+* **Runtime:** Node.js (v20+), TypeScript
+* **Framework:** Express.js
+* **Database:** MongoDB (Mongoose with schema validation & sanitization)
+* **Caching/Message Broker:** Redis (ioredis)
+* **Architecture:** DI (TSyringe), Repository Pattern, CQRS
+* **Testing:** Mocha, Chai, Sinon
+
+### Frontend
+* **Framework:** React (Vite)
+* **Styling:** TailwindCSS, Material UI (MUI)
+* **State Management:** React Query (TanStack Query)
+* **Real-time:** Socket.io Client
+* **Testing:** Cypress (E2E)
+
+### Infrastructure
+* **Containerization:** Docker & Docker Compose
+* **Proxy:** Nginx
+* **Storage:** Cloudinary (Production) / Local Filesystem (Dev)
+
+---
+
+## ⚡ Getting Started
 
 ### Prerequisites
-- Node.js (v22.12.0+ recommended)
-- npm
-- Local Redis instance 
-- Local MongoDB instance OR MongoDB Atlas connection string
-- Example .env file: 
-    ```
-    //MongoDB Atlas connection string. If not provided, the app is looking for local mongodb connection at mongodb://127.0.0.1:27017
-    MONGODB_URI=mongodb+srv://mongodbusername:dbpassword@cluster/databasename?more&options
-    
-    //JWT Secret
-    JWT_SECRET=xxxxxxxxxxxxxxxx
-    
-    //Cloudinary credentials, not required. The app defaults to local storage if Cloudinary is unavailable.
-    CLOUDINARY_CLOUD_NAME=xxxxxxxxxxxxx 
-    CLOUDINARY_API_KEY=xxxxxxxxxxxxx
-    CLOUDINARY_API_SECRET=xxxxxxxxxxxxx
-    
-    //Default port
-    PORT=3000
-    
-    //Backend port used in docker-compose.yml
-    BACKEND_PORT=3000
-    FRONTEND_URL=http://localhost:5173
-    
-    //Node environment, is overriden in docker-compose.yml
-    NODE_ENV=development
-    
-    VITE_API_URL=http://localhost:3000
-    ```
+* Docker & Docker Compose installed
+* Node.js v18+ (for local dev)
 
-### Running the app in Docker 
-1. Make sure you have [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
-2. 
-    ```
-   git clone https://github.com/danzin/image-app.git
-   cd image-app
-   docker-compose up --build
-   ```
-    
-  
-### Dev Setup
-1. **Clone the repository and install dependencies in the root directory:**
+### Quick Start (Docker)
+The easiest way to run the full stack (Database, Redis, API, Workers, Frontend):
+
+```bash
+# 1. Clone the repository
+git clone [https://github.com/danzin/image-app.git](https://github.com/danzin/image-app.git)
+cd image-app
+
+# 2. Start the services
+docker-compose up --build
 ```
-   git clone https://github.com/danzin/image-app.git
-   cd image-app
+
+### Access the application:
+
+* Frontend: http://localhost:80
+* API Gateway: http://localhost:8000
+* Direct Backend: http://localhost:3000
+
+## Local Development (Monorepo)
+The project uses `concurrently` to run the Backend, API Gateway, Frontend, and Workers simultaneously from the root.
+1. Setup Environment
+* Create a .env file in the root directory:
 ```
-2. **`npm install` installs all the dependencies for all workspaces from the monorepo**
-   - It requires an active redis server running on the default `6379` port, as well as a configured local mongodb instance
-3. **`npm run dev`** starts the local dev environment. 
-   
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/DBName
+JWT_SECRET=your_jwt_secret_here
+# CLOUDINARY_... (Optional)
+PORT=3000
+FRONTEND_URL=http://localhost:5173
+VITE_API_URL=http://localhost:8000
+```
+2. Install & Run
+```
+# Install dependencies for all workspaces (backend, frontend, gateway)
+npm install
+
+# Start the development environment
+# This launches Backend, Gateway, Frontend, Trending Worker, and Profile Worker
+npm run dev
+```
+
+## 🛡 Security Features
+
+* JWT Authentication: Secure, HTTP-only cookie-based auth strategy.
+* Rate Limiting: IP-based throttling at the API Gateway level.
+* Input Sanitization: Custom sanitizers for NoSQL injection and XSS prevention.
+* Role-Based Access Control (RBAC): Middleware-enforced Admin and User roles.
+

@@ -3,6 +3,7 @@ import { BaseRepository } from "./base.repository";
 import { IImage } from "../types";
 import { createError, isNamedError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
+import { logger } from "../utils/winston";
 
 @injectable()
 export class ImageRepository extends BaseRepository<IImage> {
@@ -53,7 +54,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 
 			if (session) query.session(session);
 			const result = await query.exec();
-			console.log(result);
+			logger.info(result);
 			return result;
 		} catch (error) {
 			if (isNamedError(error) && error.name === "ValidationError") {
@@ -76,7 +77,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			const query = this.model.deleteMany({ user: userId });
 			if (session) query.session(session);
 			const result = await query.exec();
-			console.log(`result from await query.exec() : ${result} `);
+			logger.info(`result from await query.exec() : ${result} `);
 		} catch (error) {
 			throw createError("DatabaseError", (error as Error).message);
 		}

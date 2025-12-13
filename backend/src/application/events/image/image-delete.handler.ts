@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { ImageDeletedEvent } from "./image.event";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
@@ -12,7 +13,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 	) {}
 
 	async handle(event: ImageDeletedEvent): Promise<void> {
-		console.log(`Image deleted: ${event.imageId} by ${event.uploaderPublicId}, invalidating relevant feeds`);
+		logger.info(`Image deleted: ${event.imageId} by ${event.uploaderPublicId}, invalidating relevant feeds`);
 
 		try {
 			// use tag-based invalidation for active cache entries
@@ -27,7 +28,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			// get followers and invalidate their feeds
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
 			if (followers.length > 0) {
-				console.log(`Invalidating feeds for ${followers.length} followers`);
+				logger.info(`Invalidating feeds for ${followers.length} followers`);
 				followers.forEach((publicId) => {
 					tagsToInvalidate.push(`user_feed:${publicId}`);
 					tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
@@ -35,7 +36,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			}
 
 			// use tag-based invalidation (efficient - only deletes keys with these tags)
-			console.log(`Invalidating cache with ${tagsToInvalidate.length} tags`);
+			logger.info(`Invalidating cache with ${tagsToInvalidate.length} tags`);
 			await this.redis.invalidateByTags(tagsToInvalidate);
 
 			// also do pattern-based cleanup for any keys that might not have tag metadata
@@ -55,7 +56,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 
 			await this.redis.deletePatterns(patterns);
 
-			console.log(`Feed invalidation complete for image deletion`);
+			logger.info(`Feed invalidation complete for image deletion`);
 		} catch (error) {
 			console.error("Error handling image deletion:", error);
 			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];

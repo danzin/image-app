@@ -1,9 +1,11 @@
 import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
+import { logger } from "../utils/winston";
+
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
-console.log("MONGODB_URI in worker:", process.env.MONGODB_URI);
+logger.info("MONGODB_URI in worker:", { uri: process.env.MONGODB_URI });
 
 import { container } from "tsyringe";
 import { setupContainerCore, registerCQRS, initCQRS } from "../di/container";
@@ -31,9 +33,9 @@ async function start() {
 		await worker.init();
 		worker.start();
 
-		console.log("Trending worker started");
+		logger.info("Trending worker started");
 	} catch (err) {
-		console.error("Worker failed to start", err);
+		logger.error("Worker failed to start", { error: err });
 		process.exit(1);
 	}
 }
@@ -42,12 +44,12 @@ start();
 
 // graceful shutdown
 async function shutdown() {
-	console.log("Shutting down trending worker...");
+	logger.info("Shutting down trending worker...");
 	try {
 		await worker.stop?.(); // stop loop, flush pending, close connections
 		process.exit(0);
 	} catch (err) {
-		console.error("Error during shutdown", err);
+		logger.error("Error during shutdown", { error: err });
 		process.exit(1);
 	}
 }

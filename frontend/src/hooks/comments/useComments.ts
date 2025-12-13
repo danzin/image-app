@@ -1,16 +1,15 @@
-import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, useInfiniteQuery, InfiniteData } from "@tanstack/react-query";
 import {
 	createComment,
 	getCommentsByPostId,
+	getCommentReplies,
 	updateComment,
 	deleteComment,
 	getCommentsByUserId,
+	toggleCommentLike,
 } from "../../api/commentsApi";
 import { IComment, CommentCreateDto, CommentUpdateDto, CommentsPaginationResponse } from "../../types";
 
-/**
- * Get comments for an image with infinite scrolling
- */
 export const useCommentsByPostId = (postPublicId: string, limit: number = 10) => {
 	return useInfiniteQuery<CommentsPaginationResponse, Error>({
 		queryKey: ["comments", "post", postPublicId],
@@ -24,6 +23,22 @@ export const useCommentsByPostId = (postPublicId: string, limit: number = 10) =>
 		initialPageParam: 1,
 		enabled: !!postPublicId,
 		staleTime: 0, // Comments should be fresh
+	});
+};
+
+export const useCommentReplies = (postPublicId: string, parentCommentId: string, limit: number = 10) => {
+	return useInfiniteQuery<CommentsPaginationResponse, Error>({
+		queryKey: ["comments", "post", postPublicId, "replies", parentCommentId],
+		queryFn: ({ pageParam = 1 }) => getCommentReplies(postPublicId, parentCommentId, pageParam as number, limit),
+		getNextPageParam: (lastPage) => {
+			if (lastPage.page < lastPage.totalPages) {
+				return lastPage.page + 1;
+			}
+			return undefined;
+		},
+		initialPageParam: 1,
+		enabled: !!postPublicId && !!parentCommentId,
+		staleTime: 0,
 	});
 };
 
@@ -127,6 +142,47 @@ export const useDeleteComment = () => {
 		},
 		onError: (error: Error) => {
 			console.error("Error deleting comment:", error);
+		},
+	});
+};
+
+/**
+ * Like / unlike a comment
+ */
+export const useLikeComment = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation<
+		{ commentId: string; isLiked: boolean; likesCount: number },
+		Error,
+		{ commentId: string; postPublicId: string }
+	>({
+		mutationFn: ({ commentId }) => toggleCommentLike(commentId),
+		onSuccess: (result, variables) => {
+			queryClient.setQueriesData<InfiniteData<CommentsPaginationResponse>>(
+				{ queryKey: ["comments", "post", variables.postPublicId] },
+				(existing) => {
+					if (!existing) return existing;
+					return {
+						...existing,
+						pages: existing.pages.map((page) => ({
+							...page,
+							comments: page.comments.map((comment) =>
+								comment.id === result.commentId
+									? {
+											...comment,
+											likesCount: result.likesCount,
+											isLikedByViewer: result.isLiked,
+										}
+									: comment
+							),
+						})),
+					};
+				}
+			);
+		},
+		onError: (error: Error) => {
+			console.error("Error liking comment:", error);
 		},
 	});
 };

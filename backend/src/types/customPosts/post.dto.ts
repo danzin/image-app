@@ -5,6 +5,22 @@ export interface PostDTO {
 	publicId: string;
 	body?: string; // text content of the post
 	slug?: string;
+	type?: "original" | "repost";
+	repostCount?: number;
+	repostOf?: {
+		publicId: string;
+		user: {
+			publicId: string;
+			username: string;
+			avatar: string;
+		};
+		body?: string;
+		slug?: string;
+		image?: {
+			url: string;
+			publicId: string;
+		} | null;
+	};
 
 	// Image data - nested format
 	image?: {

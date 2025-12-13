@@ -29,6 +29,7 @@ import { GetFollowersQuery } from "../application/queries/users/getFollowers/get
 import { GetFollowersResult } from "../application/queries/users/getFollowers/getFollowers.handler";
 import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
 import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
+import { logger } from "../utils/winston";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -385,12 +386,12 @@ export class UserController {
 			// strip file extension for backward compatibility
 			publicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
 
-			console.log(`[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`);
+			logger.info(`[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`);
 			if (!userPublicId) {
 				res.status(401).json({ error: "Authentication required" });
 				return;
 			}
-			console.log(publicId);
+			logger.info(publicId);
 			if (!userPublicId) {
 				return next(createError("UnauthorizedError", "User not authenticated."));
 			}

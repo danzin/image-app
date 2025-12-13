@@ -13,8 +13,13 @@ import { RedisService } from "../../../../services/redis.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostDeletedEvent } from "../../../events/post/post.event";
-import { createError } from "../../../../utils/errors";
 import { IPost } from "../../../../types";
+import {
+	PostAuthorizationError,
+	PostNotFoundError,
+	UserNotFoundError,
+	mapPostError,
+} from "../../../errors/post.errors";
 
 export interface DeletePostResult {
 	message: string;
@@ -38,48 +43,54 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	async execute(command: DeletePostCommand): Promise<DeletePostResult> {
 		let postAuthorPublicId: string | undefined;
 
-		await this.unitOfWork.executeInTransaction(async (session) => {
-			const post = await this.validatePostExists(command.postPublicId, session);
-			const user = await this.validateUserExists(command.requesterPublicId, session);
+		try {
+			await this.unitOfWork.executeInTransaction(async (session) => {
+				const post = await this.validatePostExists(command.postPublicId, session);
+				const user = await this.validateUserExists(command.requesterPublicId, session);
 
-			const { postOwnerInternalId, postOwnerPublicId } = this.extractPostOwnerInfo(post);
-			const postOwnerDoc = postOwnerInternalId
-				? await this.userReadRepository.findById(postOwnerInternalId, session)
-				: null;
+				const { postOwnerInternalId, postOwnerPublicId } = this.extractPostOwnerInfo(post);
+				const postOwnerDoc = postOwnerInternalId
+					? await this.userReadRepository.findById(postOwnerInternalId, session)
+					: null;
 
-			postAuthorPublicId = postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId;
+				postAuthorPublicId = postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId;
 
-			this.validateDeletePermission(user, postOwnerInternalId);
+				this.validateDeletePermission(user, post);
 
-			// delete associated image if present
-			await this.handleImageDeletion(
-				post,
-				command.requesterPublicId,
-				postOwnerInternalId,
-				postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId,
-				session
-			);
+				await this.handleImageDeletion(
+					post,
+					command.requesterPublicId,
+					postOwnerInternalId,
+					postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId,
+					session
+				);
 
-			// delete post and associated comments
-			await this.deletePostAndComments(post, session);
-			if (postOwnerInternalId) {
-				await this.userWriteRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } }, session);
-			}
+				await this.deletePostAndComments(post, session);
+				if (postOwnerInternalId) {
+					await this.userWriteRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } }, session);
+				}
 
-			// decrement tag usage counts
-			await this.decrementTagUsage(post, session);
-		});
+				await this.decrementTagUsage(post, session);
+			});
 
-		await this.invalidateCache(command.requesterPublicId);
-		await this.publishDeleteEvent(command.postPublicId, postAuthorPublicId ?? command.requesterPublicId);
+			await this.invalidateCache(command.requesterPublicId);
+			await this.publishDeleteEvent(command.postPublicId, postAuthorPublicId ?? command.requesterPublicId);
 
-		return { message: "Post deleted successfully" };
+			return { message: "Post deleted successfully" };
+		} catch (error) {
+			throw mapPostError(error, {
+				action: "delete-post",
+				postPublicId: command.postPublicId,
+				requesterPublicId: command.requesterPublicId,
+				postAuthorPublicId,
+			});
+		}
 	}
 
 	private async validatePostExists(publicId: string, session: ClientSession): Promise<IPost> {
 		const post = await this.postReadRepository.findByPublicId(publicId, session);
 		if (!post) {
-			throw createError("NotFoundError", "Post not found");
+			throw new PostNotFoundError();
 		}
 		return post;
 	}
@@ -87,7 +98,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	private async validateUserExists(publicId: string, session: ClientSession): Promise<any> {
 		const user = await this.userReadRepository.findByPublicId(publicId, session);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw new UserNotFoundError();
 		}
 		return user;
 	}
@@ -113,11 +124,15 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		return { postOwnerInternalId, postOwnerPublicId };
 	}
 
-	private validateDeletePermission(user: any, postOwnerInternalId: string): void {
-		const requesterId = (user as any)._id.toString();
+	private validateDeletePermission(user: any, post: IPost): void {
+		const requesterId = (user as any)._id?.toString?.() ?? (user as any).publicId ?? "";
+		const isOwner =
+			typeof (post as any).isOwnedBy === "function"
+				? (post as any).isOwnedBy(requesterId)
+				: (post as any).user?.toString?.() === requesterId;
 
-		if (postOwnerInternalId !== requesterId && !user.isAdmin) {
-			throw createError("ForbiddenError", "You do not have permission to delete this post");
+		if (!isOwner && !user.isAdmin) {
+			throw new PostAuthorizationError();
 		}
 	}
 

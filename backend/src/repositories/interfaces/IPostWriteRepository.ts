@@ -15,6 +15,7 @@ export interface IPostWriteRepository {
 	incrementViewCount(postId: mongoose.Types.ObjectId, session?: ClientSession): Promise<void>;
 	updateCommentCount(postId: string, increment: number, session?: ClientSession): Promise<void>;
 	updateLikeCount(postId: string, increment: number, session?: ClientSession): Promise<void>;
+	updateRepostCount(postId: string, increment: number, session?: ClientSession): Promise<void>;
 
 	// bulk operations
 	deleteManyByUserId(userId: string, session?: ClientSession): Promise<number>;

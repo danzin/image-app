@@ -9,6 +9,7 @@ import { UserRepository } from "../../../repositories/user.repository";
 import { createError } from "../../../utils/errors";
 import { FeedInteractionHandler } from "../../events/user/feed-interaction.handler";
 import { UnitOfWork } from "../../../database/UnitOfWork";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
@@ -32,7 +33,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		let postPublicId: string;
 
 		try {
-			console.log(
+			logger.info(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
 				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
 			);
@@ -87,7 +88,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				);
 			});
 
-			console.log(`Comment ${command.commentId} successfully deleted by user ${command.userPublicId}`);
+			logger.info(`Comment ${command.commentId} successfully deleted by user ${command.userPublicId}`);
 		} catch (error) {
 			console.error("DeleteCommentCommand execution failed:", error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";

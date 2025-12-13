@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class MessageSentHandler implements IRealtimeMessageHandler {
@@ -23,7 +24,7 @@ export class MessageSentHandler implements IRealtimeMessageHandler {
 			});
 		}
 
-		console.log(
+		logger.info(
 			`Real-time messaging update sent via ${channel || "feed_updates"} for conversation ${message.conversationId}`
 		);
 	}

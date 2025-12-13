@@ -1,5 +1,6 @@
 import mongoose, { ClientSession, Document } from "mongoose";
 import { IImage } from "types/customImages/images.types";
+import { IUser } from "../customUsers/user.types";
 
 export interface IPost extends Document {
 	publicId: string;
@@ -13,6 +14,9 @@ export interface IPost extends Document {
 	};
 	body?: string;
 	slug?: string;
+	type: "original" | "repost";
+	repostOf?: mongoose.Types.ObjectId | null;
+	repostCount: number;
 	image?: mongoose.Types.ObjectId | null;
 	tags: mongoose.Types.ObjectId[];
 	likesCount: number;
@@ -20,6 +24,8 @@ export interface IPost extends Document {
 	viewsCount: number;
 	createdAt: Date;
 	updatedAt: Date;
+	isOwnedBy(userId: mongoose.Types.ObjectId | string): boolean;
+	canBeViewedBy(user?: Pick<IUser, "isAdmin" | "isBanned" | "publicId"> | null): boolean;
 }
 
 export interface CreatePostAttachmentInput {

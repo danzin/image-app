@@ -15,7 +15,7 @@ import { FeedInteractionHandler } from "../../../events/user/feed-interaction.ha
 import { FeedService } from "../../../../services/feed.service";
 import { ClientSession } from "mongoose";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
-
+import { logger } from "../../../../utils/winston";
 @injectable()
 export class LikeActionCommandHandler implements ICommandHandler<LikeActionCommand, IPost> {
 	constructor(
@@ -124,31 +124,31 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		const postAuthor = (post as any).author;
 		let postOwnerPublicId = "";
 
-		console.log(`[LikeAction] Resolving post owner for post ${command.postId}. postOwner raw:`, postOwner);
+		logger.info(`[LikeAction] Resolving post owner for post ${command.postId}. postOwner raw:`, postOwner);
 		if (postAuthor) {
-			console.log(`[LikeAction] post.author found:`, postAuthor);
+			logger.info(`[LikeAction] post.author found:`, postAuthor);
 		}
 
 		// author.publicId if available since its embedded
 		if (postAuthor && postAuthor.publicId) {
 			postOwnerPublicId = postAuthor.publicId;
-			console.log(`[LikeAction] Resolved owner from post.author.publicId: ${postOwnerPublicId}`);
+			logger.info(`[LikeAction] Resolved owner from post.author.publicId: ${postOwnerPublicId}`);
 		} else if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
 			postOwnerPublicId = (postOwner as any).publicId.toString();
-			console.log(`[LikeAction] Resolved owner from populated object: ${postOwnerPublicId}`);
+			logger.info(`[LikeAction] Resolved owner from populated object: ${postOwnerPublicId}`);
 		} else if (postOwner) {
 			// Resolve user publicId from ObjectId
 			const ownerUser = await this.userReadRepository.findById(postOwner.toString());
 			if (ownerUser) {
 				postOwnerPublicId = ownerUser.publicId;
-				console.log(`[LikeAction] Resolved owner from DB lookup: ${postOwnerPublicId}`);
+				logger.info(`[LikeAction] Resolved owner from DB lookup: ${postOwnerPublicId}`);
 			} else {
 				console.warn(`[LikeAction] Could not find user for ObjectId: ${postOwner}`);
 			}
 		}
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userId) {
-			console.log(`[LikeAction] Creating notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
+			logger.info(`[LikeAction] Creating notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
 			await this.notificationService.createNotification({
 				receiverId: postOwnerPublicId,
 				actionType: "like",
@@ -157,7 +157,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 				session,
 			});
 		} else {
-			console.log(
+			logger.info(
 				`[LikeAction] Skipping notification. Owner: ${postOwnerPublicId}, Actor: ${command.userId}, Same? ${postOwnerPublicId === command.userId}`
 			);
 		}

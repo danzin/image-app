@@ -1,5 +1,6 @@
 export * from "./customCloudinary/cloudinary.types";
 export * from "./customComments/comments.types";
+export * from "./customComments/commentLike.types";
 export * from "./customCore/pagination.types";
 export * from "./customCore/uow.types";
 export * from "./customFollows/follows.types";

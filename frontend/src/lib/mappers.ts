@@ -54,6 +54,7 @@ function resolveSnapshot(source?: RawRecord): IPost["user"] | null {
 export function mapPost(rawInput: unknown): IPost {
 	const raw = isObject(rawInput) ? rawInput : {};
 	const normalizedUser = normalizeUserSnapshot(raw);
+	const repostSource = isObject(raw.repostOf) ? raw.repostOf : undefined;
 
 	// Extract tags (supports both string[] and ITag[])
 	const tagsSource = Array.isArray(raw.tags) ? raw.tags : [];
@@ -79,11 +80,48 @@ export function mapPost(rawInput: unknown): IPost {
 		imagePublicId = raw.imagePublicId ? String(raw.imagePublicId) : undefined;
 	}
 
+	let repostOf: IPost["repostOf"] = undefined;
+
+	if (repostSource) {
+		const repostPublicId = extractSafeString(repostSource.publicId ?? repostSource.id);
+		const repostUser = resolveSnapshot(isObject(repostSource.user) ? repostSource.user : undefined);
+		const repostImageSource = isObject(repostSource.image) ? repostSource.image : undefined;
+
+		let repostImage: { url: string; publicId: string } | null = null;
+		if (repostImageSource && typeof repostImageSource.url === "string") {
+			repostImage = {
+				url: repostImageSource.url,
+				publicId: typeof repostImageSource.publicId === "string" ? repostImageSource.publicId : "",
+			};
+		}
+
+		if (repostPublicId && repostUser) {
+			repostOf = {
+				publicId: repostPublicId,
+				user: repostUser,
+				body: extractSafeString(repostSource.body),
+				slug: extractSafeString(repostSource.slug),
+				image: repostImage,
+				likes:
+					typeof repostSource.likes === "number"
+						? repostSource.likes
+						: typeof repostSource.likesCount === "number"
+							? repostSource.likesCount
+							: 0,
+				repostCount: typeof repostSource.repostCount === "number" ? repostSource.repostCount : 0,
+				commentsCount: typeof repostSource.commentsCount === "number" ? repostSource.commentsCount : 0,
+			};
+		}
+	}
+
 	// Build the post object
 	const post: IPost = {
 		publicId: String(raw.publicId || ""),
 		slug: raw.slug ? String(raw.slug) : undefined,
 		body: raw.body ? String(raw.body) : undefined,
+		type: repostOf ? "repost" : "original",
+		repostCount: typeof raw.repostCount === "number" ? raw.repostCount : 0,
+		repostOf,
 
 		// Image data
 		image: imageUrl

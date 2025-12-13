@@ -4,6 +4,7 @@ import { performance } from "perf_hooks";
 import type { RedisClientType } from "redis";
 import { RedisService } from "../../services/redis.service";
 import { PostRepository } from "../../repositories/post.repository";
+import { logger } from "../../utils/winston";
 
 /** Handles trending feed updates and calculations
  * This worker uses a classic write-behind cache pattern. It runs the expensive mongo aggregation once
@@ -65,7 +66,7 @@ export class TrendingWorker {
 
 		// create group via helper (MKSTREAM)
 		await this.redisService.createStreamConsumerGroup(this.STREAM, this.GROUP);
-		console.info(`[trending] ensured consumer group ${this.GROUP} on ${this.STREAM}`);
+		logger.info(`[trending] ensured consumer group ${this.GROUP} on ${this.STREAM}`);
 	}
 
 	/** start reading stream and flushing batches */
@@ -74,26 +75,26 @@ export class TrendingWorker {
 		this.running = true;
 
 		this.readLoop().catch((err) => {
-			console.error("[trending] readLoop fatal error", err);
+			logger.error("[trending] readLoop fatal error", { error: err });
 		});
 
 		this.flushTimer = setInterval(() => {
-			this.flushPending().catch((err) => console.error("[trending] flushPending error", err));
+			this.flushPending().catch((err) => logger.error("[trending] flushPending error", { error: err }));
 		}, this.BATCH_WINDOW_MS);
 
 		this.reclaimTimer = setInterval(() => {
-			this.reclaimStalledMessages().catch((err) => console.error("[trending] reclaim error", err));
+			this.reclaimStalledMessages().catch((err) => logger.error("[trending] reclaim error", { error: err }));
 		}, this.RECLAIM_INTERVAL_MS);
 
 		// periodically refresh entire trending feed to catch posts without recent interactions
 		this.fullRefreshTimer = setInterval(() => {
-			this.fullRefresh().catch((err) => console.error("[trending] full refresh error", err));
+			this.fullRefresh().catch((err) => logger.error("[trending] full refresh error", { error: err }));
 		}, this.FULL_REFRESH_INTERVAL_MS);
 
 		// run initial full refresh on startup
-		this.fullRefresh().catch((err) => console.error("[trending] initial refresh error", err));
+		this.fullRefresh().catch((err) => logger.error("[trending] initial refresh error", { error: err }));
 
-		console.info(`[trending] worker started (consumer=${this.CONSUMER})`);
+		logger.info(`[trending] worker started (consumer=${this.CONSUMER})`);
 	}
 
 	/** stop reading and gracefully shutdown (flush pending) */
@@ -104,7 +105,7 @@ export class TrendingWorker {
 		if (this.fullRefreshTimer) clearInterval(this.fullRefreshTimer);
 
 		await this.flushPending();
-		console.info("[trending] worker stopped");
+		logger.info("[trending] worker stopped");
 	}
 
 	/** main read loop that consumes stream messages using XREADGROUP via clientInstance */
@@ -125,11 +126,11 @@ export class TrendingWorker {
 				for (const streamRes of responses) {
 					for (const message of streamRes.messages) {
 						// handle each message asynchronously (coalesce is sync-ish)
-						this.handleStreamMessage(message.id, message.message).catch((err) => console.error("[c", err));
+						this.handleStreamMessage(message.id, message.message).catch((err) => logger.error("[c", { error: err }));
 					}
 				}
 			} catch (err) {
-				console.error("[trending] readLoop error", err);
+				logger.error("[trending] readLoop error", { error: err });
 				await this.sleep(1000);
 			}
 		}
@@ -140,7 +141,7 @@ export class TrendingWorker {
 		const postId = fields.postId ?? fields.postPublicId ?? fields.post;
 
 		if (!postId) {
-			console.warn(`[trending] malformed message ${id} missing postId - acking`);
+			logger.warn(`[trending] malformed message ${id} missing postId - acking`);
 			await this.redisService.ackStreamMessages(this.STREAM, this.GROUP, id);
 			return;
 		}
@@ -211,7 +212,7 @@ export class TrendingWorker {
 						this.WEIGHTS.popularity * popularityScore +
 						this.WEIGHTS.comments * commentsScore;
 
-					console.log(
+					logger.info(
 						`[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
 							`recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`
 					);
@@ -240,11 +241,11 @@ export class TrendingWorker {
 				await Promise.all(updates);
 			}
 		} catch (err) {
-			console.error("[trending] flushPending failed", err);
+			logger.error("[trending] flushPending failed", { error: err });
 		} finally {
 			this.flushing = false;
 			const dur = performance.now() - start;
-			console.info(`[trending] flushed updates (${dur.toFixed(1)}ms)`);
+			logger.info(`[trending] flushed updates (${dur.toFixed(1)}ms)`);
 		}
 	}
 
@@ -282,11 +283,11 @@ export class TrendingWorker {
 				try {
 					await this.handleStreamMessage(msg.id, msg.message);
 				} catch (err) {
-					console.error("[trending] error handling reclaimed message", msg.id, err);
+					logger.error("[trending] error handling reclaimed message", { id: msg.id, error: err });
 				}
 			}
 		} catch (err) {
-			console.error("[trending] reclaimStalledMessages failed", err);
+			logger.error("[trending] reclaimStalledMessages failed", { error: err });
 		}
 	}
 
@@ -295,17 +296,21 @@ export class TrendingWorker {
 	 * This ensures posts without recent interactions still get ranked
 	 */
 	private async fullRefresh(): Promise<void> {
-		console.info("[trending] starting full refresh...");
+		logger.info("[trending] starting full refresh...");
 		const start = performance.now();
 
 		try {
 			// use the repository's trending feed aggregation to get candidate posts
 			const timeWindowDays = 14;
 			const limit = 500; // refresh top 500 posts
-			const result = await this.postRepo.getTrendingFeed(limit, 0, { timeWindowDays, minLikes: 0 });
+			const result = (await (this.postRepo as any).getTrendingFeedWithCursor({
+				limit,
+				timeWindowDays,
+				minLikes: 0,
+			})) as any;
 
 			if (!result.data || result.data.length === 0) {
-				console.warn("[trending] no posts found for full refresh");
+				logger.warn("[trending] no posts found for full refresh");
 				return;
 			}
 
@@ -350,9 +355,9 @@ export class TrendingWorker {
 			await Promise.all(updates);
 
 			const dur = performance.now() - start;
-			console.info(`[trending] full refresh completed: ${result.data.length} posts updated (${dur.toFixed(1)}ms)`);
+			logger.info(`[trending] full refresh completed: ${result.data.length} posts updated (${dur.toFixed(1)}ms)`);
 		} catch (err) {
-			console.error("[trending] full refresh failed", err);
+			logger.error("[trending] full refresh failed", { error: err });
 		}
 	}
 

@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { logger } from "../../../utils/winston";
 
 @injectable()
 export class InteractionMessageHandler implements IRealtimeMessageHandler {
@@ -21,6 +22,6 @@ export class InteractionMessageHandler implements IRealtimeMessageHandler {
 			timestamp: message.timestamp,
 		});
 
-		console.log(`Real-time interaction notification sent for ${message.actionType} on ${message.targetId}`);
+		logger.info(`Real-time interaction notification sent for ${message.actionType} on ${message.targetId}`);
 	}
 }

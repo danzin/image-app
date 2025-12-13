@@ -37,6 +37,10 @@ export class PostWriteRepository implements IPostWriteRepository {
 		return this.postRepository.updateLikeCount(postId, increment, session);
 	}
 
+	async updateRepostCount(postId: string, increment: number, session?: ClientSession): Promise<void> {
+		return this.postRepository.updateRepostCount(postId, increment, session);
+	}
+
 	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
 		return this.postRepository.deleteManyByUserId(userId, session);
 	}

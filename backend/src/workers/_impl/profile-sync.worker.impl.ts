@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { RedisService } from "../../services/redis.service";
 import { PostRepository } from "../../repositories/post.repository";
 import { UserRepository } from "../../repositories/user.repository";
+import { logger } from "../../utils/winston";
 
 interface ProfileSnapshotMessage {
 	type: "avatar_changed" | "username_changed";
@@ -42,7 +43,7 @@ export class ProfileSyncWorker {
 		this.postRepo = container.resolve(PostRepository);
 		this.userRepo = container.resolve(UserRepository);
 
-		console.info("[profile-sync] dependencies resolved");
+		logger.info("[profile-sync] dependencies resolved");
 	}
 
 	async start(): Promise<void> {
@@ -52,18 +53,18 @@ export class ProfileSyncWorker {
 		// subscribe to profile_snapshot_updates channel
 		await this.redisService.subscribe<ProfileSnapshotMessage>(["profile_snapshot_updates"], (channel, message) => {
 			this.handleMessage(message).catch((err) => {
-				console.error("[profile-sync] error handling message", err);
+				logger.error("[profile-sync] error handling message", { error: err });
 			});
 		});
 
 		// start flush timer
 		this.flushTimer = setInterval(() => {
 			this.flushPendingUpdates().catch((err) => {
-				console.error("[profile-sync] flush error", err);
+				logger.error("[profile-sync] flush error", { error: err });
 			});
 		}, this.FLUSH_INTERVAL_MS);
 
-		console.info("[profile-sync] worker started, listening on profile_snapshot_updates channel");
+		logger.info("[profile-sync] worker started, listening on profile_snapshot_updates channel");
 	}
 
 	async stop(): Promise<void> {
@@ -73,7 +74,7 @@ export class ProfileSyncWorker {
 		}
 		// flush any remaining updates
 		await this.flushPendingUpdates();
-		console.info("[profile-sync] worker stopped");
+		logger.info("[profile-sync] worker stopped");
 	}
 
 	/**
@@ -90,7 +91,7 @@ export class ProfileSyncWorker {
 	private async handleMessage(message: ProfileSnapshotMessage): Promise<void> {
 		const { type, userPublicId, avatarUrl, username } = message;
 
-		console.log(`[profile-sync] received ${type} for user ${userPublicId}`);
+		logger.info(`[profile-sync] received ${type} for user ${userPublicId}`);
 
 		// coalesce updates for same user
 		const existing = this.pendingUpdates.get(userPublicId) ?? { lastSeen: Date.now() };
@@ -121,14 +122,14 @@ export class ProfileSyncWorker {
 		const entries = Array.from(this.pendingUpdates.entries());
 		this.pendingUpdates.clear();
 
-		console.log(`[profile-sync] flushing ${entries.length} pending profile updates`);
+		logger.info(`[profile-sync] flushing ${entries.length} pending profile updates`);
 
 		for (const [userPublicId, updates] of entries) {
 			try {
 				// find user's ObjectId from publicId
 				const user = await this.userRepo.findByPublicId(userPublicId);
 				if (!user) {
-					console.warn(`[profile-sync] user not found: ${userPublicId}`);
+					logger.warn(`[profile-sync] user not found: ${userPublicId}`);
 					continue;
 				}
 
@@ -152,12 +153,11 @@ export class ProfileSyncWorker {
 
 				const modifiedCount = await this.postRepo.updateAuthorSnapshot(userObjectId, snapshotUpdates);
 
-				console.log(
-					`[profile-sync] updated ${modifiedCount} posts for user ${userPublicId}:`,
-					JSON.stringify(snapshotUpdates)
-				);
+				logger.info(`[profile-sync] updated ${modifiedCount} posts for user ${userPublicId}:`, {
+					updates: snapshotUpdates,
+				});
 			} catch (error) {
-				console.error(`[profile-sync] failed to update posts for user ${userPublicId}:`, error);
+				logger.error(`[profile-sync] failed to update posts for user ${userPublicId}:`, { error });
 			}
 		}
 	}
