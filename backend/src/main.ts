@@ -27,6 +27,7 @@ import { Server } from "./server/server";
 import { setupContainerCore, registerCQRS, initCQRS } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
 import { RealTimeFeedService } from "./services/real-time-feed.service";
+import { MetricsService } from "./metrics/metrics.service";
 
 // Global error handlers
 process.on("uncaughtException", (error: Error) => {
@@ -56,6 +57,8 @@ async function bootstrap(): Promise<void> {
 		// make sure core registrations are in place
 		setupContainerCore();
 
+		const metricsService = container.resolve<MetricsService>("MetricsService");
+
 		// Register CQRS tokens
 
 		registerCQRS();
@@ -68,8 +71,8 @@ async function bootstrap(): Promise<void> {
 		initCQRS();
 
 		// Initialize workers
-		startWorker("trending.worker");
-		startWorker("profile-sync.worker");
+		startWorker("trending.worker", metricsService);
+		startWorker("profile-sync.worker", metricsService);
 
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);
@@ -93,15 +96,20 @@ async function bootstrap(): Promise<void> {
 	}
 }
 
-function startWorker(fileName: string) {
+function startWorker(fileName: string, metricsService: MetricsService) {
 	const extension = __filename.endsWith(".ts") ? "ts" : "js";
 	const workerFilename = fileName.replace(".ts", extension).replace(".js", extension);
+	const workerLabel = fileName.replace(/\.[tj]s$/, "");
 
 	const workerPath = path.resolve(__dirname, "./workers/", workerFilename);
 
 	const worker = new Worker(workerPath, {
 		workerData: { env: process.env.NODE_ENV },
 		execArgv: __filename.endsWith(".ts") ? ["-r", "ts-node/register"] : undefined,
+	});
+
+	worker.once("online", () => {
+		metricsService.markWorkerRunning(workerLabel);
 	});
 
 	worker.on("error", (err) => {
@@ -113,13 +121,15 @@ function startWorker(fileName: string) {
 			timestamp: new Date().toISOString(),
 		});
 		logger.error(`Worker ${fileName} error:`, err);
+		metricsService.markWorkerCrashed(workerLabel);
 	});
 
 	worker.on("exit", (code) => {
 		if (code !== 0) {
 			logger.warn(`Worker ${fileName} stopped with exit code ${code}`);
-			setTimeout(() => startWorker(fileName), 5000);
+			setTimeout(() => startWorker(fileName, metricsService), 5000);
 		}
+		metricsService.markWorkerStopped(workerLabel);
 	});
 
 	logger.info(`Started worker: ${fileName}`);

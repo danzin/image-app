@@ -17,6 +17,8 @@ import { FavoriteRoutes } from "../routes/favorite.routes";
 import { MessagingRoutes } from "../routes/messaging.routes";
 import path from "path";
 import { logger } from "../utils/winston";
+import { MetricsRoutes } from "../routes/metrics.routes";
+import { MetricsService } from "../metrics/metrics.service";
 
 @injectable()
 export class Server {
@@ -46,11 +48,13 @@ export class Server {
 		private readonly notificationRoutes: NotificationRoutes,
 		@inject(FeedRoutes) private readonly feedRoutes: FeedRoutes,
 		@inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
-		@inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes
+		@inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes,
+		@inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
+		@inject("MetricsService") private readonly metricsService: MetricsService
 	) {
-		this.app = express(); // Initialize Express application
-		this.initializeMiddlewares(); // Apply middleware configurations
-		this.initializeRoutes(); // Register API routes
+		this.app = express();
+		this.initializeMiddlewares();
+		this.initializeRoutes();
 		this.initializeErrorHandling(); // Set up global error handling
 	}
 
@@ -58,6 +62,7 @@ export class Server {
 	 * Initializes middleware for the Express app.
 	 */
 	private initializeMiddlewares(): void {
+		this.app.use(this.metricsService.httpMetricsMiddleware());
 		this.app.use((req, res, next) => {
 			logger.info(`[Backend] ${req.method} ${req.originalUrl}`);
 			next();
@@ -79,6 +84,8 @@ export class Server {
 		const uploadsPath = path.join(process.cwd(), "uploads");
 		logger.info("Serving static uploads from:", uploadsPath);
 		this.app.use("/uploads", express.static(uploadsPath));
+
+		this.app.use("/metrics", this.metricsRoutes.getRouter());
 
 		// Add health check endpoint
 		this.app.get("/health", (req, res) => {
