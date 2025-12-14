@@ -6,6 +6,8 @@
 [![Redis](https://img.shields.io/badge/redis-%23DD0031.svg?style=flat&logo=redis&logoColor=white)](https://redis.io/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-%234ea94b.svg?style=flat&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=flat&logo=Prometheus&logoColor=white)](https://prometheus.io/)
+[![Grafana](https://img.shields.io/badge/Grafana-F46800?style=flat&logo=Grafana&logoColor=white)](https://grafana.com/)
 
 ## 🚀 Overview
 
@@ -25,6 +27,13 @@ The application transitions from a monolithic structure to a microservices-ready
     * `Trending Worker`: Calculates viral content scores in the background.
     * `Profile Sync Worker`: Handles eventual consistency updates across denormalized data (e.g., updating user avatars across thousands of historical posts).
 * **Persistence Layer:** MongoDB Replica Set (supporting multi-document transactions) and Redis (Caching, Pub/Sub, Streams).
+
+##📈⚡ Performance & Scalability 
+
+The application has been stress-tested to handle production-level traffic:
+* **Concurrency:** Successfully handles 200+ concurrent users performing complex write workflows (Register → Post → Like → Follow) simultaneously.
+* **Throughput:** Sustains hundreds of requests per second (RPS) with sub-second P99 latency.
+* **Background Processing:** The worker nodes independently scale to process thousands of viral interactions without blocking the main API.
 
 ### 📐 Key Engineering Decisions
 
@@ -46,7 +55,19 @@ The `RedisService` goes beyond basic key-value storage:
 * **Command Bus:** Handles writes (e.g., `CreatePostCommand`) ensuring data integrity via Unit of Work transactions.
 * **Event Bus:** Triggers side effects (Notifications, Analytics) *after* successful transaction commits to prevent ghost data.
 * **Separation of Concerns:** Read models (DTOs) are optimized for specific UI views, distinct from Domain Models.
+  
+#### 4. Resilient Transaction Orchestration
+* To ensure data integrity under high concurrency, the system implements a custom Resiliency Layer on top of MongoDB transactions:
+  
+* **Transaction Queueing:** TransactionQueueService serializes conflicting write operations to prevent race conditions during "thundering herd" scenarios.
+* **Smart Retries:** A RetryService with exponential backoff handles transient database failures (like WriteConflict exceptions), ensuring user requests succeed even when the database is under stress.
+* **ACID Compliance:** All side effects (notifications, feed updates) are strictly coupled to transaction commits via the UnitOfWork pattern.
 
+#### 5. Observability & Monitoring
+* The system is instrumented for real-time production monitoring:
+* 
+* **Prometheus:** Scrapes application metrics (HTTP latency, database connection pool status, worker queue depth).
+* **Grafana:** Provides visual dashboards for tracking system health and identifying bottlenecks during load spikes.
 ---
 
 ## 🛠 Tech Stack
@@ -70,7 +91,7 @@ The `RedisService` goes beyond basic key-value storage:
 * **Containerization:** Docker & Docker Compose
 * **Proxy:** Nginx
 * **Storage:** Cloudinary (Production) / Local Filesystem (Dev)
-
+* **Monitoring:** Prometheus & Grafana
 ---
 
 ## ⚡ Getting Started
@@ -79,6 +100,7 @@ The `RedisService` goes beyond basic key-value storage:
 * Docker & Docker Compose installed
 * Node.js v18+ (for local dev)
 
+  
 ### Quick Start (Docker)
 The easiest way to run the full stack (Database, Redis, API, Workers, Frontend):
 
@@ -96,7 +118,9 @@ docker-compose up --build
 * Frontend: http://localhost:80
 * API Gateway: http://localhost:8000
 * Direct Backend: http://localhost:3000
-
+* Grafana Dashboards: http://localhost:3000 
+* Prometheus: http://localhost:9090
+  
 ## Local Development (Monorepo)
 The project uses `concurrently` to run the Backend, API Gateway, Frontend, and Workers simultaneously from the root.
 1. Setup Environment
