@@ -28,7 +28,7 @@ The application transitions from a monolithic structure to a microservices-ready
     * `Profile Sync Worker`: Handles eventual consistency updates across denormalized data (e.g., updating user avatars across thousands of historical posts).
 * **Persistence Layer:** MongoDB Replica Set (supporting multi-document transactions) and Redis (Caching, Pub/Sub, Streams).
 
-##📈⚡ Performance & Scalability 
+## 📈⚡Performance & Scalability 
 
 The application has been stress-tested to handle production-level traffic:
 * **Concurrency:** Successfully handles 200+ concurrent users performing complex write workflows (Register → Post → Like → Follow) simultaneously.
@@ -58,14 +58,12 @@ The `RedisService` goes beyond basic key-value storage:
   
 #### 4. Resilient Transaction Orchestration
 * To ensure data integrity under high concurrency, the system implements a custom Resiliency Layer on top of MongoDB transactions:
-  
 * **Transaction Queueing:** TransactionQueueService serializes conflicting write operations to prevent race conditions during "thundering herd" scenarios.
 * **Smart Retries:** A RetryService with exponential backoff handles transient database failures (like WriteConflict exceptions), ensuring user requests succeed even when the database is under stress.
 * **ACID Compliance:** All side effects (notifications, feed updates) are strictly coupled to transaction commits via the UnitOfWork pattern.
 
 #### 5. Observability & Monitoring
 * The system is instrumented for real-time production monitoring:
-* 
 * **Prometheus:** Scrapes application metrics (HTTP latency, database connection pool status, worker queue depth).
 * **Grafana:** Provides visual dashboards for tracking system health and identifying bottlenecks during load spikes.
 ---
