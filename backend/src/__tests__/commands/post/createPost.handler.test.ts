@@ -9,21 +9,28 @@ import { CreatePostCommandHandler } from "../../../application/commands/post/cre
 
 chai.use(chaiAsPromised);
 
+// valid UUID v4 for testing
+const VALID_USER_PUBLIC_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
+const VALID_POST_PUBLIC_ID = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
+const VALID_IMAGE_PUBLIC_ID = "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f";
+
 describe("CreatePostCommandHandler", () => {
 	let handler: CreatePostCommandHandler;
 	let command: CreatePostCommand;
 	let mockUnitOfWork: {
 		executeInTransaction: SinonStub;
 	};
-	let mockPostRepository: {
+	let mockPostReadRepository: {
+		findByPublicId: SinonStub;
+	};
+	let mockPostWriteRepository: {
 		create: SinonStub;
+	};
+	let mockUserReadRepository: {
 		findByPublicId: SinonStub;
 	};
-	let mockImageRepository: {
-		findByPublicId: SinonStub;
-	};
-	let mockUserRepository: {
-		findByPublicId: SinonStub;
+	let mockUserWriteRepository: {
+		update: SinonStub;
 	};
 	let mockTagService: {
 		ensureTagsExist: SinonStub;
@@ -50,23 +57,29 @@ describe("CreatePostCommandHandler", () => {
 	let mockDTOService: {
 		toPostDTO: SinonStub;
 	};
+	let mockNotificationService: {
+		notifyFollowers: SinonStub;
+	};
 
 	beforeEach(() => {
 		mockUnitOfWork = {
 			executeInTransaction: sinon.stub(),
 		};
 
-		mockPostRepository = {
+		mockPostReadRepository = {
+			findByPublicId: sinon.stub(),
+		};
+
+		mockPostWriteRepository = {
 			create: sinon.stub(),
+		};
+
+		mockUserReadRepository = {
 			findByPublicId: sinon.stub(),
 		};
 
-		mockImageRepository = {
-			findByPublicId: sinon.stub(),
-		};
-
-		mockUserRepository = {
-			findByPublicId: sinon.stub(),
+		mockUserWriteRepository = {
+			update: sinon.stub(),
 		};
 
 		mockTagService = {
@@ -99,26 +112,32 @@ describe("CreatePostCommandHandler", () => {
 			toPostDTO: sinon.stub(),
 		};
 
+		mockNotificationService = {
+			notifyFollowers: sinon.stub(),
+		};
+
 		mockSession = {} as ClientSession;
 
 		handler = new CreatePostCommandHandler(
 			mockUnitOfWork as any,
-			mockPostRepository as any,
-			mockUserRepository as any,
+			mockPostReadRepository as any,
+			mockPostWriteRepository as any,
+			mockUserReadRepository as any,
+			mockUserWriteRepository as any,
 			mockTagService as any,
 			mockImageService as any,
 			mockRedisService as any,
 			mockDTOService as any,
 			mockEventBus as any,
-			mockPostUploadHandler as any
+			mockPostUploadHandler as any,
+			mockNotificationService as any
 		);
 
-		const imageBuffer = Buffer.from("fake-image-data");
 		command = new CreatePostCommand(
-			"user-123",
+			VALID_USER_PUBLIC_ID,
 			"Beautiful sunset at the beach #sunset #beach",
 			["nature"],
-			imageBuffer,
+			"/uploads/sunset.jpg",
 			"sunset.jpg"
 		);
 	});
@@ -129,22 +148,24 @@ describe("CreatePostCommandHandler", () => {
 
 	describe("Command Creation", () => {
 		it("should create command with correct properties", () => {
-			expect(command.userPublicId).to.equal("user-123");
+			expect(command.userPublicId).to.equal(VALID_USER_PUBLIC_ID);
 			expect(command.body).to.equal("Beautiful sunset at the beach #sunset #beach");
 			expect(command.tags).to.deep.equal(["nature"]);
-			expect(command.imageBuffer).to.be.instanceOf(Buffer);
+			expect(command.imagePath).to.equal("/uploads/sunset.jpg");
 			expect(command.imageOriginalName).to.equal("sunset.jpg");
 			expect(command.type).to.equal("CreatePostCommand");
 		});
 	});
 
 	describe("Execute Method", () => {
-		it("should throw error when user not found", async () => {
-			mockUserRepository.findByPublicId.resolves(null);
+		it("should throw error when userPublicId format is invalid", async () => {
+			const invalidCommand = new CreatePostCommand("invalid-user-id", "Test post", [], Buffer.from("test"), "test.jpg");
 
-			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
-				return await callback(mockSession);
-			});
+			await expect(handler.execute(invalidCommand)).to.be.rejectedWith("Invalid userPublicId format");
+		});
+
+		it("should throw error when user not found", async () => {
+			mockUserReadRepository.findByPublicId.resolves(null);
 
 			await expect(handler.execute(command)).to.be.rejectedWith("User not found");
 		});
@@ -152,7 +173,7 @@ describe("CreatePostCommandHandler", () => {
 		it("should create post successfully with image and tags", async () => {
 			const mockUser = {
 				_id: new Types.ObjectId(),
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockTagIds = [new Types.ObjectId(), new Types.ObjectId(), new Types.ObjectId()];
@@ -163,7 +184,7 @@ describe("CreatePostCommandHandler", () => {
 				storagePublicId: "cloudinary-id-123",
 				summary: {
 					docId: mockImageDocId,
-					publicId: "img-456",
+					publicId: VALID_IMAGE_PUBLIC_ID,
 					url: "/uploads/img-456.jpg",
 					slug: "sunset-beach-1234",
 				},
@@ -171,7 +192,7 @@ describe("CreatePostCommandHandler", () => {
 
 			const mockCreatedPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-789",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Beautiful sunset at the beach #sunset #beach",
 				user: mockUser._id,
 				image: mockImageDocId,
@@ -185,27 +206,27 @@ describe("CreatePostCommandHandler", () => {
 				...mockCreatedPost,
 				image: {
 					_id: mockImageDocId,
-					publicId: "img-456",
+					publicId: VALID_IMAGE_PUBLIC_ID,
 					url: "/uploads/img-456.jpg",
 				},
 				tags: mockTagDocs,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["sunset", "beach", "nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
 			mockImageService.createPostAttachment.resolves(mockImageResponse);
-			mockPostRepository.create.resolves(mockCreatedPost);
-			mockPostRepository.findByPublicId.resolves(mockHydratedPost);
+			mockPostWriteRepository.create.resolves(mockCreatedPost);
+			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 
 			const mockPostDTO = {
-				publicId: "post-789",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Beautiful sunset at the beach #sunset #beach",
 				slug: "sunset-beach-1234",
 				likesCount: 0,
 				commentsCount: 0,
-				user: { publicId: "user-123" },
-				image: { publicId: "img-456", url: "/uploads/img-456.jpg" },
+				user: { publicId: VALID_USER_PUBLIC_ID },
+				image: { publicId: VALID_IMAGE_PUBLIC_ID, url: "/uploads/img-456.jpg" },
 				tags: [{ tag: "nature" }],
 				createdAt: new Date(),
 			};
@@ -218,11 +239,11 @@ describe("CreatePostCommandHandler", () => {
 
 			const result = await handler.execute(command);
 
-			expect(mockUserRepository.findByPublicId.calledWith("user-123")).to.be.true;
+			expect(mockUserReadRepository.findByPublicId.calledWith(VALID_USER_PUBLIC_ID)).to.be.true;
 			expect(mockTagService.collectTagNames.called).to.be.true;
 			expect(mockTagService.ensureTagsExist.called).to.be.true;
 			expect(mockImageService.createPostAttachment.called).to.be.true;
-			expect(mockPostRepository.create.called).to.be.true;
+			expect(mockPostWriteRepository.create.called).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
 			expect(mockDTOService.toPostDTO.calledWith(mockHydratedPost)).to.be.true;
 			expect(result).to.equal(mockPostDTO);
@@ -231,14 +252,14 @@ describe("CreatePostCommandHandler", () => {
 		it("should queue PostUploadedEvent after successful creation", async () => {
 			const mockUser = {
 				_id: new Types.ObjectId(),
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockTagIds = [new Types.ObjectId()];
 			const mockTagDocs = mockTagIds.map((id) => ({ _id: id, tag: "nature" }));
 
 			const docId = new Types.ObjectId();
-			const publicId = "img-456";
+			const publicId = VALID_IMAGE_PUBLIC_ID;
 			const url = "/uploads/img-456.jpg";
 			const slug = "sunset-1234";
 
@@ -249,7 +270,7 @@ describe("CreatePostCommandHandler", () => {
 
 			const mockCreatedPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-789",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Beautiful sunset",
 				user: mockUser._id,
 				image: docId,
@@ -269,12 +290,12 @@ describe("CreatePostCommandHandler", () => {
 				tags: mockTagDocs,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
 			mockImageService.createPostAttachment.resolves(mockImageSummary);
-			mockPostRepository.create.resolves(mockCreatedPost);
-			mockPostRepository.findByPublicId.resolves(mockHydratedPost);
+			mockPostWriteRepository.create.resolves(mockCreatedPost);
+			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
