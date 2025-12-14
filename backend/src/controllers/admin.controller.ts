@@ -18,12 +18,14 @@ import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanU
 import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
 import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
 import { AdminUserDTO } from "../services/dto.service";
+import { RedisService } from "../services/redis.service";
 
 @injectable()
 export class AdminUserController {
 	constructor(
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus
+		@inject("QueryBus") private readonly queryBus: QueryBus,
+		@inject("RedisService") private readonly redisService: RedisService
 	) {}
 
 	getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
@@ -201,10 +203,6 @@ export class AdminUserController {
 			const { pattern } = req.query;
 			const patternToDelete = (pattern as string) || "all_feeds";
 
-			// use Redis service to clear cache
-			const RedisService = (await import("../services/redis.service")).RedisService;
-			const redis = new RedisService();
-
 			let deletedCount = 0;
 
 			if (patternToDelete === "all_feeds") {
@@ -212,10 +210,10 @@ export class AdminUserController {
 				const patterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*", "tag:*", "key_tags:*"];
 
 				for (const p of patterns) {
-					deletedCount += await redis.del(p);
+					deletedCount += await this.redisService.del(p);
 				}
 			} else {
-				deletedCount = await redis.del(patternToDelete);
+				deletedCount = await this.redisService.del(patternToDelete);
 			}
 
 			res.status(200).json({
