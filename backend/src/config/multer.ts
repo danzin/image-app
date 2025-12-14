@@ -1,7 +1,13 @@
 import multer from "multer";
+import fs from "fs";
 import { createError } from "../utils/errors";
 
-const storage = multer.diskStorage({ destination: "/tmp/uploads" });
+const tmpDir = "/tmp/uploads";
+if (!fs.existsSync(tmpDir)) {
+	fs.mkdirSync(tmpDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({ destination: tmpDir });
 
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
 	const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];

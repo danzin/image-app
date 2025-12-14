@@ -6,8 +6,27 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { config } from "./config.js";
+import client from "prom-client";
 
 const app = express();
+const metricsRegistry = new client.Registry();
+metricsRegistry.setDefaultLabels({ service: "api-gateway" });
+client.collectDefaultMetrics({ register: metricsRegistry, eventLoopMonitoringPrecision: 10 });
+
+const httpDuration = new client.Histogram({
+	name: "gateway_http_request_duration_seconds",
+	help: "Gateway HTTP request latency",
+	labelNames: ["method", "route", "status"],
+	buckets: [0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+	registers: [metricsRegistry],
+});
+
+const httpRequestsTotal = new client.Counter({
+	name: "gateway_http_requests_total",
+	help: "Gateway HTTP request total",
+	labelNames: ["method", "route", "status"],
+	registers: [metricsRegistry],
+});
 app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 const allowedOrigins = [
@@ -40,6 +59,28 @@ const corsOptions: cors.CorsOptions = {
 };
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
+
+const normalizeRoute = (req: Request): string => {
+	const base = req.baseUrl || "";
+	const route = req.route?.path ? `${base}${req.route.path}` : req.originalUrl.split("?")[0] || "/";
+	return route.replace(/[0-9a-fA-F]{8,}/g, ":id").replace(/\d+/g, ":id");
+};
+
+app.use((req, res, next) => {
+	const stopTimer = httpDuration.startTimer();
+	res.once("finish", () => {
+		const route = normalizeRoute(req);
+		const status = String(res.statusCode);
+		httpRequestsTotal.labels(req.method, route, status).inc();
+		stopTimer({ method: req.method, route, status });
+	});
+	next();
+});
+
+app.get("/metrics", async (_req: Request, res: Response) => {
+	res.setHeader("Content-Type", metricsRegistry.contentType);
+	res.end(await metricsRegistry.metrics());
+});
 
 // Rate Limiting
 const limiter = rateLimit({

@@ -1,9 +1,10 @@
-import { injectable } from "tsyringe";
+import { injectable, inject } from "tsyringe";
 import { createClient, RedisClientType } from "redis";
 import fs from "fs";
 import { performance } from "perf_hooks";
 import { redisLogger } from "../utils/winston";
 import { INotification } from "../types";
+import { MetricsService } from "../metrics/metrics.service";
 
 type RedisHash = { [key: string]: string | number | Buffer };
 
@@ -28,17 +29,24 @@ interface NotificationHash extends RedisHash {
 export class RedisService {
 	private client: RedisClientType;
 
-	constructor() {
+	constructor(@inject("MetricsService") private readonly metricsService: MetricsService) {
 		const runningInDocker = fs.existsSync("/.dockerenv"); // check if inside docker environment
 		const redisUrl = process.env.REDIS_URL || (runningInDocker ? "redis://redis:6379" : "redis://127.0.0.1:6379");
+
+		this.metricsService.setRedisConnectionState(false);
 
 		this.client = createClient({ url: redisUrl });
 
 		this.client.on("connect", () => {
 			redisLogger.info(`Redis connected`, { url: redisUrl });
+			this.metricsService.setRedisConnectionState(true);
 		});
 		this.client.on("error", (err) => {
 			redisLogger.error(`Redis client error`, { error: err.message, stack: err.stack });
+			this.metricsService.setRedisConnectionState(false);
+		});
+		this.client.on("end", () => {
+			this.metricsService.setRedisConnectionState(false);
 		});
 
 		this.connect();
@@ -56,6 +64,7 @@ export class RedisService {
 			redisLogger.error(`Redis connection failed`, {
 				error: error instanceof Error ? error.message : String(error),
 			});
+			this.metricsService.setRedisConnectionState(false);
 		}
 	}
 

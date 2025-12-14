@@ -33,23 +33,8 @@ export class LocalStorageService implements IImageStorageService {
 				fs.mkdirSync(userDir, { recursive: true });
 			}
 
-			// Try to move the file efficiently using rename which is O(1) if they're on the same filesystem
-			try {
-				await fs.promises.rename(filePath, destFilepath);
-			} catch (error: any) {
-				// Fallback for EXDEV if /tmp and /uploads are on different partitions in the contaner
-				if (error.code === "EXDEV") {
-					await fs.promises.copyFile(filePath, destFilepath);
-					// don't unlink here because the handler's finally block handles cleanup
-					// but since rename would remove it and copy doesnt
-					// I'll let the handler to clean up the source file if it still exists
-					// If rename succeeds, the file is gone from source.
-					// If copy succeeds, the file remains at source.
-					// The CQRS handler checks fs.existsSync(command.imagePath) before unlinking so it handles both cases
-				} else {
-					throw error;
-				}
-			}
+			// Copy instead of rename so retries can re-read the temp file if a transaction retries
+			await fs.promises.copyFile(filePath, destFilepath);
 
 			const url = `/uploads/${safeUserId}/${filename}`;
 

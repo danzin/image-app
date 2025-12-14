@@ -129,6 +129,12 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				userPublicId: command.userPublicId,
 				imageUploaded: Boolean(uploadedImagePublicId),
 			});
+		} finally {
+			if (command.imagePath && fs.existsSync(command.imagePath)) {
+				fs.unlink(command.imagePath, (err) => {
+					if (err) logger.error("Failed to delete temp file", { error: err });
+				});
+			}
 		}
 	}
 
@@ -172,32 +178,23 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			return { docId: null };
 		}
 
-		try {
-			const { storagePublicId, summary } = await this.imageService.createPostAttachment({
-				filePath: command.imagePath,
-				originalName: command.imageOriginalName || `post-${Date.now()}`,
-				userInternalId: internalUserId.toString(),
-				userPublicId: user.publicId,
-				session,
-			});
+		const { storagePublicId, summary } = await this.imageService.createPostAttachment({
+			filePath: command.imagePath,
+			originalName: command.imageOriginalName || `post-${Date.now()}`,
+			userInternalId: internalUserId.toString(),
+			userPublicId: user.publicId,
+			session,
+		});
 
-			if (storagePublicId) {
-				setUploadedId(storagePublicId);
-			}
-
-			if (!summary.docId) {
-				throw createError("UnknownError", "Image document was not created");
-			}
-
-			return summary;
-		} finally {
-			// Clean up the temporary file
-			if (command.imagePath && fs.existsSync(command.imagePath)) {
-				fs.unlink(command.imagePath, (err) => {
-					if (err) console.error("Failed to delete temp file:", err);
-				});
-			}
+		if (storagePublicId) {
+			setUploadedId(storagePublicId);
 		}
+
+		if (!summary.docId) {
+			throw createError("UnknownError", "Image document was not created");
+		}
+
+		return summary;
 	}
 
 	private async createPost(

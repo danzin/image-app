@@ -26,6 +26,9 @@ import { AvatarUpdateMessageHandler } from "../application/handlers/realtime/Ava
 import { MessageSentHandler as RealtimeMessageSentHandler } from "../application/handlers/realtime/MessageSentHandler";
 import { SearchService } from "../services/search.service";
 import { logger } from "../utils/winston";
+import { MetricsService } from "../metrics/metrics.service";
+import { RetryService } from "../services/retry.service";
+import { TransactionQueueService } from "../services/transaction-queue.service";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -36,6 +39,7 @@ export function registerServices(): void {
 		logger.info("No Cloudinary credentials detected. \r\nDefaulting to local storage.");
 	}
 
+	container.registerSingleton("MetricsService", MetricsService);
 	container.registerSingleton("SearchService", SearchService);
 	container.registerSingleton("UserService", UserService);
 	container.registerSingleton("AuthService", AuthService);
@@ -48,6 +52,8 @@ export function registerServices(): void {
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("UserActionService", UserActionService);
+	container.registerSingleton("RetryService", RetryService);
+	container.registerSingleton("TransactionQueueService", TransactionQueueService);
 
 	const realtimeHandlers = [
 		container.resolve(NewPostMessageHandler),
