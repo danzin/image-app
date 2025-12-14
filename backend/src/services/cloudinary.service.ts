@@ -2,13 +2,14 @@ import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
 import { createError } from "../utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "../types";
-import { injectable } from "tsyringe";
+import { injectable, inject } from "tsyringe";
 import { IImageStorageService } from "../types/customImageStorage/imageStorage.types";
 import { logger } from "../utils/winston";
+import { RetryService, RetryPresets } from "./retry.service";
 
 @injectable()
 export class CloudinaryService implements IImageStorageService {
-	constructor() {
+	constructor(@inject("RetryService") private readonly retryService: RetryService) {
 		cloudinary.config({
 			cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
 			api_key: process.env.CLOUDINARY_API_KEY,
@@ -21,25 +22,53 @@ export class CloudinaryService implements IImageStorageService {
 		return matches ? matches[1] : null;
 	}
 
-	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
-		return new Promise((resolve, reject) => {
-			const stream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
-				if (error) {
-					const errorName = error.name || "StorageError";
-					const errorMessage = error.message || "Error uploading image";
-					return reject(createError(errorName, errorMessage));
-				}
-				if (!result) {
-					return reject(createError("StorageError", "Upload failed, no result returned"));
-				}
-				resolve({
-					url: result.secure_url,
-					publicId: result.public_id,
-				});
-			});
+	/**
+	 * Check if an error is retryable for Cloudinary operations
+	 */
+	private isCloudinaryRetryable(error: any): boolean {
+		if (!error) return false;
+		const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+		const retryablePatterns = [
+			"timeout",
+			"econnreset",
+			"econnrefused",
+			"socket hang up",
+			"network",
+			"rate limit",
+			"too many requests",
+			"503",
+			"502",
+			"504",
+		];
+		return retryablePatterns.some((p) => message.includes(p));
+	}
 
-			fs.createReadStream(filePath).pipe(stream);
-		});
+	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
+		return this.retryService.execute(
+			() =>
+				new Promise((resolve, reject) => {
+					const stream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
+						if (error) {
+							const errorName = error.name || "StorageError";
+							const errorMessage = error.message || "Error uploading image";
+							return reject(createError(errorName, errorMessage));
+						}
+						if (!result) {
+							return reject(createError("StorageError", "Upload failed, no result returned"));
+						}
+						resolve({
+							url: result.secure_url,
+							publicId: result.public_id,
+						});
+					});
+
+					fs.createReadStream(filePath).pipe(stream);
+				}),
+			{
+				...RetryPresets.externalApi(),
+				shouldRetry: (err) => this.isCloudinaryRetryable(err),
+			}
+		);
 	}
 
 	async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
@@ -48,44 +77,53 @@ export class CloudinaryService implements IImageStorageService {
 			throw new Error("Invalid URL format");
 		}
 
-		try {
-			logger.info("URL of image about to delete:", url);
-			const assetPath = `${username}/${publicId}`;
-			const result = await cloudinary.uploader.destroy(assetPath);
-			logger.info(result);
+		return this.retryService.execute(
+			async () => {
+				logger.info("URL of image about to delete:", url);
+				const assetPath = `${username}/${publicId}`;
+				const result = await cloudinary.uploader.destroy(assetPath);
+				logger.info(result);
 
-			// Return onlythe necessary fields to make sure object doesn't get polluted with unserializable data
-			return { result: result.result };
-		} catch (error) {
-			const errorName = error instanceof Error ? error.name : "StorageError";
-			const errorMessage = error instanceof Error ? error.message : "Error deleting asset by url";
-			throw createError(errorName, errorMessage);
-		}
+				// return only the necessary fields to make sure object doesn't get polluted with unserializable data
+				return { result: result.result };
+			},
+			{
+				...RetryPresets.externalApi(),
+				shouldRetry: (err) => this.isCloudinaryRetryable(err),
+			}
+		);
 	}
 
-	//deletes image by public Id
+	// deletes image by public Id
 	async deleteImage(publicId: string): Promise<void> {
-		try {
-			cloudinary.uploader.destroy(publicId);
-		} catch (error) {
-			console.error(error);
-			const errorName = error instanceof Error ? error.name : "StorageError";
-			const errorMessage = error instanceof Error ? error.message : "Error deleting asset by id";
-			throw createError(errorName, errorMessage);
-		}
+		await this.retryService.execute(
+			async () => {
+				await cloudinary.uploader.destroy(publicId);
+			},
+			{
+				...RetryPresets.externalApi(),
+				shouldRetry: (err) => this.isCloudinaryRetryable(err),
+			}
+		);
 	}
 
-	//deletes lots of images with username prefix
+	// deletes lots of images with username prefix
 	async deleteMany(username: string): Promise<DeletionResult> {
-		try {
-			const result = await cloudinary.api.delete_resources_by_prefix(username);
-			return this.processDeleteResponse(result);
-		} catch (error) {
-			return {
-				result: "error",
+		return this.retryService
+			.execute(
+				async () => {
+					const result = await cloudinary.api.delete_resources_by_prefix(username);
+					return this.processDeleteResponse(result);
+				},
+				{
+					...RetryPresets.externalApi(),
+					shouldRetry: (err) => this.isCloudinaryRetryable(err),
+				}
+			)
+			.catch((error) => ({
+				result: "error" as const,
 				message: error instanceof Error ? error.message : "Error deleting cloudinary resources",
-			};
-		}
+			}));
 	}
 
 	/**

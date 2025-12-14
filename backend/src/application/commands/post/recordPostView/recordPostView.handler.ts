@@ -7,6 +7,7 @@ import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostW
 import { PostViewRepository } from "../../../../repositories/postView.repository";
 import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { FeedService } from "../../../../services/feed.service";
+import { TransactionQueueService } from "../../../../services/transaction-queue.service";
 import { createError } from "../../../../utils/errors";
 import { isValidPublicId } from "../../../../utils/sanitizers";
 import {
@@ -15,6 +16,7 @@ import {
 	UserNotFoundError,
 	mapPostError,
 } from "../../../errors/post.errors";
+import { logger } from "../../../../utils/winston";
 
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
@@ -23,7 +25,8 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("FeedService") private readonly feedService: FeedService
+		@inject("FeedService") private readonly feedService: FeedService,
+		@inject("TransactionQueueService") private readonly transactionQueue: TransactionQueueService
 	) {}
 
 	async execute(command: RecordPostViewCommand): Promise<boolean> {
@@ -71,12 +74,27 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 			const isNewView = await this.postViewRepository.recordView(postId, userId);
 
 			if (isNewView) {
-				await this.postWriteRepository.incrementViewCount(postId);
+				// view count increment is non-critical analytics - queue under load, execute immediately otherwise
+				// using low priority since view counts don't affect core functionality
+				this.transactionQueue
+					.executeOrQueue(
+						async () => {
+							await this.postWriteRepository.incrementViewCount(postId);
 
-				const updatedPost = await this.postReadRepository.findOneByPublicId(command.postPublicId);
-				if (updatedPost?.viewsCount !== undefined) {
-					await this.feedService.updatePostViewMeta(command.postPublicId, updatedPost.viewsCount);
-				}
+							const updatedPost = await this.postReadRepository.findOneByPublicId(command.postPublicId);
+							if (updatedPost?.viewsCount !== undefined) {
+								await this.feedService.updatePostViewMeta(command.postPublicId, updatedPost.viewsCount);
+							}
+						},
+						{ priority: "low", loadThreshold: 30 }
+					)
+					.catch((err) => {
+						// log but don't fail the request - view counts are non-critical
+						logger.warn("[RecordPostView] Failed to update view count (non-critical)", {
+							postPublicId: command.postPublicId,
+							error: err instanceof Error ? err.message : String(err),
+						});
+					});
 			}
 
 			return isNewView;
