@@ -218,4 +218,89 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const result = await this.model.deleteMany({ userId }, { session });
 		return result.deletedCount || 0;
 	}
+
+	/**
+	 * Get a comment with its ancestor chain
+	 * Returns the focused comment and all parent comments up to the root
+	 */
+	async getCommentWithAncestors(commentId: string): Promise<{
+		comment: TransformedComment | null;
+		ancestors: TransformedComment[];
+	}> {
+		const comment = await this.findByIdTransformed(commentId);
+		if (!comment) {
+			return { comment: null, ancestors: [] };
+		}
+
+		const ancestors: TransformedComment[] = [];
+		let currentParentId = comment.parentId;
+
+		// walk up the tree to collect ancestors
+		while (currentParentId) {
+			const parent = await this.findByIdTransformed(currentParentId);
+			if (!parent) break;
+			ancestors.push(parent);
+			currentParentId = parent.parentId;
+		}
+
+		// reverse so the root is first
+		ancestors.reverse();
+
+		return { comment, ancestors };
+	}
+
+	/**
+	 * Get direct replies to a comment with pagination
+	 */
+	async getCommentReplies(
+		commentId: string,
+		page: number = 1,
+		limit: number = 10
+	): Promise<{
+		comments: TransformedComment[];
+		total: number;
+		page: number;
+		limit: number;
+		totalPages: number;
+	}> {
+		const skip = (page - 1) * limit;
+
+		const [comments, total] = await Promise.all([
+			this.model
+				.find({ parentId: commentId })
+				.populate("userId", "publicId username avatar")
+				.populate("postId", "publicId")
+				.sort({ createdAt: -1 })
+				.skip(skip)
+				.limit(limit)
+				.lean<PopulatedCommentLean[]>(),
+			this.model.countDocuments({ parentId: commentId }),
+		]);
+
+		const transformedComments = comments.map((comment) => ({
+			id: comment._id.toString(),
+			content: comment.content,
+			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
+			user: {
+				publicId: comment.userId.publicId,
+				username: comment.userId.username,
+				avatar: comment.userId.avatar,
+			},
+			createdAt: comment.createdAt,
+			updatedAt: comment.updatedAt,
+			isEdited: comment.isEdited,
+		}));
+
+		return {
+			comments: transformedComments,
+			total,
+			page,
+			limit,
+			totalPages: Math.ceil(total / limit),
+		};
+	}
 }

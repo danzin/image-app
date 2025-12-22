@@ -12,16 +12,6 @@ describe("RedisService", () => {
 	beforeEach(() => {
 		metricsServiceStub = sinon.createStubInstance(MetricsService);
 
-		// We need to prevent the real client from connecting
-		// Since client is created in constructor, we might need to mock createClient if we were doing integration tests
-		// But here we just want to unit test the methods.
-		// We can instantiate the service and then replace the client property.
-
-		// Note: The constructor calls createClient().connect().catch().
-		// We should probably mock the redis module, but that's complex in this setup.
-		// Instead, we'll rely on the fact that connect() is async and we can swap the client before it does much damage,
-		// or we can just ignore the connection error in the test environment if it fails.
-
 		redisService = new RedisService(metricsServiceStub as unknown as MetricsService);
 
 		// Mock the client

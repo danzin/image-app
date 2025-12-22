@@ -17,8 +17,6 @@ import { IComment, TransformedComment } from "types/index";
 import mongoose from "mongoose";
 import { logger } from "../../../../utils/winston";
 
-const MAX_REPLY_DEPTH = 5;
-
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
 	constructor(
@@ -93,10 +91,6 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				}
 
 				const parentDepth = (parentComment as any).depth ?? 0;
-				if (parentDepth >= MAX_REPLY_DEPTH) {
-					throw createError("ValidationError", `Maximum reply depth of ${MAX_REPLY_DEPTH} reached`);
-				}
-
 				depth = parentDepth + 1;
 			}
 
