@@ -146,4 +146,43 @@ export class CommentController {
 			}
 		}
 	};
+
+	getCommentThread = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { commentId } = req.params;
+			const result = await this.commentService.getCommentThread(commentId);
+
+			if (!result.comment) {
+				next(createError("NotFoundError", "Comment not found"));
+				return;
+			}
+
+			res.json(result);
+		} catch (error) {
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
+
+	getCommentReplies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { commentId } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 10;
+
+			const maxLimit = Math.min(limit, 50);
+
+			const result = await this.commentService.getCommentReplies(commentId, page, maxLimit);
+			res.json(result);
+		} catch (error) {
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
 }

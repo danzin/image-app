@@ -52,7 +52,7 @@ describe("TransactionQueueService", () => {
 		it("should respect priority", async () => {
 			const executionOrder: string[] = [];
 
-			// We need to pause processing to queue up multiple items
+			// need to pause processing to queue up multiple items
 			transactionQueueService.stopProcessing();
 
 			const lowPriorityWork = async () => {

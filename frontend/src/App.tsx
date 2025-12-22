@@ -22,6 +22,7 @@ import Notifications from "./screens/Notifications";
 import FollowList from "./screens/FollowList";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
+import { CommentThreadView } from "./components/comments";
 
 function App() {
 	const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function App() {
 									<Route path="profile/:id/follow" element={<FollowList />} />
 									<Route path="/results" element={<SearchResults />} />
 									<Route path="posts/:id" element={<PostView />} />
+									<Route path="comments/:commentId" element={<CommentThreadView />} />
 									<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
 									<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
 									<Route path="notifications" element={<ProtectedRoute element={<Notifications />} />} />

@@ -58,6 +58,19 @@ export class CommentRoutes {
 			this.commentController.deleteComment
 		);
 
+		// Comment thread view
+		this.router.get(
+			"/comments/:commentId/thread",
+			new ValidationMiddleware({ params: commentIdSchema }).validate(),
+			this.commentController.getCommentThread
+		);
+
+		this.router.get(
+			"/comments/:commentId/replies",
+			new ValidationMiddleware({ params: commentIdSchema, query: commentsQuerySchema }).validate(),
+			this.commentController.getCommentReplies
+		);
+
 		// User comments
 		this.router.get(
 			"/users/:publicId/comments",
