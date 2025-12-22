@@ -86,3 +86,24 @@ export const toggleCommentLike = async (commentId: string): Promise<CommentLikeR
 	const response = await axiosClient.post(`${BASE_URL}/comments/${commentId}/like`);
 	return response.data;
 };
+
+export interface CommentThreadResponse {
+	comment: IComment;
+	ancestors: IComment[];
+}
+
+export const getCommentThread = async (commentId: string): Promise<CommentThreadResponse> => {
+	const response = await axiosClient.get(`${BASE_URL}/comments/${commentId}/thread`);
+	return response.data;
+};
+
+export const getCommentDirectReplies = async (
+	commentId: string,
+	page: number = 1,
+	limit: number = 10
+): Promise<CommentsPaginationResponse> => {
+	const response = await axiosClient.get(`${BASE_URL}/comments/${commentId}/replies`, {
+		params: { page, limit },
+	});
+	return response.data;
+};

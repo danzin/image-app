@@ -9,19 +9,28 @@ import { DeletePostCommandHandler } from "../../../application/commands/post/del
 
 chai.use(chaiAsPromised);
 
+// valid UUID v4 for testing
+const VALID_USER_PUBLIC_ID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d";
+const VALID_POST_PUBLIC_ID = "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e";
+
 describe("DeletePostCommandHandler", () => {
 	let handler: DeletePostCommandHandler;
 	let command: DeletePostCommand;
 	let mockUnitOfWork: {
 		executeInTransaction: SinonStub;
 	};
-	let mockPostRepository: {
+	let mockPostReadRepository: {
 		findByPublicId: SinonStub;
+	};
+	let mockPostWriteRepository: {
 		delete: SinonStub;
 	};
-	let mockUserRepository: {
+	let mockUserReadRepository: {
 		findByPublicId: SinonStub;
 		findById: SinonStub;
+	};
+	let mockUserWriteRepository: {
+		update: SinonStub;
 	};
 	let mockCommentRepository: {
 		deleteCommentsByPostId: SinonStub;
@@ -48,14 +57,21 @@ describe("DeletePostCommandHandler", () => {
 			executeInTransaction: sinon.stub(),
 		};
 
-		mockPostRepository = {
+		mockPostReadRepository = {
 			findByPublicId: sinon.stub(),
+		};
+
+		mockPostWriteRepository = {
 			delete: sinon.stub(),
 		};
 
-		mockUserRepository = {
+		mockUserReadRepository = {
 			findByPublicId: sinon.stub(),
 			findById: sinon.stub(),
+		};
+
+		mockUserWriteRepository = {
+			update: sinon.stub(),
 		};
 
 		mockCommentRepository = {
@@ -85,8 +101,10 @@ describe("DeletePostCommandHandler", () => {
 
 		handler = new DeletePostCommandHandler(
 			mockUnitOfWork as any,
-			mockPostRepository as any,
-			mockUserRepository as any,
+			mockPostReadRepository as any,
+			mockPostWriteRepository as any,
+			mockUserReadRepository as any,
+			mockUserWriteRepository as any,
 			mockCommentRepository as any,
 			mockTagService as any,
 			mockImageService as any,
@@ -94,7 +112,7 @@ describe("DeletePostCommandHandler", () => {
 			mockEventBus as any
 		);
 
-		command = new DeletePostCommand("post-123", "user-123");
+		command = new DeletePostCommand(VALID_POST_PUBLIC_ID, VALID_USER_PUBLIC_ID);
 	});
 
 	afterEach(() => {
@@ -103,15 +121,15 @@ describe("DeletePostCommandHandler", () => {
 
 	describe("Command Creation", () => {
 		it("should create command with correct properties", () => {
-			expect(command.postPublicId).to.equal("post-123");
-			expect(command.requesterPublicId).to.equal("user-123");
+			expect(command.postPublicId).to.equal(VALID_POST_PUBLIC_ID);
+			expect(command.requesterPublicId).to.equal(VALID_USER_PUBLIC_ID);
 			expect(command.type).to.equal("DeletePostCommand");
 		});
 	});
 
 	describe("Execute Method", () => {
 		it("should throw error when post not found", async () => {
-			mockPostRepository.findByPublicId.resolves(null);
+			mockPostReadRepository.findByPublicId.resolves(null);
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -125,15 +143,15 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: new Types.ObjectId(),
 				tags: [],
 				user: mockUserId,
 			};
 
-			mockPostRepository.findByPublicId.resolves(mockPost);
-			mockUserRepository.findByPublicId.resolves(null);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(null);
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -149,24 +167,24 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: mockImageId,
 				tags: mockTagIds,
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockTagService.decrementUsage.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 			mockImageService.removePostAttachment.resolves({ removed: true });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
@@ -175,11 +193,11 @@ describe("DeletePostCommandHandler", () => {
 
 			const result = await handler.execute(command);
 
-			expect(mockPostRepository.findByPublicId.calledWith("post-123")).to.be.true;
-			expect(mockUserRepository.findByPublicId.calledWith("user-123")).to.be.true;
+			expect(mockPostReadRepository.findByPublicId.calledWith(VALID_POST_PUBLIC_ID)).to.be.true;
+			expect(mockUserReadRepository.findByPublicId.calledWith(VALID_USER_PUBLIC_ID)).to.be.true;
 			expect(mockImageService.removePostAttachment.called).to.be.true;
 			expect(mockTagService.decrementUsage.calledWith(mockTagIds, mockSession)).to.be.true;
-			expect(mockPostRepository.delete.called).to.be.true;
+			expect(mockPostWriteRepository.delete.called).to.be.true;
 			expect(mockCommentRepository.deleteCommentsByPostId.called).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
 			expect(result).to.have.property("message");
@@ -191,23 +209,23 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: null,
 				tags: mockTagIds,
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 			mockTagService.decrementUsage.resolves();
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
@@ -218,7 +236,7 @@ describe("DeletePostCommandHandler", () => {
 
 			expect(mockImageService.removePostAttachment.called).to.be.false;
 			expect(mockTagService.decrementUsage.calledWith(mockTagIds, mockSession)).to.be.true;
-			expect(mockPostRepository.delete.called).to.be.true;
+			expect(mockPostWriteRepository.delete.called).to.be.true;
 		});
 
 		it("should handle post without tags", async () => {
@@ -226,23 +244,23 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: new Types.ObjectId(),
 				tags: [],
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 			mockImageService.removePostAttachment.resolves({ removed: true });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
@@ -252,7 +270,7 @@ describe("DeletePostCommandHandler", () => {
 			await handler.execute(command);
 
 			expect(mockTagService.decrementUsage.called).to.be.false;
-			expect(mockPostRepository.delete.called).to.be.true;
+			expect(mockPostWriteRepository.delete.called).to.be.true;
 		});
 
 		it("should continue post deletion even if image deletion fails", async () => {
@@ -261,23 +279,23 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: new Types.ObjectId(),
 				tags: mockTagIds,
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 			mockTagService.decrementUsage.resolves();
 			mockImageService.removePostAttachment.rejects(new Error("Image service unavailable"));
 
@@ -287,7 +305,7 @@ describe("DeletePostCommandHandler", () => {
 
 			const result = await handler.execute(command);
 
-			expect(mockPostRepository.delete.called).to.be.true;
+			expect(mockPostWriteRepository.delete.called).to.be.true;
 			expect(mockTagService.decrementUsage.called).to.be.true;
 			expect(result).to.have.property("message", "Post deleted successfully");
 		});
@@ -297,24 +315,24 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: new Types.ObjectId(),
 				tags: [new Types.ObjectId()],
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockTagService.decrementUsage.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 			mockImageService.removePostAttachment.resolves({ removed: true });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
@@ -331,23 +349,23 @@ describe("DeletePostCommandHandler", () => {
 
 			const mockUser = {
 				_id: mockUserId,
-				publicId: "user-123",
+				publicId: VALID_USER_PUBLIC_ID,
 			};
 
 			const mockPost = {
 				_id: new Types.ObjectId(),
-				publicId: "post-123",
+				publicId: VALID_POST_PUBLIC_ID,
 				body: "Test post",
 				image: null,
 				tags: [],
 				user: mockUserId,
 			};
 
-			mockUserRepository.findByPublicId.resolves(mockUser);
-			mockUserRepository.findById.resolves(mockUser);
-			mockPostRepository.findByPublicId.resolves(mockPost);
+			mockUserReadRepository.findByPublicId.resolves(mockUser);
+			mockUserReadRepository.findById.resolves(mockUser);
+			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
-			mockPostRepository.delete.resolves();
+			mockPostWriteRepository.delete.resolves();
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -355,7 +373,7 @@ describe("DeletePostCommandHandler", () => {
 
 			await handler.execute(command);
 
-			expect(mockRedisService.invalidateByTags.calledWith([`user_feed:user-123`])).to.be.true;
+			expect(mockRedisService.invalidateByTags.calledWith([`user_feed:${VALID_USER_PUBLIC_ID}`])).to.be.true;
 		});
 	});
 });

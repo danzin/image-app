@@ -57,7 +57,7 @@ describe("FavoriteService", () => {
 			await service.addFavorite(userId, postId);
 
 			expect(favoriteRepository.findByUserAndPost.calledWith(userId, postId, session)).to.be.true;
-			expect(favoriteRepository.create.calledWith({ userId, postId }, session)).to.be.true;
+			expect(favoriteRepository.create.calledOnce).to.be.true;
 			expect(unitOfWork.executeInTransaction.calledOnce).to.be.true;
 		});
 

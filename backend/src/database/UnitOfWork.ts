@@ -90,7 +90,7 @@ export class UnitOfWork {
 		if (!mongoose.connection.readyState) {
 			throw new Error("Database connection not established");
 		}
-		// allow up to 50 concurrent transactions (tune based on MongoDB capacity)
+		// allow up to 50 concurrent transactions
 		const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_TRANSACTIONS || "50", 10);
 		this.transactionSemaphore = new Semaphore(maxConcurrent);
 	}

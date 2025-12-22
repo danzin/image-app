@@ -173,6 +173,24 @@ export class CommentService {
 		return await this.commentRepository.deleteCommentsByPostId(postId, session);
 	}
 
+	/**
+	 * Get a single comment with its ancestor chain
+	 */
+	async getCommentThread(commentId: string) {
+		return await this.commentRepository.getCommentWithAncestors(commentId);
+	}
+
+	/**
+	 * Get direct replies to a comment
+	 */
+	async getCommentReplies(commentId: string, page: number = 1, limit: number = 10) {
+		const comment = await this.commentRepository.findById(commentId);
+		if (!comment) {
+			throw createError("NotFoundError", "Comment not found");
+		}
+		return await this.commentRepository.getCommentReplies(commentId, page, limit);
+	}
+
 	// extracts internal user id from IPost.user which can be ObjectId or populated object
 	private extractUserInternalId(user: PostUserField): string {
 		if (!user) return "";

@@ -7,15 +7,10 @@ import SaveIcon from "@mui/icons-material/Save";
 import CancelIcon from "@mui/icons-material/Cancel";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { IComment } from "../../types";
 import { useAuth } from "../../hooks/context/useAuth";
-import {
-	useUpdateComment,
-	useDeleteComment,
-	useCommentReplies,
-	useCreateComment,
-	useLikeComment,
-} from "../../hooks/comments/useComments";
+import { useUpdateComment, useDeleteComment, useCreateComment, useLikeComment } from "../../hooks/comments/useComments";
 import { useNavigate } from "react-router";
 import RichText from "../RichText";
 
@@ -30,7 +25,6 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const [editContent, setEditContent] = useState(comment.content);
 
 	// Reply state
-	const [showReplies, setShowReplies] = useState(false);
 	const [showReplyForm, setShowReplyForm] = useState(false);
 	const [replyContent, setReplyContent] = useState("");
 
@@ -41,18 +35,11 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const createCommentMutation = useCreateComment();
 	const likeCommentMutation = useLikeComment();
 
-	const {
-		data: repliesData,
-		fetchNextPage,
-		hasNextPage,
-		isFetchingNextPage,
-		isLoading: isLoadingReplies,
-	} = useCommentReplies(comment.postPublicId, comment.id, 5);
-
 	const isOwner = user?.publicId === comment.user.publicId;
 	const isMenuOpen = Boolean(anchorEl);
 
 	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
+		event.stopPropagation();
 		setAnchorEl(event.currentTarget);
 	};
 
@@ -73,13 +60,13 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 			});
 			setReplyContent("");
 			setShowReplyForm(false);
-			setShowReplies(true);
 		} catch (error) {
 			console.error("Failed to post reply:", error);
 		}
 	};
 
-	const handleLike = async () => {
+	const handleLike = async (e: React.MouseEvent) => {
+		e.stopPropagation();
 		try {
 			await likeCommentMutation.mutateAsync({
 				commentId: comment.id,
@@ -128,6 +115,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				await deleteCommentMutation.mutateAsync({
 					commentId: comment.id,
 					postPublicId: comment.postPublicId,
+					parentId: comment.parentId,
 				});
 			} catch (error) {
 				console.error("Failed to delete comment:", error);
@@ -152,13 +140,33 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 		}
 	};
 
+	// Navigate to thread view when clicking on a comment with replies
+	const handleCommentClick = () => {
+		if ((comment.replyCount || 0) > 0) {
+			navigate(`/comments/${comment.id}`);
+		}
+	};
+
 	return (
-		<Box sx={{ display: "flex", gap: 1, py: 1 }}>
+		<Box
+			sx={{
+				display: "flex",
+				gap: 1,
+				py: 1,
+				cursor: (comment.replyCount || 0) > 0 ? "pointer" : "default",
+				"&:hover": (comment.replyCount || 0) > 0 ? { bgcolor: "action.hover" } : {},
+				borderRadius: 1,
+			}}
+			onClick={handleCommentClick}
+		>
 			<Avatar
 				src={comment.user.avatar}
 				alt={comment.user.username}
 				sx={{ width: 32, height: 32, cursor: "pointer" }}
-				onClick={() => navigate(`/profile/${comment.user?.publicId}`)}
+				onClick={(e) => {
+					e.stopPropagation();
+					navigate(`/profile/${comment.user?.publicId}`);
+				}}
 			>
 				{comment.user?.avatar ? (
 					<img
@@ -196,7 +204,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				</Box>
 
 				{isEditing ? (
-					<Stack spacing={1}>
+					<Stack spacing={1} onClick={(e) => e.stopPropagation()}>
 						<TextField
 							fullWidth
 							multiline
@@ -237,7 +245,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				)}
 
 				{/* Actions */}
-				<Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 0.5 }}>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 2, mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
 						<IconButton size="small" onClick={handleLike} sx={{ p: 0.5 }}>
 							{comment.isLikedByViewer ? (
@@ -255,15 +263,39 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					<Typography
 						variant="caption"
 						sx={{ cursor: "pointer", fontWeight: 600, color: "text.secondary" }}
-						onClick={() => setShowReplyForm(!showReplyForm)}
+						onClick={(e) => {
+							e.stopPropagation();
+							setShowReplyForm(!showReplyForm);
+						}}
 					>
 						Reply
 					</Typography>
+					{/* Show reply count - clicking navigates to thread */}
+					{(comment.replyCount || 0) > 0 && (
+						<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+							<ChatBubbleOutlineIcon fontSize="small" sx={{ color: "text.secondary" }} />
+							<Typography
+								variant="caption"
+								sx={{
+									color: "primary.main",
+									fontWeight: 600,
+									cursor: "pointer",
+									"&:hover": { textDecoration: "underline" },
+								}}
+								onClick={(e) => {
+									e.stopPropagation();
+									navigate(`/comments/${comment.id}`);
+								}}
+							>
+								{comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
+							</Typography>
+						</Box>
+					)}
 				</Box>
 
 				{/* Reply Form */}
 				{showReplyForm && (
-					<Box sx={{ mt: 1, mb: 2 }}>
+					<Box sx={{ mt: 1, mb: 2 }} onClick={(e) => e.stopPropagation()}>
 						<TextField
 							fullWidth
 							size="small"
@@ -287,51 +319,6 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 						</Box>
 					</Box>
 				)}
-
-				{/* View Replies Button */}
-				{(comment.replyCount || 0) > 0 && (
-					<Box sx={{ mt: 1 }}>
-						<Typography
-							variant="caption"
-							sx={{
-								cursor: "pointer",
-								color: "primary.main",
-								fontWeight: 600,
-								display: "flex",
-								alignItems: "center",
-								gap: 0.5,
-							}}
-							onClick={() => setShowReplies(!showReplies)}
-						>
-							{showReplies ? "Hide replies" : `View ${comment.replyCount} replies`}
-						</Typography>
-					</Box>
-				)}
-
-				{/* Replies List */}
-				{showReplies && (
-					<Box sx={{ mt: 1, pl: 2, borderLeft: "2px solid #eee" }}>
-						{isLoadingReplies ? (
-							<Typography variant="caption">Loading replies...</Typography>
-						) : (
-							<>
-								{repliesData?.pages.map((page) =>
-									page.comments.map((reply) => <CommentItem key={reply.id} comment={reply} />)
-								)}
-								{hasNextPage && (
-									<Button
-										size="small"
-										onClick={() => fetchNextPage()}
-										disabled={isFetchingNextPage}
-										sx={{ mt: 1, textTransform: "none" }}
-									>
-										{isFetchingNextPage ? "Loading..." : "Load more replies"}
-									</Button>
-								)}
-							</>
-						)}
-					</Box>
-				)}
 			</Box>
 
 			<Menu
@@ -340,6 +327,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				onClose={handleMenuClose}
 				transformOrigin={{ horizontal: "right", vertical: "top" }}
 				anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+				onClick={(e) => e.stopPropagation()}
 			>
 				<MenuItem onClick={handleEdit}>
 					<EditIcon fontSize="small" sx={{ mr: 1 }} />
