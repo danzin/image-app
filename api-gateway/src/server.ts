@@ -27,6 +27,7 @@ const httpRequestsTotal = new client.Counter({
 	labelNames: ["method", "route", "status"],
 	registers: [metricsRegistry],
 });
+
 app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 const allowedOrigins = [
@@ -163,8 +164,6 @@ app.use("/api", apiProxy);
 // Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
 console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
 app.use("/socket.io", apiProxy);
-
-// Health check
 
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
