@@ -2,7 +2,8 @@ import { injectable } from "tsyringe";
 import client from "prom-client";
 import type { Request, Response, NextFunction, RequestHandler } from "express";
 
-/** manages prometheus metrics for the backend including http requests,
+/**
+ * manages prometheus metrics for the backend including http requests,
  *  worker status, and external service health
  */
 @injectable()
