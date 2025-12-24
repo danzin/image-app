@@ -70,7 +70,7 @@ async function bootstrap(): Promise<void> {
 		// Now that DB connection is established, resolve & wire CQRS handlers (buses, handlers, subscriptions).
 		initCQRS();
 
-		// Initialize workers
+		// Start worker threads
 		startWorker("trending.worker", metricsService);
 		startWorker("profile-sync.worker", metricsService);
 
