@@ -28,7 +28,7 @@ export class RequestPasswordResetHandler implements ICommandHandler<RequestPassw
 
 		try {
 			await this.resend.emails.send({
-				from: "support@ascendance.social",
+				from: "noreply@ascendance.social",
 				to: user.email,
 				subject: "Password Reset Request",
 				html: `<p>You requested a password reset. Click <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}">here</a> to reset your password.</p>`,
