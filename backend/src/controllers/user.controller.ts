@@ -30,6 +30,7 @@ import { GetFollowersResult } from "../application/queries/users/getFollowers/ge
 import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
 import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
 import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
+import { ResetPasswordCommand } from "../application/commands/users/resetPassword/ResetPasswordCommand";
 
 import { logger } from "../utils/winston";
 
@@ -364,6 +365,17 @@ export class UserController {
 			const command = new RequestPasswordResetCommand(email);
 			await this.commandBus.dispatch(command);
 			res.status(200).json({ message: "If an account with that email exists, a password reset link has been sent." });
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { token, newPassword } = req.body;
+			const command = new ResetPasswordCommand(token, newPassword);
+			await this.commandBus.dispatch(command);
+			res.status(200).json({ message: "Password reset successful" });
 		} catch (error) {
 			next(error);
 		}

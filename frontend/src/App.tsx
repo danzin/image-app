@@ -21,6 +21,7 @@ import Messages from "./screens/Messages";
 import Notifications from "./screens/Notifications";
 import FollowList from "./screens/FollowList";
 import ForgotPassword from "./screens/ForgotPassword";
+import ResetPassword from "./screens/ResetPassword";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { CommentThreadView } from "./components/comments";
@@ -42,6 +43,7 @@ function App() {
 									<Route path="discover" element={<Discovery />} />
 									<Route path="login" element={<Login />} />
 									<Route path="forgot-password" element={<ForgotPassword />} />
+									<Route path="reset-password" element={<ResetPassword />} />
 									<Route path="register" element={<Register />} />
 									<Route path="profile/:id" element={<Profile />} />
 									<Route path="profile/:id/follow" element={<FollowList />} />
