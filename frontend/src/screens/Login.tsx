@@ -1,9 +1,9 @@
 import React, { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink, useNavigate } from "react-router-dom";
 import { useLogin } from "../hooks/user/useUserLogin";
 import AuthForm from "../components/AuthForm";
 import { ToastContainer } from "react-toastify";
-import { Box, Container } from "@mui/material";
+import { Box, Container, Link, Typography } from "@mui/material";
 
 const Login: React.FC = () => {
 	const navigate = useNavigate();
@@ -46,6 +46,11 @@ const Login: React.FC = () => {
 					linkText="Don't have an account? Sign Up"
 					linkTo="/register"
 				/>
+				<Box sx={{ mt: 2, textAlign: "center" }}>
+					<Link component={RouterLink} to="/forgot-password" underline="hover">
+						<Typography variant="body2">Forgot your password?</Typography>
+					</Link>
+				</Box>
 			</Container>
 			<ToastContainer />
 		</Box>

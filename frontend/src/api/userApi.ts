@@ -185,3 +185,11 @@ export const fetchFollowing = async (
 	const { data } = await axiosClient.get(`/api/users/${userPublicId}/following?page=${page}&limit=${limit}`);
 	return data;
 };
+
+export const requestPasswordReset = async (payload: { email: string }): Promise<void> => {
+	await axiosClient.post("/api/users/forgot-password", payload);
+};
+
+export const resetPassword = async (payload: { token: string; newPassword: string }): Promise<void> => {
+	await axiosClient.post("/api/users/reset-password", payload);
+};

@@ -63,3 +63,18 @@ export const changePasswordSchema = z
 	})
 	.strict()
 	.transform(sanitizeForMongo);
+
+export const requestPasswordResetSchema = z
+	.object({
+		email: z.string().email(),
+	})
+	.strict()
+	.transform(sanitizeForMongo);
+
+export const resetPasswordSchema = z
+	.object({
+		token: z.string().min(1),
+		newPassword: z.string().min(8),
+	})
+	.strict()
+	.transform(sanitizeForMongo);

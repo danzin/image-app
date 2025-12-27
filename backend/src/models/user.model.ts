@@ -90,6 +90,8 @@ const userSchema = new Schema<IUser>(
 			default: 0,
 			required: true,
 		},
+		resetToken: { type: String, select: false },
+		resetTokenExpires: { type: Date, select: false },
 	},
 	{
 		timestamps: true,
