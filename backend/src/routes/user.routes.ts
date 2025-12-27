@@ -10,6 +10,8 @@ import {
 	publicIdSchema,
 	updateProfileSchema,
 	changePasswordSchema,
+	requestPasswordResetSchema,
+	resetPasswordSchema,
 } from "../utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
 
@@ -36,6 +38,18 @@ export class UserRoutes {
 		this.router.post("/login", new ValidationMiddleware({ body: loginSchema }).validate(), this.userController.login);
 
 		this.router.post("/logout", this.userController.logout);
+
+		this.router.post(
+			"/forgot-password",
+			new ValidationMiddleware({ body: requestPasswordResetSchema }).validate(),
+			this.userController.requestPasswordReset
+		);
+
+		this.router.post(
+			"/reset-password",
+			new ValidationMiddleware({ body: resetPasswordSchema }).validate(),
+			this.userController.resetPassword
+		);
 
 		// Public user data endpoints
 		this.router.get("/users", this.userController.getUsers);

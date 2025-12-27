@@ -19,6 +19,9 @@ export interface IUser extends Document {
 	postCount?: number;
 	followerCount?: number;
 	followingCount?: number;
+	resetToken?: string;
+	resetTokenExpires?: Date;
+
 	comparePassword(candidatePassword: string): Promise<boolean>;
 	canViewPost(post: Pick<IPost, "canBeViewedBy" | "user" | "author">): boolean;
 }

@@ -163,6 +163,18 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
+	async findByResetToken(token: string, session?: ClientSession): Promise<IUser | null> {
+		try {
+			const query = this.model
+				.findOne({ resetToken: token, resetTokenExpires: { $gt: new Date() } })
+				.select("+password +resetToken +resetTokenExpires");
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
 	/**
 	 * Retrieves paginated users from the database.
 	 * @param options - Pagination options (page, limit, sorting).

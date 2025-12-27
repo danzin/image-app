@@ -155,7 +155,6 @@ export function mapPost(rawInput: unknown): IPost {
 export function mapImage(rawInput: unknown): IImage {
 	const post = mapPost(rawInput);
 
-	// Ensure url is present for IImage interface
 	if (!post.url) {
 		console.warn("mapImage called on post without image:", post.publicId);
 	}
