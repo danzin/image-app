@@ -3,7 +3,7 @@ import { ICommandHandler } from "../../../common/interfaces/command-handler.inte
 import { RequestPasswordResetCommand } from "./RequestPasswordResetCommand";
 import { UserRepository } from "../../../../repositories/user.repository";
 import { createError } from "../../../../utils/errors";
-import { Resend } from "resend"; // Ensure you have installed 'resend' package
+import { Resend } from "resend";
 import crypto from "crypto";
 
 @injectable()
