@@ -20,6 +20,7 @@ import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
 import Notifications from "./screens/Notifications";
 import FollowList from "./screens/FollowList";
+import ForgotPassword from "./screens/ForgotPassword";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { CommentThreadView } from "./components/comments";
@@ -40,6 +41,7 @@ function App() {
 									<Route index element={<Home />} />
 									<Route path="discover" element={<Discovery />} />
 									<Route path="login" element={<Login />} />
+									<Route path="forgot-password" element={<ForgotPassword />} />
 									<Route path="register" element={<Register />} />
 									<Route path="profile/:id" element={<Profile />} />
 									<Route path="profile/:id/follow" element={<FollowList />} />

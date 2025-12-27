@@ -113,6 +113,8 @@ import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAd
 import { PromoteToAdminCommandHandler } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.handler";
 import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
 import { DemoteFromAdminCommandHandler } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.handler";
+import { RequestPasswordResetHandler } from "../application/commands/users/requestPasswordReset/RequestPasswordResetHandler";
+import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
 
 export function registerCQRS(): void {
 	container.registerSingleton("CommandBus", CommandBus);
@@ -151,6 +153,7 @@ export function registerCQRS(): void {
 	container.register("UserUsernameChangedHandler", { useClass: UserUsernameChangedHandler });
 	container.register("UserCoverChangedHandler", { useClass: UserCoverChangedHandler });
 	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
+	container.register("RequestPasswordResetHandler", { useClass: RequestPasswordResetHandler });
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
@@ -222,6 +225,12 @@ export function initCQRS(): void {
 		ChangePasswordCommand,
 		container.resolve<ChangePasswordCommandHandler>("ChangePasswordCommandHandler")
 	);
+
+	commandBus.register(
+		RequestPasswordResetCommand,
+		container.resolve<RequestPasswordResetHandler>("RequestPasswordResetHandler")
+	);
+
 	commandBus.register(BanUserCommand, container.resolve<BanUserCommandHandler>("BanUserCommandHandler"));
 	commandBus.register(UnbanUserCommand, container.resolve<UnbanUserCommandHandler>("UnbanUserCommandHandler"));
 	commandBus.register(

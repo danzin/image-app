@@ -37,6 +37,8 @@ export class UserRoutes {
 
 		this.router.post("/logout", this.userController.logout);
 
+		this.router.post("/forgot-password", this.userController.requestPasswordReset);
+
 		// Public user data endpoints
 		this.router.get("/users", this.userController.getUsers);
 

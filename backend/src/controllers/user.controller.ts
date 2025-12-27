@@ -29,6 +29,8 @@ import { GetFollowersQuery } from "../application/queries/users/getFollowers/get
 import { GetFollowersResult } from "../application/queries/users/getFollowers/getFollowers.handler";
 import { GetFollowingQuery } from "../application/queries/users/getFollowing/getFollowing.query";
 import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
+import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
+
 import { logger } from "../utils/winston";
 
 /**
@@ -299,9 +301,6 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get a user's followers list (paginated)
-	 */
 	getFollowers = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
@@ -321,9 +320,6 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Get a user's following list (paginated)
-	 */
 	getFollowing = async (req: Request, res: Response): Promise<void> => {
 		try {
 			const { publicId } = req.params;
@@ -343,9 +339,6 @@ export class UserController {
 		}
 	};
 
-	/**
-	 * Delete current user's account (self-deletion)
-	 */
 	deleteMyAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const userPublicId = req.decodedUser?.publicId;
@@ -365,7 +358,17 @@ export class UserController {
 		}
 	};
 
-	// user getters
+	requestPasswordReset = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { email } = req.body;
+			const command = new RequestPasswordResetCommand(email);
+			await this.commandBus.dispatch(command);
+			res.status(200).json({ message: "If an account with that email exists, a password reset link has been sent." });
+		} catch (error) {
+			next(error);
+		}
+	};
+
 	getUsers = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const options = { ...req.query } as any;
@@ -377,7 +380,6 @@ export class UserController {
 		}
 	};
 
-	// User actions
 	likeActionByPublicId = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			let { publicId } = req.params;
@@ -403,7 +405,6 @@ export class UserController {
 		}
 	};
 
-	// Get suggested users to follow
 	getWhoToFollow = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { decodedUser } = req;
