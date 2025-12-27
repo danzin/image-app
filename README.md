@@ -143,8 +143,9 @@ npm run dev
 
 ## 🛡 Security Features
 
-* JWT Authentication: Secure, HTTP-only cookie-based auth strategy.
-* Rate Limiting: IP-based throttling at the API Gateway level.
-* Input Sanitization: Custom sanitizers for NoSQL injection and XSS prevention.
-* Role-Based Access Control (RBAC): Middleware-enforced Admin and User roles.
+* **JWT Authentication:** Secure, HTTP-only cookie-based auth strategy.
+* **Rate Limiting:** IP-based throttling at the API Gateway level.
+* **Secure Recovery:** Token-based Password Reset flow with short-lived expiry (via Resend). 
+* **Input Sanitization:** Custom sanitizers for NoSQL injection and XSS prevention.
+* **Role-Based Access Control (RBAC):** Middleware-enforced Admin and User roles.
 
