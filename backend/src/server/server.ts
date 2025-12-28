@@ -62,6 +62,7 @@ export class Server {
 	 * Initializes middleware for the Express app.
 	 */
 	private initializeMiddlewares(): void {
+		this.app.set("trust proxy", 1);
 		this.app.use(this.metricsService.httpMetricsMiddleware());
 		this.app.use((req, res, next) => {
 			logger.info(`[Backend] ${req.method} ${req.originalUrl}`);

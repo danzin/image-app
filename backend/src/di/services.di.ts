@@ -1,7 +1,6 @@
 import { container } from "tsyringe";
 
 import { CloudinaryService } from "../services/cloudinary.service";
-import { UserService } from "../services/user.service";
 import { AuthService } from "../services/auth.service";
 import { ImageService } from "../services/image.service";
 import { CommentService } from "../services/comment.service";
@@ -41,7 +40,6 @@ export function registerServices(): void {
 
 	container.registerSingleton("MetricsService", MetricsService);
 	container.registerSingleton("SearchService", SearchService);
-	container.registerSingleton("UserService", UserService);
 	container.registerSingleton("AuthService", AuthService);
 	container.registerSingleton("ImageService", ImageService);
 	container.registerSingleton("CommentService", CommentService);

@@ -1,0 +1,265 @@
+services:
+  # --- DATABASE & CACHE INFRASTRUCTURE ---
+  mongo-setup:
+    image: mongo:8
+    container_name: mongo-setup
+    command: >
+      bash -c "
+        echo 'Creating keyfile for MongoDB replica set...' &&
+        openssl rand -base64 756 > /tmp/mongodb-keyfile &&
+        chmod 400 /tmp/mongodb-keyfile &&
+        cp /tmp/mongodb-keyfile /data/mongodb-keyfile &&
+        chown 999:999 /data/mongodb-keyfile &&
+        echo 'Keyfile created successfully!'
+      "
+    volumes:
+      - mongo_keyfile:/data
+    networks:
+      - app-network
+
+  mongo1:
+    image: mongo:8
+    container_name: mongo1
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    volumes:
+      - mongo1_data:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    networks:
+      - app-network
+    depends_on:
+      - mongo-setup
+
+  mongo2:
+    image: mongo:8
+    container_name: mongo2
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    volumes:
+      - mongo2_data:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    networks:
+      - app-network
+    depends_on:
+      - mongo-setup
+
+  mongo3:
+    image: mongo:8
+    container_name: mongo3
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    volumes:
+      - mongo3_data:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    networks:
+      - app-network
+    depends_on:
+      - mongo-setup
+
+  mongo-rs-init:
+    image: mongo:8
+    container_name: mongo-rs-init
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - app-network
+    volumes:
+      - mongo_keyfile:/opt/keyfile:ro
+    # We execute the init script directly here
+    command: >
+      mongosh --host mongo1 -u root -p secret --authenticationDatabase admin --eval '
+        try {
+          rs.status();
+          print("Replica set already initialized");
+        } catch (e) {
+          print("Initializing Replica Set...");
+          rs.initiate({
+            _id: "rs0",
+            members: [
+              { _id: 0, host: "mongo1:27017" },
+              { _id: 1, host: "mongo2:27017" },
+              { _id: 2, host: "mongo3:27017" }
+            ]
+          });
+        }
+      '
+    interval: 10s
+    timeout: 5s
+    retries: 15
+    start_period: 90s
+  mongo-backup:
+    image: mongo:8
+    container_name: mongo-backup
+    depends_on:
+      - mongo1
+    networks:
+      - app-network
+    volumes:
+      - ./backups:/backups
+    environment:
+      MONGO_URI: "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo1:27017/?authSource=admin"
+    entrypoint: >
+      /bin/bash -c "
+      echo 'Starting Backup Scheduler...';
+      while true; do
+        DATE=\$(date +%Y-%m-%d_%H-%M-%S);
+        echo \"Starting backup \$DATE...\";
+        mongodump --uri=\"\$MONGO_URI\" --archive=/backups/backup_\$DATE.gz --gzip;
+        
+        # Keep only last 7 days of backups to save space
+        find /backups -name 'backup_*.gz' -mtime +7 -delete;
+        
+        echo \"Backup completed. Sleeping for 24h...\";
+        sleep 86400;
+      done
+      "
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- APPLICATION SERVICES ---
+  backend:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    container_name: backend
+    restart: always
+
+    # shared environment variables here using a YAML anchor (&)
+    environment: &backend-environment
+      NODE_ENV: production
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo1:27017,mongo2:27017,mongo3:27017/PhotoAppOOP?authSource=admin&replicaSet=rs0
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000
+      COOKIE_SECURE: "true"
+
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+    depends_on:
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/gateway.Dockerfile
+    container_name: api-gateway
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      BACKEND_MONOLITH_URL: http://backend:3000
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/frontend.Dockerfile
+      args:
+        VITE_API_URL: /
+        VITE_SOCKET_URL: /
+    container_name: frontend
+    restart: always
+
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=3d"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      api-gateway:
+        condition: service_healthy
+    networks:
+      - app-network
+    mem_limit: 256m
+    cpu_shares: 256
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - app-network
+    mem_limit: 256m
+    cpu_shares: 256
+
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - app-network
+    depends_on:
+      - frontend
+      - api-gateway
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  mongo1_data:
+  mongo2_data:
+  mongo3_data:
+  mongo_keyfile:

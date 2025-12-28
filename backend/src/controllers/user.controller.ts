@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from "express";
-import { UserService } from "../services/user.service";
 import { AuthService } from "../services/auth.service";
 import { createError } from "../utils/errors";
 import { injectable, inject } from "tsyringe";
@@ -51,7 +50,6 @@ import { logger } from "../utils/winston";
 @injectable()
 export class UserController {
 	constructor(
-		@inject("UserService") private readonly userService: UserService,
 		@inject("AuthService") private readonly authService: AuthService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus
