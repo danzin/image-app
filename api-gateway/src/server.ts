@@ -12,6 +12,7 @@ const app = express();
 const metricsRegistry = new client.Registry();
 metricsRegistry.setDefaultLabels({ service: "api-gateway" });
 client.collectDefaultMetrics({ register: metricsRegistry, eventLoopMonitoringPrecision: 10 });
+const envAllowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
 
 const httpDuration = new client.Histogram({
 	name: "gateway_http_request_duration_seconds",
@@ -31,6 +32,7 @@ const httpRequestsTotal = new client.Counter({
 app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 const allowedOrigins = [
+	...envAllowedOrigins,
 	"http://localhost:5173", // Vite dev
 	"http://localhost:80", // Nginx in Docker
 	"http://localhost", // Browser default for localhost
