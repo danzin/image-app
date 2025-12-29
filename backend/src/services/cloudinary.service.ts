@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
-
 import { createError } from "../utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "../types";
 import { injectable, inject } from "tsyringe";
@@ -18,9 +17,27 @@ export class CloudinaryService implements IImageStorageService {
 		});
 	}
 	private extractPublicId(url: string): string | null {
-		const regex = /\/(?:v\d+\/)?([^\/]+)\.[a-zA-Z]+$/;
-		const matches = url.match(regex);
-		return matches ? matches[1] : null;
+		try {
+			const cleanUrl = url.trim();
+
+			const parsedUrl = new URL(cleanUrl);
+
+			const segments = parsedUrl.pathname.split("/");
+
+			if (segments.length < 2) return null;
+
+			const filenameWithExt = segments.pop();
+			const folder = segments.pop();
+
+			if (!filenameWithExt || !folder) return null;
+
+			const filename = filenameWithExt.replace(/\.[^/.]+$/, "");
+
+			return `${folder}/${filename}`;
+		} catch (error) {
+			logger.warn("Failed to extract public ID", { url, error });
+			return null;
+		}
 	}
 
 	/**
@@ -46,10 +63,10 @@ export class CloudinaryService implements IImageStorageService {
 
 	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
 		try {
-			return this.retryService.execute(
+			return await this.retryService.execute(
 				() =>
 					new Promise((resolve, reject) => {
-						const stream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
+						const uploadStream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
 							if (error) {
 								const errorName = error.name || "StorageError";
 								const errorMessage = error.message || "Error uploading image";
@@ -64,7 +81,14 @@ export class CloudinaryService implements IImageStorageService {
 							});
 						});
 
-						fs.createReadStream(filePath).pipe(stream);
+						const fileStream = fs.createReadStream(filePath);
+
+						fileStream.on("error", (err) => {
+							logger.error(`Error reading file for upload: ${filePath}`, { error: err });
+							reject(createError("StorageError", `Failed to read file: ${err.message}`));
+						});
+
+						fileStream.pipe(uploadStream);
 					}),
 				{
 					...RetryPresets.externalApi(),
@@ -72,26 +96,29 @@ export class CloudinaryService implements IImageStorageService {
 				}
 			);
 		} finally {
-			await fs.promises
-				.unlink(filePath)
-				.catch((err) => logger.error(`Failed to cleanup temp file: ${filePath}`, { error: err }));
+			await fs.promises.unlink(filePath).catch((err) => {
+				if (err.code !== "ENOENT") {
+					logger.error(`Failed to cleanup temp file: ${filePath}`, { error: err });
+				}
+			});
 		}
 	}
 
-	async deleteAssetByUrl(username: string, url: string): Promise<{ result: string }> {
-		const publicId = this.extractPublicId(url);
+	async deleteAssetByUrl(requesterId: string, ownerId: string, url: string): Promise<{ result: string }> {
+		const actualUrl = url || ownerId;
+		const actualOwnerId = url ? ownerId : requesterId;
+
+		const publicId = this.extractPublicId(actualUrl);
+
 		if (!publicId) {
-			throw new Error("Invalid URL format");
+			logger.error("Invalid URL format for deletion", { url: actualUrl });
+			return { result: "skipped" };
 		}
 
 		return this.retryService.execute(
 			async () => {
-				logger.info("URL of image about to delete:", url);
-				const assetPath = `${username}/${publicId}`;
-				const result = await cloudinary.uploader.destroy(assetPath);
-				logger.info(result);
-
-				// return only the necessary fields to make sure object doesn't get polluted with unserializable data
+				logger.info("Deleting Cloudinary asset:", { publicId });
+				const result = await cloudinary.uploader.destroy(publicId);
 				return { result: result.result };
 			},
 			{
