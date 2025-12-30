@@ -30,6 +30,7 @@ services:
       CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+      RESEND_API_KEY: ${RESEND_API_KEY}
     depends_on:
       redis:
         condition: service_healthy
@@ -89,6 +90,7 @@ services:
       - app-network
     environment:
       DOMAIN_NAME: ${DOMAIN_NAME}
+      ACME_EMAIL: ${ACME_EMAIL}
 
   prometheus:
     image: prom/prometheus:v3.0.0
