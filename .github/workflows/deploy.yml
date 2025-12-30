@@ -57,10 +57,10 @@ jobs:
           script: |
             cd /opt/image-app
 
+            git fetch --all
+            git reset --hard origin/master
             git pull origin master
 
-            docker compose -f docker-compose-prod.yml pull
-
-            docker compose -f docker-compose-prod.yml up -d
-
+            docker-compose -f docker-compose-prod.yml pull
+            docker-compose -f docker-compose-prod.yml up -d
             docker system prune -f
