@@ -155,7 +155,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 
 	if (isAdmin) {
 		navigationItems.push({
-			label: "Admin",
+			label: t("nav.admin"),
 			icon: <AdminPanelSettingsIcon sx={{ fontSize: 28 }} />,
 			path: "/admin",
 		});

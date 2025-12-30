@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
 import { useRepostPost } from "../hooks/posts/usePosts";
 import { useAuth } from "../hooks/context/useAuth";
+import { useTranslation } from "react-i18next";
 
 interface PostCardProps {
 	post: IPost;
@@ -31,6 +32,7 @@ const formatCount = (count: number | undefined): string => {
 };
 
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { isLoggedIn } = useAuth();
 	const { mutate: triggerRepost } = useRepostPost();
@@ -116,7 +118,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				<Box sx={{ flex: 1, minWidth: 0 }}>
 					{post.type === "repost" && post.repostOf?.user && (
 						<Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.25 }}>
-							Reposted from {post.repostOf.user.username}
+							{t("post.reposted_from", { username: post.repostOf.user.username })}
 						</Typography>
 					)}
 					<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
@@ -132,7 +134,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								navigate(`/profile/${post.user?.publicId}`);
 							}}
 						>
-							{post.user?.username || "Unknown"}
+							{post.user?.username || t("post.unknown_user")}
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
 							{new Date(post.createdAt).toLocaleDateString(undefined, {
@@ -172,7 +174,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 										setIsExpanded(true);
 									}}
 								>
-									Show more
+									{t("post.show_more")}
 								</Box>
 							)}
 						</Typography>
@@ -265,7 +267,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 													? `${BASE_URL}${post.repostOf.image.url}`
 													: `${BASE_URL}/${post.repostOf.image.url}`
 										}
-										alt="Reposted content"
+										alt={t("post.reposted_content")}
 										style={{
 											width: "100%",
 											height: "auto",
@@ -279,9 +281,15 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 
 							{/* Original Post Stats */}
 							<Box sx={{ display: "flex", gap: 2, mt: 1, color: "text.secondary" }}>
-								<Typography variant="caption">{formatCount(post.repostOf.likes || 0)} Likes</Typography>
-								<Typography variant="caption">{formatCount(post.repostOf.repostCount || 0)} Reposts</Typography>
-								<Typography variant="caption">{formatCount(post.repostOf.commentsCount || 0)} Comments</Typography>
+								<Typography variant="caption">
+									{formatCount(post.repostOf.likes || 0)} {t("post.likes")}
+								</Typography>
+								<Typography variant="caption">
+									{formatCount(post.repostOf.repostCount || 0)} {t("post.reposts")}
+								</Typography>
+								<Typography variant="caption">
+									{formatCount(post.repostOf.commentsCount || 0)} {t("post.comments")}
+								</Typography>
 							</Box>
 						</Box>
 					)}

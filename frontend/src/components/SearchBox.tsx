@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Box, InputBase, alpha, useTheme } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import { useTranslation } from "react-i18next";
 
 const SearchBox: React.FC = () => {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const theme = useTheme();
 	const [searchTerm, setSearchTerm] = useState("");
@@ -51,7 +53,7 @@ const SearchBox: React.FC = () => {
 				/>
 			</Box>
 			<InputBase
-				placeholder="Search"
+				placeholder={t("nav.search_placeholder")}
 				value={searchTerm}
 				onChange={(e) => setSearchTerm(e.target.value)}
 				onFocus={() => setIsFocused(true)}

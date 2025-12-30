@@ -5,6 +5,7 @@ import { ChevronDown, UploadIcon } from "lucide-react";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 import { useCurrentUser } from "../hooks/user/useUsers";
+import { useTranslation } from "react-i18next";
 
 const BASE_URL = "/api";
 
@@ -21,6 +22,7 @@ const modalStyle = {
 };
 
 const ProfileMenu = () => {
+	const { t } = useTranslation();
 	const { logout } = useAuth(); // Only need logout from auth context
 	const { data: user, isLoading } = useCurrentUser();
 	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -75,14 +77,14 @@ const ProfileMenu = () => {
 			>
 				<MenuItem onClick={handleMenuClose}>
 					<Link to={`/profile/${user.publicId}`} style={{ textDecoration: "none", color: "inherit" }}>
-						Profile
+						{t("nav.profile")}
 					</Link>
 				</MenuItem>
 				<MenuItem onClick={openModal}>
 					<UploadIcon size={16} style={{ marginRight: 8 }} />
-					Upload
+					{t("nav.create_post")}
 				</MenuItem>
-				<MenuItem onClick={handleLogout}>Logout</MenuItem>
+				<MenuItem onClick={handleLogout}>{t("auth.logout")}</MenuItem>
 			</Menu>
 			<Modal
 				open={isModalOpen}
@@ -92,7 +94,7 @@ const ProfileMenu = () => {
 			>
 				<Box sx={modalStyle}>
 					<Typography id="upload-modal-title" variant="h6" component="h2" sx={{ mb: 2 }}>
-						Create post
+						{t("nav.create_post")}
 					</Typography>
 					<UploadForm onClose={closeModal} />
 				</Box>

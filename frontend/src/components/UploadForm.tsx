@@ -3,8 +3,10 @@ import { Modal, Box, IconButton, Typography, useTheme } from "@mui/material";
 import { Close as CloseIcon } from "@mui/icons-material";
 import { UploadFormProps } from "../types";
 import CreatePost from "./CreatePost";
+import { useTranslation } from "react-i18next";
 
 const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
+	const { t } = useTranslation();
 	const theme = useTheme();
 
 	return (
@@ -41,7 +43,7 @@ const UploadForm: React.FC<UploadFormProps> = ({ onClose }) => {
 					}}
 				>
 					<Typography variant="h6" fontWeight={600}>
-						Create Post
+						{t("nav.create_post")}
 					</Typography>
 					<IconButton onClick={onClose} size="small">
 						<CloseIcon />

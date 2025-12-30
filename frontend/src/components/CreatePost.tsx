@@ -3,12 +3,14 @@ import { Box, Avatar, TextField, Button, IconButton, useTheme } from "@mui/mater
 import { Image as ImageIcon, Close as CloseIcon } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useUploadPost } from "../hooks/posts/usePosts";
+import { useTranslation } from "react-i18next";
 
 interface CreatePostProps {
 	onClose?: () => void; // optional callback when post is successfully created for usage in modal
 }
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
+	const { t } = useTranslation();
 	const theme = useTheme();
 	const { user, isLoggedIn } = useAuth();
 	const uploadPostMutation = useUploadPost();
@@ -52,7 +54,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 	const handleUpload = async () => {
 		// Must have either text or image
 		if (!file && !content.trim()) {
-			alert("Please provide either text content or an image");
+			alert(t("post.error_empty"));
 			return;
 		}
 
@@ -111,7 +113,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 					<TextField
 						multiline
 						rows={2}
-						placeholder="What is happening?!"
+						placeholder={t("post.placeholder")}
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
 						onKeyDown={handleKeyDown}
@@ -142,7 +144,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 						<Box sx={{ mt: 2, position: "relative" }}>
 							<img
 								src={preview}
-								alt="Preview"
+								alt={t("post.preview")}
 								style={{
 									width: "100%",
 									maxHeight: "300px",
@@ -221,7 +223,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 								},
 							}}
 						>
-							{uploadPostMutation.isPending ? "Posting..." : "Post"}
+							{uploadPostMutation.isPending ? t("post.posting") : t("post.post_button")}
 						</Button>
 					</Box>
 				</Box>

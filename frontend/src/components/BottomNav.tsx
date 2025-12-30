@@ -10,12 +10,14 @@ import {
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 import { useNotifications } from "../hooks/notifications/useNotification";
+import { useTranslation } from "react-i18next";
 
 interface BottomNavProps {
 	onPostClick: () => void;
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
+	const { t } = useTranslation();
 	const { notifications } = useNotifications();
 	const location = useLocation();
 	const theme = useTheme();
@@ -48,7 +50,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 					<BottomNavigationAction
 						component={RouterLink}
 						to="/"
-						label="Home"
+						label={t("nav.home")}
 						icon={<HomeIcon />}
 						sx={{
 							color: "text.secondary",
@@ -58,7 +60,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 					<BottomNavigationAction
 						component={RouterLink}
 						to="/discover"
-						label="Discover"
+						label={t("nav.explore")}
 						icon={<SearchIcon />}
 						sx={{
 							color: "text.secondary",
@@ -68,7 +70,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 
 					{/* Post Button - Centered */}
 					<BottomNavigationAction
-						label="Post"
+						label={t("nav.post")}
 						icon={<AddBoxIcon sx={{ fontSize: 32 }} />}
 						onClick={onPostClick}
 						sx={{
@@ -80,7 +82,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 					<BottomNavigationAction
 						component={RouterLink}
 						to="/notifications"
-						label="Notifications"
+						label={t("nav.notifications")}
 						icon={
 							<Badge badgeContent={unreadCount} color="primary">
 								<NotificationsIcon />
@@ -94,7 +96,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 					<BottomNavigationAction
 						component={RouterLink}
 						to="/messages"
-						label="Messages"
+						label={t("nav.messages")}
 						icon={<MailIcon />}
 						sx={{
 							color: "text.secondary",

@@ -4,8 +4,10 @@ import WhoToFollow from "./WhoToFollow";
 import SearchBox from "./SearchBox";
 import TrendingTags from "./TrendingTags";
 import { useAuth } from "../hooks/context/useAuth";
+import { useTranslation } from "react-i18next";
 
 const RightSidebar: React.FC = () => {
+	const { t } = useTranslation();
 	const { isLoggedIn } = useAuth();
 	const theme = useTheme();
 
@@ -71,10 +73,10 @@ const RightSidebar: React.FC = () => {
 					}}
 				>
 					<Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-						New to Peek?
+						{t("marketing.new_to_peek")}
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Sign up now to get your own personalized timeline!
+						{t("marketing.sign_up_timeline")}
 					</Typography>
 				</Box>
 			)}
