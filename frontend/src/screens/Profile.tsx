@@ -38,10 +38,12 @@ import { useAuth } from "../hooks/context/useAuth";
 import ImageEditor from "../components/ImageEditor";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInitiateConversation } from "../hooks/messaging/useInitiateConversation";
+import { useTranslation } from "react-i18next";
 
 const BASE_URL = "/api";
 
 const Profile: React.FC = () => {
+	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { id } = useParams<{ id: string }>();
 	const { user, isLoggedIn } = useAuth();
@@ -348,11 +350,11 @@ const Profile: React.FC = () => {
 									},
 								}}
 							>
-								Edit profile
+								{t("profile.edit_profile")}
 							</Button>
 						) : isLoggedIn ? (
 							<Box sx={{ display: "flex", gap: 1 }}>
-								<Tooltip title="Message">
+								<Tooltip title={t("profile.message")}>
 									<IconButton
 										onClick={handleMessageUser}
 										sx={{
@@ -382,7 +384,7 @@ const Profile: React.FC = () => {
 										},
 									}}
 								>
-									{isFollowing ? "Unfollow" : "Follow"}
+									{isFollowing ? t("profile.unfollow") : t("profile.follow")}
 								</Button>
 							</Box>
 						) : (
@@ -397,7 +399,7 @@ const Profile: React.FC = () => {
 									"&:hover": { bgcolor: alpha(theme.palette.common.white, 0.9) },
 								}}
 							>
-								Follow
+								{t("profile.follow")}
 							</Button>
 						)}
 					</Box>
@@ -425,7 +427,9 @@ const Profile: React.FC = () => {
 					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
 						<CalendarMonthIcon fontSize="small" />
 						<Typography variant="body2">
-							Joined {profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : "Unknown"}
+							{t("profile.joined", {
+								date: profileData.createdAt ? new Date(profileData.createdAt).toLocaleDateString() : "Unknown",
+							})}
 						</Typography>
 					</Box>
 				</Box>
@@ -440,7 +444,7 @@ const Profile: React.FC = () => {
 							{profileData.followingCount || 0}
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
-							Following
+							{t("profile.following")}
 						</Typography>
 					</Box>
 					<Box
@@ -451,7 +455,7 @@ const Profile: React.FC = () => {
 							{profileData.followerCount || 0}
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
-							Followers
+							{t("profile.followers")}
 						</Typography>
 					</Box>
 				</Box>
@@ -485,10 +489,10 @@ const Profile: React.FC = () => {
 						},
 					}}
 				>
-					<Tab label="Posts" />
-					<Tab label="Replies" />
-					<Tab label="Media" />
-					<Tab label="Likes" />
+					<Tab label={t("profile.posts")} />
+					<Tab label={t("profile.replies")} />
+					<Tab label={t("profile.media")} />
+					<Tab label={t("profile.likes")} />
 				</Tabs>
 			</Box>
 
@@ -499,10 +503,10 @@ const Profile: React.FC = () => {
 						{flattenedImages.length === 0 && !isLoadingImages ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									@{profileData.username} hasn't posted yet
+									{t("profile.no_posts_user", { username: profileData.username })}
 								</Typography>
 								<Typography variant="body2" color="text.secondary">
-									When they do, their posts will show up here.
+									{t("profile.no_posts_desc")}
 								</Typography>
 							</Box>
 						) : (
@@ -521,7 +525,7 @@ const Profile: React.FC = () => {
 						{flattenedComments.length === 0 && !isLoadingComments ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									@{profileData.username} hasn't replied yet
+									{t("profile.no_replies_user", { username: profileData.username })}
 								</Typography>
 							</Box>
 						) : (
@@ -554,7 +558,7 @@ const Profile: React.FC = () => {
 													}}
 													onClick={() => navigate(`/posts/${typedComment.postPublicId}`)}
 												>
-													View Post
+													{t("profile.view_post")}
 												</Typography>
 												<Typography variant="caption" color="text.secondary">
 													{new Date(typedComment.createdAt).toLocaleDateString(undefined, {
@@ -569,7 +573,7 @@ const Profile: React.FC = () => {
 								})}
 								{hasNextCommentsPage && (
 									<Button onClick={() => fetchNextCommentsPage()} disabled={isFetchingNextCommentsPage}>
-										{isFetchingNextCommentsPage ? "Loading..." : "Load More"}
+										{isFetchingNextCommentsPage ? t("common.loading") : t("profile.load_more")}
 									</Button>
 								)}
 							</Box>
@@ -581,7 +585,7 @@ const Profile: React.FC = () => {
 						{flattenedImages.length === 0 && !isLoadingImages ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									@{profileData.username} hasn't posted media yet
+									{t("profile.no_media_user", { username: profileData.username })}
 								</Typography>
 							</Box>
 						) : (
@@ -601,7 +605,7 @@ const Profile: React.FC = () => {
 						{flattenedLikedPosts.length === 0 && !isLoadingLikedPosts ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									@{profileData.username} hasn't liked any posts yet
+									{t("profile.no_likes_user", { username: profileData.username })}
 								</Typography>
 							</Box>
 						) : (
@@ -625,7 +629,7 @@ const Profile: React.FC = () => {
 			>
 				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 500, width: "100%" }}>
 					<Typography variant="h6" gutterBottom fontWeight={700}>
-						Update Profile Picture
+						{t("profile.update_avatar")}
 					</Typography>
 					<ImageEditor type="avatar" onImageUpload={handleAvatarUpload} onClose={() => setIsAvatarModalOpen(false)} />
 				</Paper>
@@ -638,7 +642,7 @@ const Profile: React.FC = () => {
 			>
 				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 600, width: "100%" }}>
 					<Typography variant="h6" gutterBottom fontWeight={700}>
-						Update Cover Photo
+						{t("profile.update_cover")}
 					</Typography>
 					<ImageEditor
 						type="cover"
@@ -656,7 +660,7 @@ const Profile: React.FC = () => {
 			>
 				<Paper sx={{ p: 3, borderRadius: 4, maxWidth: 600, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
 					<Typography variant="h6" gutterBottom fontWeight={700}>
-						Edit Profile
+						{t("profile.edit_profile")}
 					</Typography>
 					<EditProfile
 						onComplete={() => setIsEditProfileOpen(false)}

@@ -7,7 +7,6 @@ import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
-import LanguageSwitcher from "./LanguageSwitcher";
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -154,8 +153,6 @@ const Layout: React.FC = () => {
 
 			{/* Upload Modal */}
 			{isUploadModalOpen && <UploadForm onClose={handleCloseUploadModal} />}
-
-			<LanguageSwitcher />
 		</Box>
 	);
 };

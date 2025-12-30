@@ -6,6 +6,7 @@ import PostCard from "./PostCard";
 import MediaCard from "./MediaCard";
 import { useAuth } from "../hooks/context/useAuth";
 import { Box, Typography, CircularProgress, Card, Skeleton, CardActions } from "@mui/material";
+import { useTranslation } from "react-i18next";
 
 const Gallery: React.FC<GalleryProps> = ({
 	posts,
@@ -17,6 +18,7 @@ const Gallery: React.FC<GalleryProps> = ({
 	emptyDescription,
 	variant = "feed",
 }) => {
+	const { t } = useTranslation();
 	const { user, isLoggedIn } = useAuth();
 	const { id: profileId } = useParams<{ id: string }>();
 
@@ -24,8 +26,8 @@ const Gallery: React.FC<GalleryProps> = ({
 
 	const isProfileOwner = isLoggedIn && user?.publicId === profileId;
 	const isLoading = isLoadingAll;
-	const fallbackEmptyTitle = "No posts yet";
-	const fallbackEmptyMessage = isProfileOwner ? "Check out Discover or post something." : "There are no posts to show";
+	const fallbackEmptyTitle = t("profile.no_posts");
+	const fallbackEmptyMessage = isProfileOwner ? t("profile.no_posts_description") : t("profile.no_posts_other");
 	const resolvedEmptyTitle = emptyTitle ?? fallbackEmptyTitle;
 	const resolvedEmptyMessage = emptyDescription ?? fallbackEmptyMessage;
 
