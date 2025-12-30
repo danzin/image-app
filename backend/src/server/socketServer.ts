@@ -16,14 +16,18 @@ export class WebSocketServer {
 	 * @param {HttpServer} server - The HTTP server instance to attach the WebSocket server to.
 	 */
 	initialize(server: HttpServer): void {
+		const envOrigins = process.env.ALLOWED_ORIGINS?.split(/[,\s]+/).filter(Boolean) || [];
+		const defaultOrigins = [
+			"http://localhost:5173", // Vite dev
+			"http://localhost:80", // Nginx in Docker
+			"http://localhost", // Browser default
+			"http://localhost:8000", // API Gateway
+		];
+		const allowedOrigins = [...defaultOrigins, ...envOrigins];
+
 		this.io = new SocketIOServer(server, {
 			cors: {
-				origin: [
-					"http://localhost:5173", // Vite dev
-					"http://localhost:80", // Nginx in Docker
-					"http://localhost", // Browser default
-					"http://localhost:8000", // API Gateway
-				],
+				origin: allowedOrigins,
 				credentials: true,
 				methods: ["GET", "POST"],
 			},
