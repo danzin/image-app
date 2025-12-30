@@ -97,7 +97,7 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     networks:
       - app-network
-    mem_limit: 512m
+    mem_limit: 256mb
 
   grafana:
     image: grafana/grafana:11.1.0
