@@ -33,6 +33,29 @@ describe("TagService", () => {
 		sinon.restore();
 	});
 
+	describe("collectTagNames", () => {
+		it("should extract hashtags from body text", () => {
+			const body = "Hello #world";
+			const result = tagService.collectTagNames(body);
+			expect(result).to.include("world");
+		});
+
+		it("should extract Cyrillic hashtags", () => {
+			const body = "Hello #привет #мир";
+			const result = tagService.collectTagNames(body);
+			expect(result).to.include("привет");
+			expect(result).to.include("мир");
+		});
+
+		it("should combine extracted tags with explicit tags", () => {
+			const body = "Hello #world";
+			const explicitTags = ["nature"];
+			const result = tagService.collectTagNames(body, explicitTags);
+			expect(result).to.include("world");
+			expect(result).to.include("nature");
+		});
+	});
+
 	describe("ensureTagsExist", () => {
 		it("should return existing tag IDs when all tags exist", async () => {
 			const tagNames = ["nature", "landscape"];

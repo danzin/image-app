@@ -22,8 +22,8 @@ const RichText: React.FC<RichTextProps> = ({
 	const navigate = useNavigate();
 
 	// Regex to match hashtags for words and mentions with '#' or '@'
-	// Matches alphanumeric and underscores
-	const tokenRegex = /((?:#[a-zA-Z0-9_]+)|(?:@[a-zA-Z0-9_]+))/g;
+	// Matches alphanumeric and underscores, including unicode characters for hashtags
+	const tokenRegex = /((?:#[\p{L}\p{N}_]+)|(?:@[a-zA-Z0-9_]+))/gu;
 
 	const handleHashtagClick = (tag: string, e: React.MouseEvent) => {
 		e.stopPropagation();
