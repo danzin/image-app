@@ -15,9 +15,7 @@ services:
 
   # --- APP LAYER ---
   backend:
-    build:
-      context: .
-      dockerfile: backend/backend.Dockerfile
+    image: promiscuous/photoapp-backend:latest
     container_name: backend
     restart: always
     environment:
@@ -44,9 +42,7 @@ services:
       retries: 5
 
   api-gateway:
-    build:
-      context: .
-      dockerfile: api-gateway/gateway.Dockerfile
+    image: promiscuous/photoapp-gateway:latest
     container_name: api-gateway
     restart: always
     environment:
@@ -61,17 +57,11 @@ services:
       - app-network
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/frontend.Dockerfile
-      args:
-        VITE_API_URL: /
-        VITE_SOCKET_URL: /
+    image: promiscuous/photoapp-frontend:latest
     container_name: frontend
     restart: always
     depends_on:
-      api-gateway:
-        condition: service_healthy
+      - api-gateway
     networks:
       - app-network
 

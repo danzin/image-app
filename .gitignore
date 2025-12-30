@@ -13,7 +13,6 @@ backend/uploads
 frontend/.env
 /uploads
 dist
-.github
 notes.txt
 tsconfig.tsbuildinfo
 backend/src/scripts/stress-test.ts

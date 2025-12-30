@@ -99,7 +99,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 					>
 						{image.user?.avatar ? (
 							<img
-								src={`/api/${image.user.avatar}`}
+								src={image.user.avatar.startsWith("http") ? image.user.avatar : `/api/${image.user.avatar}`}
 								alt={image.user.username}
 								style={{ width: "100%", height: "100%", borderRadius: "50%" }}
 							/>

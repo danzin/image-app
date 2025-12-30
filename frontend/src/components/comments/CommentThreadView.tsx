@@ -191,7 +191,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 				>
 					{comment.user.avatar ? (
 						<img
-							src={`/api/${comment.user.avatar}`}
+							src={comment.user.avatar.startsWith("http") ? comment.user.avatar : `/api/${comment.user.avatar}`}
 							alt={comment.user.username}
 							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
