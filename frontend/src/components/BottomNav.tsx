@@ -1,6 +1,6 @@
 import React from "react";
 import { Link as RouterLink, useLocation } from "react-router-dom";
-import { Paper, BottomNavigation, BottomNavigationAction, Box } from "@mui/material";
+import { Paper, BottomNavigation, BottomNavigationAction, Box, Badge } from "@mui/material";
 import {
 	Home as HomeIcon,
 	Search as SearchIcon,
@@ -9,14 +9,18 @@ import {
 	AddBoxOutlined as AddBoxIcon,
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
+import { useNotifications } from "../hooks/notifications/useNotification";
 
 interface BottomNavProps {
 	onPostClick: () => void;
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
+	const { notifications } = useNotifications();
 	const location = useLocation();
 	const theme = useTheme();
+
+	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
 	// Determine the current value based on the path
 	const getValue = () => {
@@ -77,7 +81,11 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 						component={RouterLink}
 						to="/notifications"
 						label="Notifications"
-						icon={<NotificationsIcon />}
+						icon={
+							<Badge badgeContent={unreadCount} color="primary">
+								<NotificationsIcon />
+							</Badge>
+						}
 						sx={{
 							color: "text.secondary",
 							"&.Mui-selected": { color: "primary.main" },

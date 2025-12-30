@@ -28,6 +28,7 @@ import {
 	AdminPanelSettings as AdminPanelSettingsIcon,
 	Notifications as NotificationsIcon,
 	MoreHoriz as MoreHorizIcon,
+	Language as LanguageIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useNotifications } from "../hooks/notifications/useNotification";
@@ -47,7 +48,7 @@ interface LeftSidebarProps {
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
-	const { t } = useTranslation();
+	const { t, i18n } = useTranslation();
 	const { isLoggedIn, logout, user } = useAuth();
 	const { notifications } = useNotifications();
 	const location = useLocation();
@@ -67,6 +68,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 
 	const handleClose = () => {
 		setAnchorEl(null);
+	};
+
+	const toggleLanguage = (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const newLang = i18n.resolvedLanguage?.startsWith("bg") ? "en" : "bg";
+		i18n.changeLanguage(newLang);
 	};
 
 	const handleLogout = () => {
@@ -361,6 +369,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 						transformOrigin={{ horizontal: "center", vertical: "bottom" }}
 						anchorOrigin={{ horizontal: "center", vertical: "top" }}
 					>
+						<MenuItem onClick={toggleLanguage} sx={{ py: 1.5, fontWeight: 700, gap: 1.5 }}>
+							<LanguageIcon fontSize="small" />
+							{i18n.resolvedLanguage?.startsWith("bg") ? "🇧🇬 BG" : "🇺🇸 EN"}
+						</MenuItem>
 						<MenuItem onClick={handleLogout} sx={{ py: 1.5, fontWeight: 700 }}>
 							{t("auth.logout_user", { username: user.username })}
 						</MenuItem>
