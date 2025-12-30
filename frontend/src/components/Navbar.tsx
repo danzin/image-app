@@ -5,8 +5,10 @@ import { AppBar, Toolbar, Button, InputBase, alpha, Box, Container, useTheme } f
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationBell from "./NotificationBell";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import { useTranslation } from "react-i18next";
 
 const Navbar = () => {
+	const { t } = useTranslation();
 	const { isLoggedIn, user } = useAuth();
 	const navigate = useNavigate();
 	const theme = useTheme();
@@ -134,7 +136,7 @@ const Navbar = () => {
 										},
 									}}
 								>
-									Log In
+									{t("auth.login")}
 								</Button>
 								<Button
 									component={RouterLink}
@@ -148,7 +150,7 @@ const Navbar = () => {
 										},
 									}}
 								>
-									Join
+									{t("auth.join")}
 								</Button>
 							</>
 						)}

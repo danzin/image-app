@@ -3,8 +3,10 @@ import { Box, Typography, CircularProgress, alpha, useTheme, ListItemButton } fr
 import { useQuery } from "@tanstack/react-query";
 import { feedApi } from "../api/feedApi";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const TrendingTags: React.FC = () => {
+	const { t } = useTranslation();
 	const theme = useTheme();
 	const navigate = useNavigate();
 
@@ -25,7 +27,7 @@ const TrendingTags: React.FC = () => {
 		return (
 			<Box sx={{ p: 2 }}>
 				<Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>
-					Trends for you
+					{t("common.trends_for_you")}
 				</Typography>
 				<Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
 					<CircularProgress size={24} />
@@ -41,7 +43,7 @@ const TrendingTags: React.FC = () => {
 	return (
 		<Box>
 			<Typography variant="h6" sx={{ fontWeight: 800, px: 2, py: 1.5 }}>
-				Trends for you
+				{t("common.trends_for_you")}
 			</Typography>
 			<Box sx={{ display: "flex", flexDirection: "column" }}>
 				{data.tags.map((trendingTag) => (

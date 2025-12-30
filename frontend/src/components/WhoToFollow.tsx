@@ -5,12 +5,14 @@ import { useWhoToFollow } from "../hooks/user/useWhoToFollow";
 import { useFollowUser } from "../hooks/user/useUserAction";
 import { useQueryClient } from "@tanstack/react-query";
 import { SuggestedUser } from "@/types";
+import { useTranslation } from "react-i18next";
 
 interface WhoToFollowProps {
 	limit?: number;
 }
 
 const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
+	const { t } = useTranslation();
 	const theme = useTheme();
 	const queryClient = useQueryClient();
 	const { data, isLoading, isError } = useWhoToFollow(limit);
@@ -39,7 +41,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 		return (
 			<Box sx={{ p: 2 }}>
 				<Typography variant="h6" sx={{ mb: 2, fontWeight: 800 }}>
-					Who to follow
+					{t("common.who_to_follow")}
 				</Typography>
 				{Array.from({ length: 3 }).map((_, index) => (
 					<Box key={index} sx={{ display: "flex", alignItems: "center", mb: 2 }}>
@@ -93,7 +95,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 	return (
 		<Box>
 			<Typography variant="h6" sx={{ mb: 1, px: 2, py: 1.5, fontWeight: 800 }}>
-				Who to follow
+				{t("common.who_to_follow")}
 			</Typography>
 
 			{data.suggestions.map((user: SuggestedUser) => (
