@@ -31,6 +31,7 @@ import {
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useNotifications } from "../hooks/notifications/useNotification";
+import { useTranslation } from "react-i18next";
 
 const BASE_URL = "/api";
 
@@ -46,6 +47,7 @@ interface LeftSidebarProps {
 }
 
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
+	const { t } = useTranslation();
 	const { isLoggedIn, logout, user } = useAuth();
 	const { notifications } = useNotifications();
 	const location = useLocation();
@@ -93,17 +95,17 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 
 	const navigationItems: NavigationItem[] = [
 		{
-			label: "Home",
+			label: t("nav.home"),
 			icon: <HomeIcon sx={{ fontSize: 28 }} />,
 			path: "/",
 		},
 		{
-			label: "Discover",
+			label: t("nav.explore"),
 			icon: <ExploreIcon sx={{ fontSize: 28 }} />,
 			path: "/discover",
 		},
 		{
-			label: "Notifications",
+			label: t("nav.notifications"),
 			icon: (
 				<Badge
 					badgeContent={unreadCount}
@@ -121,7 +123,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 			path: "/notifications",
 		},
 		{
-			label: "Profile",
+			label: t("nav.profile"),
 			icon: user ? (
 				<Avatar src={fullAvatarUrl} sx={{ width: 28, height: 28 }}>
 					{user.username?.charAt(0).toUpperCase()}
@@ -132,12 +134,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 			path: user?.publicId ? `/profile/${user.publicId}` : "/profile",
 		},
 		{
-			label: "Favorites",
+			label: t("nav.favorites"),
 			icon: <BookmarkIcon sx={{ fontSize: 28 }} />,
 			path: "/favorites",
 		},
 		{
-			label: "Messages",
+			label: t("nav.messages"),
 			icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28 }} />,
 			path: "/messages",
 		},
@@ -248,7 +250,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 									display: { xs: "none", lg: "flex" },
 								}}
 							>
-								Post
+								{t("nav.post")}
 							</Button>
 							<Button
 								onClick={onPostClick}
@@ -280,13 +282,13 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 						}}
 					>
 						<Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-							Sign in to access all features
+							{t("auth.sign_in_prompt")}
 						</Typography>
 						<Button component={RouterLink} to="/login" variant="outlined" fullWidth sx={{ borderRadius: 9999 }}>
-							Log In
+							{t("auth.login")}
 						</Button>
 						<Button component={RouterLink} to="/register" variant="contained" fullWidth sx={{ borderRadius: 9999 }}>
-							Join
+							{t("auth.join")}
 						</Button>
 					</Box>
 				)}
@@ -360,7 +362,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 						anchorOrigin={{ horizontal: "center", vertical: "top" }}
 					>
 						<MenuItem onClick={handleLogout} sx={{ py: 1.5, fontWeight: 700 }}>
-							Log out @{user.username}
+							{t("auth.logout_user", { username: user.username })}
 						</MenuItem>
 					</Menu>
 				</Box>
