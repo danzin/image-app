@@ -104,7 +104,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				>
 					{post.user?.avatar ? (
 						<img
-							src={`/api/${post.user.avatar}`}
+							src={post.user.avatar.startsWith("http") ? post.user.avatar : `/api/${post.user.avatar}`}
 							alt={post.user.username}
 							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
