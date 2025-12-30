@@ -21,8 +21,8 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 	const fullImageUrl = image.url.startsWith("http")
 		? image.url
 		: image.url.startsWith("/")
-		? `${BASE_URL}${image.url}`
-		: `${BASE_URL}/${image.url}`;
+			? `${BASE_URL}${image.url}`
+			: `${BASE_URL}/${image.url}`;
 	const navigate = useNavigate();
 
 	const handleClick = () => {
