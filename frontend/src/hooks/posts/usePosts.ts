@@ -36,7 +36,8 @@ export const usePosts = () => {
 		queryKey,
 		queryFn: async ({ pageParam = 1 }) => {
 			console.log("usePosts - Fetching with queryKey:", queryKey, "pageParam:", pageParam);
-			const response = await fetchPosts(pageParam as number, 10);
+			const response = !user ? await fetchNewFeed(pageParam as number, 10) : await fetchPosts(pageParam as number, 10);
+
 			console.log("usePosts - Raw response for query:", queryKey, response.data[0]);
 
 			const mappedData = response.data.map((rawPost: IPost) => {
