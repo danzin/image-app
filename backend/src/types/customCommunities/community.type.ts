@@ -1,6 +1,6 @@
 import { ObjectId } from "mongoose";
 
-export interface Community {
+export interface ICommunity {
 	_id: ObjectId;
 	name: string;
 	slug: string;
