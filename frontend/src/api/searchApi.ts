@@ -1,4 +1,4 @@
-import { IImage, IPost, ITag, IUser } from "../types";
+import { IImage, IPost, ITag, IUser, ICommunity } from "../types";
 import axiosClient from "./axiosClient";
 
 export const searchQuery = async (
@@ -10,6 +10,7 @@ export const searchQuery = async (
 		images: IImage[] | null;
 		posts: IPost[] | null;
 		tags: ITag[] | null;
+		communities: ICommunity[] | null;
 	};
 }> => {
 	const { data } = await axiosClient.get(`/api/search?q=${query}`);

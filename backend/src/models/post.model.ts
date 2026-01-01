@@ -81,6 +81,11 @@ const postSchema = new Schema<IPost>(
 			default: 0,
 			required: true,
 		},
+		communityId: {
+			type: Schema.Types.ObjectId,
+			ref: "Community",
+			required: false,
+		},
 	},
 	{ timestamps: true }
 );

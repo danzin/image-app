@@ -27,6 +27,7 @@ export const createPostSchema = z
 			},
 			z.array(z.string().trim().min(1).max(20)).max(5, "You can add up to 5 tags.").default([])
 		),
+		communityPublicId: z.string().uuid("Invalid community ID format.").optional(),
 	})
 	.passthrough() // allow extra fields from multer
 	.transform((data) => {
@@ -36,6 +37,7 @@ export const createPostSchema = z
 		return {
 			body: cleaned.body,
 			tags: cleaned.tags,
+			communityPublicId: cleaned.communityPublicId,
 		};
 	});
 

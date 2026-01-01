@@ -1,10 +1,12 @@
 import { Document, Types } from "mongoose";
 import { IPost } from "../customPosts/posts.types";
+import { ICommunityCacheItem } from "../customCommunities/communityCacheItem.types";
 
 export interface IUser extends Document {
 	publicId: string;
 	username: string;
 	email: string;
+	joinedCommunities: ICommunityCacheItem[];
 	avatar: string;
 	cover: string;
 	password: string;

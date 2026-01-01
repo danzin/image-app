@@ -23,5 +23,5 @@ export * from "./customFeeds/feed.types";
 export * from "./customTags/tags.types";
 export * from "./customAuth/auth.types";
 export * from "./customCommunities/community.type";
-export * from "./customCommunities/communityMemeber.type";
+export * from "./customCommunities/communityMember.type";
 export * from "./customCommunities/communityCacheItem.types";

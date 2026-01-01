@@ -10,6 +10,7 @@ import { AdminUserController } from "../controllers/admin.controller";
 import { FeedController } from "../controllers/feed.controller";
 import { FavoriteController } from "../controllers/favorite.controller";
 import { MessagingController } from "../controllers/messaging.controller";
+import { CommunityController } from "../controllers/community.controller";
 
 export function registerControllers(): void {
 	container.registerSingleton("SearchController", SearchController);
@@ -22,4 +23,5 @@ export function registerControllers(): void {
 	container.registerSingleton("FeedController", FeedController);
 	container.registerSingleton("FavoriteController", FavoriteController);
 	container.registerSingleton("MessagingController", MessagingController);
+	container.registerSingleton("CommunityController", CommunityController);
 }

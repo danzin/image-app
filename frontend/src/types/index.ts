@@ -382,3 +382,26 @@ export interface WhoToFollowResponse {
 	cached: boolean;
 	timestamp: string;
 }
+
+export interface ICommunity {
+	publicId: string;
+	id?: string;
+	name: string;
+	slug: string;
+	description: string;
+	avatar?: string;
+	creatorId: string;
+	stats: {
+		memberCount: number;
+		postCount: number;
+	};
+	createdAt: string;
+	updatedAt: string;
+	isMember?: boolean;
+}
+
+export interface CreateCommunityDTO {
+	name: string;
+	description: string;
+	avatar?: File;
+}

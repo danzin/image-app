@@ -34,6 +34,14 @@ const userSchema = new Schema<IUser>(
 			unique: true,
 			validate: [validator.isEmail, "Please provide a valid email"],
 		},
+		joinedCommunities: [
+			{
+				_id: { type: Schema.Types.ObjectId, ref: "Community" },
+				name: { type: String },
+				slug: { type: String },
+				icon: { type: String },
+			},
+		],
 		password: {
 			type: String,
 			required: [true, "Password is required"],

@@ -1,0 +1,43 @@
+import { injectable } from "tsyringe";
+import { BaseRepository } from "./base.repository";
+import { ICommunityMember } from "../types";
+import { CommunityMember } from "../models/communityMember.model";
+import { ClientSession, Types } from "mongoose";
+
+@injectable()
+export class CommunityMemberRepository extends BaseRepository<ICommunityMember> {
+	constructor() {
+		super(CommunityMember);
+	}
+
+	async findByCommunityAndUser(
+		communityId: string | Types.ObjectId,
+		userId: string | Types.ObjectId
+	): Promise<ICommunityMember | null> {
+		return this.model.findOne({ communityId, userId }).exec();
+	}
+
+	async findByUser(userId: string | Types.ObjectId, limit: number = 20, skip: number = 0): Promise<ICommunityMember[]> {
+		return this.model.find({ userId }).limit(limit).skip(skip).exec();
+	}
+
+	async deleteByCommunityAndUser(
+		communityId: string | Types.ObjectId,
+		userId: string | Types.ObjectId,
+		session?: ClientSession
+	): Promise<void> {
+		const query = this.model.deleteOne({ communityId, userId });
+		if (session) query.session(session);
+		await query.exec();
+	}
+
+	async deleteByCommunityId(communityId: string | Types.ObjectId, session?: ClientSession): Promise<void> {
+		const query = this.model.deleteMany({ communityId });
+		if (session) query.session(session);
+		await query.exec();
+	}
+
+	async countByUser(userId: string | Types.ObjectId): Promise<number> {
+		return this.model.countDocuments({ userId }).exec();
+	}
+}

@@ -25,6 +25,8 @@ import ResetPassword from "./screens/ResetPassword";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { CommentThreadView } from "./components/comments";
+import Communities from "./screens/Communities";
+import CommunityDetails from "./screens/CommunityDetails";
 
 function App() {
 	const queryClient = new QueryClient();
@@ -41,6 +43,8 @@ function App() {
 								<Route path="/" element={<Layout />}>
 									<Route index element={<Home />} />
 									<Route path="discover" element={<Discovery />} />
+									<Route path="communities" element={<Communities />} />
+									<Route path="communities/:slug" element={<CommunityDetails />} />
 									<Route path="login" element={<Login />} />
 									<Route path="forgot-password" element={<ForgotPassword />} />
 									<Route path="reset-password" element={<ResetPassword />} />

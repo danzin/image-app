@@ -19,6 +19,7 @@ import path from "path";
 import { logger } from "../utils/winston";
 import { MetricsRoutes } from "../routes/metrics.routes";
 import { MetricsService } from "../metrics/metrics.service";
+import { CommunityRoutes } from "../routes/community.routes";
 
 @injectable()
 export class Server {
@@ -50,7 +51,8 @@ export class Server {
 		@inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
 		@inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes,
 		@inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
-		@inject("MetricsService") private readonly metricsService: MetricsService
+		@inject("MetricsService") private readonly metricsService: MetricsService,
+		@inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes
 	) {
 		this.app = express();
 		this.initializeMiddlewares();
@@ -113,6 +115,7 @@ export class Server {
 		this.app.use("/feed", this.feedRoutes.getRouter());
 		this.app.use("/favorites", this.favoriteRoutes.getRouter());
 		this.app.use("/messaging", this.messagingRoutes.getRouter());
+		this.app.use("/communities", this.communityRoutes.getRouter());
 
 		// Catch-all route for debugging
 		this.app.use("*", (req, res) => {

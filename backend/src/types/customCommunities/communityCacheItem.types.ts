@@ -1,7 +1,7 @@
-import { ObjectId } from "mongoose";
+import { Types } from "mongoose";
 
 export interface ICommunityCacheItem {
-	_id: ObjectId; // community id
+	_id: Types.ObjectId; // community id
 	name: string;
 	slug: string;
 	icon?: string;

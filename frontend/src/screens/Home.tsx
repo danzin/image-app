@@ -3,9 +3,12 @@ import { motion } from "framer-motion";
 import { usePosts } from "../hooks/posts/usePosts";
 import Gallery from "../components/Gallery";
 import CreatePost from "../components/CreatePost";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useMediaQuery, useTheme } from "@mui/material";
 
 const Home: React.FC = () => {
+	const theme = useTheme();
+	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+
 	// backend picks personalized vs trending based on auth present in the request
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = usePosts();
 
@@ -22,8 +25,8 @@ const Home: React.FC = () => {
 
 	return (
 		<Box sx={{ display: "flex", flexDirection: "column" }}>
-			{/* CreatePost decides whether it should render or not */}
-			<CreatePost />
+			{/* CreatePost decides whether it should render or not - hide on mobile */}
+			{!isMobile && <CreatePost />}
 
 			<Box
 				sx={{

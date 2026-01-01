@@ -46,6 +46,15 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
+		const skip = (page - 1) * limit;
+		return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("author").exec();
+	}
+
+	async countByCommunityId(communityId: string): Promise<number> {
+		return this.model.countDocuments({ communityId }).exec();
+	}
+
 	async incrementViewCount(postId: mongoose.Types.ObjectId, session?: ClientSession): Promise<void> {
 		try {
 			const query = this.model.findOneAndUpdate({ _id: postId }, { $inc: { viewsCount: 1 } }, { new: true });
