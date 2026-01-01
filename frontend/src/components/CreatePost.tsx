@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
 import {
 	Box,
 	Avatar,
@@ -20,6 +20,7 @@ import { useUploadPost } from "../hooks/posts/usePosts";
 import { useUserCommunities } from "../hooks/communities/useCommunities";
 import { useTranslation } from "react-i18next";
 import { ICommunity } from "../types";
+import { telemetry } from "../lib/telemetry";
 
 interface CreatePostProps {
 	onClose?: () => void; // optional callback when post is successfully created for usage in modal
@@ -45,6 +46,27 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 		defaultCommunityPublicId || null
 	);
 	const [communitySearchOpen, setCommunitySearchOpen] = useState(false);
+
+	// flow tracking for telemetry
+	const flowIdRef = useRef<string | null>(null);
+	const hasStartedFlow = content.trim().length > 0 || file !== null;
+
+	useEffect(() => {
+		if (hasStartedFlow && !flowIdRef.current) {
+			flowIdRef.current = telemetry.startFlow("create_post", {
+				hasCommunity: !!selectedCommunityPublicId,
+			});
+		}
+	}, [hasStartedFlow, selectedCommunityPublicId]);
+
+	// cleanup on unmount
+	useEffect(() => {
+		return () => {
+			if (flowIdRef.current) {
+				telemetry.abandonFlow(flowIdRef.current, "unmount");
+			}
+		};
+	}, []);
 
 	// fetch user's communities for the dropdown
 	const { data: communitiesData, isLoading: isLoadingCommunities, fetchNextPage, hasNextPage } = useUserCommunities();
@@ -110,6 +132,18 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 
 		try {
 			await uploadPostMutation.mutateAsync(formData);
+
+			// complete telemetry flow on success
+			if (flowIdRef.current) {
+				telemetry.completeFlow(flowIdRef.current, {
+					hasImage: !!file,
+					hasText: !!content.trim(),
+					hasCommunity: !!selectedCommunityPublicId,
+					tagCount: tags.length,
+				});
+				flowIdRef.current = null;
+			}
+
 			setContent("");
 			setTags([]);
 			setFile(null);

@@ -5,6 +5,7 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import RepeatIcon from "@mui/icons-material/Repeat";
+import GroupsIcon from "@mui/icons-material/Groups";
 import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
 import { useRepostPost } from "../hooks/posts/usePosts";
@@ -82,11 +83,49 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 			}}
 			onClick={handleClick}
 		>
+			{/* Community Badge - shown when post is from a community */}
+			{post.community && (
+				<Box
+					sx={{
+						px: 2,
+						pt: 1.5,
+						pb: 0.5,
+						display: "flex",
+						alignItems: "center",
+						gap: 0.75,
+					}}
+					onClick={(e) => {
+						e.stopPropagation();
+						navigate(`/communities/${post.community!.slug}`);
+					}}
+				>
+					{post.community.avatar ? (
+						<Avatar
+							src={post.community.avatar.startsWith("http") ? post.community.avatar : `/api/${post.community.avatar}`}
+							sx={{ width: 16, height: 16 }}
+						/>
+					) : (
+						<GroupsIcon sx={{ fontSize: 16, color: "primary.main" }} />
+					)}
+					<Typography
+						variant="caption"
+						sx={{
+							color: "primary.main",
+							fontWeight: 600,
+							cursor: "pointer",
+							"&:hover": { textDecoration: "underline" },
+						}}
+					>
+						{post.community.name}
+					</Typography>
+				</Box>
+			)}
+
 			{/* User Info Header */}
 			<Box
 				sx={{
 					px: 2,
-					pt: 1.5,
+					pt: post.community ? 0.5 : 1.5,
 					pb: 1,
 					display: "flex",
 					alignItems: "flex-start",
@@ -309,7 +348,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								alignItems: "center",
 								gap: 0.5,
 								color: "text.secondary",
-								"&:hover": { color: "#ec4899" },
+								"&:hover": { color: "#8b5cf6" },
 							}}
 						>
 							<FavoriteIcon fontSize="small" sx={{ fontSize: 18 }} />

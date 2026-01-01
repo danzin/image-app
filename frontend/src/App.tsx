@@ -28,6 +28,9 @@ import { CommentThreadView } from "./components/comments";
 import Communities from "./screens/Communities";
 import CommunityDetails from "./screens/CommunityDetails";
 
+// initialize telemetry on app load
+import "./lib/telemetry";
+
 function App() {
 	const queryClient = new QueryClient();
 

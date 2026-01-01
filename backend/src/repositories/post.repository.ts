@@ -84,6 +84,10 @@ export class PostRepository extends BaseRepository<IPost> {
 			{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
 			{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
 
+			// lookup community for community posts
+			{ $lookup: { from: "communities", localField: "communityId", foreignField: "_id", as: "communityDoc" } },
+			{ $unwind: { path: "$communityDoc", preserveNullAndEmptyArrays: true } },
+
 			{
 				$lookup: {
 					from: "posts",
@@ -186,6 +190,20 @@ export class PostRepository extends BaseRepository<IPost> {
 					else: null,
 				},
 			},
+
+			// community info for community posts
+			community: {
+				$cond: {
+					if: { $ne: ["$communityDoc", null] },
+					then: {
+						publicId: "$communityDoc.publicId",
+						name: "$communityDoc.name",
+						slug: "$communityDoc.slug",
+						avatar: "$communityDoc.avatar",
+					},
+					else: null,
+				},
+			},
 		};
 	}
 
@@ -239,6 +257,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				.findOne({ publicId })
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "_id url publicId slug createdAt" })
+				.populate({ path: "communityId", select: "publicId name slug avatar" })
 				.populate({
 					path: "repostOf",
 					select: "publicId body image user author tags",

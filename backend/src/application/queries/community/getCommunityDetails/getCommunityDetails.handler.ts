@@ -13,7 +13,9 @@ interface CommunityDetailsResult extends Omit<ICommunity, never> {
 }
 
 @injectable()
-export class GetCommunityDetailsQueryHandler implements IQueryHandler<GetCommunityDetailsQuery, CommunityDetailsResult> {
+export class GetCommunityDetailsQueryHandler
+	implements IQueryHandler<GetCommunityDetailsQuery, CommunityDetailsResult>
+{
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,

@@ -86,6 +86,14 @@ export interface IPost {
 		avatar: string;
 	};
 
+	// Community info for community posts
+	community?: {
+		publicId: string;
+		name: string;
+		slug: string;
+		avatar?: string;
+	} | null;
+
 	likes: number;
 	commentsCount: number;
 	viewsCount: number;
