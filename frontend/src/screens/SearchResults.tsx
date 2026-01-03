@@ -148,7 +148,7 @@ const SearchResults = () => {
 							{searchData?.data.communities && searchData.data.communities.length > 0 ? (
 								searchData.data.communities.map((community) => (
 									<Box
-										key={community._id}
+										key={community.publicId}
 										sx={{
 											p: 2,
 											borderBottom: "1px solid #eee",
