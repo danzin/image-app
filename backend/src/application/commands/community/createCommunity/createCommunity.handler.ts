@@ -41,18 +41,16 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 		}
 
 		let avatarUrl = "";
+		let avatarPublicId = "";
+
 		if (avatarPath) {
 			try {
 				// Use slug as the folder/publicId prefix
 				const uploadResult = await this.imageStorageService.uploadImage(avatarPath, slug);
 				avatarUrl = uploadResult.url;
+				avatarPublicId = uploadResult.publicId;
 			} catch (error) {
 				console.error("Failed to upload community avatar:", error);
-				// Continue without avatar or throw? User said "avatar is not mandatory"
-				// But if they provided one and it failed, maybe we should warn.
-				// For now, let's log and proceed with empty avatar, or maybe throw to let them retry.
-				// Given "avatar is not mandatory", proceeding seems safer, but if upload fails, user might want to know.
-				// However, to keep it simple and robust, I'll log and proceed.
 			} finally {
 				// Clean up temp file
 				if (fs.existsSync(avatarPath)) {
@@ -63,52 +61,63 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 			}
 		}
 
-		return this.uow.executeInTransaction(async (session) => {
-			// 1. Create Community
-			const community = await this.communityRepository.create(
-				{
-					name,
-					slug,
-					description,
-					avatar: avatarUrl,
-					creatorId: userId,
-					stats: { memberCount: 1, postCount: 0 },
-				},
-				session
-			);
-
-			// 2. Add Creator as Admin
-			await this.communityMemberRepository.create(
-				{
-					communityId: community._id,
-					userId: userId,
-					role: "admin",
-				},
-				session
-			);
-
-			// 3. Update User Cache
-			await this.userRepository.update(
-				userId.toString(),
-				{
-					$push: {
-						joinedCommunities: {
-							$each: [
-								{
-									_id: community._id,
-									name: community.name,
-									slug: community.slug,
-								},
-							],
-							$position: 0,
-							$slice: 10,
-						},
+		try {
+			return await this.uow.executeInTransaction(async (session) => {
+				// 1. Create Community
+				const community = await this.communityRepository.create(
+					{
+						name,
+						slug,
+						description,
+						avatar: avatarUrl,
+						creatorId: userId,
+						stats: { memberCount: 1, postCount: 0 },
 					},
-				} as any,
-				session
-			);
+					session
+				);
 
-			return community;
-		});
+				// 2. Add Creator as Admin
+				await this.communityMemberRepository.create(
+					{
+						communityId: community._id,
+						userId: userId,
+						role: "admin",
+					},
+					session
+				);
+
+				// 3. Update User Cache
+				await this.userRepository.update(
+					userId.toString(),
+					{
+						$push: {
+							joinedCommunities: {
+								$each: [
+									{
+										_id: community._id,
+										name: community.name,
+										slug: community.slug,
+									},
+								],
+								$position: 0,
+								$slice: 10,
+							},
+						},
+					} as any,
+					session
+				);
+
+				return community;
+			});
+		} catch (error) {
+			if (avatarPublicId) {
+				try {
+					await this.imageStorageService.deleteImage(avatarPublicId);
+				} catch (deleteError) {
+					console.error("Failed to rollback community avatar upload:", deleteError);
+				}
+			}
+			throw error;
+		}
 	}
 }

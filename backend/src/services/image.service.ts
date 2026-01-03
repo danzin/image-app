@@ -24,13 +24,37 @@ export class ImageService {
 	async createPostAttachment(input: CreatePostAttachmentInput): Promise<AttachmentCreationResult> {
 		try {
 			const uploaded = await this.imageStorageService.uploadImage(input.filePath, input.userPublicId);
+			return this.createImageRecord({
+				url: uploaded.url,
+				storagePublicId: uploaded.publicId,
+				originalName: input.originalName,
+				userInternalId: input.userInternalId,
+				session: input.session,
+			});
+		} catch (error) {
+			throw this.wrapError(error, "createPostAttachment");
+		}
+	}
+
+	async uploadImage(filePath: string, userPublicId: string): Promise<{ url: string; publicId: string }> {
+		return this.imageStorageService.uploadImage(filePath, userPublicId);
+	}
+
+	async createImageRecord(input: {
+		url: string;
+		storagePublicId: string;
+		originalName: string;
+		userInternalId: string;
+		session?: mongoose.ClientSession;
+	}): Promise<AttachmentCreationResult> {
+		try {
 			const slug = this.generateSlug(input.originalName);
 			const createdAt = new Date();
 
 			const imageDoc = (await this.imageRepository.create(
 				{
-					url: uploaded.url,
-					publicId: uploaded.publicId,
+					url: input.url,
+					publicId: input.storagePublicId,
 					originalName: input.originalName,
 					slug,
 					user: new mongoose.Types.ObjectId(input.userInternalId),
@@ -41,7 +65,7 @@ export class ImageService {
 
 			return {
 				imageDoc,
-				storagePublicId: uploaded.publicId,
+				storagePublicId: input.storagePublicId,
 				summary: {
 					docId: new mongoose.Types.ObjectId(imageDoc._id),
 					publicId: imageDoc.publicId,
@@ -50,7 +74,7 @@ export class ImageService {
 				},
 			};
 		} catch (error) {
-			throw this.wrapError(error, "createPostAttachment");
+			throw this.wrapError(error, "createImageRecord");
 		}
 	}
 

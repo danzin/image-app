@@ -37,17 +37,30 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 		}
 
 		let newAvatarUrl: string | null = null;
+		let newAvatarPublicId: string | null = null;
 		const oldAvatarUrl = user.avatar ?? null;
 		const userPublicId = user.publicId;
+
+		try {
+			const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
+			newAvatarUrl = uploadResult.url;
+			newAvatarPublicId = uploadResult.publicId;
+		} catch (error) {
+			console.error("Avatar upload failed:", error);
+			// Clean up temp file if upload fails
+			if (fs.existsSync(command.filePath)) {
+				fs.unlink(command.filePath, (err) => {
+					if (err) console.error("Failed to delete temp file:", err);
+				});
+			}
+			throw createError("UploadError", "Failed to upload avatar");
+		}
 
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const userId = user.id;
 
-				const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
-				newAvatarUrl = uploadResult.url;
-
-				await this.userWriteRepository.updateAvatar(userId, newAvatarUrl, session);
+				await this.userWriteRepository.updateAvatar(userId, newAvatarUrl!, session);
 
 				if (oldAvatarUrl) {
 					try {
@@ -77,9 +90,9 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 
 			return this.dtoService.toPublicDTO(updatedUser);
 		} catch (error) {
-			if (newAvatarUrl) {
+			if (newAvatarPublicId) {
 				try {
-					await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, newAvatarUrl);
+					await this.imageStorageService.deleteImage(newAvatarPublicId);
 				} catch (deleteError) {
 					console.error("failed to clean up new avatar", deleteError);
 				}

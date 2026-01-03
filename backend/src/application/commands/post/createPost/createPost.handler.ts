@@ -67,6 +67,22 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		}
 
 		let uploadedImagePublicId: string | null = null;
+		let uploadedImageUrl: string | null = null;
+
+		// Upload Image outside transaction
+		if (command.imagePath) {
+			try {
+				const uploadResult = await this.imageService.uploadImage(command.imagePath, user.publicId);
+				uploadedImagePublicId = uploadResult.publicId;
+				uploadedImageUrl = uploadResult.url;
+			} catch (error) {
+				throw mapPostError(error, {
+					action: "upload-image",
+					userPublicId: command.userPublicId,
+					imageUploaded: false,
+				});
+			}
+		}
 
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
@@ -81,9 +97,13 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					await this.tagService.incrementUsage(tagIds, session);
 				}
 
-				const imageSummary = await this.handleImageUpload(command, user, internalUserId, session, (publicId) => {
-					uploadedImagePublicId = publicId;
-				});
+				const imageSummary = await this.handleImageCreation(
+					command,
+					internalUserId,
+					uploadedImageUrl,
+					uploadedImagePublicId,
+					session
+				);
 
 				const post = await this.createPost(
 					user,
@@ -222,28 +242,24 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		}
 	}
 
-	private async handleImageUpload(
+	private async handleImageCreation(
 		command: CreatePostCommand,
-		user: any,
 		internalUserId: mongoose.Types.ObjectId,
-		session: ClientSession,
-		setUploadedId: (publicId: string) => void
+		uploadedUrl: string | null,
+		uploadedPublicId: string | null,
+		session: ClientSession
 	): Promise<AttachmentSummary> {
-		if (!command.imagePath) {
+		if (!uploadedUrl || !uploadedPublicId) {
 			return { docId: null };
 		}
 
-		const { storagePublicId, summary } = await this.imageService.createPostAttachment({
-			filePath: command.imagePath,
+		const { summary } = await this.imageService.createImageRecord({
+			url: uploadedUrl,
+			storagePublicId: uploadedPublicId,
 			originalName: command.imageOriginalName || `post-${Date.now()}`,
 			userInternalId: internalUserId.toString(),
-			userPublicId: user.publicId,
 			session,
 		});
-
-		if (storagePublicId) {
-			setUploadedId(storagePublicId);
-		}
 
 		if (!summary.docId) {
 			throw createError("UnknownError", "Image document was not created");
