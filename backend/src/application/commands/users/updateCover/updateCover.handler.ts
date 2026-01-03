@@ -37,17 +37,30 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 		}
 
 		let newCoverUrl: string | null = null;
+		let newCoverPublicId: string | null = null;
 		const oldCoverUrl = user.cover ?? null;
 		const userPublicId = user.publicId;
+
+		try {
+			const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
+			newCoverUrl = uploadResult.url;
+			newCoverPublicId = uploadResult.publicId;
+		} catch (error) {
+			console.error("Cover upload failed:", error);
+			// Clean up temp file if upload fails
+			if (fs.existsSync(command.filePath)) {
+				fs.unlink(command.filePath, (err) => {
+					if (err) console.error("Failed to delete temp file:", err);
+				});
+			}
+			throw createError("UploadError", "Failed to upload cover");
+		}
 
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const userId = user.id;
 
-				const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
-				newCoverUrl = uploadResult.url;
-
-				await this.userWriteRepository.updateCover(userId, newCoverUrl, session);
+				await this.userWriteRepository.updateCover(userId, newCoverUrl!, session);
 
 				if (oldCoverUrl) {
 					try {
@@ -77,9 +90,9 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 
 			return this.dtoService.toPublicDTO(updatedUser);
 		} catch (error) {
-			if (newCoverUrl) {
+			if (newCoverPublicId) {
 				try {
-					await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, newCoverUrl);
+					await this.imageStorageService.deleteImage(newCoverPublicId);
 				} catch (deleteError) {
 					console.error("failed to clean up new cover", deleteError);
 				}
