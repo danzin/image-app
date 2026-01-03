@@ -139,6 +139,9 @@ export function mapPost(rawInput: unknown): IPost {
 
 		user: normalizedUser,
 
+		// Community data for community posts
+		community: mapCommunity(raw.community),
+
 		likes: typeof raw.likes === "number" ? raw.likes : 0,
 		commentsCount: typeof raw.commentsCount === "number" ? raw.commentsCount : 0,
 		viewsCount: typeof raw.viewsCount === "number" ? raw.viewsCount : 0,
@@ -147,6 +150,21 @@ export function mapPost(rawInput: unknown): IPost {
 		isFavoritedByViewer: typeof raw.isFavoritedByViewer === "boolean" ? raw.isFavoritedByViewer : false,
 	};
 	return post;
+}
+
+/**
+ * Maps community data from raw post
+ */
+function mapCommunity(raw: unknown): IPost["community"] {
+	if (!isObject(raw)) return null;
+	const publicId = extractSafeString(raw.publicId);
+	if (!publicId) return null;
+	return {
+		publicId,
+		name: extractSafeString(raw.name) || "",
+		slug: extractSafeString(raw.slug) || "",
+		avatar: extractSafeString(raw.avatar) || undefined,
+	};
 }
 
 /**

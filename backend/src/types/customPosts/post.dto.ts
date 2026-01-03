@@ -44,6 +44,14 @@ export interface PostDTO {
 		avatar: string;
 	};
 
+	// Community info for community posts
+	community?: {
+		publicId: string;
+		name: string;
+		slug: string;
+		avatar?: string;
+	} | null;
+
 	isLikedByViewer?: boolean;
 	isFavoritedByViewer?: boolean;
 }

@@ -1,15 +1,33 @@
-import React, { useState, useRef } from "react";
-import { Box, Avatar, TextField, Button, IconButton, useTheme } from "@mui/material";
-import { Image as ImageIcon, Close as CloseIcon } from "@mui/icons-material";
+import React, { useState, useRef, useMemo, useEffect } from "react";
+import {
+	Box,
+	Avatar,
+	TextField,
+	Button,
+	IconButton,
+	useTheme,
+	FormControl,
+	Select,
+	MenuItem,
+	InputLabel,
+	Typography,
+	Autocomplete,
+	CircularProgress,
+} from "@mui/material";
+import { Image as ImageIcon, Close as CloseIcon, Public as PublicIcon, Group as GroupIcon } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useUploadPost } from "../hooks/posts/usePosts";
+import { useUserCommunities } from "../hooks/communities/useCommunities";
 import { useTranslation } from "react-i18next";
+import { ICommunity } from "../types";
+import { telemetry } from "../lib/telemetry";
 
 interface CreatePostProps {
 	onClose?: () => void; // optional callback when post is successfully created for usage in modal
+	defaultCommunityPublicId?: string; // pre-select a community when posting from community page
 }
 
-const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
+const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublicId }) => {
 	const { t } = useTranslation();
 	const theme = useTheme();
 	const { user, isLoggedIn } = useAuth();
@@ -22,6 +40,45 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 
 	const [content, setContent] = useState<string>("");
 	const [tags, setTags] = useState<string[]>([]);
+
+	// community selection state - null means personal post, string means community post
+	const [selectedCommunityPublicId, setSelectedCommunityPublicId] = useState<string | null>(
+		defaultCommunityPublicId || null
+	);
+	const [communitySearchOpen, setCommunitySearchOpen] = useState(false);
+
+	// flow tracking for telemetry
+	const flowIdRef = useRef<string | null>(null);
+	const hasStartedFlow = content.trim().length > 0 || file !== null;
+
+	useEffect(() => {
+		if (hasStartedFlow && !flowIdRef.current) {
+			flowIdRef.current = telemetry.startFlow("create_post", {
+				hasCommunity: !!selectedCommunityPublicId,
+			});
+		}
+	}, [hasStartedFlow, selectedCommunityPublicId]);
+
+	// cleanup on unmount
+	useEffect(() => {
+		return () => {
+			if (flowIdRef.current) {
+				telemetry.abandonFlow(flowIdRef.current, "unmount");
+			}
+		};
+	}, []);
+
+	// fetch user's communities for the dropdown
+	const { data: communitiesData, isLoading: isLoadingCommunities, fetchNextPage, hasNextPage } = useUserCommunities();
+
+	const userCommunities = useMemo(() => {
+		return communitiesData?.pages.flatMap((page) => page.data) ?? [];
+	}, [communitiesData]);
+
+	const selectedCommunity = useMemo(() => {
+		if (!selectedCommunityPublicId) return null;
+		return userCommunities.find((c) => c.publicId === selectedCommunityPublicId) || null;
+	}, [selectedCommunityPublicId, userCommunities]);
 
 	const BASE_URL = "/api";
 	const avatarPath = user?.avatar || "";
@@ -68,12 +125,30 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 		}
 		formData.append("tags", JSON.stringify(tags));
 
+		// add community selection if posting to a community
+		if (selectedCommunityPublicId) {
+			formData.append("communityPublicId", selectedCommunityPublicId);
+		}
+
 		try {
 			await uploadPostMutation.mutateAsync(formData);
+
+			// complete telemetry flow on success
+			if (flowIdRef.current) {
+				telemetry.completeFlow(flowIdRef.current, {
+					hasImage: !!file,
+					hasText: !!content.trim(),
+					hasCommunity: !!selectedCommunityPublicId,
+					tagCount: tags.length,
+				});
+				flowIdRef.current = null;
+			}
+
 			setContent("");
 			setTags([]);
 			setFile(null);
 			setPreview("");
+			setSelectedCommunityPublicId(defaultCommunityPublicId || null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 
 			if (onClose) {
@@ -175,6 +250,83 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose }) => {
 							</IconButton>
 						</Box>
 					)}
+
+					{/* Community Selector */}
+					<Box sx={{ mt: 2 }}>
+						<Autocomplete
+							open={communitySearchOpen}
+							onOpen={() => setCommunitySearchOpen(true)}
+							onClose={() => setCommunitySearchOpen(false)}
+							options={userCommunities}
+							loading={isLoadingCommunities}
+							getOptionLabel={(option: ICommunity) => option.name}
+							value={selectedCommunity}
+							onChange={(_, newValue) => {
+								setSelectedCommunityPublicId(newValue?.publicId || null);
+							}}
+							isOptionEqualToValue={(option, value) => option.publicId === value.publicId}
+							ListboxProps={{
+								onScroll: (event) => {
+									const listboxNode = event.currentTarget;
+									if (
+										listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 50 &&
+										hasNextPage
+									) {
+										fetchNextPage();
+									}
+								},
+							}}
+							renderOption={(props, option) => (
+								<Box
+									component="li"
+									{...props}
+									key={option.publicId}
+									sx={{ display: "flex", alignItems: "center", gap: 1 }}
+								>
+									<Avatar src={option.avatar || undefined} sx={{ width: 24, height: 24 }}>
+										{option.name.charAt(0)}
+									</Avatar>
+									<Typography variant="body2">{option.name}</Typography>
+								</Box>
+							)}
+							renderInput={(params) => (
+								<TextField
+									{...params}
+									placeholder={t("post.select_community", "Post to...")}
+									variant="outlined"
+									size="small"
+									InputProps={{
+										...params.InputProps,
+										startAdornment: (
+											<Box sx={{ display: "flex", alignItems: "center", mr: 1 }}>
+												{selectedCommunity ? (
+													<GroupIcon fontSize="small" color="primary" />
+												) : (
+													<PublicIcon fontSize="small" color="action" />
+												)}
+											</Box>
+										),
+										endAdornment: (
+											<>
+												{isLoadingCommunities ? <CircularProgress color="inherit" size={16} /> : null}
+												{params.InputProps.endAdornment}
+											</>
+										),
+									}}
+								/>
+							)}
+							noOptionsText={
+								userCommunities.length === 0
+									? t("post.no_communities", "Join a community to post there")
+									: t("post.no_matching_community", "No matching community")
+							}
+						/>
+						<Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
+							{selectedCommunity
+								? t("post.posting_to_community", "Posting to {{community}}", { community: selectedCommunity.name })
+								: t("post.posting_personal", "Posting to your personal feed")}
+						</Typography>
+					</Box>
 
 					<Box
 						sx={{

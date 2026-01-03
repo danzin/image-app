@@ -18,6 +18,12 @@ export interface FeedPost {
 		url: string;
 		slug: string;
 	};
+	community?: {
+		publicId: string;
+		name: string;
+		slug: string;
+		avatar?: string;
+	} | null;
 	rankScore?: number;
 	trendScore?: number;
 	isPersonalized?: boolean;

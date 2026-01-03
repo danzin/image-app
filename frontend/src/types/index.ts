@@ -86,6 +86,14 @@ export interface IPost {
 		avatar: string;
 	};
 
+	// Community info for community posts
+	community?: {
+		publicId: string;
+		name: string;
+		slug: string;
+		avatar?: string;
+	} | null;
+
 	likes: number;
 	commentsCount: number;
 	viewsCount: number;
@@ -381,4 +389,27 @@ export interface WhoToFollowResponse {
 	suggestions: SuggestedUser[];
 	cached: boolean;
 	timestamp: string;
+}
+
+export interface ICommunity {
+	publicId: string;
+	id?: string;
+	name: string;
+	slug: string;
+	description: string;
+	avatar?: string;
+	creatorId: string;
+	stats: {
+		memberCount: number;
+		postCount: number;
+	};
+	createdAt: string;
+	updatedAt: string;
+	isMember?: boolean;
+}
+
+export interface CreateCommunityDTO {
+	name: string;
+	description: string;
+	avatar?: File;
 }

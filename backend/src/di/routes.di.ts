@@ -11,6 +11,8 @@ import { FeedRoutes } from "../routes/feed.routes";
 import { FavoriteRoutes } from "../routes/favorite.routes";
 import { MessagingRoutes } from "../routes/messaging.routes";
 import { MetricsRoutes } from "../routes/metrics.routes";
+import { CommunityRoutes } from "../routes/community.routes";
+import { TelemetryRoutes } from "../routes/telemetry.routes";
 
 export function registerRoutes(): void {
 	container.registerSingleton("UserRoutes", UserRoutes);
@@ -24,4 +26,6 @@ export function registerRoutes(): void {
 	container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
 	container.registerSingleton("MessagingRoutes", MessagingRoutes);
 	container.registerSingleton("MetricsRoutes", MetricsRoutes);
+	container.registerSingleton("CommunityRoutes", CommunityRoutes);
+	container.registerSingleton("TelemetryRoutes", TelemetryRoutes);
 }

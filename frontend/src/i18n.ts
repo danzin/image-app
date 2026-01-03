@@ -34,6 +34,7 @@ const resources = {
 				search_placeholder: "Search Peek...",
 				post: "Post",
 				admin: "Admin",
+				communities: "Communities",
 			},
 			common: {
 				who_to_follow: "Who to follow",
@@ -132,6 +133,7 @@ const resources = {
 				search_placeholder: "Търсене в Peek...",
 				post: "Нова Публикация",
 				admin: "Админ",
+				communities: "Групи",
 			},
 			common: {
 				who_to_follow: "Кого да последвате",

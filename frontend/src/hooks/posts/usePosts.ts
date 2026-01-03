@@ -177,9 +177,11 @@ export const useUploadPost = () => {
 			queryClient.invalidateQueries({ queryKey: ["userPosts"] });
 			queryClient.invalidateQueries({ queryKey: ["tags"] });
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+			queryClient.invalidateQueries({ queryKey: ["community-posts"] });
 
 			queryClient.refetchQueries({ queryKey: ["posts"], type: "active" });
 			queryClient.refetchQueries({ queryKey: ["personalizedFeed"], type: "active" });
+			queryClient.refetchQueries({ queryKey: ["community-posts"], type: "active" });
 		},
 		onError: (error: Error) => {
 			console.error("Error uploading post:", error);

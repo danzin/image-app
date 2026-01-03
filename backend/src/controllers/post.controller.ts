@@ -34,6 +34,7 @@ export class PostController {
 
 			// Zod validation middleware has already processed and validated req.body
 			const bodyText = req.body.body;
+			const communityPublicId = req.body.communityPublicId;
 
 			if (!file && (!bodyText || bodyText.trim().length === 0)) {
 				throw createError("ValidationError", "Provide either an image or body text");
@@ -44,7 +45,14 @@ export class PostController {
 			}
 
 			const originalName = file?.originalname || `post-${Date.now()}`;
-			const command = new CreatePostCommand(decodedUser.publicId, bodyText, undefined, file?.path, originalName);
+			const command = new CreatePostCommand(
+				decodedUser.publicId,
+				bodyText,
+				undefined,
+				file?.path,
+				originalName,
+				communityPublicId
+			);
 			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);
 		} catch (error) {

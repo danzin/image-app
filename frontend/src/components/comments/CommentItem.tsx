@@ -249,7 +249,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
 						<IconButton size="small" onClick={handleLike} sx={{ p: 0.5 }}>
 							{comment.isLikedByViewer ? (
-								<FavoriteIcon fontSize="small" color="error" />
+								<FavoriteIcon fontSize="small" color="primary" />
 							) : (
 								<FavoriteBorderIcon fontSize="small" />
 							)}
