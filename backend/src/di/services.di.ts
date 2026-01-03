@@ -28,6 +28,7 @@ import { logger } from "../utils/winston";
 import { MetricsService } from "../metrics/metrics.service";
 import { RetryService } from "../services/retry.service";
 import { TransactionQueueService } from "../services/transaction-queue.service";
+import { TelemetryService } from "../services/telemetry.service";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -39,6 +40,7 @@ export function registerServices(): void {
 	}
 
 	container.registerSingleton("MetricsService", MetricsService);
+	container.registerSingleton("TelemetryService", TelemetryService);
 	container.registerSingleton("SearchService", SearchService);
 	container.registerSingleton("AuthService", AuthService);
 	container.registerSingleton("ImageService", ImageService);

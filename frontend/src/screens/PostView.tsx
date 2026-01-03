@@ -14,6 +14,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RepeatIcon from "@mui/icons-material/Repeat";
+import GroupsIcon from "@mui/icons-material/Groups";
 import CommentSection from "../components/comments/CommentSection";
 
 const BASE_URL = "/api";
@@ -143,6 +144,39 @@ const PostView = () => {
 			</Box>
 
 			<Box sx={{ px: 2, py: 2 }}>
+				{/* Community Badge */}
+				{post.community && (
+					<Box
+						sx={{
+							display: "flex",
+							alignItems: "center",
+							gap: 0.75,
+							mb: 1.5,
+							cursor: "pointer",
+						}}
+						onClick={() => navigate(`/communities/${post.community!.slug}`)}
+					>
+						{post.community.avatar ? (
+							<Avatar
+								src={post.community.avatar.startsWith("http") ? post.community.avatar : `/api/${post.community.avatar}`}
+								sx={{ width: 18, height: 18 }}
+							/>
+						) : (
+							<GroupsIcon sx={{ fontSize: 18, color: "primary.main" }} />
+						)}
+						<Typography
+							variant="body2"
+							sx={{
+								color: "primary.main",
+								fontWeight: 600,
+								"&:hover": { textDecoration: "underline" },
+							}}
+						>
+							{post.community.name}
+						</Typography>
+					</Box>
+				)}
+
 				{/* User Info */}
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
 					<Box sx={{ display: "flex", gap: 1.5 }}>
@@ -269,7 +303,7 @@ const PostView = () => {
 						justifyContent: "space-around",
 					}}
 				>
-					<IconButton onClick={handleLikePost} color={isLiked ? "error" : "default"}>
+					<IconButton onClick={handleLikePost} color={isLiked ? "primary" : "default"}>
 						{isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
 					</IconButton>
 					<IconButton onClick={handleRepostClick} color="default">

@@ -41,6 +41,7 @@ import {
 	RemoveCircle as RemoveCircleIcon,
 	// TrendingUp as TrendingUpIcon,
 	Person as PersonIcon,
+	Speed as SpeedIcon,
 } from "@mui/icons-material";
 import {
 	useAdminUsers,
@@ -54,6 +55,7 @@ import {
 	useDeleteUserAdmin,
 	useDeleteImageAdmin,
 	useClearCache,
+	useTelemetryMetrics,
 } from "../hooks/admin/useAdmin";
 import { AdminUserDTO, IPost } from "../types";
 import { formatDistanceToNow } from "date-fns";
@@ -135,6 +137,7 @@ export const AdminDashboard: React.FC = () => {
 		limit: rowsPerPage,
 	});
 	const { data: activityData } = useRecentActivity({ page: 1, limit: 10 });
+	const { data: telemetryData, isLoading: telemetryLoading } = useTelemetryMetrics();
 
 	const banUserMutation = useBanUser();
 	const unbanUserMutation = useUnbanUser();
@@ -177,6 +180,7 @@ export const AdminDashboard: React.FC = () => {
 				<Tab icon={<DashboardIcon />} label="overview" />
 				<Tab icon={<PeopleIcon />} label="users" />
 				<Tab icon={<ImageIcon />} label="posts" />
+				<Tab icon={<SpeedIcon />} label="telemetry" />
 			</Tabs>
 
 			{/* overview tab */}
@@ -520,6 +524,210 @@ export const AdminDashboard: React.FC = () => {
 							}}
 						/>
 					</Paper>
+				)}
+			</TabPanel>
+
+			{/* telemetry tab */}
+			<TabPanel value={currentTab} index={3}>
+				{telemetryLoading ? (
+					<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+						<CircularProgress />
+					</Box>
+				) : (
+					<Grid container spacing={3}>
+						{/* TTFI metrics */}
+						<Grid item xs={12}>
+							<Card>
+								<CardContent>
+									<Typography variant="h6" gutterBottom>
+										Time to First Interaction (TTFI)
+									</Typography>
+									<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+										Measures how quickly users can interact with the page after loading
+									</Typography>
+									<Grid container spacing={2}>
+										<Grid item xs={6} sm={2.4}>
+											<Box sx={{ textAlign: "center", p: 2, bgcolor: "background.default", borderRadius: 1 }}>
+												<Typography variant="h4" color="primary.main">
+													{telemetryData?.ttfi.count || 0}
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													Samples
+												</Typography>
+											</Box>
+										</Grid>
+										<Grid item xs={6} sm={2.4}>
+											<Box sx={{ textAlign: "center", p: 2, bgcolor: "background.default", borderRadius: 1 }}>
+												<Typography variant="h4" color="primary.main">
+													{telemetryData?.ttfi.avg || 0}ms
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													Average
+												</Typography>
+											</Box>
+										</Grid>
+										<Grid item xs={6} sm={2.4}>
+											<Box sx={{ textAlign: "center", p: 2, bgcolor: "background.default", borderRadius: 1 }}>
+												<Typography variant="h4" color="success.main">
+													{telemetryData?.ttfi.p50 || 0}ms
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													P50
+												</Typography>
+											</Box>
+										</Grid>
+										<Grid item xs={6} sm={2.4}>
+											<Box sx={{ textAlign: "center", p: 2, bgcolor: "background.default", borderRadius: 1 }}>
+												<Typography variant="h4" color="warning.main">
+													{telemetryData?.ttfi.p90 || 0}ms
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													P90
+												</Typography>
+											</Box>
+										</Grid>
+										<Grid item xs={6} sm={2.4}>
+											<Box sx={{ textAlign: "center", p: 2, bgcolor: "background.default", borderRadius: 1 }}>
+												<Typography variant="h4" color="error.main">
+													{telemetryData?.ttfi.p99 || 0}ms
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													P99
+												</Typography>
+											</Box>
+										</Grid>
+									</Grid>
+								</CardContent>
+							</Card>
+						</Grid>
+
+						{/* user flows */}
+						<Grid item xs={12}>
+							<Card>
+								<CardContent>
+									<Typography variant="h6" gutterBottom>
+										User Flows
+									</Typography>
+									<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+										Tracks completion rates of key user journeys
+									</Typography>
+									{telemetryData?.flows && telemetryData.flows.length > 0 ? (
+										<TableContainer>
+											<Table size="small">
+												<TableHead>
+													<TableRow>
+														<TableCell>Flow</TableCell>
+														<TableCell align="right">Started</TableCell>
+														<TableCell align="right">Completed</TableCell>
+														<TableCell align="right">Abandoned</TableCell>
+														<TableCell align="right">Completion Rate</TableCell>
+														<TableCell align="right">Avg Duration</TableCell>
+													</TableRow>
+												</TableHead>
+												<TableBody>
+													{telemetryData.flows.map((flow) => (
+														<TableRow key={flow.flowType}>
+															<TableCell>
+																<Chip label={flow.flowType} size="small" variant="outlined" />
+															</TableCell>
+															<TableCell align="right">{flow.started}</TableCell>
+															<TableCell align="right">{flow.completed}</TableCell>
+															<TableCell align="right">{flow.abandoned}</TableCell>
+															<TableCell align="right">
+																<Chip
+																	label={`${flow.completionRate}%`}
+																	size="small"
+																	color={
+																		flow.completionRate >= 70
+																			? "success"
+																			: flow.completionRate >= 40
+																				? "warning"
+																				: "error"
+																	}
+																/>
+															</TableCell>
+															<TableCell align="right">
+																{flow.avgDuration > 0 ? `${(flow.avgDuration / 1000).toFixed(1)}s` : "-"}
+															</TableCell>
+														</TableRow>
+													))}
+												</TableBody>
+											</Table>
+										</TableContainer>
+									) : (
+										<Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+											No flow data available yet
+										</Typography>
+									)}
+								</CardContent>
+							</Card>
+						</Grid>
+
+						{/* scroll depth */}
+						<Grid item xs={12}>
+							<Card>
+								<CardContent>
+									<Typography variant="h6" gutterBottom>
+										Scroll Depth
+									</Typography>
+									<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+										How far users scroll through feeds
+									</Typography>
+									{telemetryData?.scrollDepth && telemetryData.scrollDepth.length > 0 ? (
+										<TableContainer>
+											<Table size="small">
+												<TableHead>
+													<TableRow>
+														<TableCell>Feed</TableCell>
+														<TableCell align="right">Avg Depth</TableCell>
+														<TableCell align="right">25%</TableCell>
+														<TableCell align="right">50%</TableCell>
+														<TableCell align="right">75%</TableCell>
+														<TableCell align="right">100%</TableCell>
+													</TableRow>
+												</TableHead>
+												<TableBody>
+													{telemetryData.scrollDepth.map((scroll) => (
+														<TableRow key={scroll.feedId}>
+															<TableCell>
+																<Chip label={scroll.feedId} size="small" variant="outlined" />
+															</TableCell>
+															<TableCell align="right">{scroll.avgMaxDepth}%</TableCell>
+															<TableCell align="right">{scroll.reachedThresholds[25] || 0}</TableCell>
+															<TableCell align="right">{scroll.reachedThresholds[50] || 0}</TableCell>
+															<TableCell align="right">{scroll.reachedThresholds[75] || 0}</TableCell>
+															<TableCell align="right">{scroll.reachedThresholds[100] || 0}</TableCell>
+														</TableRow>
+													))}
+												</TableBody>
+											</Table>
+										</TableContainer>
+									) : (
+										<Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
+											No scroll data available yet
+										</Typography>
+									)}
+								</CardContent>
+							</Card>
+						</Grid>
+
+						{/* bucket info */}
+						<Grid item xs={12}>
+							<Card>
+								<CardContent>
+									<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+										<Typography variant="body2" color="text.secondary">
+											Data bucket age: {telemetryData?.bucketAge ? Math.round(telemetryData.bucketAge / 1000) : 0}s
+											(resets every 5 minutes)
+										</Typography>
+										<Typography variant="caption" color="text.secondary">
+											Auto-refreshes every 60s
+										</Typography>
+									</Box>
+								</CardContent>
+							</Card>
+						</Grid>
+					</Grid>
 				)}
 			</TabPanel>
 

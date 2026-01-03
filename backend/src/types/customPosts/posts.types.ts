@@ -24,6 +24,7 @@ export interface IPost extends Document {
 	viewsCount: number;
 	createdAt: Date;
 	updatedAt: Date;
+	communityId?: mongoose.Types.ObjectId; // if null -> personal post otherwise it' a community post
 	isOwnedBy(userId: mongoose.Types.ObjectId | string): boolean;
 	canBeViewedBy(user?: Pick<IUser, "isAdmin" | "isBanned" | "publicId"> | null): boolean;
 }

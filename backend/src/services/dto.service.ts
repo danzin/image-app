@@ -83,6 +83,19 @@ export class DTOService {
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
+			community: this.buildCommunity(post.community ?? post.communityId),
+		};
+	}
+
+	private buildCommunity(source: any) {
+		if (!source || typeof source !== "object") return null;
+		const publicId = this.pickString(source.publicId);
+		if (!publicId) return null;
+		return {
+			publicId,
+			name: this.pickString(source.name) || "",
+			slug: this.pickString(source.slug) || "",
+			avatar: this.pickString(source.avatar) || undefined,
 		};
 	}
 

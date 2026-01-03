@@ -113,3 +113,18 @@ export const repostPost = async (postPublicId: string, body?: string): Promise<I
 	const { data } = await axiosClient.post(`/api/posts/${postPublicId}/repost`, payload);
 	return data;
 };
+
+export const fetchPostsByCommunity = async (
+	communityId: string,
+	pageParam: number,
+	limit: number = 20
+): Promise<{
+	data: IPost[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	const { data } = await axiosClient.get(`/api/communities/${communityId}/feed?page=${pageParam}&limit=${limit}`);
+	return data;
+};

@@ -13,6 +13,7 @@ import {
 	fetchDashboardStats,
 	fetchRecentActivity,
 	clearCache,
+	fetchTelemetryMetrics,
 } from "../../api/adminApi";
 import { toast } from "react-toastify";
 
@@ -171,5 +172,14 @@ export const useClearCache = () => {
 			const message = error instanceof Error ? error.message : "Failed to clear cache";
 			toast.error(message);
 		},
+	});
+};
+
+export const useTelemetryMetrics = () => {
+	return useQuery({
+		queryKey: ["admin", "telemetry"],
+		queryFn: fetchTelemetryMetrics,
+		staleTime: 30000,
+		refetchInterval: 60000,
 	});
 };

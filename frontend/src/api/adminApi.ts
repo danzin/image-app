@@ -111,3 +111,32 @@ export const clearCache = async (
 	});
 	return data;
 };
+
+export interface TelemetryMetrics {
+	ttfi: {
+		count: number;
+		avg: number;
+		p50: number;
+		p90: number;
+		p99: number;
+	};
+	scrollDepth: {
+		feedId: string;
+		avgMaxDepth: number;
+		reachedThresholds: Record<number, number>;
+	}[];
+	flows: {
+		flowType: string;
+		started: number;
+		completed: number;
+		abandoned: number;
+		completionRate: number;
+		avgDuration: number;
+	}[];
+	bucketAge: number;
+}
+
+export const fetchTelemetryMetrics = async (): Promise<TelemetryMetrics> => {
+	const { data } = await axiosClient.get("/api/telemetry/summary");
+	return data;
+};

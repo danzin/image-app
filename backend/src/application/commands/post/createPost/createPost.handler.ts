@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import * as fs from "fs";
-import mongoose, { ClientSession } from "mongoose";
+import mongoose, { ClientSession, Types } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 import { CreatePostCommand } from "./createPost.command";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
@@ -8,6 +8,8 @@ import { IPostReadRepository } from "../../../../repositories/interfaces/IPostRe
 import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
 import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
+import { CommunityRepository } from "../../../../repositories/community.repository";
+import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
 import { TagService } from "../../../../services/tag.service";
 import { ImageService } from "../../../../services/image.service";
 import { RedisService } from "../../../../services/redis.service";
@@ -32,6 +34,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
+		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("ImageService") private readonly imageService: ImageService,
 		@inject("RedisService") private readonly redisService: RedisService,
@@ -48,6 +52,19 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			throw createError("ValidationError", "Invalid userPublicId format");
 		}
 		const user = await this.validateUser(command.userPublicId);
+
+		// validate community membership if posting to a community
+		let communityInternalId: Types.ObjectId | null = null;
+		if (command.communityPublicId) {
+			if (!isValidPublicId(command.communityPublicId)) {
+				throw createError("ValidationError", "Invalid communityPublicId format");
+			}
+			const communityValidation = await this.validateCommunityMembership(
+				command.communityPublicId,
+				user._id as Types.ObjectId
+			);
+			communityInternalId = communityValidation.communityId;
+		}
 
 		let uploadedImagePublicId: string | null = null;
 
@@ -68,8 +85,27 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					uploadedImagePublicId = publicId;
 				});
 
-				const post = await this.createPost(user, internalUserId, normalizedBody, tagIds, imageSummary, session);
-				await this.userWriteRepository.update(user.id, { $inc: { postCount: 1 } }, session);
+				const post = await this.createPost(
+					user,
+					internalUserId,
+					normalizedBody,
+					tagIds,
+					imageSummary,
+					session,
+					communityInternalId
+				);
+
+				// increment user post count only for personal posts
+				if (!communityInternalId) {
+					await this.userWriteRepository.update(user.id, { $inc: { postCount: 1 } }, session);
+				} else {
+					// increment community post count
+					await this.communityRepository.findOneAndUpdate(
+						{ _id: communityInternalId },
+						{ $inc: { "stats.postCount": 1 } },
+						session
+					);
+				}
 
 				// Handle mentions
 				const mentionRegex = /@(\w+)/g;
@@ -146,6 +182,25 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		return user;
 	}
 
+	private async validateCommunityMembership(
+		communityPublicId: string,
+		userId: Types.ObjectId
+	): Promise<{ communityId: Types.ObjectId }> {
+		const community = await this.communityRepository.findByPublicId(communityPublicId);
+		if (!community) {
+			throw createError("NotFoundError", "Community not found");
+		}
+
+		const communityId = (community as any)._id as Types.ObjectId;
+		const membership = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
+
+		if (!membership) {
+			throw createError("ForbiddenError", "You must be a member of the community to post");
+		}
+
+		return { communityId };
+	}
+
 	private normalizeBody(body?: string): string {
 		if (!body) return "";
 
@@ -203,7 +258,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		normalizedBody: string,
 		tagIds: mongoose.Types.ObjectId[],
 		imageSummary: AttachmentSummary,
-		session: ClientSession
+		session: ClientSession,
+		communityId: Types.ObjectId | null = null
 	): Promise<IPost> {
 		const postSlug = imageSummary.slug ?? this.generatePostSlug(normalizedBody);
 		const postPublicId = uuidv4();
@@ -225,6 +281,11 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			likesCount: 0,
 			commentsCount: 0,
 		};
+
+		// add communityId if this is a community post
+		if (communityId) {
+			payload.communityId = communityId;
+		}
 
 		// sanitize payload to prevent NoSQL injection and prototype pollution
 		logger.info("Sanitizing post payload:", payload);

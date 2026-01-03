@@ -2,7 +2,8 @@ import { ImageRepository } from "../repositories/image.repository";
 import { PostRepository } from "../repositories/post.repository";
 import { TagRepository } from "../repositories/tag.repository";
 import { UserRepository } from "../repositories/user.repository";
-import { IPost, IUser } from "../types";
+import { CommunityRepository } from "../repositories/community.repository";
+import { IPost, IUser, ICommunity } from "../types";
 import { createError } from "../utils/errors";
 import { inject, injectable } from "tsyringe";
 
@@ -12,7 +13,8 @@ export class SearchService {
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("TagRepository") private readonly tagRepository: TagRepository
+		@inject("TagRepository") private readonly tagRepository: TagRepository,
+		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository
 	) {}
 
 	/** Universal search function. It uses a query and search throughout the database
@@ -21,10 +23,14 @@ export class SearchService {
 	async searchAll(query: string[]): Promise<{
 		users: IUser[] | null;
 		posts: IPost[] | null;
+		communities: ICommunity[] | null;
 	}> {
 		try {
 			//Search for users by query
 			const users = await this.userRepository.getAll({ search: query });
+
+			// Search for communities
+			const communities = await this.communityRepository.search(query);
 
 			// Search for tags to find relevant posts
 			const tags = await this.tagRepository.searchTags(query);
@@ -36,6 +42,7 @@ export class SearchService {
 			return {
 				users: users || null,
 				posts: posts?.data.length ? posts?.data : null,
+				communities: communities || null,
 			};
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);

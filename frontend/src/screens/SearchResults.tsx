@@ -21,7 +21,7 @@ const SearchResults = () => {
 		[rawQuery]
 	);
 
-	const [activeTab, setActiveTab] = useState<"posts" | "users">("posts");
+	const [activeTab, setActiveTab] = useState<"posts" | "users" | "communities">("posts");
 
 	const { data: searchData, isFetching: isSearchingUsers } = useSearch(rawQuery);
 
@@ -74,6 +74,12 @@ const SearchResults = () => {
 				</Button>
 				<Button variant={activeTab === "users" ? "contained" : "outlined"} onClick={() => setActiveTab("users")}>
 					Users ({searchData?.data.users?.length || 0})
+				</Button>
+				<Button
+					variant={activeTab === "communities" ? "contained" : "outlined"}
+					onClick={() => setActiveTab("communities")}
+				>
+					Communities ({searchData?.data.communities?.length || 0})
 				</Button>
 			</Box>
 
@@ -131,6 +137,46 @@ const SearchResults = () => {
 							) : (
 								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
 									No users found matching "{rawQuery}".
+								</Typography>
+							)}
+						</Box>
+					)}
+
+					{/* Communities tab */}
+					{activeTab === "communities" && (
+						<Box>
+							{searchData?.data.communities && searchData.data.communities.length > 0 ? (
+								searchData.data.communities.map((community) => (
+									<Box
+										key={community._id}
+										sx={{
+											p: 2,
+											borderBottom: "1px solid #eee",
+											display: "flex",
+											alignItems: "center",
+											gap: 2,
+											"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
+										}}
+									>
+										<Avatar src={community.avatar} variant="rounded" sx={{ width: 40, height: 40 }}>
+											{community.name.charAt(0)}
+										</Avatar>
+										<Box>
+											<Link
+												to={`/communities/${community.slug}`}
+												style={{ textDecoration: "none", fontWeight: "bold", color: "inherit", display: "block" }}
+											>
+												{community.name}
+											</Link>
+											<Typography variant="body2" color="text.secondary">
+												{community.description}
+											</Typography>
+										</Box>
+									</Box>
+								))
+							) : (
+								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+									No communities found matching "{rawQuery}".
 								</Typography>
 							)}
 						</Box>

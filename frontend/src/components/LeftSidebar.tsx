@@ -29,6 +29,7 @@ import {
 	Notifications as NotificationsIcon,
 	MoreHoriz as MoreHorizIcon,
 	Language as LanguageIcon,
+	Groups as GroupsIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useNotifications } from "../hooks/notifications/useNotification";
@@ -111,6 +112,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 			label: t("nav.explore"),
 			icon: <ExploreIcon sx={{ fontSize: 28 }} />,
 			path: "/discover",
+		},
+		{
+			label: t("nav.communities"),
+			icon: <GroupsIcon sx={{ fontSize: 28 }} />,
+			path: "/communities",
 		},
 		{
 			label: t("nav.notifications"),

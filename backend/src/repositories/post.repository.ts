@@ -46,6 +46,15 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
+		const skip = (page - 1) * limit;
+		return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("author").exec();
+	}
+
+	async countByCommunityId(communityId: string): Promise<number> {
+		return this.model.countDocuments({ communityId }).exec();
+	}
+
 	async incrementViewCount(postId: mongoose.Types.ObjectId, session?: ClientSession): Promise<void> {
 		try {
 			const query = this.model.findOneAndUpdate({ _id: postId }, { $inc: { viewsCount: 1 } }, { new: true });
@@ -74,6 +83,10 @@ export class PostRepository extends BaseRepository<IPost> {
 			{ $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
 			{ $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
 			{ $unwind: { path: "$imageDoc", preserveNullAndEmptyArrays: true } },
+
+			// lookup community for community posts
+			{ $lookup: { from: "communities", localField: "communityId", foreignField: "_id", as: "communityDoc" } },
+			{ $unwind: { path: "$communityDoc", preserveNullAndEmptyArrays: true } },
 
 			{
 				$lookup: {
@@ -177,6 +190,20 @@ export class PostRepository extends BaseRepository<IPost> {
 					else: null,
 				},
 			},
+
+			// community info for community posts
+			community: {
+				$cond: {
+					if: { $ne: ["$communityDoc", null] },
+					then: {
+						publicId: "$communityDoc.publicId",
+						name: "$communityDoc.name",
+						slug: "$communityDoc.slug",
+						avatar: "$communityDoc.avatar",
+					},
+					else: null,
+				},
+			},
 		};
 	}
 
@@ -230,6 +257,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				.findOne({ publicId })
 				.populate("tags", "tag")
 				.populate({ path: "image", select: "_id url publicId slug createdAt" })
+				.populate({ path: "communityId", select: "publicId name slug avatar" })
 				.populate({
 					path: "repostOf",
 					select: "publicId body image user author tags",

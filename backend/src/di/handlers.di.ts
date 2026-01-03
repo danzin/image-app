@@ -117,6 +117,26 @@ import { RequestPasswordResetHandler } from "../application/commands/users/reque
 import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
 import { ResetPasswordHandler } from "../application/commands/users/resetPassword/ResetPasswordHandler";
 import { ResetPasswordCommand } from "../application/commands/users/resetPassword/ResetPasswordCommand";
+import { CreateCommunityCommand } from "../application/commands/community/createCommunity/createCommunity.command";
+import { CreateCommunityCommandHandler } from "../application/commands/community/createCommunity/createCommunity.handler";
+import { JoinCommunityCommand } from "../application/commands/community/joinCommunity/joinCommunity.command";
+import { JoinCommunityCommandHandler } from "../application/commands/community/joinCommunity/joinCommunity.handler";
+import { LeaveCommunityCommand } from "../application/commands/community/leaveCommunity/leaveCommunity.command";
+import { LeaveCommunityCommandHandler } from "../application/commands/community/leaveCommunity/leaveCommunity.handler";
+import { GetCommunityDetailsQuery } from "../application/queries/community/getCommunityDetails/getCommunityDetails.query";
+import { GetCommunityDetailsQueryHandler } from "../application/queries/community/getCommunityDetails/getCommunityDetails.handler";
+import { GetUserCommunitiesQuery } from "../application/queries/community/getUserCommunities/getUserCommunities.query";
+import { GetUserCommunitiesQueryHandler } from "../application/queries/community/getUserCommunities/getUserCommunities.handler";
+import { GetCommunityFeedQuery } from "../application/queries/community/getCommunityFeed/getCommunityFeed.query";
+import { GetCommunityFeedQueryHandler } from "../application/queries/community/getCommunityFeed/getCommunityFeed.handler";
+import { UpdateCommunityCommand } from "../application/commands/community/updateCommunity/updateCommunity.command";
+import { UpdateCommunityCommandHandler } from "../application/commands/community/updateCommunity/updateCommunity.handler";
+import { DeleteCommunityCommand } from "../application/commands/community/deleteCommunity/deleteCommunity.command";
+import { DeleteCommunityCommandHandler } from "../application/commands/community/deleteCommunity/deleteCommunity.handler";
+import { KickMemberCommand } from "../application/commands/community/kickMember/kickMember.command";
+import { KickMemberCommandHandler } from "../application/commands/community/kickMember/kickMember.handler";
+import { GetAllCommunitiesQuery } from "../application/queries/community/getAllCommunities/getAllCommunities.query";
+import { GetAllCommunitiesQueryHandler } from "../application/queries/community/getAllCommunities/getAllCommunities.handler";
 
 export function registerCQRS(): void {
 	container.registerSingleton("CommandBus", CommandBus);
@@ -157,6 +177,17 @@ export function registerCQRS(): void {
 	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
 	container.register("RequestPasswordResetHandler", { useClass: RequestPasswordResetHandler });
 	container.register("ResetPasswordHandler", { useClass: ResetPasswordHandler });
+
+	container.register("CreateCommunityCommandHandler", { useClass: CreateCommunityCommandHandler });
+	container.register("JoinCommunityCommandHandler", { useClass: JoinCommunityCommandHandler });
+	container.register("LeaveCommunityCommandHandler", { useClass: LeaveCommunityCommandHandler });
+	container.register("GetCommunityDetailsQueryHandler", { useClass: GetCommunityDetailsQueryHandler });
+	container.register("GetUserCommunitiesQueryHandler", { useClass: GetUserCommunitiesQueryHandler });
+	container.register("GetCommunityFeedQueryHandler", { useClass: GetCommunityFeedQueryHandler });
+	container.register("UpdateCommunityCommandHandler", { useClass: UpdateCommunityCommandHandler });
+	container.register("DeleteCommunityCommandHandler", { useClass: DeleteCommunityCommandHandler });
+	container.register("KickMemberCommandHandler", { useClass: KickMemberCommandHandler });
+	container.register("GetAllCommunitiesQueryHandler", { useClass: GetAllCommunitiesQueryHandler });
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
@@ -325,6 +356,44 @@ export function initCQRS(): void {
 	queryBus.register(
 		GetRecentActivityQuery,
 		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
+	);
+
+	commandBus.register(
+		CreateCommunityCommand,
+		container.resolve<CreateCommunityCommandHandler>("CreateCommunityCommandHandler")
+	);
+	commandBus.register(
+		JoinCommunityCommand,
+		container.resolve<JoinCommunityCommandHandler>("JoinCommunityCommandHandler")
+	);
+	commandBus.register(
+		LeaveCommunityCommand,
+		container.resolve<LeaveCommunityCommandHandler>("LeaveCommunityCommandHandler")
+	);
+	queryBus.register(
+		GetCommunityDetailsQuery,
+		container.resolve<GetCommunityDetailsQueryHandler>("GetCommunityDetailsQueryHandler")
+	);
+	queryBus.register(
+		GetUserCommunitiesQuery,
+		container.resolve<GetUserCommunitiesQueryHandler>("GetUserCommunitiesQueryHandler")
+	);
+	queryBus.register(
+		GetCommunityFeedQuery,
+		container.resolve<GetCommunityFeedQueryHandler>("GetCommunityFeedQueryHandler")
+	);
+	commandBus.register(
+		UpdateCommunityCommand,
+		container.resolve<UpdateCommunityCommandHandler>("UpdateCommunityCommandHandler")
+	);
+	commandBus.register(
+		DeleteCommunityCommand,
+		container.resolve<DeleteCommunityCommandHandler>("DeleteCommunityCommandHandler")
+	);
+	commandBus.register(KickMemberCommand, container.resolve<KickMemberCommandHandler>("KickMemberCommandHandler"));
+	queryBus.register(
+		GetAllCommunitiesQuery,
+		container.resolve<GetAllCommunitiesQueryHandler>("GetAllCommunitiesQueryHandler")
 	);
 
 	const realtimeHandlers = [

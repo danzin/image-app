@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Outlet, Link as RouterLink, useLocation } from "react-router-dom";
-import { Box, useTheme, useMediaQuery, Avatar } from "@mui/material";
-import { CameraAlt as CameraAltIcon } from "@mui/icons-material";
+import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
+import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, IconButton } from "@mui/material";
+import { Search as SearchIcon } from "@mui/icons-material";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
@@ -11,8 +11,10 @@ import { useAuth } from "../hooks/context/useAuth";
 const Layout: React.FC = () => {
 	const theme = useTheme();
 	const location = useLocation();
+	const navigate = useNavigate();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+	const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 	const { user } = useAuth();
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
@@ -20,6 +22,14 @@ const Layout: React.FC = () => {
 
 	const handleOpenUploadModal = () => setIsUploadModalOpen(true);
 	const handleCloseUploadModal = () => setIsUploadModalOpen(false);
+
+	const handleMobileSearch = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (mobileSearchQuery.trim()) {
+			navigate(`/search?q=${encodeURIComponent(mobileSearchQuery.trim())}`);
+			setMobileSearchQuery("");
+		}
+	};
 
 	const BASE_URL = "/api";
 	const avatarUrl = user?.avatar || "";
@@ -102,18 +112,44 @@ const Layout: React.FC = () => {
 								alignItems: "center",
 								justifyContent: "space-between",
 								px: 2,
+								gap: 1.5,
 							}}
 						>
 							<Avatar
 								component={RouterLink}
 								to={user ? `/profile/${user.publicId}` : "/login"}
 								src={fullAvatarUrl}
-								sx={{ width: 32, height: 32, cursor: "pointer" }}
+								sx={{ width: 32, height: 32, cursor: "pointer", flexShrink: 0 }}
 							>
 								{user?.username?.charAt(0).toUpperCase()}
 							</Avatar>
-							<CameraAltIcon sx={{ color: theme.palette.primary.main }} />
-							<Box sx={{ width: 32 }} /> {/* Spacer for centering logo */}
+							<Box
+								component="form"
+								onSubmit={handleMobileSearch}
+								sx={{ flex: 1, display: "flex", alignItems: "center" }}
+							>
+								<TextField
+									size="small"
+									placeholder="Search..."
+									value={mobileSearchQuery}
+									onChange={(e) => setMobileSearchQuery(e.target.value)}
+									fullWidth
+									InputProps={{
+										startAdornment: (
+											<InputAdornment position="start">
+												<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+											</InputAdornment>
+										),
+										sx: {
+											borderRadius: 3,
+											bgcolor: "rgba(255, 255, 255, 0.08)",
+											"& fieldset": { border: "none" },
+											height: 36,
+											fontSize: "0.875rem",
+										},
+									}}
+								/>
+							</Box>
 						</Box>
 					)}
 

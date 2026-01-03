@@ -34,6 +34,7 @@ app.set("trust proxy", 1); // Trust the first hop (Nginx)
 const allowedOrigins = [
 	...envAllowedOrigins,
 	"http://localhost:5173", // Vite dev
+	"http://localhost:5174", // Vite dev alternate port
 	"http://localhost:80", // Nginx in Docker
 	"http://localhost", // Browser default for localhost
 ];
