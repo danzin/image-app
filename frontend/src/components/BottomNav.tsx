@@ -7,6 +7,7 @@ import {
 	Notifications as NotificationsIcon,
 	MailOutline as MailIcon,
 	AddBoxOutlined as AddBoxIcon,
+	Groups as GroupsIcon,
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 import { useNotifications } from "../hooks/notifications/useNotification";
@@ -29,9 +30,10 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 		const path = location.pathname;
 		if (path === "/") return 0;
 		if (path === "/discover") return 1;
-		// Index 2 is the Post button
-		if (path === "/notifications") return 3;
-		if (path === "/messages") return 4;
+		if (path === "/communities") return 2;
+		// Index 3 is the Post button
+		if (path === "/notifications") return 4;
+		if (path === "/messages") return 5;
 		return 0;
 	};
 
@@ -57,6 +59,18 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 							"&.Mui-selected": { color: "primary.main" },
 						}}
 					/>
+
+					{/* Post Button */}
+					<BottomNavigationAction
+						label={t("nav.post")}
+						icon={<AddBoxIcon sx={{ fontSize: 32 }} />}
+						onClick={onPostClick}
+						sx={{
+							color: "text.primary",
+							"&.Mui-selected": { color: "primary.main" },
+						}}
+					/>
+
 					<BottomNavigationAction
 						component={RouterLink}
 						to="/discover"
@@ -67,14 +81,13 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 							"&.Mui-selected": { color: "primary.main" },
 						}}
 					/>
-
-					{/* Post Button - Centered */}
 					<BottomNavigationAction
-						label={t("nav.post")}
-						icon={<AddBoxIcon sx={{ fontSize: 32 }} />}
-						onClick={onPostClick}
+						component={RouterLink}
+						to="/communities"
+						label={t("nav.communities")}
+						icon={<GroupsIcon />}
 						sx={{
-							color: "text.primary",
+							color: "text.secondary",
 							"&.Mui-selected": { color: "primary.main" },
 						}}
 					/>
