@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, IconButton } from "@mui/material";
+import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment } from "@mui/material";
 import { Search as SearchIcon } from "@mui/icons-material";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
