@@ -5,7 +5,18 @@ import { useLikePost, useFavoritePost } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import { useDeletePost, useRepostPost } from "../hooks/posts/usePosts";
 import RichText from "../components/RichText";
-import { Box, Typography, Button, CircularProgress, Alert, IconButton, Avatar, Modal, useTheme } from "@mui/material";
+import {
+	Box,
+	Typography,
+	Button,
+	CircularProgress,
+	Alert,
+	IconButton,
+	Avatar,
+	Modal,
+	useTheme,
+	Chip,
+} from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteIcon from "@mui/icons-material/Favorite";
@@ -15,6 +26,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import GroupsIcon from "@mui/icons-material/Groups";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import CommentSection from "../components/comments/CommentSection";
 
 const BASE_URL = "/api";
@@ -203,12 +215,31 @@ const PostView = () => {
 							>
 								{displayName}
 							</Typography>
+							{post.authorCommunityRole === "admin" && (
+								<Chip
+									icon={<AdminPanelSettingsIcon sx={{ fontSize: 14 }} />}
+									label="Admin"
+									size="small"
+									color="primary"
+									variant="outlined"
+									sx={{ ml: 1, height: 18, fontSize: "0.65rem", "& .MuiChip-icon": { width: 14, height: 14 } }}
+								/>
+							)}
+							{post.authorCommunityRole === "moderator" && (
+								<Chip
+									label="Mod"
+									size="small"
+									color="secondary"
+									variant="outlined"
+									sx={{ ml: 1, height: 18, fontSize: "0.65rem" }}
+								/>
+							)}
 							<Typography variant="body2" color="text.secondary">
 								@{post.user?.username}
 							</Typography>
 						</Box>
 					</Box>
-					{isOwner && (
+					{(isOwner || post.canDelete) && (
 						<IconButton size="small" color="error" onClick={handleDeletePost} disabled={deleteMutation.isPending}>
 							<DeleteIcon fontSize="small" />
 						</IconButton>

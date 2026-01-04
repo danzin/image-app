@@ -27,6 +27,7 @@ import { AdminRoute } from "./components/AdminRoute";
 import { CommentThreadView } from "./components/comments";
 import Communities from "./screens/Communities";
 import CommunityDetails from "./screens/CommunityDetails";
+import CommunityMembers from "./screens/CommunityMembers";
 
 // initialize telemetry on app load
 import "./lib/telemetry";
@@ -48,6 +49,7 @@ function App() {
 									<Route path="discover" element={<Discovery />} />
 									<Route path="communities" element={<Communities />} />
 									<Route path="communities/:slug" element={<CommunityDetails />} />
+									<Route path="communities/:slug/members" element={<CommunityMembers />} />
 									<Route path="login" element={<Login />} />
 									<Route path="forgot-password" element={<ForgotPassword />} />
 									<Route path="reset-password" element={<ResetPassword />} />

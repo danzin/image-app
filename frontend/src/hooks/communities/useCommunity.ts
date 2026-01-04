@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchCommunity, createCommunity, joinCommunity, leaveCommunity } from "../../api/communityApi";
+import { fetchCommunity, createCommunity, joinCommunity, leaveCommunity, kickMember } from "../../api/communityApi";
 import { CreateCommunityDTO } from "../../types";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
@@ -57,6 +57,21 @@ export const useLeaveCommunity = () => {
 		},
 		onError: (error: AxiosError<{ message?: string }>) => {
 			toast.error(error.response?.data?.message || "Failed to leave community");
+		},
+	});
+};
+
+export const useKickMember = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ communityId, userId }: { communityId: string; userId: string }) => kickMember(communityId, userId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["community-members"] });
+			toast.success("Member kicked successfully");
+		},
+		onError: (error: AxiosError<{ message?: string }>) => {
+			toast.error(error.response?.data?.message || "Failed to kick member");
 		},
 	});
 };

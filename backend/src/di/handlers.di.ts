@@ -137,6 +137,8 @@ import { KickMemberCommand } from "../application/commands/community/kickMember/
 import { KickMemberCommandHandler } from "../application/commands/community/kickMember/kickMember.handler";
 import { GetAllCommunitiesQuery } from "../application/queries/community/getAllCommunities/getAllCommunities.query";
 import { GetAllCommunitiesQueryHandler } from "../application/queries/community/getAllCommunities/getAllCommunities.handler";
+import { GetCommunityMembersQuery } from "../application/queries/community/getCommunityMembers/getCommunityMembers.query";
+import { GetCommunityMembersQueryHandler } from "../application/queries/community/getCommunityMembers/getCommunityMembers.handler";
 
 export function registerCQRS(): void {
 	container.registerSingleton("CommandBus", CommandBus);
@@ -188,6 +190,7 @@ export function registerCQRS(): void {
 	container.register("DeleteCommunityCommandHandler", { useClass: DeleteCommunityCommandHandler });
 	container.register("KickMemberCommandHandler", { useClass: KickMemberCommandHandler });
 	container.register("GetAllCommunitiesQueryHandler", { useClass: GetAllCommunitiesQueryHandler });
+	container.register("GetCommunityMembersQueryHandler", { useClass: GetCommunityMembersQueryHandler });
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
@@ -394,6 +397,10 @@ export function initCQRS(): void {
 	queryBus.register(
 		GetAllCommunitiesQuery,
 		container.resolve<GetAllCommunitiesQueryHandler>("GetAllCommunitiesQueryHandler")
+	);
+	queryBus.register(
+		GetCommunityMembersQuery,
+		container.resolve<GetCommunityMembersQueryHandler>("GetCommunityMembersQueryHandler")
 	);
 
 	const realtimeHandlers = [

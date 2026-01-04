@@ -6,18 +6,13 @@ import {
 	Search as SearchIcon,
 	Notifications as NotificationsIcon,
 	MailOutline as MailIcon,
-	AddBoxOutlined as AddBoxIcon,
 	Groups as GroupsIcon,
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { useTranslation } from "react-i18next";
 
-interface BottomNavProps {
-	onPostClick: () => void;
-}
-
-const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
+const BottomNav: React.FC = () => {
 	const { t } = useTranslation();
 	const { notifications } = useNotifications();
 	const location = useLocation();
@@ -31,9 +26,8 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 		if (path === "/") return 0;
 		if (path === "/discover") return 1;
 		if (path === "/communities") return 2;
-		// Index 3 is the Post button
-		if (path === "/notifications") return 4;
-		if (path === "/messages") return 5;
+		if (path === "/notifications") return 3;
+		if (path === "/messages") return 4;
 		return 0;
 	};
 
@@ -56,17 +50,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ onPostClick }) => {
 						icon={<HomeIcon />}
 						sx={{
 							color: "text.secondary",
-							"&.Mui-selected": { color: "primary.main" },
-						}}
-					/>
-
-					{/* Post Button */}
-					<BottomNavigationAction
-						label={t("nav.post")}
-						icon={<AddBoxIcon sx={{ fontSize: 32 }} />}
-						onClick={onPostClick}
-						sx={{
-							color: "text.primary",
 							"&.Mui-selected": { color: "primary.main" },
 						}}
 					/>
