@@ -26,7 +26,7 @@ const Layout: React.FC = () => {
 	const handleMobileSearch = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (mobileSearchQuery.trim()) {
-			navigate(`/search?q=${encodeURIComponent(mobileSearchQuery.trim())}`);
+			navigate(`/results?q=${encodeURIComponent(mobileSearchQuery.trim())}`);
 			setMobileSearchQuery("");
 		}
 	};
