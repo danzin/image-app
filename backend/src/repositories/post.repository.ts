@@ -48,7 +48,14 @@ export class PostRepository extends BaseRepository<IPost> {
 
 	async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
 		const skip = (page - 1) * limit;
-		return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("author").exec();
+		return this.model
+			.find({ communityId })
+			.sort({ createdAt: -1 })
+			.skip(skip)
+			.limit(limit)
+			.populate("author")
+			.populate("image")
+			.exec();
 	}
 
 	async countByCommunityId(communityId: string): Promise<number> {

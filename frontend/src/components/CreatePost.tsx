@@ -1,26 +1,17 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
+import { Box, Avatar, TextField, Button, IconButton, Typography, Menu, MenuItem } from "@mui/material";
 import {
-	Box,
-	Avatar,
-	TextField,
-	Button,
-	IconButton,
-	useTheme,
-	FormControl,
-	Select,
-	MenuItem,
-	InputLabel,
-	Typography,
-	Autocomplete,
-	CircularProgress,
-} from "@mui/material";
-import { Image as ImageIcon, Close as CloseIcon, Public as PublicIcon, Group as GroupIcon } from "@mui/icons-material";
+	Image as ImageIcon,
+	Close as CloseIcon,
+	Public as PublicIcon,
+	KeyboardArrowDown as KeyboardArrowDownIcon,
+} from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useUploadPost } from "../hooks/posts/usePosts";
 import { useUserCommunities } from "../hooks/communities/useCommunities";
 import { useTranslation } from "react-i18next";
-import { ICommunity } from "../types";
 import { telemetry } from "../lib/telemetry";
+import { LoadingSpinner } from "./LoadingSpinner";
 
 interface CreatePostProps {
 	onClose?: () => void; // optional callback when post is successfully created for usage in modal
@@ -29,7 +20,7 @@ interface CreatePostProps {
 
 const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublicId }) => {
 	const { t } = useTranslation();
-	const theme = useTheme();
+
 	const { user, isLoggedIn } = useAuth();
 	const uploadPostMutation = useUploadPost();
 
@@ -45,7 +36,23 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 	const [selectedCommunityPublicId, setSelectedCommunityPublicId] = useState<string | null>(
 		defaultCommunityPublicId || null
 	);
-	const [communitySearchOpen, setCommunitySearchOpen] = useState(false);
+
+	// Audience selector menu state
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const open = Boolean(anchorEl);
+
+	const handleAudienceClick = (event: React.MouseEvent<HTMLElement>) => {
+		setAnchorEl(event.currentTarget);
+	};
+
+	const handleAudienceClose = () => {
+		setAnchorEl(null);
+	};
+
+	const handleCommunitySelect = (communityId: string | null) => {
+		setSelectedCommunityPublicId(communityId);
+		handleAudienceClose();
+	};
 
 	// flow tracking for telemetry
 	const flowIdRef = useRef<string | null>(null);
@@ -69,7 +76,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 	}, []);
 
 	// fetch user's communities for the dropdown
-	const { data: communitiesData, isLoading: isLoadingCommunities, fetchNextPage, hasNextPage } = useUserCommunities();
+	const { data: communitiesData, isLoading: isLoadingCommunities } = useUserCommunities();
 
 	const userCommunities = useMemo(() => {
 		return communitiesData?.pages.flatMap((page) => page.data) ?? [];
@@ -92,6 +99,10 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 
 	if (!isLoggedIn) {
 		return null;
+	}
+
+	if (isLoadingCommunities) {
+		return <LoadingSpinner />;
 	}
 
 	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,8 +182,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 	return (
 		<Box
 			sx={{
-				p: 3,
-				borderBottom: `1px solid ${theme.palette.divider}`,
+				p: 1,
 			}}
 		>
 			<Box sx={{ display: "flex", gap: 2 }}>
@@ -180,14 +190,88 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 					src={fullAvatarUrl}
 					alt={user?.username}
 					sx={{
-						width: 48,
-						height: 48,
+						width: 40,
+						height: 40,
 					}}
 				/>
 				<Box sx={{ flex: 1 }}>
+					{/* Audience Selector Pill */}
+					<Button
+						onClick={handleAudienceClick}
+						endIcon={<KeyboardArrowDownIcon fontSize="small" />}
+						sx={{
+							color: "primary.main",
+							border: "1px solid",
+							borderColor: "divider",
+							borderRadius: 20,
+							textTransform: "none",
+							fontWeight: 600,
+							fontSize: "0.875rem",
+							mb: 1,
+							height: 24,
+							px: 1.5,
+							"&:hover": {
+								bgcolor: "rgba(29, 155, 240, 0.1)",
+								borderColor: "primary.main",
+							},
+						}}
+					>
+						{selectedCommunity ? selectedCommunity.name : "Everyone"}
+					</Button>
+
+					{/* Audience Menu */}
+					<Menu
+						anchorEl={anchorEl}
+						open={open}
+						onClose={handleAudienceClose}
+						PaperProps={{
+							sx: {
+								maxHeight: 300,
+								width: 280,
+								borderRadius: 4,
+								mt: 1,
+								boxShadow: "rgb(101 119 134 / 20%) 0px 0px 15px, rgb(101 119 134 / 15%) 0px 0px 3px 1px",
+							},
+						}}
+					>
+						<Typography variant="subtitle2" sx={{ px: 2, py: 1, fontWeight: 700 }}>
+							Choose audience
+						</Typography>
+						<MenuItem onClick={() => handleCommunitySelect(null)} selected={!selectedCommunity}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+								<Avatar sx={{ bgcolor: "primary.main", width: 32, height: 32 }}>
+									<PublicIcon fontSize="small" />
+								</Avatar>
+								<Typography fontWeight={600}>Everyone</Typography>
+							</Box>
+						</MenuItem>
+
+						{userCommunities.length > 0 && (
+							<>
+								<Typography variant="subtitle2" sx={{ px: 2, py: 1, mt: 1, fontWeight: 700 }}>
+									My Communities
+								</Typography>
+								{userCommunities.map((community) => (
+									<MenuItem
+										key={community.publicId}
+										onClick={() => handleCommunitySelect(community.publicId)}
+										selected={selectedCommunity?.publicId === community.publicId}
+									>
+										<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+											<Avatar src={community.avatar} sx={{ width: 32, height: 32 }}>
+												{community.name.charAt(0)}
+											</Avatar>
+											<Typography fontWeight={600}>{community.name}</Typography>
+										</Box>
+									</MenuItem>
+								))}
+							</>
+						)}
+					</Menu>
+
 					<TextField
 						multiline
-						rows={2}
+						minRows={2}
 						placeholder={t("post.placeholder")}
 						value={content}
 						onChange={(e) => setContent(e.target.value)}
@@ -224,8 +308,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 									width: "100%",
 									maxHeight: "300px",
 									objectFit: "cover",
-									borderRadius: "8px",
-									border: `1px solid ${theme.palette.divider}`,
+									borderRadius: "16px",
 								}}
 							/>
 							<IconButton
@@ -251,91 +334,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 						</Box>
 					)}
 
-					{/* Community Selector */}
-					<Box sx={{ mt: 2 }}>
-						<Autocomplete
-							open={communitySearchOpen}
-							onOpen={() => setCommunitySearchOpen(true)}
-							onClose={() => setCommunitySearchOpen(false)}
-							options={userCommunities}
-							loading={isLoadingCommunities}
-							getOptionLabel={(option: ICommunity) => option.name}
-							value={selectedCommunity}
-							onChange={(_, newValue) => {
-								setSelectedCommunityPublicId(newValue?.publicId || null);
-							}}
-							isOptionEqualToValue={(option, value) => option.publicId === value.publicId}
-							ListboxProps={{
-								onScroll: (event) => {
-									const listboxNode = event.currentTarget;
-									if (
-										listboxNode.scrollTop + listboxNode.clientHeight >= listboxNode.scrollHeight - 50 &&
-										hasNextPage
-									) {
-										fetchNextPage();
-									}
-								},
-							}}
-							renderOption={(props, option) => (
-								<Box
-									component="li"
-									{...props}
-									key={option.publicId}
-									sx={{ display: "flex", alignItems: "center", gap: 1 }}
-								>
-									<Avatar src={option.avatar || undefined} sx={{ width: 24, height: 24 }}>
-										{option.name.charAt(0)}
-									</Avatar>
-									<Typography variant="body2">{option.name}</Typography>
-								</Box>
-							)}
-							renderInput={(params) => (
-								<TextField
-									{...params}
-									placeholder={t("post.select_community", "Post to...")}
-									variant="outlined"
-									size="small"
-									InputProps={{
-										...params.InputProps,
-										startAdornment: (
-											<Box sx={{ display: "flex", alignItems: "center", mr: 1 }}>
-												{selectedCommunity ? (
-													<GroupIcon fontSize="small" color="primary" />
-												) : (
-													<PublicIcon fontSize="small" color="action" />
-												)}
-											</Box>
-										),
-										endAdornment: (
-											<>
-												{isLoadingCommunities ? <CircularProgress color="inherit" size={16} /> : null}
-												{params.InputProps.endAdornment}
-											</>
-										),
-									}}
-								/>
-							)}
-							noOptionsText={
-								userCommunities.length === 0
-									? t("post.no_communities", "Join a community to post there")
-									: t("post.no_matching_community", "No matching community")
-							}
-						/>
-						<Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-							{selectedCommunity
-								? t("post.posting_to_community", "Posting to {{community}}", { community: selectedCommunity.name })
-								: t("post.posting_personal", "Posting to your personal feed")}
-						</Typography>
-					</Box>
-
-					<Box
-						sx={{
-							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-							mt: 2,
-						}}
-					>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "primary.main", mb: 1.5, px: 1 }}>
 						<Box sx={{ display: "flex", gap: 0.5 }}>
 							<IconButton
 								onClick={() => fileInputRef.current?.click()}
@@ -345,8 +344,9 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 										backgroundColor: "rgba(29, 155, 240, 0.1)",
 									},
 								}}
+								size="small"
 							>
-								<ImageIcon />
+								<ImageIcon fontSize="small" />
 							</IconButton>
 							<input
 								ref={fileInputRef}
@@ -356,6 +356,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 								onChange={handleFileChange}
 							/>
 						</Box>
+						<PublicIcon fontSize="small" sx={{ fontSize: 16 }} />
+						<Typography variant="caption" fontWeight={600} sx={{ color: "primary.main" }}>
+							{selectedCommunity ? "Community members can reply" : "Everyone can reply"}
+						</Typography>
+					</Box>
+
+					<Box
+						sx={{
+							display: "flex",
+							justifyContent: "flex-end",
+							alignItems: "flex-end",
+						}}
+					>
 						<Button
 							variant="contained"
 							onClick={handleUpload}
@@ -363,15 +376,19 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 							sx={{
 								borderRadius: 20,
 								textTransform: "none",
-								fontWeight: 600,
-								px: 3,
-								py: 1,
+								fontWeight: 700,
+								px: 2.5,
+								py: 0.5,
 								bgcolor: "primary.main",
+								boxShadow: "none",
 								"&:hover": {
 									bgcolor: "primary.dark",
+									boxShadow: "none",
 								},
 								"&:disabled": {
 									opacity: 0.5,
+									bgcolor: "primary.main",
+									color: "white",
 								},
 							}}
 						>

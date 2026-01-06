@@ -17,6 +17,13 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 		return this.model.findOne({ communityId, userId }).exec();
 	}
 
+	async findByCommunityAndUsers(
+		communityId: string | Types.ObjectId,
+		userIds: (string | Types.ObjectId)[]
+	): Promise<ICommunityMember[]> {
+		return this.model.find({ communityId, userId: { $in: userIds } }).exec();
+	}
+
 	async findByUser(userId: string | Types.ObjectId, limit: number = 20, skip: number = 0): Promise<ICommunityMember[]> {
 		return this.model.find({ userId }).limit(limit).skip(skip).exec();
 	}
@@ -39,5 +46,17 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 
 	async countByUser(userId: string | Types.ObjectId): Promise<number> {
 		return this.model.countDocuments({ userId }).exec();
+	}
+
+	async findByCommunityId(
+		communityId: string | Types.ObjectId,
+		limit: number = 20,
+		skip: number = 0
+	): Promise<ICommunityMember[]> {
+		return this.model.find({ communityId }).populate("userId").limit(limit).skip(skip).exec();
+	}
+
+	async countByCommunityId(communityId: string | Types.ObjectId): Promise<number> {
+		return this.model.countDocuments({ communityId }).exec();
 	}
 }

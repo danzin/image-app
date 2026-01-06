@@ -54,6 +54,8 @@ export interface PostDTO {
 
 	isLikedByViewer?: boolean;
 	isFavoritedByViewer?: boolean;
+	canDelete?: boolean;
+	authorCommunityRole?: "admin" | "moderator" | "member";
 }
 
 export interface UserPostsResult extends PaginationResult<PostDTO> {

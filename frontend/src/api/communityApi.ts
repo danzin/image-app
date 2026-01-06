@@ -1,5 +1,20 @@
 import axiosClient from "./axiosClient";
-import { ICommunity, CreateCommunityDTO } from "../types";
+import { ICommunity, CreateCommunityDTO, ICommunityMember } from "../types";
+
+export const fetchCommunityMembers = async (
+	slug: string,
+	pageParam: number,
+	limit: number = 20
+): Promise<{
+	data: ICommunityMember[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}> => {
+	const { data } = await axiosClient.get(`/api/communities/${slug}/members?page=${pageParam}&limit=${limit}`);
+	return data;
+};
 
 export const fetchCommunities = async (
 	pageParam: number,
@@ -56,4 +71,8 @@ export const joinCommunity = async (communityPublicId: string): Promise<void> =>
 
 export const leaveCommunity = async (communityPublicId: string): Promise<void> => {
 	await axiosClient.post(`/api/communities/${communityPublicId}/leave`);
+};
+
+export const kickMember = async (communityPublicId: string, userPublicId: string): Promise<void> => {
+	await axiosClient.delete(`/api/communities/${communityPublicId}/members/${userPublicId}`);
 };

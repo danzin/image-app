@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { IPost } from "../types";
-import { Typography, Box, Avatar } from "@mui/material";
+import { Typography, Box, Avatar, Chip } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import GroupsIcon from "@mui/icons-material/Groups";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
 import { useRepostPost } from "../hooks/posts/usePosts";
@@ -175,6 +176,25 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 						>
 							{post.user?.username || t("post.unknown_user")}
 						</Typography>
+						{post.authorCommunityRole === "admin" && (
+							<Chip
+								icon={<AdminPanelSettingsIcon sx={{ fontSize: 14 }} />}
+								label="Admin"
+								size="small"
+								color="primary"
+								variant="outlined"
+								sx={{ height: 18, fontSize: "0.65rem", "& .MuiChip-icon": { width: 14, height: 14 } }}
+							/>
+						)}
+						{post.authorCommunityRole === "moderator" && (
+							<Chip
+								label="Mod"
+								size="small"
+								color="secondary"
+								variant="outlined"
+								sx={{ height: 18, fontSize: "0.65rem" }}
+							/>
+						)}
 						<Typography variant="body2" color="text.secondary">
 							{new Date(post.createdAt).toLocaleDateString(undefined, {
 								month: "short",

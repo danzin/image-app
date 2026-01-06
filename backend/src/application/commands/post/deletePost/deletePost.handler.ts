@@ -7,6 +7,7 @@ import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostW
 import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
 import { CommentRepository } from "../../../../repositories/comment.repository";
+import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
 import { TagService } from "../../../../services/tag.service";
 import { ImageService } from "../../../../services/image.service";
 import { RedisService } from "../../../../services/redis.service";
@@ -34,6 +35,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
+		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("ImageService") private readonly imageService: ImageService,
 		@inject("RedisService") private readonly redisService: RedisService,
@@ -55,7 +57,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 				postAuthorPublicId = postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId;
 
-				this.validateDeletePermission(user, post);
+				await this.validateDeletePermission(user, post, session);
 
 				await this.handleImageDeletion(
 					post,
@@ -124,16 +126,25 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		return { postOwnerInternalId, postOwnerPublicId };
 	}
 
-	private validateDeletePermission(user: any, post: IPost): void {
+	private async validateDeletePermission(user: any, post: IPost, session: ClientSession): Promise<void> {
 		const requesterId = (user as any)._id?.toString?.() ?? (user as any).publicId ?? "";
 		const isOwner =
 			typeof (post as any).isOwnedBy === "function"
 				? (post as any).isOwnedBy(requesterId)
 				: (post as any).user?.toString?.() === requesterId;
 
-		if (!isOwner && !user.isAdmin) {
-			throw new PostAuthorizationError();
+		if (isOwner || user.isAdmin) {
+			return;
 		}
+
+		if (post.communityId) {
+			const member = await this.communityMemberRepository.findByCommunityAndUser(post.communityId, (user as any)._id);
+			if (member && (member.role === "admin" || member.role === "moderator")) {
+				return;
+			}
+		}
+
+		throw new PostAuthorizationError();
 	}
 
 	private async handleImageDeletion(

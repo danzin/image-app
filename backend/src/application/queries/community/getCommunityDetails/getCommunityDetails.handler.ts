@@ -10,6 +10,7 @@ import { createError } from "../../../../utils/errors";
 
 interface CommunityDetailsResult extends Omit<ICommunity, never> {
 	isMember?: boolean;
+	isCreator?: boolean;
 }
 
 @injectable()
@@ -39,6 +40,7 @@ export class GetCommunityDetailsQueryHandler
 					user._id as Types.ObjectId
 				);
 				result.isMember = !!membership;
+				result.isCreator = community.creatorId.toString() === user.publicId.toString();
 			}
 		}
 

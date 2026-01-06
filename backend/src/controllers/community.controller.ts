@@ -9,6 +9,7 @@ import { GetCommunityDetailsQuery } from "../application/queries/community/getCo
 import { GetUserCommunitiesQuery } from "../application/queries/community/getUserCommunities/getUserCommunities.query";
 import { GetCommunityFeedQuery } from "../application/queries/community/getCommunityFeed/getCommunityFeed.query";
 import { GetAllCommunitiesQuery } from "../application/queries/community/getAllCommunities/getAllCommunities.query";
+import { GetCommunityMembersQuery } from "../application/queries/community/getCommunityMembers/getCommunityMembers.query";
 import { UpdateCommunityCommand } from "../application/commands/community/updateCommunity/updateCommunity.command";
 import { DeleteCommunityCommand } from "../application/commands/community/deleteCommunity/deleteCommunity.command";
 import { KickMemberCommand } from "../application/commands/community/kickMember/kickMember.command";
@@ -162,6 +163,20 @@ export class CommunityController {
 			const command = new DeleteCommunityCommand(id, decodedUser.publicId);
 			await this.commandBus.dispatch(command);
 			res.status(200).json({ message: "Community deleted successfully" });
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	getCommunityMembers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { slug } = req.params;
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 20;
+
+			const query = new GetCommunityMembersQuery(slug, page, limit);
+			const result = await this.queryBus.execute(query);
+			res.status(200).json(result);
 		} catch (error) {
 			next(error);
 		}

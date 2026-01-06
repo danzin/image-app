@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment } from "@mui/material";
-import { Search as SearchIcon } from "@mui/icons-material";
+import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, Fab } from "@mui/material";
+import { Search as SearchIcon, Add as AddIcon } from "@mui/icons-material";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
@@ -185,7 +185,24 @@ const Layout: React.FC = () => {
 			</Box>
 
 			{/* Mobile Bottom Nav */}
-			{isMobile && <BottomNav onPostClick={handleOpenUploadModal} />}
+			{isMobile && <BottomNav />}
+
+			{/* Mobile FAB */}
+			{isMobile && (
+				<Fab
+					color="primary"
+					aria-label="add"
+					onClick={handleOpenUploadModal}
+					sx={{
+						position: "fixed",
+						bottom: 70,
+						right: 16,
+						zIndex: 1000,
+					}}
+				>
+					<AddIcon />
+				</Fab>
+			)}
 
 			{/* Upload Modal */}
 			{isUploadModalOpen && <UploadForm onClose={handleCloseUploadModal} />}

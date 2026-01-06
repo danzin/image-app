@@ -3,11 +3,13 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetCommunityFeedQuery } from "./getCommunityFeed.query";
 import { PostRepository } from "../../../../repositories/post.repository";
 import { CommunityRepository } from "../../../../repositories/community.repository";
-import { IPost } from "../../../../types";
+import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
+import { DTOService } from "../../../../services/dto.service";
+import { PostDTO } from "../../../../types";
 import { createError } from "../../../../utils/errors";
 
 interface PaginatedPosts {
-	data: IPost[];
+	data: PostDTO[];
 	total: number;
 	page: number;
 	limit: number;
@@ -18,7 +20,9 @@ interface PaginatedPosts {
 export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityFeedQuery, PaginatedPosts> {
 	constructor(
 		@inject(PostRepository) private postRepository: PostRepository,
-		@inject(CommunityRepository) private communityRepository: CommunityRepository
+		@inject(CommunityRepository) private communityRepository: CommunityRepository,
+		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
+		@inject(DTOService) private dtoService: DTOService
 	) {}
 
 	async execute(query: GetCommunityFeedQuery): Promise<PaginatedPosts> {
@@ -30,10 +34,29 @@ export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityF
 		}
 
 		const communityId = community._id.toString();
-		const data = await this.postRepository.findByCommunityId(communityId, page, limit);
+		const posts = await this.postRepository.findByCommunityId(communityId, page, limit);
 		const total = await this.postRepository.countByCommunityId(communityId);
 		const totalPages = Math.ceil(total / limit);
 
-		return { data, total, page, limit, totalPages };
+		// Get unique authors
+		const authorIds = [...new Set(posts.map((post: any) => post.author?._id || post.user))];
+
+		// Fetch member roles for these authors
+		const members = await this.communityMemberRepository.findByCommunityAndUsers(communityId, authorIds);
+		const memberMap = new Map(members.map((m) => [m.userId.toString(), m]));
+
+		const dtos = posts.map((post) => {
+			const dto = this.dtoService.toPostDTO(post);
+			const authorId = (post as any).author?._id?.toString() || (post as any).user?.toString();
+			const member = memberMap.get(authorId);
+
+			if (member && (member.role === "admin" || member.role === "moderator")) {
+				dto.authorCommunityRole = member.role;
+			}
+
+			return dto;
+		});
+
+		return { data: dtos, total, page, limit, totalPages };
 	}
 }

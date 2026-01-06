@@ -68,6 +68,14 @@ export class CommunityRoutes {
 			this.communityController.getCommunityFeed
 		);
 
+		// Get Community Members
+		this.router.get(
+			"/:slug/members",
+			this.optionalAuth,
+			new ValidationMiddleware({ params: communitySlugSchema }).validate(),
+			this.communityController.getCommunityMembers
+		);
+
 		// Get Community Details (by slug)
 		this.router.get(
 			"/:slug",

@@ -101,6 +101,8 @@ export interface IPost {
 
 	isLikedByViewer: boolean;
 	isFavoritedByViewer: boolean;
+	canDelete?: boolean;
+	authorCommunityRole?: "admin" | "moderator" | "member";
 }
 
 /**
@@ -391,6 +393,14 @@ export interface WhoToFollowResponse {
 	timestamp: string;
 }
 
+export interface ICommunityMember {
+	_id: string;
+	communityId: string;
+	userId: IUser;
+	role: "admin" | "moderator" | "member";
+	joinedAt: Date;
+}
+
 export interface ICommunity {
 	publicId: string;
 	id?: string;
@@ -406,6 +416,7 @@ export interface ICommunity {
 	createdAt: string;
 	updatedAt: string;
 	isMember?: boolean;
+	isCreator?: boolean;
 }
 
 export interface CreateCommunityDTO {
