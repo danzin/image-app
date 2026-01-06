@@ -47,7 +47,7 @@ const Layout: React.FC = () => {
 				minHeight: "100vh",
 				display: "flex",
 				bgcolor: "background.default",
-				justifyContent: "center", // Center the content on large screens
+				justifyContent: "center",
 			}}
 		>
 			<Box
@@ -93,7 +93,7 @@ const Layout: React.FC = () => {
 						flexDirection: "column",
 						minWidth: 0,
 						borderRight: !isMobile && !isMessagesPage && !isAdminPage ? `1px solid ${theme.palette.divider}` : "none",
-						maxWidth: isMessagesPage || isAdminPage ? "100%" : 600, // Allow full width for messages and admin
+						maxWidth: isMessagesPage || isAdminPage ? "100%" : 600,
 						width: "100%",
 					}}
 				>
