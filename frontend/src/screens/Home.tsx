@@ -24,7 +24,7 @@ const Home: React.FC = () => {
 	}
 
 	return (
-		<Box sx={{ display: "flex", flexDirection: "column" }}>
+		<Box sx={{ display: "flex", flexDirection: "column", mt: 2 }}>
 			{/* CreatePost decides whether it should render or not - hide on mobile */}
 			{!isMobile && <CreatePost />}
 
