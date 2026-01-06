@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, Fab } from "@mui/material";
-import { Search as SearchIcon, Add as AddIcon } from "@mui/icons-material";
+import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, Fab, IconButton } from "@mui/material";
+import { Search as SearchIcon, Add as AddIcon, Bookmark as BookmarkIcon } from "@mui/icons-material";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
@@ -150,6 +150,9 @@ const Layout: React.FC = () => {
 									}}
 								/>
 							</Box>
+							<IconButton component={RouterLink} to="/favorites" sx={{ color: "text.primary" }}>
+								<BookmarkIcon />
+							</IconButton>
 						</Box>
 					)}
 
