@@ -39,7 +39,7 @@ export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityF
 		const totalPages = Math.ceil(total / limit);
 
 		// Get unique authors
-		const authorIds = [...new Set(posts.map((post: any) => post.author?._id || post.user))];
+		const authorIds = [...new Set(posts.map((post) => post.author?._id || post.user))];
 
 		// Fetch member roles for these authors
 		const members = await this.communityMemberRepository.findByCommunityAndUsers(communityId, authorIds);
@@ -47,7 +47,7 @@ export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityF
 
 		const dtos = posts.map((post) => {
 			const dto = this.dtoService.toPostDTO(post);
-			const authorId = (post as any).author?._id?.toString() || (post as any).user?.toString();
+			const authorId = post.author?._id?.toString() || post.user?.toString();
 			const member = memberMap.get(authorId);
 
 			if (member && (member.role === "admin" || member.role === "moderator")) {

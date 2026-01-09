@@ -1,4 +1,5 @@
 import { injectable } from "tsyringe";
+import { Server } from "socket.io";
 import { IRealtimeMessageHandler } from "../realtime/IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
 import { logger } from "../../../utils/winston";
@@ -7,7 +8,7 @@ import { logger } from "../../../utils/winston";
 export class PostDeletedMessageHandler implements IRealtimeMessageHandler {
 	readonly messageType = "post_deleted";
 
-	async handle(io: any, message: FeedUpdateMessage): Promise<void> {
+	async handle(io: Server, message: FeedUpdateMessage): Promise<void> {
 		const postId = message.postId;
 		if (!postId) return;
 

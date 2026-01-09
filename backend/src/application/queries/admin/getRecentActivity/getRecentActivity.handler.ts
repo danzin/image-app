@@ -2,7 +2,8 @@ import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetRecentActivityQuery } from "./getRecentActivity.query";
 import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { PaginationResult } from "../../../../types";
+import { PaginationResult, IUserAction } from "../../../../types";
+import mongoose from "mongoose";
 
 export interface ActivityItem {
 	userId: string;
@@ -26,14 +27,23 @@ export class GetRecentActivityQueryHandler
 			sortOrder: "desc",
 		});
 
-		const transformedData = activities.data.map((activity: any) => ({
-			userId: activity.userId?._id?.toString() || activity.userId?.toString() || "",
-			username: activity.userId?.username || "Unknown",
-			action: activity.actionType || "unknown",
-			targetType: this.getTargetType(activity.actionType),
-			targetId: activity.targetId?.toString() || "",
-			timestamp: activity.timestamp || new Date(),
-		}));
+		const transformedData = activities.data.map((activity) => {
+			const user = activity.userId as unknown as
+				| { _id: mongoose.Types.ObjectId; username: string }
+				| mongoose.Types.ObjectId;
+			const userIdStr =
+				user instanceof mongoose.Types.ObjectId ? user.toString() : user && "_id" in user ? user._id.toString() : "";
+			const username = !(user instanceof mongoose.Types.ObjectId) && user?.username ? user.username : "Unknown";
+
+			return {
+				userId: userIdStr,
+				username: username,
+				action: activity.actionType || "unknown",
+				targetType: this.getTargetType(activity.actionType),
+				targetId: activity.targetId?.toString() || "",
+				timestamp: activity.timestamp || new Date(),
+			};
+		});
 
 		return {
 			data: transformedData,

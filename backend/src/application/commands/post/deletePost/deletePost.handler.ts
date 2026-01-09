@@ -14,7 +14,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostDeletedEvent } from "../../../events/post/post.event";
-import { IPost } from "../../../../types";
+import { IPost, IUser, IImage, ITag } from "../../../../types";
 import {
 	PostAuthorizationError,
 	PostNotFoundError,
@@ -97,7 +97,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		return post;
 	}
 
-	private async validateUserExists(publicId: string, session: ClientSession): Promise<any> {
+	private async validateUserExists(publicId: string, session: ClientSession): Promise<IUser> {
 		const user = await this.userReadRepository.findByPublicId(publicId, session);
 		if (!user) {
 			throw new UserNotFoundError();
@@ -106,39 +106,28 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private extractPostOwnerInfo(post: IPost): { postOwnerInternalId: string; postOwnerPublicId?: string } {
-		const rawUser = (post as any).user;
-		const authorSnapshot = (post as any).author;
+		// In lean mode (findByPublicId), 'user' is an ObjectId and 'author' is the snapshot
+		const userId = post.user as unknown as mongoose.Types.ObjectId;
+		const authorSnapshot = post.author;
 
-		let postOwnerInternalId = "";
-		if (rawUser && typeof rawUser === "object" && "_id" in rawUser) {
-			postOwnerInternalId = (rawUser as any)._id?.toString?.() ?? "";
-		} else if (authorSnapshot?._id) {
-			postOwnerInternalId = authorSnapshot._id.toString();
-		} else if (typeof rawUser?.toString === "function") {
-			postOwnerInternalId = rawUser.toString();
-		}
-
-		const postOwnerPublicId =
-			typeof rawUser === "object" && rawUser !== null && "publicId" in rawUser
-				? (rawUser as any).publicId
-				: authorSnapshot?.publicId;
+		const postOwnerInternalId = userId ? userId.toString() : (authorSnapshot?._id?.toString() ?? "");
+		const postOwnerPublicId = authorSnapshot?.publicId;
 
 		return { postOwnerInternalId, postOwnerPublicId };
 	}
 
-	private async validateDeletePermission(user: any, post: IPost, session: ClientSession): Promise<void> {
-		const requesterId = (user as any)._id?.toString?.() ?? (user as any).publicId ?? "";
-		const isOwner =
-			typeof (post as any).isOwnedBy === "function"
-				? (post as any).isOwnedBy(requesterId)
-				: (post as any).user?.toString?.() === requesterId;
+	private async validateDeletePermission(user: IUser, post: IPost, session: ClientSession): Promise<void> {
+		const requesterId = user._id!.toString();
+		// post.user is an ObjectId in lean mode
+		const ownerId = (post.user as unknown as mongoose.Types.ObjectId).toString();
+		const isOwner = ownerId === requesterId;
 
 		if (isOwner || user.isAdmin) {
 			return;
 		}
 
 		if (post.communityId) {
-			const member = await this.communityMemberRepository.findByCommunityAndUser(post.communityId, (user as any)._id);
+			const member = await this.communityMemberRepository.findByCommunityAndUser(post.communityId, user._id as string);
 			if (member && (member.role === "admin" || member.role === "moderator")) {
 				return;
 			}
@@ -158,8 +147,9 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 			return;
 		}
 
-		const rawImage = post.image as any;
-		const imageId = rawImage?._id ? rawImage._id.toString() : rawImage?.toString?.();
+		// Ensure we handle both populated object and direct ID (though findByPublicId populates it)
+		const imageObj = post.image as any;
+		const imageId = imageObj._id ? imageObj._id.toString() : imageObj.toString();
 
 		if (!imageId) {
 			console.warn(`[DeletePostHandler] Post ${post.publicId} has image reference but no valid imageId`);
@@ -182,7 +172,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 	}
 
 	private async deletePostAndComments(post: IPost, session: ClientSession): Promise<void> {
-		const postInternalId = (post as any)._id.toString();
+		const postInternalId = post._id!.toString();
 		await this.postWriteRepository.delete(postInternalId, session);
 		await this.commentRepository.deleteCommentsByPostId(postInternalId, session);
 	}
@@ -192,11 +182,10 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 			return;
 		}
 
-		const tagIds = (post.tags as any[]).map((tag) => {
-			if (typeof tag === "object" && tag !== null && "_id" in tag) {
-				return new mongoose.Types.ObjectId((tag as any)._id);
-			}
-			return new mongoose.Types.ObjectId(tag);
+		// In lean mode (findByPublicId), tags are populated as plain objects
+		const tagIds = post.tags.map((tag: any) => {
+			const id = tag._id || tag; // Handle both populated object and direct ID (fallback)
+			return new mongoose.Types.ObjectId(id);
 		});
 
 		await this.tagService.decrementUsage(tagIds, session);

@@ -273,10 +273,11 @@ export class PostRepository extends BaseRepository<IPost> {
 						{ path: "tags", select: "tag" },
 						{ path: "user", select: "publicId username avatar profile displayName" },
 					],
-				});
+				})
+				.lean();
 
 			if (session) query.session(session);
-			return await query.exec();
+			return (await query.exec()) as IPost | null;
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to load post");
 		}

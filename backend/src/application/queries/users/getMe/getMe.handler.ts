@@ -4,11 +4,11 @@ import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "../../../../repositories/interfaces";
 import { createError } from "../../../../utils/errors";
 import { IUser } from "../../../../types/index.js";
-import { DTOService } from "../../../../services/dto.service";
+import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "../../../../services/dto.service";
 import jwt from "jsonwebtoken";
 
 export interface GetMeResult {
-	user: any;
+	user: AdminUserDTO | AuthenticatedUserDTO;
 	token: string;
 }
 

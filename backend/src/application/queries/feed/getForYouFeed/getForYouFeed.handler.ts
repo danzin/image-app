@@ -7,7 +7,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
 import { createError } from "../../../../utils/errors";
 import { errorLogger, redisLogger } from "../../../../utils/winston";
-import { FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
+import { FeedPost, PaginatedFeedResult, UserLookupData, IPost, IImage, ITag, IUser } from "../../../../types";
 
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQuery, PaginatedFeedResult> {
@@ -51,21 +51,22 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 			// cache miss - generate feed and populate sorted set
 			redisLogger.info(`For You feed ZSET MISS, generating from DB`, { userId });
 			const feed = await this.generateForYouFeed(userId, page, limit);
+			const transformedFeedData = this.transformPosts(feed.data);
 
 			// populate sorted set with all posts (fire-and-forget for page 1)
-			if (page === 1 && feed.data && feed.data.length > 0) {
+			if (page === 1 && transformedFeedData.length > 0) {
 				const timestamp = Date.now();
-				redisLogger.info(`Populating ZSET for user`, { userId, postCount: feed.data.length });
+				redisLogger.info(`Populating ZSET for user`, { userId, postCount: transformedFeedData.length });
 				Promise.all(
-					feed.data.map((post: any, idx: number) =>
-						this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you")
-					)
+					transformedFeedData.map((post: FeedPost, idx: number) => {
+						return this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you");
+					})
 				).catch((err) => {
 					errorLogger.error(`Failed to populate For You feed ZSET`, { userId, error: err.message });
 				});
 			}
 
-			const enriched = await this.enrichFeedWithCurrentData(feed.data);
+			const enriched = await this.enrichFeedWithCurrentData(transformedFeedData);
 			return {
 				...feed,
 				data: enriched,
@@ -79,44 +80,63 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		}
 	}
 
-	private transformPosts(posts: any[]): FeedPost[] {
+	private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
 		return posts.map((post) => {
-			const plainPost = post.toObject();
+			const plainPost = post as any;
 			const userDoc = this.getUserSnapshot(plainPost);
-			const imageDoc = plainPost.image as any;
-			const tagsArray = Array.isArray(plainPost.tags) ? plainPost.tags : [];
-			const normalizedTags = tagsArray
-				.map((tag: any) => (tag && typeof tag === "object" ? { tag: tag.tag, publicId: tag.publicId } : null))
-				.filter((tag: any): tag is { tag: string; publicId?: string } => Boolean(tag?.tag));
+			const imageDoc = plainPost.image;
+			const tagsArray = (Array.isArray(plainPost.tags) ? plainPost.tags : []) as any[];
+
+			const normalizedTags = tagsArray.reduce<{ tag: string; publicId?: string }[]>((acc, tag) => {
+				if (tag && typeof tag === "object") {
+					acc.push({
+						tag: tag.tag,
+						publicId: tag.publicId,
+					});
+				}
+				return acc;
+			}, []);
 
 			return {
 				publicId: plainPost.publicId,
-				body: plainPost.body,
-				slug: plainPost.slug,
+				body: plainPost.body ?? "",
+				slug: plainPost.slug ?? "",
 				createdAt: plainPost.createdAt,
-				likes: plainPost.likesCount ?? 0,
+				likes: plainPost.likesCount ?? plainPost.likes ?? 0,
 				commentsCount: plainPost.commentsCount ?? 0,
 				viewsCount: plainPost.viewsCount ?? 0,
-				userPublicId: userDoc?.publicId,
+				userPublicId: userDoc?.publicId as string,
 				tags: normalizedTags,
 				user: {
-					publicId: userDoc?.publicId,
-					username: userDoc?.username,
-					avatar: userDoc?.avatar ?? userDoc?.avatarUrl ?? "",
+					publicId: userDoc?.publicId as string,
+					username: userDoc?.username as string,
+					avatar: userDoc?.avatar ?? "",
 				},
-				image: imageDoc ? { publicId: imageDoc.publicId, url: imageDoc.url, slug: imageDoc.slug } : undefined,
+				image: imageDoc
+					? {
+							publicId: imageDoc.publicId,
+							url: imageDoc.url,
+							slug: imageDoc.slug,
+						}
+					: undefined,
 				rankScore: plainPost.rankScore,
 				trendScore: plainPost.trendScore,
 			};
 		});
 	}
 
-	private getUserSnapshot(post: any) {
-		const rawUser = post?.user;
-		if (rawUser && typeof rawUser === "object" && (rawUser.publicId || rawUser.username)) {
-			return rawUser;
+	private getUserSnapshot(post: IPost): Partial<UserLookupData> {
+		const user = post.user;
+		// Check if user is an object and has publicId/username (not an ObjectId)
+		if (user && typeof user === "object" && ("publicId" in user || "username" in user)) {
+			return user as Partial<UserLookupData>;
 		}
-		return post?.author ?? {};
+		// Fallback to author (common in Mongoose IPost)
+		const author = post.author;
+		if (author && typeof author === "object") {
+			return author as Partial<UserLookupData>;
+		}
+		return {};
 	}
 
 	private async generateForYouFeed(userId: string, page: number, limit: number) {
@@ -130,7 +150,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		return this.postReadRepository.getRankedFeed(favoriteTags, limit, skip);
 	}
 
-	private async enrichFeedWithCurrentData(coreFeedData: any[]): Promise<FeedPost[]> {
+	private async enrichFeedWithCurrentData(coreFeedData: FeedPost[]): Promise<FeedPost[]> {
 		if (!coreFeedData || coreFeedData.length === 0) return [];
 
 		// extract unique user publicIds from feed items
@@ -139,7 +159,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 
 		// batch fetch user data with tag-based caching
 		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
+		let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
 
 		if (!userData) {
 			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
@@ -161,15 +181,16 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		// merge fresh user/image data into core feed
 		return coreFeedData.map((item) => {
 			const meta = metaMap.get(item.publicId);
+			const cachedUser = userMap.get(item.userPublicId);
 			return {
 				...item,
 				likes: meta?.likes ?? item.likes,
 				commentsCount: meta?.commentsCount ?? item.commentsCount,
 				viewsCount: meta?.viewsCount ?? item.viewsCount,
 				user: {
-					publicId: userMap.get(item.userPublicId)?.publicId,
-					username: userMap.get(item.userPublicId)?.username,
-					avatar: userMap.get(item.userPublicId)?.avatar,
+					publicId: cachedUser?.publicId ?? item.user.publicId,
+					username: cachedUser?.username ?? item.user.username,
+					avatar: cachedUser?.avatar ?? item.user.avatar,
 				},
 			};
 		});

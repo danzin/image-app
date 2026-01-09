@@ -40,13 +40,13 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 		const totalPages = Math.ceil(total / limit);
 
 		const memberships = await this.communityMemberRepository.findByUser(userId as Types.ObjectId, limit, skip);
-		const communityIds = memberships.map((m) => m.communityId);
+		const communityIds = memberships.map((m) => m.communityId.toString());
 
-		const communities = await this.communityRepository.findByIds(communityIds as any[]);
+		const communities = await this.communityRepository.findByIds(communityIds);
 
 		// user is querying their own communities so they are members of all of them
 		const data = communities.map((c) => {
-			const plain = (c as any).toObject ? (c as any).toObject() : c;
+			const plain = c.toObject ? c.toObject() : c;
 			return { ...plain, isMember: true } as ICommunity;
 		});
 
