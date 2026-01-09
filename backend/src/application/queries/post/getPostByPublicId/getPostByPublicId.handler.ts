@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import mongoose from "mongoose";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetPostByPublicIdQuery } from "./getPostByPublicId.query";
 import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
@@ -7,7 +8,7 @@ import { PostLikeRepository } from "../../../../repositories/postLike.repository
 import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
-import { PostDTO } from "../../../../types";
+import { IPost, PostDTO } from "../../../../types";
 
 @injectable()
 export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPublicIdQuery, PostDTO> {
@@ -21,7 +22,7 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 	) {}
 
 	async execute(query: GetPostByPublicIdQuery): Promise<PostDTO> {
-		const post = await this.postReadRepository.findByPublicId(query.publicId);
+		const post: IPost | null = await this.postReadRepository.findByPublicId(query.publicId);
 		if (!post) {
 			throw createError("NotFoundError", "Post not found");
 		}
@@ -30,8 +31,10 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 
 		// Check author community role
 		if (post.communityId) {
-			const communityInternalId = (post.communityId as any)._id || post.communityId;
-			const authorInternalId = (post as any).author?._id || (post as any).user;
+			const communityInternalId =
+				post.communityId instanceof mongoose.Types.ObjectId ? post.communityId : (post.communityId as any)._id; // Handle populated field if necessary
+
+			const authorInternalId = post.author?._id || post.user;
 
 			if (communityInternalId && authorInternalId) {
 				const authorMember = await this.communityMemberRepository.findByCommunityAndUser(
@@ -47,7 +50,7 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 
 		// add viewer-specific fields if viewer is logged in
 		if (query.viewerPublicId) {
-			const postInternalId = (post as any)._id?.toString();
+			const postInternalId = post._id?.toString();
 			const viewerInternalId = await this.userReadRepository.findInternalIdByPublicId(query.viewerPublicId);
 
 			if (postInternalId && viewerInternalId) {
@@ -61,7 +64,9 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 				let canDelete = isOwner;
 
 				if (!canDelete && post.communityId) {
-					const communityInternalId = (post.communityId as any)._id || post.communityId;
+					const communityInternalId =
+						post.communityId instanceof mongoose.Types.ObjectId ? post.communityId : (post.communityId as any)._id; // Handle populated field
+
 					if (communityInternalId) {
 						const member = await this.communityMemberRepository.findByCommunityAndUser(
 							communityInternalId.toString(),

@@ -43,7 +43,7 @@ export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsBy
 		);
 
 		// Map to DTOs
-		const postDTOs = posts.map((post: any) => this.dtoService.toPostDTO(post));
+		const postDTOs = posts.map((post) => this.dtoService.toPostDTO(post));
 
 		return {
 			data: postDTOs,

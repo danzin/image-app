@@ -31,7 +31,7 @@ export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQ
 		}
 
 		// attach follow counts
-		const userId = (user as any)._id?.toString() || (user as any).id;
+		const userId = user._id!.toString();
 		const [followerCount, followingCount] = await Promise.all([
 			this.followRepository.countFollowersByUserId(userId),
 			this.followRepository.countFollowingByUserId(userId),
@@ -45,7 +45,7 @@ export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQ
 
 		return {
 			...result,
-			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry)),
+			data: result.data.map((entry) => this.dtoService.toPostDTO(entry)),
 			profile,
 		};
 	}

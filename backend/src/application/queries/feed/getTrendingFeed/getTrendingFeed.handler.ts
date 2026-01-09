@@ -6,7 +6,8 @@ import { RedisService } from "../../../../services/redis.service";
 import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { redisLogger } from "../../../../utils/winston";
-import { FeedPost, PaginatedFeedResult, UserLookupData, PostMeta } from "types/index";
+import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag, UserLookupData, PostMeta } from "../../../../types";
+import mongoose from "mongoose";
 
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {
@@ -29,7 +30,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
 			redisLogger.debug(`trending:posts zRange returned`, { postCount: postIds.length });
 
-			let posts: any[];
+			let posts: (IPost | Record<string, unknown>)[];
 			let total: number;
 
 			if (postIds.length > 0) {
@@ -40,18 +41,17 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				// parallelizing I/O
 				const postsResults = await Promise.all(postPromises);
 
-				posts = postsResults.filter((p) => p !== null);
+				posts = postsResults.filter((p): p is IPost => p !== null);
 
 				// get total count from sorted set
 				total = await this.redisService.getTrendingCount();
 			} else {
 				// fallback: worker hasn't populated sorted set yet, use MongoDB sort
 				redisLogger.warn("trending:posts empty, falling back to MongoDB sort");
-				const result = (await (this.postReadRepository as any).getTrendingFeedWithCursor({
-					limit,
+				const result = await this.postReadRepository.getTrendingFeed(limit, start, {
 					timeWindowDays: 14,
 					minLikes: 1,
-				})) as any;
+				});
 				posts = result.data;
 				total = result.total;
 			}
@@ -74,73 +74,116 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		}
 	}
 
-	private transformPosts(posts: any[]): FeedPost[] {
+	private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
 		return posts.map((post) => {
-			const plainPost = typeof post.toObject === "function" ? post.toObject() : post;
+			const plainPost =
+				typeof (post as any).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
 			const userDoc = this.getUserSnapshot(plainPost);
-			const imageDoc = plainPost.image as any;
-			const repostOfDoc = plainPost.repostOf as any;
-			const tagsArray = Array.isArray(plainPost.tags) ? plainPost.tags : [];
-			const normalizedTags = tagsArray
-				.map((tag: any) => (tag && typeof tag === "object" ? { tag: tag.tag, publicId: tag.publicId } : null))
-				.filter((tag: any): tag is { tag: string; publicId?: string } => Boolean(tag?.tag));
+			const imageDoc = plainPost.image as IImage | Record<string, unknown> | undefined;
+			const repostOfDoc = plainPost.repostOf as IPost | Record<string, unknown> | undefined;
+			const tagsArray = (Array.isArray(plainPost.tags) ? plainPost.tags : []) as unknown[];
+			const normalizedTags = tagsArray.reduce<{ tag: string; publicId?: string }[]>((acc, tag) => {
+				if (tag && typeof tag === "object") {
+					if ("tag" in tag) {
+						acc.push({
+							tag: (tag as { tag: string }).tag,
+							publicId: (tag as { publicId?: string }).publicId,
+						});
+					} else {
+						acc.push({ tag: (tag as ITag).tag });
+					}
+				}
+				return acc;
+			}, []);
 
 			return {
-				publicId: plainPost.publicId,
-				body: plainPost.body,
-				slug: plainPost.slug,
-				createdAt: plainPost.createdAt,
-				likes: plainPost.likesCount ?? 0,
-				commentsCount: plainPost.commentsCount ?? 0,
-				viewsCount: plainPost.viewsCount ?? 0,
-				userPublicId: userDoc?.publicId,
+				publicId: plainPost.publicId as string,
+				body: (plainPost.body as string) ?? "",
+				slug: (plainPost.slug as string) ?? "",
+				createdAt: plainPost.createdAt as Date,
+				likes: (plainPost.likesCount as number) ?? 0,
+				commentsCount: (plainPost.commentsCount as number) ?? 0,
+				viewsCount: (plainPost.viewsCount as number) ?? 0,
+				userPublicId: userDoc?.publicId as string,
 				tags: normalizedTags,
 				user: {
-					publicId: userDoc?.publicId,
-					username: userDoc?.username,
+					publicId: userDoc?.publicId as string,
+					username: userDoc?.username as string,
 					avatar: userDoc?.avatar ?? userDoc?.avatarUrl ?? "",
 				},
-				image: imageDoc ? { publicId: imageDoc.publicId, url: imageDoc.url, slug: imageDoc.slug } : undefined,
+				image: imageDoc
+					? {
+							publicId: (imageDoc as any).publicId,
+							url: (imageDoc as any).url,
+							slug: (imageDoc as any).slug,
+						}
+					: undefined,
 				repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
-				rankScore: plainPost.rankScore,
-				trendScore: plainPost.trendScore,
+				rankScore: plainPost.rankScore as number | undefined,
+				trendScore: plainPost.trendScore as number | undefined,
 			};
 		});
 	}
 
-	private transformRepostOf(repostOf: any): any {
+	private transformRepostOf(repostOf: IPost | Record<string, unknown>): Partial<FeedPost> | undefined {
+		if (!repostOf) return undefined;
+
 		const originalUserDoc = this.getUserSnapshot(repostOf);
-		const originalImageDoc = repostOf.image as any;
-		const originalTagsArray = Array.isArray(repostOf.tags) ? repostOf.tags : [];
-		const normalizedOriginalTags = originalTagsArray
-			.map((tag: any) => (tag && typeof tag === "object" ? { tag: tag.tag, publicId: tag.publicId } : null))
-			.filter((tag: any): tag is { tag: string; publicId?: string } => Boolean(tag?.tag));
+		const originalImageDoc = repostOf.image as IImage | Record<string, unknown> | undefined;
+		const originalTagsArray = (Array.isArray(repostOf.tags) ? repostOf.tags : []) as unknown[];
+		const normalizedOriginalTags = originalTagsArray.reduce<{ tag: string; publicId?: string }[]>(
+			(acc, tag: unknown) => {
+				if (tag && typeof tag === "object") {
+					if ("tag" in tag) {
+						acc.push({
+							tag: (tag as { tag: string }).tag,
+							publicId: (tag as { publicId?: string }).publicId,
+						});
+					} else {
+						acc.push({ tag: (tag as ITag).tag });
+					}
+				}
+				return acc;
+			},
+			[]
+		);
 
 		return {
-			publicId: repostOf.publicId,
-			body: repostOf.body,
-			slug: repostOf.slug,
-			createdAt: repostOf.createdAt,
-			likes: repostOf.likesCount ?? 0,
-			commentsCount: repostOf.commentsCount ?? 0,
+			publicId: repostOf.publicId as string,
+			body: (repostOf.body as string) ?? "",
+			slug: (repostOf.slug as string) ?? "",
+			createdAt: repostOf.createdAt as Date,
+			likes: (repostOf.likesCount as number) ?? 0,
+			commentsCount: (repostOf.commentsCount as number) ?? 0,
 			tags: normalizedOriginalTags,
 			user: {
-				publicId: originalUserDoc?.publicId,
-				username: originalUserDoc?.username,
+				publicId: originalUserDoc?.publicId as string,
+				username: originalUserDoc?.username as string,
 				avatar: originalUserDoc?.avatar ?? originalUserDoc?.avatarUrl ?? "",
 			},
 			image: originalImageDoc
-				? { publicId: originalImageDoc.publicId, url: originalImageDoc.url, slug: originalImageDoc.slug }
+				? ({ publicId: originalImageDoc.publicId, url: originalImageDoc.url, slug: originalImageDoc.slug } as IImage)
 				: undefined,
 		};
 	}
 
-	private getUserSnapshot(post: any) {
-		const rawUser = post?.user;
-		if (rawUser && typeof rawUser === "object" && (rawUser.publicId || rawUser.username)) {
-			return rawUser;
+	private getUserSnapshot(post: IPost | Record<string, unknown>): {
+		publicId?: string;
+		username?: string;
+		avatar?: string;
+		avatarUrl?: string;
+	} {
+		const rawUser = "user" in post ? (post as Record<string, unknown>).user : undefined;
+		if (rawUser && typeof rawUser === "object" && ("publicId" in rawUser || "username" in rawUser)) {
+			return rawUser as {
+				publicId?: string;
+				username?: string;
+				avatar?: string;
+				avatarUrl?: string;
+			};
 		}
-		return post?.author ?? {};
+		const author = "author" in post ? (post as Record<string, unknown>).author : undefined;
+		return (author as any) ?? {};
 	}
 
 	private async enrichFeedWithCurrentData(coreFeedData: FeedPost[]): Promise<FeedPost[]> {

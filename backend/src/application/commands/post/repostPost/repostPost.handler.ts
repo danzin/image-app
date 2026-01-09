@@ -11,7 +11,7 @@ import { DTOService } from "../../../../services/dto.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { createError } from "../../../../utils/errors";
 import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "../../../../utils/sanitizers";
-import { PostDTO } from "../../../../types";
+import { IPost, ITag, IUser, PostDTO } from "../../../../types";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostUploadedEvent } from "../../../events/post/post.event";
 import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
@@ -48,8 +48,8 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 		// prevent duplicate repost by same user
 		const duplicates = await this.postReadRepository.countDocuments({
-			user: (user as any)._id,
-			repostOf: (targetPost as any)._id,
+			user: (user as IUser)._id,
+			repostOf: targetPost._id,
 		});
 		if (duplicates > 0) {
 			throw createError("ConflictError", "Post already reposted by this user");
@@ -57,32 +57,30 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 		const normalizedBody = this.normalizeBody(command.body);
 
-		const created = await this.unitOfWork.executeInTransaction(async (session) => {
+		const created = (await this.unitOfWork.executeInTransaction(async (session) => {
 			const postPublicId = uuidv4();
 			const payload = sanitizeForMongo({
 				publicId: postPublicId,
-				user: (user as any)._id as mongoose.Types.ObjectId,
+				user: user._id as mongoose.Types.ObjectId,
 				author: {
-					_id: (user as any)._id,
+					_id: user._id,
 					publicId: user.publicId,
 					username: user.username,
-					avatarUrl: (user as any).avatar ?? (user as any).profile?.avatarUrl ?? "",
-					displayName: (user as any).profile?.displayName ?? user.username,
+					avatarUrl: user.avatar ?? "",
+					displayName: user.username,
 				},
 				body: normalizedBody,
 				slug: `${postPublicId}`,
 				type: "repost" as const,
-				repostOf: (targetPost as any)._id as mongoose.Types.ObjectId,
-				tags: Array.isArray((targetPost as any).tags)
-					? (targetPost as any).tags.map((t: any) => (t._id ? t._id : t))
-					: [],
+				repostOf: targetPost._id,
+				tags: Array.isArray(targetPost.tags) ? targetPost.tags.map((t: any) => t._id || t) : [],
 				likesCount: 0,
 				commentsCount: 0,
 				viewsCount: 0,
-			});
+			}) as Partial<IPost>;
 
-			const newPost = await this.postWriteRepository.create(payload as any, session);
-			await this.postWriteRepository.updateRepostCount((targetPost as any)._id.toString(), 1, session);
+			const newPost = await this.postWriteRepository.create(payload, session);
+			await this.postWriteRepository.updateRepostCount(targetPost._id!.toString(), 1, session);
 
 			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
 			if (targetOwner && targetOwner !== command.userPublicId) {
@@ -91,7 +89,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 					actionType: "repost",
 					actorId: command.userPublicId,
 					actorUsername: user.username,
-					actorAvatar: (user as any).avatar,
+					actorAvatar: user.avatar,
 					targetId: targetPost.publicId,
 					targetType: "post",
 					targetPreview: this.buildPostPreview(targetPost),
@@ -99,9 +97,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				});
 			}
 
-			const tagNames = Array.isArray((targetPost as any).tags)
-				? (targetPost as any).tags.map((t: any) => t.tag ?? t)
-				: [];
+			const tagNames = Array.isArray(targetPost.tags) ? targetPost.tags.map((t: any) => t.tag).filter(Boolean) : [];
 
 			this.eventBus.queueTransactional(
 				new PostUploadedEvent(newPost.publicId, user.publicId, Array.from(new Set(tagNames))),
@@ -109,9 +105,9 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 			);
 
 			return newPost;
-		});
+		})) as IPost;
 
-		const hydrated = await this.postReadRepository.findByPublicId((created as any).publicId);
+		const hydrated = await this.postReadRepository.findByPublicId(created.publicId);
 		if (!hydrated) {
 			throw createError("NotFoundError", "Failed to load repost after creation");
 		}
@@ -132,23 +128,24 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 		}
 	}
 
-	private resolvePostOwnerPublicId(post: any): string {
-		const postUser = (post as any).user;
-		if (postUser && typeof postUser === "object" && "publicId" in postUser) {
-			return (postUser as any).publicId;
+	private resolvePostOwnerPublicId(post: IPost): string {
+		// Prefer author snapshot (always present in refined IPost)
+		if (post.author?.publicId) {
+			return post.author.publicId;
 		}
-		const author = (post as any).author;
-		if (author && typeof author === "object" && "publicId" in author) {
-			return (author as any).publicId;
+		// Fallback to populated user if available (rare in lean + populates setup)
+		const postUser = post.user as any;
+		if (postUser?.publicId) {
+			return postUser.publicId;
 		}
 		return "";
 	}
 
-	private buildPostPreview(post: any): string {
-		const body = (post as any).body ?? "";
-		if (typeof body === "string" && body.length > 0) {
+	private buildPostPreview(post: IPost): string {
+		const body = post.body ?? "";
+		if (body.length > 0) {
 			return body.substring(0, 50) + (body.length > 50 ? "..." : "");
 		}
-		return (post as any).image ? "[Image post]" : "[Post]";
+		return post.image ? "[Image post]" : "[Post]";
 	}
 }

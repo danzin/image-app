@@ -42,7 +42,7 @@ const Gallery: React.FC<GalleryProps> = ({
 		if (posts && posts.length > 0) {
 			telemetry.trackScrollDepth(feedId, visibleIndex, posts.length);
 		}
-	}, [feedId, visibleIndex, posts?.length]);
+	}, [feedId, visibleIndex, posts?.length, posts]);
 
 	useEffect(() => {
 		const observer = new IntersectionObserver(

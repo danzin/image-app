@@ -20,7 +20,7 @@ export class SearchPostsByTagsQueryHandler implements IQueryHandler<SearchPostsB
 			const result = await this.postReadRepository.findWithPagination({ page: query.page, limit: query.limit });
 			return {
 				...result,
-				data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry)),
+				data: result.data.map((entry) => this.dtoService.toPostDTO(entry)),
 			};
 		}
 
@@ -29,7 +29,7 @@ export class SearchPostsByTagsQueryHandler implements IQueryHandler<SearchPostsB
 
 		return {
 			...result,
-			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry)),
+			data: result.data.map((entry) => this.dtoService.toPostDTO(entry)),
 		};
 	}
 }

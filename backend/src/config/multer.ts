@@ -9,7 +9,7 @@ if (!fs.existsSync(tmpDir)) {
 
 const storage = multer.diskStorage({ destination: tmpDir });
 
-const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const fileFilter = (req: unknown, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
 	const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 	if (allowedMimeTypes.includes(file.mimetype)) {
 		cb(null, true);

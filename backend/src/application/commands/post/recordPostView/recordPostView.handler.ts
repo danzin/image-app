@@ -17,6 +17,7 @@ import {
 	mapPostError,
 } from "../../../errors/post.errors";
 import { logger } from "../../../../utils/winston";
+import { IPost, IUser } from "types/index";
 
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
@@ -56,18 +57,18 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 			const userId = user._id as mongoose.Types.ObjectId;
 
 			const isOwner =
-				typeof (post as any).isOwnedBy === "function"
-					? (post as any).isOwnedBy(userId)
+				typeof (post as IPost).isOwnedBy === "function"
+					? (post as IPost).isOwnedBy(userId)
 					: post.user.toString() === userId.toString();
 			if (isOwner) {
 				return false;
 			}
 
-			if (typeof (user as any).canViewPost === "function" && !(user as any).canViewPost(post)) {
+			if (typeof (user as IUser).canViewPost === "function" && !(user as IUser).canViewPost(post)) {
 				throw new PostAuthorizationError("User cannot view this post");
 			}
 
-			if (typeof (post as any).canBeViewedBy === "function" && !(post as any).canBeViewedBy(user)) {
+			if (typeof (post as IPost).canBeViewedBy === "function" && !(post as IPost).canBeViewedBy(user)) {
 				throw new PostAuthorizationError("User cannot view this post");
 			}
 
