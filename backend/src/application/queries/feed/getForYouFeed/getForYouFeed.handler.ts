@@ -7,7 +7,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
 import { createError } from "../../../../utils/errors";
 import { errorLogger, redisLogger } from "../../../../utils/winston";
-import { FeedPost, PaginatedFeedResult, UserLookupData, IPost, IImage, ITag, IUser } from "../../../../types";
+import { FeedPost, PaginatedFeedResult, UserLookupData, IPost } from "../../../../types";
 
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQuery, PaginatedFeedResult> {

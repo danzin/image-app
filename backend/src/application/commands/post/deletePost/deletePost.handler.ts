@@ -14,7 +14,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostDeletedEvent } from "../../../events/post/post.event";
-import { IPost, IUser, IImage, ITag } from "../../../../types";
+import { IPost, IUser } from "../../../../types";
 import {
 	PostAuthorizationError,
 	PostNotFoundError,

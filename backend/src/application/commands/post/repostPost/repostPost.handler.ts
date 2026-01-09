@@ -11,7 +11,7 @@ import { DTOService } from "../../../../services/dto.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { createError } from "../../../../utils/errors";
 import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "../../../../utils/sanitizers";
-import { IPost, ITag, IUser, PostDTO } from "../../../../types";
+import { IPost, IUser, PostDTO } from "../../../../types";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostUploadedEvent } from "../../../events/post/post.event";
 import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
