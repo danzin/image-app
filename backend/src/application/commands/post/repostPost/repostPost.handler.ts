@@ -11,7 +11,7 @@ import { DTOService } from "../../../../services/dto.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { createError } from "../../../../utils/errors";
 import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "../../../../utils/sanitizers";
-import { PostDTO } from "../../../../types";
+import { IPost, IUser, PostDTO } from "../../../../types";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostUploadedEvent } from "../../../events/post/post.event";
 import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
@@ -41,15 +41,15 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 			throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
 		}
 
-		const targetPost = await this.postReadRepository.findByPublicId(command.targetPostPublicId);
+		const targetPost = (await this.postReadRepository.findByPublicId(command.targetPostPublicId)) as IPost;
 		if (!targetPost) {
 			throw createError("NotFoundError", `Post ${command.targetPostPublicId} not found`);
 		}
 
 		// prevent duplicate repost by same user
 		const duplicates = await this.postReadRepository.countDocuments({
-			user: (user as any)._id,
-			repostOf: (targetPost as any)._id,
+			user: (user as IUser)._id,
+			repostOf: (targetPost as IPost)._id,
 		});
 		if (duplicates > 0) {
 			throw createError("ConflictError", "Post already reposted by this user");
@@ -61,28 +61,28 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 			const postPublicId = uuidv4();
 			const payload = sanitizeForMongo({
 				publicId: postPublicId,
-				user: (user as any)._id as mongoose.Types.ObjectId,
+				user: user._id as mongoose.Types.ObjectId,
 				author: {
-					_id: (user as any)._id,
+					_id: user._id,
 					publicId: user.publicId,
 					username: user.username,
-					avatarUrl: (user as any).avatar ?? (user as any).profile?.avatarUrl ?? "",
-					displayName: (user as any).profile?.displayName ?? user.username,
+					avatarUrl: user.avatar ?? "",
+					displayName: user.username,
 				},
 				body: normalizedBody,
 				slug: `${postPublicId}`,
 				type: "repost" as const,
-				repostOf: (targetPost as any)._id as mongoose.Types.ObjectId,
-				tags: Array.isArray((targetPost as any).tags)
-					? (targetPost as any).tags.map((t: any) => (t._id ? t._id : t))
+				repostOf: (targetPost as IPost)._id as mongoose.Types.ObjectId,
+				tags: Array.isArray((targetPost as IPost).tags)
+					? (targetPost as IPost).tags.map((t: any) => (t._id ? t._id : t))
 					: [],
 				likesCount: 0,
 				commentsCount: 0,
 				viewsCount: 0,
 			});
 
-			const newPost = await this.postWriteRepository.create(payload as any, session);
-			await this.postWriteRepository.updateRepostCount((targetPost as any)._id.toString(), 1, session);
+			const newPost = await this.postWriteRepository.create(payload as IPost, session);
+			await this.postWriteRepository.updateRepostCount((targetPost as IPost)._id!.toString(), 1, session);
 
 			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
 			if (targetOwner && targetOwner !== command.userPublicId) {
@@ -91,7 +91,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 					actionType: "repost",
 					actorId: command.userPublicId,
 					actorUsername: user.username,
-					actorAvatar: (user as any).avatar,
+					actorAvatar: user.avatar,
 					targetId: targetPost.publicId,
 					targetType: "post",
 					targetPreview: this.buildPostPreview(targetPost),
@@ -99,8 +99,8 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				});
 			}
 
-			const tagNames = Array.isArray((targetPost as any).tags)
-				? (targetPost as any).tags.map((t: any) => t.tag ?? t)
+			const tagNames = Array.isArray((targetPost as IPost).tags)
+				? (targetPost as IPost).tags.map((t: any) => t.tag ?? t)
 				: [];
 
 			this.eventBus.queueTransactional(
@@ -144,11 +144,11 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 		return "";
 	}
 
-	private buildPostPreview(post: any): string {
-		const body = (post as any).body ?? "";
+	private buildPostPreview(post: IPost): string {
+		const body = (post as IPost).body ?? "";
 		if (typeof body === "string" && body.length > 0) {
 			return body.substring(0, 50) + (body.length > 50 ? "..." : "");
 		}
-		return (post as any).image ? "[Image post]" : "[Post]";
+		return (post as IPost).image ? "[Image post]" : "[Post]";
 	}
 }
