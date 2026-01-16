@@ -3,22 +3,42 @@ import { motion } from "framer-motion";
 import { usePosts } from "../hooks/posts/usePosts";
 import Gallery from "../components/Gallery";
 import CreatePost from "../components/CreatePost";
-import { Box, Typography, useMediaQuery, useTheme } from "@mui/material";
+import { Box, Typography, useMediaQuery, useTheme, Card, Skeleton, CardActions } from "@mui/material";
+import { useAuth } from "../hooks/context/useAuth";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+	const { loading: authLoading } = useAuth();
 
 	// backend picks personalized vs trending based on auth present in the request
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = usePosts();
 
 	const activePosts = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
 
-	// Loading stat
-	if (isLoading) {
+	// show loading skeletons while auth is loading OR query is loading
+	if (authLoading || isLoading) {
 		return (
-			<Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}>
-				<Typography>Loading...</Typography>
+			<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", mt: 2 }}>
+				<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+					{Array.from({ length: 3 }).map((_, i) => (
+						<Card
+							key={i}
+							sx={{
+								width: "100%",
+								borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
+								borderRadius: 0,
+								boxShadow: "none",
+							}}
+						>
+							<Skeleton variant="rectangular" height={400} sx={{ bgcolor: "rgba(99, 102, 241, 0.1)" }} />
+							<CardActions sx={{ p: 2 }}>
+								<Skeleton variant="text" width="60%" height={24} />
+								<Skeleton variant="circular" width={40} height={40} sx={{ ml: "auto" }} />
+							</CardActions>
+						</Card>
+					))}
+				</Box>
 			</Box>
 		);
 	}
