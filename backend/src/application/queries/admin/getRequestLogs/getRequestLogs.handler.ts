@@ -1,0 +1,68 @@
+import { inject, injectable } from "tsyringe";
+import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { GetRequestLogsQuery } from "./getRequestLogs.query";
+import { RequestLogRepository } from "../../../../repositories/requestLog.repository";
+import { PaginationResult, IRequestLog } from "../../../../types";
+
+export interface RequestLogDTO {
+	timestamp: Date;
+	method: string;
+	route: string;
+	ip: string;
+	statusCode: number;
+	responseTimeMs: number;
+	userId?: string;
+	userAgent?: string;
+}
+
+@injectable()
+export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQuery, PaginationResult<RequestLogDTO>> {
+	constructor(@inject("RequestLogRepository") private readonly requestLogRepository: RequestLogRepository) {}
+
+	async execute(query: GetRequestLogsQuery): Promise<PaginationResult<RequestLogDTO>> {
+		const { page = 1, limit = 50, userId, statusCode, startDate, endDate } = query.options;
+
+		const filter: any = {};
+
+		if (userId) {
+			filter["metadata.userId"] = userId;
+		}
+
+		if (statusCode) {
+			filter["metadata.statusCode"] = statusCode;
+		}
+
+		if (startDate || endDate) {
+			filter.timestamp = {};
+			if (startDate) filter.timestamp.$gte = startDate;
+			if (endDate) filter.timestamp.$lte = endDate;
+		}
+
+		const result = await this.requestLogRepository.findWithPagination({
+			page,
+			limit,
+			filter,
+			sortBy: "timestamp",
+			sortOrder: "desc",
+		});
+
+		const transformedData = result.data.map((log: IRequestLog) => ({
+			timestamp: log.timestamp,
+			method: log.metadata.method,
+			route: log.metadata.route,
+			ip: log.metadata.ip,
+			statusCode: log.metadata.statusCode,
+			responseTimeMs: log.metadata.responseTimeMs,
+			userId: log.metadata.userId,
+			userAgent: log.metadata.userAgent,
+		}));
+
+		return {
+			data: transformedData,
+			total: result.total,
+			page: result.page,
+			limit: result.limit,
+			totalPages: result.totalPages,
+		};
+	}
+}

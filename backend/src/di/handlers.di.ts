@@ -139,6 +139,10 @@ import { GetAllCommunitiesQuery } from "../application/queries/community/getAllC
 import { GetAllCommunitiesQueryHandler } from "../application/queries/community/getAllCommunities/getAllCommunities.handler";
 import { GetCommunityMembersQuery } from "../application/queries/community/getCommunityMembers/getCommunityMembers.query";
 import { GetCommunityMembersQueryHandler } from "../application/queries/community/getCommunityMembers/getCommunityMembers.handler";
+import { LogRequestCommand } from "../application/commands/admin/logRequest/logRequest.command";
+import { LogRequestCommandHandler } from "../application/commands/admin/logRequest/logRequest.handler";
+import { GetRequestLogsQuery } from "../application/queries/admin/getRequestLogs/getRequestLogs.query";
+import { GetRequestLogsQueryHandler } from "../application/queries/admin/getRequestLogs/getRequestLogs.handler";
 
 export function registerCQRS(): void {
 	container.registerSingleton("CommandBus", CommandBus);
@@ -170,6 +174,7 @@ export function registerCQRS(): void {
 	container.register("UnbanUserCommandHandler", { useClass: UnbanUserCommandHandler });
 	container.register("PromoteToAdminCommandHandler", { useClass: PromoteToAdminCommandHandler });
 	container.register("DemoteFromAdminCommandHandler", { useClass: DemoteFromAdminCommandHandler });
+	container.register("LogRequestCommandHandler", { useClass: LogRequestCommandHandler });
 
 	container.register("PostUploadHandler", { useClass: PostUploadHandler });
 	container.register("PostDeleteHandler", { useClass: PostDeleteHandler });
@@ -218,6 +223,7 @@ export function registerCQRS(): void {
 	container.register("GetAdminUserProfileQueryHandler", { useClass: GetAdminUserProfileQueryHandler });
 	container.register("GetUserStatsQueryHandler", { useClass: GetUserStatsQueryHandler });
 	container.register("GetRecentActivityQueryHandler", { useClass: GetRecentActivityQueryHandler });
+	container.register("GetRequestLogsQueryHandler", { useClass: GetRequestLogsQueryHandler });
 
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
@@ -280,6 +286,7 @@ export function initCQRS(): void {
 		DemoteFromAdminCommand,
 		container.resolve<DemoteFromAdminCommandHandler>("DemoteFromAdminCommandHandler")
 	);
+	commandBus.register(LogRequestCommand, container.resolve<LogRequestCommandHandler>("LogRequestCommandHandler"));
 
 	eventBus.subscribe(UserInteractedWithPostEvent, container.resolve<FeedInteractionHandler>("FeedInteractionHandler"));
 	eventBus.subscribe(PostUploadedEvent, container.resolve<PostUploadHandler>("PostUploadHandler"));
@@ -359,6 +366,10 @@ export function initCQRS(): void {
 	queryBus.register(
 		GetRecentActivityQuery,
 		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
+	);
+	queryBus.register(
+		GetRequestLogsQuery,
+		container.resolve<GetRequestLogsQueryHandler>("GetRequestLogsQueryHandler")
 	);
 
 	commandBus.register(

@@ -11,6 +11,7 @@ import { ErrorHandler } from "../utils/errors";
 import { SearchRoutes } from "../routes/search.routes";
 import { AdminUserRoutes } from "../routes/admin.routes";
 import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddleware";
+import { requestLogger } from "../middleware/requestLogger";
 import { NotificationRoutes } from "../routes/notification.routes";
 import { FeedRoutes } from "../routes/feed.routes";
 import { FavoriteRoutes } from "../routes/favorite.routes";
@@ -80,6 +81,7 @@ export class Server {
 		// Loggers
 		this.app.use(logBehaviour); // Logs basic request/response info
 		this.app.use(detailedRequestLogging); // Logs detailed request info
+		this.app.use(requestLogger); // Logs requests to database for admin panel
 	}
 
 	/**
