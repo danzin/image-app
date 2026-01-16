@@ -47,6 +47,7 @@ export class AdminUserRoutes {
 		// Dashboard and analytics
 		this.router.get("/dashboard/stats", this.adminUserController.getDashboardStats);
 		this.router.get("/dashboard/activity", this.adminUserController.getRecentActivity);
+		this.router.get("/dashboard/request-logs", this.adminUserController.getRequestLogs);
 
 		// Cache management
 		this.router.delete("/cache", this.adminUserController.clearCache);

@@ -13,6 +13,7 @@ import { GetAllUsersAdminQuery } from "../application/queries/admin/getAllUsersA
 import { GetAdminUserProfileQuery } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
 import { GetUserStatsQuery } from "../application/queries/admin/getUserStats/getUserStats.query";
 import { GetRecentActivityQuery } from "../application/queries/admin/getRecentActivity/getRecentActivity.query";
+import { GetRequestLogsQuery } from "../application/queries/admin/getRequestLogs/getRequestLogs.query";
 import { BanUserCommand } from "../application/commands/admin/banUser/banUser.command";
 import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanUser.command";
 import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
@@ -221,6 +222,26 @@ export class AdminUserController {
 				pattern: patternToDelete,
 				deletedKeys: deletedCount,
 			});
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	// === REQUEST LOGS ===
+	getRequestLogs = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { page, limit, userId, statusCode, startDate, endDate } = req.query;
+			const options = {
+				page: page ? parseInt(page as string, 10) : 1,
+				limit: limit ? parseInt(limit as string, 10) : 50,
+				userId: userId as string | undefined,
+				statusCode: statusCode ? parseInt(statusCode as string, 10) : undefined,
+				startDate: startDate ? new Date(startDate as string) : undefined,
+				endDate: endDate ? new Date(endDate as string) : undefined,
+			};
+			const query = new GetRequestLogsQuery(options);
+			const result = await this.queryBus.execute(query);
+			res.status(200).json(result);
 		} catch (error) {
 			next(error);
 		}

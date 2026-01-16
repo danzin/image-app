@@ -22,6 +22,7 @@ import { PostWriteRepository } from "../repositories/write/PostWriteRepository";
 import { UserWriteRepository } from "../repositories/write/UserWriteRepository";
 import { CommunityRepository } from "../repositories/community.repository";
 import { CommunityMemberRepository } from "../repositories/communityMember.repository";
+import { RequestLogRepository } from "../repositories/requestLog.repository";
 
 export function registerRepositories(): void {
 	container.registerSingleton("UnitOfWork", UnitOfWork);
@@ -42,6 +43,7 @@ export function registerRepositories(): void {
 	container.registerSingleton("MessageRepository", MessageRepository);
 	container.registerSingleton("CommunityRepository", CommunityRepository);
 	container.registerSingleton("CommunityMemberRepository", CommunityMemberRepository);
+	container.registerSingleton("RequestLogRepository", RequestLogRepository);
 
 	container.registerSingleton("PostReadRepository", PostReadRepository);
 	container.registerSingleton("UserReadRepository", UserReadRepository);
