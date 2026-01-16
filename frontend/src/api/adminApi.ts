@@ -140,3 +140,34 @@ export const fetchTelemetryMetrics = async (): Promise<TelemetryMetrics> => {
 	const { data } = await axiosClient.get("/api/telemetry/summary");
 	return data;
 };
+
+export interface RequestLog {
+	timestamp: Date;
+	method: string;
+	route: string;
+	ip: string;
+	statusCode: number;
+	responseTimeMs: number;
+	userId?: string;
+	userAgent?: string;
+}
+
+export interface RequestLogsResponse {
+	data: RequestLog[];
+	total: number;
+	page: number;
+	limit: number;
+	totalPages: number;
+}
+
+export const fetchRequestLogs = async (params: {
+	page?: number;
+	limit?: number;
+	userId?: string;
+	statusCode?: number;
+	startDate?: string;
+	endDate?: string;
+}): Promise<RequestLogsResponse> => {
+	const { data } = await axiosClient.get("/api/admin/dashboard/request-logs", { params });
+	return data;
+};

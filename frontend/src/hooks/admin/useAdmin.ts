@@ -14,6 +14,7 @@ import {
 	fetchRecentActivity,
 	clearCache,
 	fetchTelemetryMetrics,
+	fetchRequestLogs,
 } from "../../api/adminApi";
 import { toast } from "react-toastify";
 
@@ -181,5 +182,20 @@ export const useTelemetryMetrics = () => {
 		queryFn: fetchTelemetryMetrics,
 		staleTime: 30000,
 		refetchInterval: 60000,
+	});
+};
+
+export const useRequestLogs = (params: {
+	page?: number;
+	limit?: number;
+	userId?: string;
+	statusCode?: number;
+	startDate?: string;
+	endDate?: string;
+}) => {
+	return useQuery({
+		queryKey: ["admin", "requestLogs", params],
+		queryFn: () => fetchRequestLogs(params),
+		staleTime: 10000,
 	});
 };

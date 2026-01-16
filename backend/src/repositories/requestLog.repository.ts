@@ -15,7 +15,7 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 			const { page = 1, limit = 50, sortBy = "timestamp", sortOrder = "desc", filter = {} } = options;
 
 			const skip = (page - 1) * limit;
-			const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
+			const sort = { [sortBy]: sortOrder };
 
 			const [data, total] = await Promise.all([
 				this.model.find(filter).sort(sort).skip(skip).limit(limit).lean().exec(),
