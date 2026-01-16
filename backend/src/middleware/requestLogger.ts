@@ -8,6 +8,13 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 
 	res.on("finish", async () => {
 		try {
+			const route = req.originalUrl || req.url;
+
+			// skip logging for health and metrics endpoints
+			if (route === "/health" || route === "/metrics") {
+				return;
+			}
+
 			const responseTimeMs = Date.now() - startTime;
 			const userId = (req as any).decodedUser?.publicId;
 			const userAgent = req.get("user-agent");
@@ -16,7 +23,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 
 			const command = new LogRequestCommand({
 				method: req.method,
-				route: req.originalUrl || req.url,
+				route,
 				ip: req.ip || req.socket.remoteAddress || "unknown",
 				statusCode: res.statusCode,
 				responseTimeMs,
