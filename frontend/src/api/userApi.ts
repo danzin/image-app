@@ -36,7 +36,7 @@ export const fetchIsFollowing = async ({ queryKey }: { queryKey: [string, string
 };
 
 // Get current user at /me
-export const fetchCurrentUser = async (signal?: AbortSignal): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
+export const fetchCurrentUser = async (signal?: AbortSignal): Promise<AuthenticatedUserDTO | AdminUserDTO | null> => {
 	try {
 		const { data } = await axiosClient.get<AuthenticatedUserDTO | AdminUserDTO>("/api/users/me", { signal });
 		return data;
@@ -50,7 +50,8 @@ export const fetchCurrentUser = async (signal?: AbortSignal): Promise<Authentica
 				code: err.code,
 			};
 			if (status === 401 || status === 403) {
-				throw Object.assign(new Error("UNAUTHORIZED"), info);
+				// User is not logged in - return null instead of throwing
+				return null;
 			}
 			throw Object.assign(err, info);
 		}
