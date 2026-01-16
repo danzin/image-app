@@ -367,10 +367,7 @@ export function initCQRS(): void {
 		GetRecentActivityQuery,
 		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
 	);
-	queryBus.register(
-		GetRequestLogsQuery,
-		container.resolve<GetRequestLogsQueryHandler>("GetRequestLogsQueryHandler")
-	);
+	queryBus.register(GetRequestLogsQuery, container.resolve<GetRequestLogsQueryHandler>("GetRequestLogsQueryHandler"));
 
 	commandBus.register(
 		CreateCommunityCommand,

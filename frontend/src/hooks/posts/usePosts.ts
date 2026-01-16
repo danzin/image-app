@@ -335,7 +335,7 @@ export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
 	const enabled = options?.enabled ?? true;
 	const limit = options?.limit ?? 10;
 
-	return useInfiniteQuery<
+	const query = useInfiniteQuery<
 		{
 			data: IPost[];
 			total: number;
@@ -363,6 +363,17 @@ export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
 		enabled,
 		staleTime: 5 * 60 * 1000,
 	});
+
+	// manual refresh that bypasses cache (for authenticated users)
+	const refreshFeed = async () => {
+		const response = await fetchNewFeed(1, limit, true);
+		return {
+			...response,
+			data: response.data.map(mapPost),
+		};
+	};
+
+	return { ...query, refreshFeed };
 };
 
 export const useForYouFeed = (options?: { enabled?: boolean; limit?: number }) => {

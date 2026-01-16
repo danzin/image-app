@@ -42,7 +42,11 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 	}
 
 	async findLogsByDateRange(startDate: Date, endDate: Date): Promise<IRequestLog[]> {
-		return this.model.find({ timestamp: { $gte: startDate, $lte: endDate } }).sort({ timestamp: -1 }).lean().exec();
+		return this.model
+			.find({ timestamp: { $gte: startDate, $lte: endDate } })
+			.sort({ timestamp: -1 })
+			.lean()
+			.exec();
 	}
 
 	async findLogsByUserId(userId: string, limit = 50): Promise<IRequestLog[]> {
@@ -56,7 +60,10 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 	async getAverageResponseTime(startDate?: Date, endDate?: Date): Promise<number> {
 		const match = startDate && endDate ? { timestamp: { $gte: startDate, $lte: endDate } } : {};
 
-		const result = await this.model.aggregate([{ $match: match }, { $group: { _id: null, avg: { $avg: "$metadata.responseTimeMs" } } }]);
+		const result = await this.model.aggregate([
+			{ $match: match },
+			{ $group: { _id: null, avg: { $avg: "$metadata.responseTimeMs" } } },
+		]);
 
 		return result.length > 0 ? result[0].avg : 0;
 	}
