@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Box, Typography, Tabs, Tab, useTheme, alpha } from "@mui/material";
+import { Box, Typography, Tabs, Tab, useTheme, alpha, IconButton, Tooltip } from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
 
 import Gallery from "../components/Gallery";
 import { useAuth } from "../hooks/context/useAuth";
@@ -32,6 +33,7 @@ const Discovery: React.FC = () => {
 
 	// Start with "new" for new users, "for-you" for existing users
 	const [activeTab, setActiveTab] = useState<number>(0);
+	const [isRefreshing, setIsRefreshing] = useState(false);
 
 	const trendingFeedQuery = useTrendingFeed({ enabled: activeTab === 1 });
 	const newFeedQuery = useNewFeed({ enabled: activeTab === 0 });
@@ -39,6 +41,17 @@ const Discovery: React.FC = () => {
 
 	const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
 		setActiveTab(newValue);
+	};
+
+	const handleRefreshNewFeed = async () => {
+		if (!isLoggedIn || isRefreshing) return;
+		setIsRefreshing(true);
+		try {
+			await newFeedQuery.refreshFeed();
+			await newFeedQuery.refetch();
+		} finally {
+			setIsRefreshing(false);
+		}
 	};
 
 	// Show loading during auth transitions
@@ -110,12 +123,33 @@ const Discovery: React.FC = () => {
 					{/* Tab Panels */}
 					<TabPanel value={activeTab} index={0}>
 						<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+							{isLoggedIn && (
+								<Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 1 }}>
+									<Tooltip title="Refresh for latest posts">
+										<IconButton
+											onClick={handleRefreshNewFeed}
+											disabled={isRefreshing}
+											size="small"
+											sx={{
+												animation: isRefreshing ? "spin 1s linear infinite" : "none",
+												"@keyframes spin": {
+													"0%": { transform: "rotate(0deg)" },
+													"100%": { transform: "rotate(360deg)" },
+												},
+											}}
+										>
+											<RefreshIcon />
+										</IconButton>
+									</Tooltip>
+								</Box>
+							)}
 							<Gallery
 								posts={newFeedQuery.data?.pages.flatMap((page) => page.data) || []}
 								fetchNextPage={newFeedQuery.fetchNextPage}
 								hasNextPage={!!newFeedQuery.hasNextPage}
 								isFetchingNext={newFeedQuery.isFetchingNextPage}
-								isLoadingAll={newFeedQuery.isLoading}
+								isLoadingAll={newFeedQuery.isLoading || newFeedQuery.isPending}
+								isFetchingAll={newFeedQuery.isFetching}
 							/>
 						</motion.div>
 					</TabPanel>
@@ -127,7 +161,8 @@ const Discovery: React.FC = () => {
 								fetchNextPage={trendingFeedQuery.fetchNextPage}
 								hasNextPage={!!trendingFeedQuery.hasNextPage}
 								isFetchingNext={trendingFeedQuery.isFetchingNextPage}
-								isLoadingAll={trendingFeedQuery.isLoading}
+								isLoadingAll={trendingFeedQuery.isLoading || trendingFeedQuery.isPending}
+								isFetchingAll={trendingFeedQuery.isFetching}
 							/>
 						</motion.div>
 					</TabPanel>
@@ -140,7 +175,8 @@ const Discovery: React.FC = () => {
 									fetchNextPage={forYouFeedQuery.fetchNextPage}
 									hasNextPage={!!forYouFeedQuery.hasNextPage}
 									isFetchingNext={forYouFeedQuery.isFetchingNextPage}
-									isLoadingAll={forYouFeedQuery.isLoading}
+									isLoadingAll={forYouFeedQuery.isLoading || forYouFeedQuery.isPending}
+									isFetchingAll={forYouFeedQuery.isFetching}
 								/>
 							</motion.div>
 						</TabPanel>

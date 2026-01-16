@@ -15,6 +15,7 @@ const Gallery: React.FC<GalleryProps> = ({
 	hasNextPage,
 	isFetchingNext,
 	isLoadingAll,
+	isFetchingAll,
 	emptyTitle,
 	emptyDescription,
 	variant = "feed",
@@ -31,7 +32,11 @@ const Gallery: React.FC<GalleryProps> = ({
 	const feedId = `${location.pathname}-${variant}`;
 
 	const isProfileOwner = isLoggedIn && user?.publicId === profileId;
-	const isLoading = isLoadingAll;
+	// show loading when: explicit loading state OR fetching with no posts to display
+	const isLoading = isLoadingAll || (isFetchingAll && (!posts || posts.length === 0));
+	const hasPostsToShow = posts && posts.length > 0;
+	// show skeleton only when loading/fetching - never show empty state while loading
+	const showSkeleton = isLoading && !hasPostsToShow;
 	const fallbackEmptyTitle = t("profile.no_posts");
 	const fallbackEmptyMessage = isProfileOwner ? t("profile.no_posts_description") : t("profile.no_posts_other");
 	const resolvedEmptyTitle = emptyTitle ?? fallbackEmptyTitle;
@@ -101,12 +106,11 @@ const Gallery: React.FC<GalleryProps> = ({
 				p: 0,
 			}}
 		>
-			{/* Loading Skeletons */}
-			{isLoading && (!posts || posts.length === 0) && renderSkeletons()}
+			{/* Loading Skeletons - show while loading and no posts yet */}
+			{showSkeleton && renderSkeletons()}
 
 			{/* Post Cards with motion */}
-			{!isLoading &&
-				posts &&
+			{hasPostsToShow &&
 				(variant === "media" ? (
 					<Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0.5, width: "100%" }}>
 						{posts.map((img, index) => (
@@ -132,8 +136,8 @@ const Gallery: React.FC<GalleryProps> = ({
 					))
 				))}
 
-			{/* Empty State */}
-			{!isLoading && (!posts || posts.length === 0) && (
+			{/* Empty State - only show when NOT loading/fetching AND truly no posts */}
+			{!isLoading && !isFetchingAll && !hasPostsToShow && (
 				<motion.div
 					initial={{ opacity: 0, scale: 0.9 }}
 					animate={{ opacity: 1, scale: 1 }}

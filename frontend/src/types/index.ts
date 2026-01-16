@@ -200,6 +200,7 @@ export interface GalleryProps {
 	hasNextPage?: boolean;
 	isFetchingNext?: boolean;
 	isLoadingAll?: boolean;
+	isFetchingAll?: boolean;
 	emptyTitle?: string;
 	emptyDescription?: string;
 	variant?: "feed" | "media";

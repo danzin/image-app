@@ -1,7 +1,5 @@
 import "reflect-metadata";
 import { errorLogger, logger } from "./utils/winston";
-import { Worker } from "worker_threads";
-import path from "path";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 dotenv.config({ path: "../.env" });
@@ -28,6 +26,9 @@ import { setupContainerCore, registerCQRS, initCQRS } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
 import { RealTimeFeedService } from "./services/real-time-feed.service";
 import { MetricsService } from "./metrics/metrics.service";
+import { TrendingWorker } from "./workers/_impl/trending.worker.impl";
+import { ProfileSyncWorker } from "./workers/_impl/profile-sync.worker.impl";
+import { NewFeedWarmCacheWorker } from "./workers/_impl/newFeedWarmCache.worker.impl";
 
 // Global error handlers
 process.on("uncaughtException", (error: Error) => {
@@ -70,9 +71,8 @@ async function bootstrap(): Promise<void> {
 		// Now that DB connection is established, resolve & wire CQRS handlers (buses, handlers, subscriptions).
 		initCQRS();
 
-		// Start worker threads
-		startWorker("trending.worker", metricsService);
-		startWorker("profile-sync.worker", metricsService);
+		// Start workers in-process (same event loop - I/O bound, no need for threads)
+		await startInProcessWorkers(metricsService);
 
 		// Create Express app and HTTP server
 		const expressServer = container.resolve(Server);
@@ -96,43 +96,39 @@ async function bootstrap(): Promise<void> {
 	}
 }
 
-function startWorker(fileName: string, metricsService: MetricsService) {
-	const extension = __filename.endsWith(".ts") ? "ts" : "js";
-	const workerFilename = fileName.replace(".ts", extension).replace(".js", extension);
-	const workerLabel = fileName.replace(/\.[tj]s$/, "");
+async function startInProcessWorkers(metricsService: MetricsService): Promise<void> {
+	if (process.env.ENABLE_WORKERS === "false") {
+		logger.info("Workers disabled via ENABLE_WORKERS=false");
+		return;
+	}
 
-	const workerPath = path.resolve(__dirname, "./workers/", workerFilename);
+	try {
+		// trending worker
+		const trendingWorker = new TrendingWorker();
+		await trendingWorker.init();
+		trendingWorker.start();
+		metricsService.markWorkerRunning("trending.worker");
+		logger.info("Started in-process worker: trending");
 
-	const worker = new Worker(workerPath, {
-		workerData: { env: process.env.NODE_ENV },
-		execArgv: __filename.endsWith(".ts") ? ["-r", "ts-node/register"] : undefined,
-	});
+		// profile-sync worker
+		const profileSyncWorker = new ProfileSyncWorker();
+		await profileSyncWorker.init();
+		await profileSyncWorker.start();
+		metricsService.markWorkerRunning("profile-sync.worker");
+		logger.info("Started in-process worker: profile-sync");
 
-	worker.once("online", () => {
-		metricsService.markWorkerRunning(workerLabel);
-	});
+		// new feed warm cache worker
+		const newFeedWarmCacheWorker = new NewFeedWarmCacheWorker();
+		await newFeedWarmCacheWorker.init();
+		newFeedWarmCacheWorker.start();
+		metricsService.markWorkerRunning("newFeedWarmCache.worker");
+		logger.info("Started in-process worker: newFeedWarmCache");
 
-	worker.on("error", (err) => {
-		errorLogger.error({
-			type: "WorkerError",
-			worker: fileName,
-			message: err.message,
-			stack: err.stack,
-			timestamp: new Date().toISOString(),
-		});
-		logger.error(`Worker ${fileName} error:`, err);
-		metricsService.markWorkerCrashed(workerLabel);
-	});
-
-	worker.on("exit", (code) => {
-		if (code !== 0) {
-			logger.warn(`Worker ${fileName} stopped with exit code ${code}`);
-			setTimeout(() => startWorker(fileName, metricsService), 5000);
-		}
-		metricsService.markWorkerStopped(workerLabel);
-	});
-
-	logger.info(`Started worker: ${fileName}`);
+		logger.info("All in-process workers started successfully");
+	} catch (error) {
+		logger.error("Failed to start in-process workers", { error });
+		// don't crash the server if workers fail - they're non-critical
+	}
 }
 
 bootstrap().catch(console.error);

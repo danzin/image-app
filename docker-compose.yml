@@ -197,6 +197,9 @@ services:
     mem_limit: 256m
     cpu_shares: 256
 
+  # Workers now in-process with the backend on the same Node event loop
+  # ENABLE_WORKERS=false in backend environment to disable them
+
 networks:
   app-network:
     driver: bridge

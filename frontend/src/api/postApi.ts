@@ -31,7 +31,8 @@ export const fetchTrendingFeed = async (
 
 export const fetchNewFeed = async (
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
+	refresh: boolean = false
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -39,7 +40,14 @@ export const fetchNewFeed = async (
 	limit: number;
 	totalPages: number;
 }> => {
-	const { data } = await axiosClient.get(`/api/feed/new?page=${pageParam}&limit=${limit}`);
+	const params = new URLSearchParams({
+		page: String(pageParam),
+		limit: String(limit),
+	});
+	if (refresh) {
+		params.set("refresh", "true");
+	}
+	const { data } = await axiosClient.get(`/api/feed/new?${params.toString()}`);
 	return data;
 };
 

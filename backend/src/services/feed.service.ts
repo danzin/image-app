@@ -167,16 +167,22 @@ export class FeedService {
 	 *
 	 * @param page - The page number.
 	 * @param limit - Items per page.
+	 * @param forceRefresh - If true, bypasses cache and fetches fresh data (for authenticated users).
 	 * @returns {Promise<PaginationResult<PostDTO>>}
 	 */
-	public async getNewFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
+	public async getNewFeed(page: number, limit: number, forceRefresh = false): Promise<PaginationResult<PostDTO>> {
 		const key = `new_feed:${page}:${limit}`;
-		let cached = await this.redisService.getWithTags<CoreFeed>(key);
+
+		let cached: CoreFeed | null = null;
+		if (!forceRefresh) {
+			cached = await this.redisService.getWithTags<CoreFeed>(key);
+		}
+
 		const isCacheHit = !!cached;
 		if (!cached) {
 			const skip = (page - 1) * limit;
 			const core = await this.postRepository.getNewFeed(limit, skip);
-			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 60);
+			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 3600);
 			cached = core as CoreFeed;
 		}
 		const enriched = await this.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
@@ -522,6 +528,33 @@ export class FeedService {
 			logger.info(`Removed post ${postId} from ${followerIds.length} followers' feeds`);
 		} catch (error) {
 			console.error(`Failed to remove post ${postId} from feeds:`, error);
+		}
+	}
+
+	/**
+	 * Pre-warms the cache for the "New" feed to avoid cold starts.
+	 * Should be called by background worker every hour.
+	 *
+	 * @pattern Warm Cache Strategy
+	 * @why Anonymous users shouldn't wait 5s for DB query. We pre-calculate
+	 * the feed before anyone requests it, so reads are always from cache.
+	 */
+	public async prewarmNewFeed(): Promise<void> {
+		logger.info("Pre-warming New feed cache...");
+		try {
+			// prewarm first 3 pages (most commonly accessed)
+			const limit = 20;
+			for (let page = 1; page <= 3; page++) {
+				const key = `new_feed:${page}:${limit}`;
+				const skip = (page - 1) * limit;
+				const core = await this.postRepository.getNewFeed(limit, skip);
+				// 1 hour TTL to match worker schedule
+				await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 3600);
+				logger.info(`Pre-warmed New feed page ${page}`);
+			}
+			logger.info("New feed cache pre-warming complete");
+		} catch (error) {
+			logger.error("Failed to pre-warm New feed cache", { error });
 		}
 	}
 }

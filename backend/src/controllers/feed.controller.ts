@@ -76,7 +76,13 @@ export class FeedController {
 		try {
 			const page = Number(req.query.page) || 1;
 			const limit = Number(req.query.limit) || 20;
-			const feed = await this.feedService.getNewFeed(page, limit);
+			const refresh = req.query.refresh === "true";
+			const isAuthenticated = !!(req as any).decodedUser;
+
+			// only allow cache bypass for authenticated users requesting a refresh
+			const forceRefresh = refresh && isAuthenticated;
+
+			const feed = await this.feedService.getNewFeed(page, limit, forceRefresh);
 			res.json(feed);
 		} catch (error) {
 			console.error(error);
