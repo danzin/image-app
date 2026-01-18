@@ -37,6 +37,10 @@ export class UserReadRepository implements IUserReadRepository {
 		return this.userRepository.findUsersByPublicIds(userPublicIds);
 	}
 
+	async findUsersByIds(ids: string[]): Promise<IUser[]> {
+		return this.userRepository.findUsersByIds(ids);
+	}
+
 	async findUsersByUsernames(usernames: string[]): Promise<IUser[]> {
 		return this.userRepository.findUsersByUsernames(usernames);
 	}

@@ -12,6 +12,7 @@ describe("TagService", () => {
 	let tagService: TagService;
 	let mockTagRepository: {
 		findByTag: SinonStub;
+		findByTags: SinonStub;
 		create: SinonStub;
 		findOneAndUpdate: SinonStub;
 	};
@@ -20,6 +21,7 @@ describe("TagService", () => {
 	beforeEach(() => {
 		mockTagRepository = {
 			findByTag: sinon.stub(),
+			findByTags: sinon.stub(),
 			create: sinon.stub(),
 			findOneAndUpdate: sinon.stub(),
 		};
@@ -64,13 +66,12 @@ describe("TagService", () => {
 				{ _id: new Types.ObjectId(), tag: "landscape", count: 3 },
 			];
 
-			// findByTag is called for each tag
-			mockTagRepository.findByTag.withArgs("nature", mockSession).resolves(existingTags[0]);
-			mockTagRepository.findByTag.withArgs("landscape", mockSession).resolves(existingTags[1]);
+			// findByTags is called once with all tags
+			mockTagRepository.findByTags.withArgs(["nature", "landscape"], mockSession).resolves(existingTags);
 
 			const result = await tagService.ensureTagsExist(tagNames, mockSession);
 
-			expect(mockTagRepository.findByTag.calledTwice).to.be.true;
+			expect(mockTagRepository.findByTags.calledOnce).to.be.true;
 			expect(result).to.have.lengthOf(2);
 			expect(result[0]._id.toString()).to.equal(existingTags[0]._id.toString());
 			expect(result[1]._id.toString()).to.equal(existingTags[1]._id.toString());
@@ -81,13 +82,12 @@ describe("TagService", () => {
 			const existingTag = { _id: new Types.ObjectId(), tag: "nature", count: 5 };
 			const newTag = { _id: new Types.ObjectId(), tag: "sunset", count: 0 };
 
-			mockTagRepository.findByTag.withArgs("nature", mockSession).resolves(existingTag);
-			mockTagRepository.findByTag.withArgs("sunset", mockSession).resolves(null);
+			mockTagRepository.findByTags.withArgs(["nature", "sunset"], mockSession).resolves([existingTag]);
 			mockTagRepository.create.resolves(newTag);
 
 			const result = await tagService.ensureTagsExist(tagNames, mockSession);
 
-			expect(mockTagRepository.findByTag.calledTwice).to.be.true;
+			expect(mockTagRepository.findByTags.calledOnce).to.be.true;
 			expect(mockTagRepository.create.calledOnce).to.be.true;
 			expect(result).to.have.lengthOf(2);
 		});
@@ -95,7 +95,7 @@ describe("TagService", () => {
 		it("should handle empty tag list", async () => {
 			const result = await tagService.ensureTagsExist([], mockSession);
 
-			expect(mockTagRepository.findByTag.called).to.be.false;
+			expect(mockTagRepository.findByTags.called).to.be.false;
 			expect(mockTagRepository.create.called).to.be.false;
 			expect(result).to.be.an("array").that.is.empty;
 		});
@@ -105,15 +105,13 @@ describe("TagService", () => {
 			const existingTag = { _id: new Types.ObjectId(), tag: "nature", count: 5 };
 			const newTag = { _id: new Types.ObjectId(), tag: "sunset", count: 0 };
 
-			mockTagRepository.findByTag.withArgs("nature", mockSession).resolves(existingTag);
-			mockTagRepository.findByTag.withArgs("sunset", mockSession).resolves(null);
+			mockTagRepository.findByTags.withArgs(["nature", "sunset"], mockSession).resolves([existingTag]);
 			mockTagRepository.create.resolves(newTag);
 
 			await tagService.ensureTagsExist(tagNames, mockSession);
 
 			// verify it was called with lowercase tags
-			expect(mockTagRepository.findByTag.calledWith("nature", mockSession)).to.be.true;
-			expect(mockTagRepository.findByTag.calledWith("sunset", mockSession)).to.be.true;
+			expect(mockTagRepository.findByTags.calledWith(["nature", "sunset"], mockSession)).to.be.true;
 		});
 
 		it("should remove duplicate tags", async () => {
@@ -121,13 +119,12 @@ describe("TagService", () => {
 			const natureTag = { _id: new Types.ObjectId(), tag: "nature", count: 5 };
 			const sunsetTag = { _id: new Types.ObjectId(), tag: "sunset", count: 2 };
 
-			mockTagRepository.findByTag.withArgs("nature", mockSession).resolves(natureTag);
-			mockTagRepository.findByTag.withArgs("sunset", mockSession).resolves(sunsetTag);
+			mockTagRepository.findByTags.withArgs(["nature", "sunset"], mockSession).resolves([natureTag, sunsetTag]);
 
 			const result = await tagService.ensureTagsExist(tagNames, mockSession);
 
-			// should only call findByTag twice (deduplicated)
-			expect(mockTagRepository.findByTag.calledTwice).to.be.true;
+			// should only call findByTags once (deduplicated)
+			expect(mockTagRepository.findByTags.calledOnce).to.be.true;
 			expect(result).to.have.lengthOf(2);
 		});
 	});
