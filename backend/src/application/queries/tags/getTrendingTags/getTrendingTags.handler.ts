@@ -6,11 +6,13 @@ import { IPostReadRepository } from "../../../../repositories/interfaces";
 import { createError } from "../../../../utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "types/index";
 import { logger } from "../../../../utils/winston";
+import { CacheConfig } from "../../../../config/cacheConfig";
+import { CacheKeyBuilder } from "../../../../utils/cache/CacheKeyBuilder";
 
 @injectable()
 export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTagsQuery, GetTrendingTagsResult> {
-	private readonly CACHE_KEY_PREFIX = "trending_tags";
-	private readonly CACHE_TTL = 900; // 15 minutes – balances freshness with expensive aggregation
+	private readonly CACHE_KEY_PREFIX = CacheKeyBuilder.getTrendingTagsPrefix();
+	private readonly CACHE_TTL = CacheConfig.TAGS.TRENDING;
 
 	constructor(
 		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
@@ -21,7 +23,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 		try {
 			const limit = Math.min(Math.max(query.limit ?? 5, 1), 20);
 			const timeWindowHours = Math.max(1, query.timeWindowHours ?? 168);
-			const cacheKey = `${this.CACHE_KEY_PREFIX}:${limit}:${timeWindowHours}`;
+			const cacheKey = CacheKeyBuilder.getTrendingTagsKey(limit, timeWindowHours);
 			// try to get from cache first
 			const cached = await this.redisService.get<GetTrendingTagsResult>(cacheKey);
 			if (cached) {

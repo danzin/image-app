@@ -91,4 +91,23 @@ export class TagRepository extends BaseRepository<ITag> {
 			throw createError("DatabaseError", error.message);
 		}
 	}
+
+	/**
+	 * Finds multiple tags by their names.
+	 * @param {string[]} tags - The tag names to search for.
+	 * @param {ClientSession} [session] - Optional Mongoose session for transactions.
+	 * @returns {Promise<ITag[]>} - A promise that resolves to an array of found tags.
+	 * @throws {Error} - Throws a 'DatabaseError' if the operation fails.
+	 */
+	async findByTags(tags: string[], session?: ClientSession): Promise<ITag[]> {
+		try {
+			const query = this.model.find({ tag: { $in: tags } });
+			if (session) {
+				query.session(session);
+			}
+			return await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", "Failed to find tags", error);
+		}
+	}
 }
