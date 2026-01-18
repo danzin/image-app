@@ -16,7 +16,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 
 	constructor(
 		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("RedisService") private readonly redisService: RedisService
+		@inject("RedisService") private readonly redisService: RedisService,
 	) {}
 
 	async execute(query: GetTrendingTagsQuery): Promise<GetTrendingTagsResult> {

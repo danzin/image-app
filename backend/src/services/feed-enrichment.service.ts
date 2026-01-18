@@ -10,7 +10,7 @@ import { UserRepository } from "../repositories/user.repository";
 export class FeedEnrichmentService {
 	constructor(
 		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 	) {}
 
 	/**
@@ -25,7 +25,7 @@ export class FeedEnrichmentService {
 	 */
 	async enrichFeedWithCurrentData(
 		coreFeedData: FeedPost[],
-		options: { refreshUserData: boolean } = { refreshUserData: true }
+		options: { refreshUserData: boolean } = { refreshUserData: true },
 	): Promise<FeedPost[]> {
 		if (!coreFeedData || coreFeedData.length === 0) return [];
 
@@ -43,12 +43,12 @@ export class FeedEnrichmentService {
 		// attempt to load per-post metadata with tag-based caching
 		// Assuming granular key is better: post_meta:{id}
 		const postMetaKeys = postPublicIds.map((id) => CacheKeyBuilder.getPostMetaKey(id));
-		
+
 		// Ideally use mGet if available, else Promise.all
 		const metaResults = await Promise.all(
-			postMetaKeys.map((k) => this.redisService.getWithTags<any>(k).catch(() => null))
+			postMetaKeys.map((k) => this.redisService.getWithTags<any>(k).catch(() => null)),
 		);
-		
+
 		const metaMap = new Map<string, any>();
 		postPublicIds.forEach((id, idx) => {
 			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
@@ -68,7 +68,7 @@ export class FeedEnrichmentService {
 							publicId: user.publicId,
 							username: user.username,
 							avatar: user.avatar ?? "",
-					  }
+						}
 					: item.user,
 			};
 		});
@@ -88,10 +88,10 @@ export class FeedEnrichmentService {
 		// Since RedisService doesn't expose mget, we use Promise.all
 		const cachedUsers = await Promise.all(
 			userPublicIds.map(async (id) => {
-                const key = CacheKeyBuilder.getUserDataKey(id);
+				const key = CacheKeyBuilder.getUserDataKey(id);
 				const data = await this.redisService.getWithTags<UserLookupData>(key);
 				return { id, data };
-			})
+			}),
 		);
 
 		for (const { id, data } of cachedUsers) {
@@ -112,13 +112,8 @@ export class FeedEnrichmentService {
 				fetchedUsers.map((user) => {
 					const key = CacheKeyBuilder.getUserDataKey(user.publicId);
 					// Tag with user_data:{id} for invalidation
-					return this.redisService.setWithTags(
-						key, 
-						user, 
-                        [`user_data:${user.publicId}`],
-						CacheConfig.FEED.USER_DATA
-					);
-				})
+					return this.redisService.setWithTags(key, user, [`user_data:${user.publicId}`], CacheConfig.FEED.USER_DATA);
+				}),
 			);
 
 			results.push(...fetchedUsers);

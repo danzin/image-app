@@ -16,7 +16,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("DTOService") private dtoService: DTOService,
-		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	async execute(query: GetTrendingFeedQuery): Promise<PaginatedFeedResult> {
@@ -146,7 +146,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				}
 				return acc;
 			},
-			[]
+			[],
 		);
 
 		return {

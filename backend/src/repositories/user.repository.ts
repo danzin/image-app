@@ -14,7 +14,7 @@ import { logger } from "../utils/winston";
 export class UserRepository extends BaseRepository<IUser> {
 	constructor(
 		@inject("UserModel") model: Model<IUser>,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository
+		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 	) {
 		super(model);
 	}

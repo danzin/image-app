@@ -49,7 +49,7 @@ export class TagRepository extends BaseRepository<ITag> {
 	async searchTags(
 		searchQueries: string[],
 		options?: { limit?: number; minCount?: number },
-		session?: ClientSession
+		session?: ClientSession,
 	): Promise<ITag[]> {
 		try {
 			const { limit = 50, minCount = 0 } = options || {};
@@ -61,7 +61,7 @@ export class TagRepository extends BaseRepository<ITag> {
 						$text: { $search: searchText },
 						count: { $gte: minCount }, //filter unpopular tags
 					},
-					{ score: { $meta: "textScore" } }
+					{ score: { $meta: "textScore" } },
 				)
 				.sort({
 					score: { $meta: "textScore" }, // relevance

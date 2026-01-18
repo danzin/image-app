@@ -34,9 +34,9 @@ export class TagService {
 							count: 0,
 							modifiedAt: new Date(),
 						} as Partial<ITag>,
-						session
-					)
-				)
+						session,
+					),
+				),
 			);
 			tagDocs.push(...created);
 		}
@@ -65,8 +65,8 @@ export class TagService {
 		const now = new Date();
 		await Promise.all(
 			tagIds.map((tagId) =>
-				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: 1 }, $set: { modifiedAt: now } }, session)
-			)
+				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: 1 }, $set: { modifiedAt: now } }, session),
+			),
 		);
 	}
 
@@ -79,8 +79,12 @@ export class TagService {
 		const now = new Date();
 		await Promise.all(
 			tagIds.map((tagId) =>
-				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: -1 }, $set: { modifiedAt: now } }, session)
-			)
+				this.tagRepository.findOneAndUpdate(
+					{ _id: tagId },
+					{ $inc: { count: -1 }, $set: { modifiedAt: now } },
+					session,
+				),
+			),
 		);
 	}
 
