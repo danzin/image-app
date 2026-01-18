@@ -240,13 +240,15 @@ export class MessagingService {
 				}
 			} else {
 				const existingParticipantIds = this.getParticipantIds(conversationDoc.participants);
-				if (!existingParticipantIds.includes(senderInternalId)) {
+				const participantSet = new Set(existingParticipantIds);
+				if (!participantSet.has(senderInternalId)) {
 					throw createError("ForbiddenError", "You do not have access to this conversation");
 				}
 			}
 
 			const participantIds: string[] = this.getParticipantIds(conversationDoc!.participants);
-			if (!participantIds.includes(senderInternalId)) {
+			const participantSet = new Set(participantIds);
+			if (!participantSet.has(senderInternalId)) {
 				throw createError("ForbiddenError", "You do not have access to this conversation");
 			}
 
@@ -302,21 +304,23 @@ export class MessagingService {
 
 			const participantPublicIds = participantDocs.map((doc) => doc.publicId);
 
-			// Create notifications for recipients
+			// Create notifications for recipients in parallel
 			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
-			for (const recipientId of recipients) {
-				await this.notificationService.createNotification({
-					receiverId: recipientId,
-					actionType: "message",
-					actorId: senderPublicId,
-					actorUsername: populatedMessage.sender?.username,
-					actorAvatar: populatedMessage.sender?.avatar,
-					targetId: conversationDoc!.publicId,
-					targetType: "conversation",
-					targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
-					session,
-				});
-			}
+			await Promise.all(
+				recipients.map((recipientId) =>
+					this.notificationService.createNotification({
+						receiverId: recipientId,
+						actionType: "message",
+						actorId: senderPublicId,
+						actorUsername: populatedMessage.sender?.username,
+						actorAvatar: populatedMessage.sender?.avatar,
+						targetId: conversationDoc!.publicId,
+						targetType: "conversation",
+						targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+						session,
+					})
+				)
+			);
 
 			this.eventBus.queueTransactional(
 				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),

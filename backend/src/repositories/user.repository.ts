@@ -255,15 +255,14 @@ export class UserRepository extends BaseRepository<IUser> {
 			}
 			const userId = new Types.ObjectId(user._id.toString());
 			const followerIds = await this.followRepository.getFollowerObjectIds(userId);
-			const followerObjectIds = followerIds
-				.map((id) => {
-					try {
-						return new Types.ObjectId(id);
-					} catch {
-						return null;
-					}
-				})
-				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
+			const followerObjectIds = followerIds.reduce<Types.ObjectId[]>((acc, id) => {
+				try {
+					acc.push(new Types.ObjectId(id));
+				} catch {
+					// Skip invalid ObjectIds
+				}
+				return acc;
+			}, []);
 
 			if (followerObjectIds.length === 0) {
 				return [];
@@ -291,6 +290,34 @@ export class UserRepository extends BaseRepository<IUser> {
 				.exec();
 		} catch (error) {
 			console.error("Error in findUsersByPublicIds:", error);
+			return [];
+		}
+	}
+
+	async findUsersByIds(ids: string[]): Promise<IUser[]> {
+		try {
+			const objectIds = ids
+				.map((id) => {
+					try {
+						return new Types.ObjectId(id);
+					} catch {
+						return null;
+					}
+				})
+				.filter((id): id is Types.ObjectId => id !== null);
+
+			if (objectIds.length === 0) {
+				return [];
+			}
+
+			return await this.model
+				.find({
+					_id: { $in: objectIds },
+				})
+				.select("publicId username avatar bio")
+				.exec();
+		} catch (error) {
+			console.error("Error in findUsersByIds:", error);
 			return [];
 		}
 	}

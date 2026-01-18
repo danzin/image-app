@@ -43,19 +43,15 @@ export class GetFollowingQueryHandler implements IQueryHandler<GetFollowingQuery
 			const endIndex = startIndex + query.limit;
 			const paginatedIds = followingIds.slice(startIndex, endIndex);
 
-			// fetch user details for paginated following
-			const users: FollowUserItem[] = [];
-			for (const id of paginatedIds) {
-				const followingUser = await this.userReadRepository.findById(id);
-				if (followingUser) {
-					users.push({
-						publicId: followingUser.publicId,
-						username: followingUser.username,
-						avatar: followingUser.avatar || "",
-						bio: followingUser.bio,
-					});
-				}
-			}
+			// Batch fetch all users at once instead of in a loop
+			const followingUsers = await this.userReadRepository.findUsersByIds(paginatedIds);
+
+			const users: FollowUserItem[] = followingUsers.map((followingUser) => ({
+				publicId: followingUser.publicId,
+				username: followingUser.username,
+				avatar: followingUser.avatar || "",
+				bio: followingUser.bio,
+			}));
 
 			return {
 				users,

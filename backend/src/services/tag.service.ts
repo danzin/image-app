@@ -16,27 +16,34 @@ export class TagService {
 			return [];
 		}
 
-		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values());
+		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values()).filter(
+			(tag) => tag
+		);
+
+		if (!unique.length) {
+			return [];
+		}
+
+		// Batch query for all tags at once
+		const existingTags = await this.tagRepository.findByTags(unique, session);
+		const existingTagMap = new Map(existingTags.map((tag) => [tag.tag, tag]));
 
 		const tagDocs: ITag[] = [];
 		for (const tag of unique) {
-			if (!tag) continue;
-
-			const existing = await this.tagRepository.findByTag(tag, session);
+			const existing = existingTagMap.get(tag);
 			if (existing) {
 				tagDocs.push(existing);
-				continue;
+			} else {
+				const created = await this.tagRepository.create(
+					{
+						tag,
+						count: 0,
+						modifiedAt: new Date(),
+					} as Partial<ITag>,
+					session
+				);
+				tagDocs.push(created);
 			}
-
-			const created = await this.tagRepository.create(
-				{
-					tag,
-					count: 0,
-					modifiedAt: new Date(),
-				} as Partial<ITag>,
-				session
-			);
-			tagDocs.push(created);
 		}
 
 		return tagDocs;
@@ -47,18 +54,17 @@ export class TagService {
 	 * returns only existing tag IDs
 	 */
 	async resolveTagIds(tagNames: string[]): Promise<string[]> {
-		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values());
-		const ids: string[] = [];
+		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values()).filter(
+			(tag) => tag
+		);
 
-		for (const tag of unique) {
-			if (!tag) continue;
-			const existing = await this.tagRepository.findByTag(tag);
-			if (existing) {
-				ids.push(existing._id.toString());
-			}
+		if (!unique.length) {
+			return [];
 		}
 
-		return ids;
+		// Batch query for all tags at once
+		const existingTags = await this.tagRepository.findByTags(unique);
+		return existingTags.map((tag) => tag._id.toString());
 	}
 
 	/**

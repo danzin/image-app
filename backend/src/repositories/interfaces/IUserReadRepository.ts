@@ -15,6 +15,7 @@ export interface IUserReadRepository {
 
 	// batch lookups
 	findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]>;
+	findUsersByIds(ids: string[]): Promise<IUser[]>;
 	findUsersByUsernames(usernames: string[]): Promise<IUser[]>;
 	findUsersFollowing(userPublicId: string): Promise<IUser[]>;
 

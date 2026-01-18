@@ -38,6 +38,25 @@ export class TagRepository extends BaseRepository<ITag> {
 	}
 
 	/**
+	 * Finds multiple tags by their names in a single query.
+	 * @param {string[]} tags - The tag names to search for.
+	 * @param {ClientSession} [session] - Optional Mongoose session for transactions.
+	 * @returns {Promise<ITag[]>} - A promise that resolves to an array of found tags.
+	 * @throws {Error} - Throws a 'DatabaseError' if the query operation fails.
+	 */
+	async findByTags(tags: string[], session?: ClientSession): Promise<ITag[]> {
+		try {
+			const query = this.model.find({ tag: { $in: tags } });
+
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			throw createError("DatabaseError", message);
+		}
+	}
+
+	/**
 	 * Searches for tags that match any of the given search queries.
 	 * Uses case-insensitive regex matching for partial matches.
 	 * @param {string[]} searchQueries - An array of search terms.
