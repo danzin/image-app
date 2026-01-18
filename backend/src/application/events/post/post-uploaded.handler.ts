@@ -4,6 +4,7 @@ import { PostUploadedEvent } from "../../events/post/post.event";
 import { RedisService } from "../../../services/redis.service";
 import { UserRepository } from "../../../repositories/user.repository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
+import { CacheKeyBuilder } from "../../../utils/cache/CacheKeyBuilder";
 import { logger } from "../../../utils/winston";
 
 @injectable()
@@ -56,6 +57,7 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 				`core_feed:${event.authorPublicId}:*`,
 				`for_you_feed:${event.authorPublicId}:*`,
 				"trending_feed:*",
+				`${CacheKeyBuilder.getTrendingTagsPrefix()}:*` // Invalidate trending tags
 				// do NOT clear new_feed - lazy refresh only
 			];
 

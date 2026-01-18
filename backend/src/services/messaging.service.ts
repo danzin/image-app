@@ -240,15 +240,12 @@ export class MessagingService {
 				}
 			} else {
 				const existingParticipantIds = this.getParticipantIds(conversationDoc.participants);
-				if (!existingParticipantIds.includes(senderInternalId)) {
+				if (!new Set(existingParticipantIds).has(senderInternalId)) {
 					throw createError("ForbiddenError", "You do not have access to this conversation");
 				}
 			}
 
 			const participantIds: string[] = this.getParticipantIds(conversationDoc!.participants);
-			if (!participantIds.includes(senderInternalId)) {
-				throw createError("ForbiddenError", "You do not have access to this conversation");
-			}
 
 			const recipientInternalIds: string[] = participantIds.filter((id: string) => id !== senderInternalId);
 
@@ -304,19 +301,21 @@ export class MessagingService {
 
 			// Create notifications for recipients
 			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
-			for (const recipientId of recipients) {
-				await this.notificationService.createNotification({
-					receiverId: recipientId,
-					actionType: "message",
-					actorId: senderPublicId,
-					actorUsername: populatedMessage.sender?.username,
-					actorAvatar: populatedMessage.sender?.avatar,
-					targetId: conversationDoc!.publicId,
-					targetType: "conversation",
-					targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
-					session,
-				});
-			}
+			await Promise.all(
+				recipients.map((recipientId) =>
+					this.notificationService.createNotification({
+						receiverId: recipientId,
+						actionType: "message",
+						actorId: senderPublicId,
+						actorUsername: populatedMessage.sender?.username,
+						actorAvatar: populatedMessage.sender?.avatar,
+						targetId: conversationDoc!.publicId,
+						targetType: "conversation",
+						targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+						session,
+					})
+				)
+			);
 
 			this.eventBus.queueTransactional(
 				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),

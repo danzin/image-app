@@ -7,10 +7,13 @@ import { FollowRepository } from "../repositories/follow.repository";
 import { createError } from "../utils/errors";
 import { RedisService } from "./redis.service";
 import { DTOService } from "./dto.service";
+import { FeedEnrichmentService } from "./feed-enrichment.service";
 import { EventBus } from "../application/common/buses/event.bus";
 import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "../types";
 import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
 import { logger } from "../utils/winston";
+import { CacheConfig } from "../config/cacheConfig";
+import { CacheKeyBuilder } from "../utils/cache/CacheKeyBuilder";
 
 /**
  * @class FeedService
@@ -32,7 +35,8 @@ export class FeedService {
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("EventBus") private eventBus: EventBus,
+		@inject("FeedEnrichmentService") private readonly feedEnrichmentService: FeedEnrichmentService
 	) {}
 
 	/**
@@ -72,7 +76,7 @@ export class FeedService {
 			}
 
 			// SSTEP2:  Enrich core feed with fresh user data, but only
-			const enrichedFeed = await this.enrichFeedWithCurrentData(coreFeed.data, { refreshUserData: isCacheHit });
+			const enrichedFeed = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed.data, { refreshUserData: isCacheHit });
 
 			return {
 				...coreFeed,
@@ -144,16 +148,22 @@ export class FeedService {
 	 * @returns {Promise<PaginationResult<PostDTO>>}
 	 */
 	public async getTrendingFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
-		const key = `trending_feed:${page}:${limit}`;
-		let cached = await this.redisService.getWithTags<CoreFeed>(key);
+		const key = CacheKeyBuilder.getCoreFeedKey("trending", page, limit).replace("core_feed", "trending_feed"); // Or keep as is, but consistency check
+		// The key prefix was manually trending_feed. Let's stick to consistent CacheKeyBuilder if possible, or adapt.
+		// CacheKeyBuilder has CORE_FEED. I should probably add specific method or use generic helper.
+		// For now, I will use `CacheKeyBuilder.PREFIXES.TRENDING_FEED` if I added it... I didn't.
+		// I'll stick to string construction using CacheKeyBuilder if possible or just use string template for now but use CacheConfig.
+		const cacheKey = `trending_feed:${page}:${limit}`;
+		
+		let cached = await this.redisService.getWithTags<CoreFeed>(cacheKey);
 		const isCacheHit = !!cached;
 		if (!cached) {
 			const skip = (page - 1) * limit;
 			const core = await this.postRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
-			await this.redisService.setWithTags(key, core, ["trending_feed", `page:${page}`, `limit:${limit}`], 120);
+			await this.redisService.setWithTags(cacheKey, core, ["trending_feed", `page:${page}`, `limit:${limit}`], CacheConfig.FEED.TRENDING_FEED);
 			cached = core as CoreFeed;
 		}
-		const enriched = await this.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
+		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
 		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
@@ -171,7 +181,7 @@ export class FeedService {
 	 * @returns {Promise<PaginationResult<PostDTO>>}
 	 */
 	public async getNewFeed(page: number, limit: number, forceRefresh = false): Promise<PaginationResult<PostDTO>> {
-		const key = `new_feed:${page}:${limit}`;
+		const key = CacheKeyBuilder.getCoreFeedKey("new_feed", page, limit);
 
 		let cached: CoreFeed | null = null;
 		if (!forceRefresh) {
@@ -182,90 +192,16 @@ export class FeedService {
 		if (!cached) {
 			const skip = (page - 1) * limit;
 			const core = await this.postRepository.getNewFeed(limit, skip);
-			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 3600);
+			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], CacheConfig.FEED.NEW_FEED);
 			cached = core as CoreFeed;
 		}
-		const enriched = await this.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
+		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
 		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
 	// === Misc ===
 
-	/**
-	 * Hydrates a list of FeedPosts with fresh User and Meta data.
-	 *
-	 * @pattern Read-Time Hydration
-	 * @complexity O(N) where N is feed size (uses batched lookups).
-	 * @why This is the "Enrichment Layer". It allows the "Core Feed" to remain static
-	 * while ensuring that high-velocity data (Like Counts) and mutable data (Avatars)
-	 * are always current.
-	 *
-	 * @private
-	 * @param coreFeedData - The core feed structure containing post IDs and user IDs.
-	 * @param options - Options to control data refreshing.
-	 * @returns {Promise<FeedPost[]>} A list of enriched feed posts.
-	 */
-	private async enrichFeedWithCurrentData(
-		coreFeedData: FeedPost[],
-		options: { refreshUserData: boolean } = { refreshUserData: true }
-	): Promise<FeedPost[]> {
-		if (!coreFeedData || coreFeedData.length === 0) return [];
 
-		const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
-		let userMap = new Map<string, UserLookupData>();
-
-		if (options.refreshUserData) {
-			// Extract unique user publicIds from feed items
-			const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
-
-			// Batch fetch user data with tag-based caching
-			const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-			let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
-
-			if (!userData) {
-				userData = await this.userRepository.findUsersByPublicIds(userPublicIds);
-				// Cache with user-specific tags for avatar invalidation
-				const userTags = userPublicIds.map((id) => `user_data:${id}`);
-				await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache
-			}
-
-			userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
-		}
-
-		// Attempt to load post meta with tag-based caching
-		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
-		const metaResults = await Promise.all(
-			postMetaKeys.map((k) => this.redisService.getWithTags<PostMeta>(k).catch(() => null))
-		);
-		const metaMap = new Map<string, PostMeta>();
-		postPublicIds.forEach((id, idx) => {
-			if (metaResults[idx]) metaMap.set(id, metaResults[idx]!);
-		});
-
-		// Merge fresh user/image data into core feed
-		return coreFeedData.map((item) => {
-			const meta = metaMap.get(item.publicId);
-			const enriched: FeedPost = {
-				...item,
-				likes: meta?.likes ?? item.likes,
-				commentsCount: meta?.commentsCount ?? item.commentsCount,
-				viewsCount: meta?.viewsCount ?? item.viewsCount,
-				user: options.refreshUserData
-					? {
-							publicId: userMap.get(item.userPublicId)?.publicId ?? item.user.publicId,
-							username: userMap.get(item.userPublicId)?.username ?? item.user.username,
-							avatar: userMap.get(item.userPublicId)?.avatar ?? item.user.avatar,
-						}
-					: item.user,
-			};
-			logger.info(`[FeedService] Enriched post ${item.publicId}:`, {
-				viewsCount: enriched.viewsCount,
-				commentsCount: enriched.commentsCount,
-				likes: enriched.likes,
-			});
-			return enriched;
-		});
-	}
 
 	/**
 	 * Maps internal FeedPost structures to public DTOs.

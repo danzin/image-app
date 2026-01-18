@@ -10,6 +10,7 @@ import { createError } from "../../../../utils/errors";
 import { FollowRepository } from "../../../../repositories/follow.repository";
 import { CoreFeed, FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
 import { logger } from "../../../../utils/winston";
+import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
 
 @injectable()
 export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersonalizedFeedQuery, any> {
@@ -19,7 +20,8 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("EventBus") private eventBus: EventBus,
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService
 	) {}
 
 	async execute(query: GetPersonalizedFeedQuery): Promise<PaginatedFeedResult> {
@@ -46,7 +48,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 			}
 
 			// Enrich core feed with fresh user data
-			const enrichedFeed: FeedPost[] = await this.enrichFeedWithCurrentData(coreFeed.data);
+			const enrichedFeed: FeedPost[] = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed.data);
 
 			return {
 				...coreFeed,
@@ -91,51 +93,5 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		}
 
 		return this.postReadRepository.getFeedForUserCore(followingIds, favoriteTags, safeLimit, skip);
-	}
-
-	// enrichment layer - fetch current user data and dynamic meta (likes/comments) with tag-based caching
-	private async enrichFeedWithCurrentData(coreFeedData: any[]): Promise<FeedPost[]> {
-		if (!coreFeedData || coreFeedData.length === 0) return [];
-
-		// extract unique user publicIds from feed items
-		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
-		const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
-
-		// batch fetch user data with tag-based caching
-		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = (await this.redisService.getWithTags(userDataKey)) as UserLookupData[] | null;
-
-		if (!userData) {
-			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
-			// cache with user-specific tags for avatar invalidation
-			const userTags = userPublicIds.map((id) => `user_data:${id}`);
-			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache
-		}
-
-		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
-
-		// attempt to load per-post metadata with tag-based caching
-		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
-		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
-		const metaMap = new Map<string, any>();
-		postPublicIds.forEach((id, idx) => {
-			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
-		});
-
-		// merge fresh user/image data into core feed
-		return coreFeedData.map((item) => {
-			const meta = metaMap.get(item.publicId);
-			return {
-				...item,
-				likes: meta?.likes ?? item.likes,
-				commentsCount: meta?.commentsCount ?? item.commentsCount,
-				viewsCount: meta?.viewsCount ?? item.viewsCount,
-				user: {
-					publicId: userMap.get(item.userPublicId)?.publicId,
-					username: userMap.get(item.userPublicId)?.username,
-					avatar: userMap.get(item.userPublicId)?.avatar,
-				},
-			};
-		});
 	}
 }
