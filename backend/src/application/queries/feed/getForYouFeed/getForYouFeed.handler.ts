@@ -18,7 +18,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("EventBus") private eventBus: EventBus,
-		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	async execute(query: GetForYouFeedQuery): Promise<PaginatedFeedResult> {
@@ -62,7 +62,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				Promise.all(
 					transformedFeedData.map((post: FeedPost, idx: number) => {
 						return this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you");
-					})
+					}),
 				).catch((err) => {
 					errorLogger.error(`Failed to populate For You feed ZSET`, { userId, error: err.message });
 				});
@@ -151,5 +151,4 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		const skip = (page - 1) * limit;
 		return this.postReadRepository.getRankedFeed(favoriteTags, limit, skip);
 	}
-
 }

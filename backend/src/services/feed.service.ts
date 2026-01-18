@@ -36,7 +36,7 @@ export class FeedService {
 		@inject("RedisService") private redisService: RedisService,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private eventBus: EventBus,
-		@inject("FeedEnrichmentService") private readonly feedEnrichmentService: FeedEnrichmentService
+		@inject("FeedEnrichmentService") private readonly feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	/**
@@ -76,7 +76,9 @@ export class FeedService {
 			}
 
 			// SSTEP2:  Enrich core feed with fresh user data, but only
-			const enrichedFeed = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed.data, { refreshUserData: isCacheHit });
+			const enrichedFeed = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed.data, {
+				refreshUserData: isCacheHit,
+			});
 
 			return {
 				...coreFeed,
@@ -86,7 +88,7 @@ export class FeedService {
 			console.error("Failed to generate personalized feed:", error);
 			throw createError(
 				"UnknownError",
-				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`
+				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`,
 			);
 		}
 	}
@@ -154,16 +156,23 @@ export class FeedService {
 		// For now, I will use `CacheKeyBuilder.PREFIXES.TRENDING_FEED` if I added it... I didn't.
 		// I'll stick to string construction using CacheKeyBuilder if possible or just use string template for now but use CacheConfig.
 		const cacheKey = `trending_feed:${page}:${limit}`;
-		
+
 		let cached = await this.redisService.getWithTags<CoreFeed>(cacheKey);
 		const isCacheHit = !!cached;
 		if (!cached) {
 			const skip = (page - 1) * limit;
 			const core = await this.postRepository.getTrendingFeed(limit, skip, { timeWindowDays: 14, minLikes: 1 });
-			await this.redisService.setWithTags(cacheKey, core, ["trending_feed", `page:${page}`, `limit:${limit}`], CacheConfig.FEED.TRENDING_FEED);
+			await this.redisService.setWithTags(
+				cacheKey,
+				core,
+				["trending_feed", `page:${page}`, `limit:${limit}`],
+				CacheConfig.FEED.TRENDING_FEED,
+			);
 			cached = core as CoreFeed;
 		}
-		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
+		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
+			refreshUserData: isCacheHit,
+		});
 		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
@@ -192,16 +201,21 @@ export class FeedService {
 		if (!cached) {
 			const skip = (page - 1) * limit;
 			const core = await this.postRepository.getNewFeed(limit, skip);
-			await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], CacheConfig.FEED.NEW_FEED);
+			await this.redisService.setWithTags(
+				key,
+				core,
+				["new_feed", `page:${page}`, `limit:${limit}`],
+				CacheConfig.FEED.NEW_FEED,
+			);
 			cached = core as CoreFeed;
 		}
-		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, { refreshUserData: isCacheHit });
+		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
+			refreshUserData: isCacheHit,
+		});
 		return { ...cached, data: this.mapToPostDTOArray(enriched) };
 	}
 
 	// === Misc ===
-
-
 
 	/**
 	 * Maps internal FeedPost structures to public DTOs.
@@ -240,10 +254,10 @@ export class FeedService {
 		userPublicId: string,
 		actionType: string,
 		targetIdentifier: string,
-		tags: string[]
+		tags: string[],
 	): Promise<void> {
 		logger.info(
-			`Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`
+			`Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`,
 		);
 		// Resolve user internal id
 		const user = await this.userRepository.findByPublicId(userPublicId);
@@ -273,7 +287,7 @@ export class FeedService {
 		// Update tag preferences based on action type (like: +2, unlike: -2)
 		if (scoreIncrement !== 0) {
 			await Promise.all(
-				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement))
+				tags.map((tag) => this.userPreferenceRepository.incrementTagScore(String(user._id), tag, scoreIncrement)),
 			);
 		}
 
@@ -295,7 +309,7 @@ export class FeedService {
 				targetId: targetIdentifier,
 				tags,
 				timestamp: new Date().toISOString(),
-			})
+			}),
 		);
 
 		logger.info("Feed invalidation completed for user interaction");
@@ -328,7 +342,7 @@ export class FeedService {
 				likes: newTotalLikes,
 			},
 			tags,
-			300
+			300,
 		);
 
 		// Broadcast to all connected clients
@@ -339,7 +353,7 @@ export class FeedService {
 				postId: postPublicId,
 				newLikes: newTotalLikes,
 				timestamp: new Date().toISOString(),
-			})
+			}),
 		);
 	}
 
@@ -362,7 +376,7 @@ export class FeedService {
 				viewsCount: newViewsCount,
 			},
 			tags,
-			300
+			300,
 		);
 	}
 
@@ -385,7 +399,7 @@ export class FeedService {
 				commentsCount: newCommentsCount,
 			},
 			tags,
-			300
+			300,
 		);
 	}
 

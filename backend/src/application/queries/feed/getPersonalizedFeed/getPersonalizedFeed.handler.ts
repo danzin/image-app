@@ -21,7 +21,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("RedisService") private redisService: RedisService,
 		@inject("EventBus") private eventBus: EventBus,
-		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	async execute(query: GetPersonalizedFeedQuery): Promise<PaginatedFeedResult> {
@@ -58,7 +58,7 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 			console.error("Failed to generate personalized feed:", error);
 			throw createError(
 				"UnknownError",
-				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`
+				`Could not generate personalized feed for user ${userId}: ${(error as Error).message}`,
 			);
 		}
 	}
