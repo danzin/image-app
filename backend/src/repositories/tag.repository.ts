@@ -46,7 +46,7 @@ export class TagRepository extends BaseRepository<ITag> {
 	 */
 	async findByTags(tags: string[], session?: ClientSession): Promise<ITag[]> {
 		try {
-			const query = this.model.find({ tag: { $in: tags } });
+			const query = this.model.find({ tag: { $in: tags } }).populate("tag", "tag");
 
 			if (session) query.session(session);
 			return await query.exec();

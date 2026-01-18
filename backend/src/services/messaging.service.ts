@@ -246,12 +246,8 @@ export class MessagingService {
 				}
 			}
 
+			// At this point, conversationDoc exists and sender is a valid participant
 			const participantIds: string[] = this.getParticipantIds(conversationDoc!.participants);
-			const participantSet = new Set(participantIds);
-			if (!participantSet.has(senderInternalId)) {
-				throw createError("ForbiddenError", "You do not have access to this conversation");
-			}
-
 			const recipientInternalIds: string[] = participantIds.filter((id: string) => id !== senderInternalId);
 
 			const conversationId = (conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString();

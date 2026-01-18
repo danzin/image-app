@@ -255,25 +255,13 @@ export class UserRepository extends BaseRepository<IUser> {
 			}
 			const userId = new Types.ObjectId(user._id.toString());
 			const followerIds = await this.followRepository.getFollowerObjectIds(userId);
-			const followerObjectIds = followerIds.reduce<Types.ObjectId[]>((acc, id) => {
-				try {
-					acc.push(new Types.ObjectId(id));
-				} catch {
-					// Skip invalid ObjectIds
-				}
-				return acc;
-			}, []);
 
-			if (followerObjectIds.length === 0) {
+			if (followerIds.length === 0) {
 				return [];
 			}
 
-			return await this.model
-				.find({
-					_id: { $in: followerObjectIds },
-				})
-				.select("publicId username avatar")
-				.exec();
+			// Use the existing findUsersByIds method to avoid code duplication
+			return await this.findUsersByIds(followerIds);
 		} catch (error) {
 			console.error(`Error finding followers for user ${userPublicId}:`, error);
 			return [];
