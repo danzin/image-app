@@ -29,6 +29,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { RetryService } from "../services/retry.service";
 import { TransactionQueueService } from "../services/transaction-queue.service";
 import { TelemetryService } from "../services/telemetry.service";
+import { FeedEnrichmentService } from "../services/feed-enrichment.service";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -49,6 +50,7 @@ export function registerServices(): void {
 	container.registerSingleton("NotificationService", NotificationService);
 	container.registerSingleton<IImageStorageService>("ImageStorageService", ImageStorageService);
 	container.registerSingleton("DTOService", DTOService);
+	container.registerSingleton("FeedEnrichmentService", FeedEnrichmentService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("UserActionService", UserActionService);

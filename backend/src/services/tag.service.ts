@@ -16,27 +16,29 @@ export class TagService {
 			return [];
 		}
 
-		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values());
+		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values()).filter(Boolean);
+		if (unique.length === 0) return [];
 
-		const tagDocs: ITag[] = [];
-		for (const tag of unique) {
-			if (!tag) continue;
+		const existing = await this.tagRepository.findByTags(unique, session);
+		const existingMap = new Map(existing.map((t) => [t.tag, t]));
 
-			const existing = await this.tagRepository.findByTag(tag, session);
-			if (existing) {
-				tagDocs.push(existing);
-				continue;
-			}
+		const tagDocs: ITag[] = [...existing];
+		const missingTags = unique.filter((tag) => !existingMap.has(tag));
 
-			const created = await this.tagRepository.create(
-				{
-					tag,
-					count: 0,
-					modifiedAt: new Date(),
-				} as Partial<ITag>,
-				session
+		if (missingTags.length > 0) {
+			const created = await Promise.all(
+				missingTags.map((tag) =>
+					this.tagRepository.create(
+						{
+							tag,
+							count: 0,
+							modifiedAt: new Date(),
+						} as Partial<ITag>,
+						session,
+					),
+				),
 			);
-			tagDocs.push(created);
+			tagDocs.push(...created);
 		}
 
 		return tagDocs;
@@ -47,18 +49,11 @@ export class TagService {
 	 * returns only existing tag IDs
 	 */
 	async resolveTagIds(tagNames: string[]): Promise<string[]> {
-		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values());
-		const ids: string[] = [];
+		const unique = Array.from(new Set(tagNames.map((tag) => this.normalize(tag))).values()).filter(Boolean);
+		if (unique.length === 0) return [];
 
-		for (const tag of unique) {
-			if (!tag) continue;
-			const existing = await this.tagRepository.findByTag(tag);
-			if (existing) {
-				ids.push(existing._id.toString());
-			}
-		}
-
-		return ids;
+		const existing = await this.tagRepository.findByTags(unique);
+		return existing.map((t) => t._id.toString());
 	}
 
 	/**
@@ -70,8 +65,8 @@ export class TagService {
 		const now = new Date();
 		await Promise.all(
 			tagIds.map((tagId) =>
-				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: 1 }, $set: { modifiedAt: now } }, session)
-			)
+				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: 1 }, $set: { modifiedAt: now } }, session),
+			),
 		);
 	}
 
@@ -84,8 +79,12 @@ export class TagService {
 		const now = new Date();
 		await Promise.all(
 			tagIds.map((tagId) =>
-				this.tagRepository.findOneAndUpdate({ _id: tagId }, { $inc: { count: -1 }, $set: { modifiedAt: now } }, session)
-			)
+				this.tagRepository.findOneAndUpdate(
+					{ _id: tagId },
+					{ $inc: { count: -1 }, $set: { modifiedAt: now } },
+					session,
+				),
+			),
 		);
 	}
 

@@ -14,7 +14,7 @@ import { logger } from "../utils/winston";
 export class UserRepository extends BaseRepository<IUser> {
 	constructor(
 		@inject("UserModel") model: Model<IUser>,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository
+		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 	) {
 		super(model);
 	}
@@ -255,15 +255,14 @@ export class UserRepository extends BaseRepository<IUser> {
 			}
 			const userId = new Types.ObjectId(user._id.toString());
 			const followerIds = await this.followRepository.getFollowerObjectIds(userId);
-			const followerObjectIds = followerIds
-				.map((id) => {
-					try {
-						return new Types.ObjectId(id);
-					} catch {
-						return null;
-					}
-				})
-				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
+			const followerObjectIds = followerIds.reduce<Types.ObjectId[]>((acc, id) => {
+				try {
+					acc.push(new Types.ObjectId(id));
+				} catch {
+					// Ignore invalid IDs
+				}
+				return acc;
+			}, []);
 
 			if (followerObjectIds.length === 0) {
 				return [];

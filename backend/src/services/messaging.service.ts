@@ -53,13 +53,13 @@ export class MessagingService {
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler,
-		@inject("NotificationService") private readonly notificationService: NotificationService
+		@inject("NotificationService") private readonly notificationService: NotificationService,
 	) {}
 
 	async listConversations(
 		userPublicId: string,
 		page = 1,
-		limit = 20
+		limit = 20,
 	): Promise<{
 		conversations: ConversationSummaryDTO[];
 		total: number;
@@ -120,7 +120,7 @@ export class MessagingService {
 						unreadCounts: unreadSeed,
 						isGroup: false,
 					},
-					session
+					session,
 				);
 			});
 		}
@@ -141,7 +141,7 @@ export class MessagingService {
 		userPublicId: string,
 		conversationPublicId: string,
 		page = 1,
-		limit = 30
+		limit = 30,
 	): Promise<{
 		messages: MessageDTO[];
 		total: number;
@@ -205,13 +205,13 @@ export class MessagingService {
 			await this.messageRepository.markConversationMessagesAsRead(
 				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
 				senderInternalId,
-				session
+				session,
 			);
 
 			await this.conversationRepository.resetUnreadCount(
 				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
 				senderInternalId,
-				session
+				session,
 			);
 			if (!conversationDoc) {
 				const recipientInternalId = await this.userRepository.findInternalIdByPublicId(payload.recipientPublicId!);
@@ -235,20 +235,17 @@ export class MessagingService {
 							lastMessageAt: new Date(),
 							unreadCounts: unreadSeed,
 						},
-						session
+						session,
 					);
 				}
 			} else {
 				const existingParticipantIds = this.getParticipantIds(conversationDoc.participants);
-				if (!existingParticipantIds.includes(senderInternalId)) {
+				if (!new Set(existingParticipantIds).has(senderInternalId)) {
 					throw createError("ForbiddenError", "You do not have access to this conversation");
 				}
 			}
 
 			const participantIds: string[] = this.getParticipantIds(conversationDoc!.participants);
-			if (!participantIds.includes(senderInternalId)) {
-				throw createError("ForbiddenError", "You do not have access to this conversation");
-			}
 
 			const recipientInternalIds: string[] = participantIds.filter((id: string) => id !== senderInternalId);
 
@@ -265,7 +262,7 @@ export class MessagingService {
 					readBy: [new mongoose.Types.ObjectId(senderInternalId)],
 					status: "sent",
 				},
-				session
+				session,
 			);
 
 			await this.conversationRepository.findOneAndUpdate(
@@ -281,17 +278,17 @@ export class MessagingService {
 							acc[`unreadCounts.${recipientId}`] = 1;
 							return acc;
 						},
-						{}
+						{},
 					),
 				},
-				session
+				session,
 			);
 
 			await message.populate("sender", "publicId username avatar");
 			const populatedMessage = message as unknown as IMessageWithPopulatedSender;
 
 			const participantObjectIds = participantIds.map(
-				(participantId: string) => new mongoose.Types.ObjectId(participantId)
+				(participantId: string) => new mongoose.Types.ObjectId(participantId),
 			);
 			const participantDocs = await this.userRepository
 				.find({ _id: { $in: participantObjectIds } })
@@ -304,23 +301,25 @@ export class MessagingService {
 
 			// Create notifications for recipients
 			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
-			for (const recipientId of recipients) {
-				await this.notificationService.createNotification({
-					receiverId: recipientId,
-					actionType: "message",
-					actorId: senderPublicId,
-					actorUsername: populatedMessage.sender?.username,
-					actorAvatar: populatedMessage.sender?.avatar,
-					targetId: conversationDoc!.publicId,
-					targetType: "conversation",
-					targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
-					session,
-				});
-			}
+			await Promise.all(
+				recipients.map((recipientId) =>
+					this.notificationService.createNotification({
+						receiverId: recipientId,
+						actionType: "message",
+						actorId: senderPublicId,
+						actorUsername: populatedMessage.sender?.username,
+						actorAvatar: populatedMessage.sender?.avatar,
+						targetId: conversationDoc!.publicId,
+						targetType: "conversation",
+						targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+						session,
+					}),
+				),
+			);
 
 			this.eventBus.queueTransactional(
 				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),
-				this.messageSentHandler
+				this.messageSentHandler,
 			);
 
 			targetConversation = conversationDoc;
@@ -384,7 +383,7 @@ export class MessagingService {
 	}
 
 	private extractUnreadCounts(
-		unreadCounts: Map<string, number> | Record<string, number> | null | undefined
+		unreadCounts: Map<string, number> | Record<string, number> | null | undefined,
 	): Record<string, number> {
 		if (!unreadCounts) {
 			return {};
@@ -424,7 +423,7 @@ export class MessagingService {
 
 	private participantMatchesUser(
 		participant: MaybePopulatedParticipant | mongoose.Types.ObjectId | string | null,
-		userInternalId: string
+		userInternalId: string,
 	): boolean {
 		if (!participant) {
 			return false;
@@ -443,7 +442,7 @@ export class MessagingService {
 	}
 
 	private extractParticipantId(
-		participant: MaybePopulatedParticipant | mongoose.Types.ObjectId | string | null
+		participant: MaybePopulatedParticipant | mongoose.Types.ObjectId | string | null,
 	): string | null {
 		if (!participant) {
 			return null;
@@ -477,7 +476,7 @@ export class MessagingService {
 	}
 
 	private getParticipantIds(
-		participants: Array<MaybePopulatedParticipant | mongoose.Types.ObjectId | string> | null | undefined
+		participants: Array<MaybePopulatedParticipant | mongoose.Types.ObjectId | string> | null | undefined,
 	): string[] {
 		if (!Array.isArray(participants)) {
 			return [];

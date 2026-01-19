@@ -161,7 +161,7 @@ export class NotificationService {
 			// initial page load - try Redis cache first
 			const notifications = await this.redisService.getUserNotifications(userId, 1, limit);
 
-			if (notifications.length > 0) {
+			if (notifications.length >= limit) {
 				redisLogger.info(`Notification Redis HIT`, { userId, count: notifications.length });
 				return notifications;
 			}

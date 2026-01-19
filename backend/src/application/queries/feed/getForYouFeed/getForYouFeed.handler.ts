@@ -7,6 +7,7 @@ import { RedisService } from "../../../../services/redis.service";
 import { EventBus } from "../../../common/buses/event.bus";
 import { createError } from "../../../../utils/errors";
 import { errorLogger, redisLogger } from "../../../../utils/winston";
+import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
 import { FeedPost, PaginatedFeedResult, UserLookupData, IPost } from "../../../../types";
 
 @injectable()
@@ -16,7 +17,8 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private userPreferenceRepository: UserPreferenceRepository,
 		@inject("RedisService") private redisService: RedisService,
-		@inject("EventBus") private eventBus: EventBus
+		@inject("EventBus") private eventBus: EventBus,
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	async execute(query: GetForYouFeedQuery): Promise<PaginatedFeedResult> {
@@ -36,7 +38,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				const posts = postsResults.filter((p) => p !== null);
 				const transformedPosts = this.transformPosts(posts);
 
-				const enriched = await this.enrichFeedWithCurrentData(transformedPosts);
+				const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
 				const feedSize = await this.redisService.getFeedSize(userId, "for_you");
 
 				return {
@@ -60,13 +62,13 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				Promise.all(
 					transformedFeedData.map((post: FeedPost, idx: number) => {
 						return this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you");
-					})
+					}),
 				).catch((err) => {
 					errorLogger.error(`Failed to populate For You feed ZSET`, { userId, error: err.message });
 				});
 			}
 
-			const enriched = await this.enrichFeedWithCurrentData(transformedFeedData);
+			const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedFeedData);
 			return {
 				...feed,
 				data: enriched,
@@ -148,51 +150,5 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		const favoriteTags = topTags.map((pref) => pref.tag);
 		const skip = (page - 1) * limit;
 		return this.postReadRepository.getRankedFeed(favoriteTags, limit, skip);
-	}
-
-	private async enrichFeedWithCurrentData(coreFeedData: FeedPost[]): Promise<FeedPost[]> {
-		if (!coreFeedData || coreFeedData.length === 0) return [];
-
-		// extract unique user publicIds from feed items
-		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
-		const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
-
-		// batch fetch user data with tag-based caching
-		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
-
-		if (!userData) {
-			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
-			// cache with user-specific tags for avatar invalidation
-			const userTags = userPublicIds.map((id) => `user_data:${id}`);
-			await this.redisService.setWithTags(userDataKey, userData, userTags, 60); // 1 minute cache
-		}
-
-		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
-
-		// attempt to load per-post metadata with tag-based caching
-		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
-		const metaResults = await Promise.all(postMetaKeys.map((k) => this.redisService.getWithTags(k).catch(() => null)));
-		const metaMap = new Map<string, any>();
-		postPublicIds.forEach((id, idx) => {
-			if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
-		});
-
-		// merge fresh user/image data into core feed
-		return coreFeedData.map((item) => {
-			const meta = metaMap.get(item.publicId);
-			const cachedUser = userMap.get(item.userPublicId);
-			return {
-				...item,
-				likes: meta?.likes ?? item.likes,
-				commentsCount: meta?.commentsCount ?? item.commentsCount,
-				viewsCount: meta?.viewsCount ?? item.viewsCount,
-				user: {
-					publicId: cachedUser?.publicId ?? item.user.publicId,
-					username: cachedUser?.username ?? item.user.username,
-					avatar: cachedUser?.avatar ?? item.user.avatar,
-				},
-			};
-		});
 	}
 }

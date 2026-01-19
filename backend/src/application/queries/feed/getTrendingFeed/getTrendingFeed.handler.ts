@@ -7,7 +7,7 @@ import { DTOService } from "../../../../services/dto.service";
 import { createError } from "../../../../utils/errors";
 import { redisLogger } from "../../../../utils/winston";
 import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag, UserLookupData, PostMeta } from "../../../../types";
-import mongoose from "mongoose";
+import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
 
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {
@@ -15,7 +15,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		@inject("PostReadRepository") private postReadRepository: IPostReadRepository,
 		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
 		@inject("RedisService") private redisService: RedisService,
-		@inject("DTOService") private dtoService: DTOService
+		@inject("DTOService") private dtoService: DTOService,
+		@inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
 	) {}
 
 	async execute(query: GetTrendingFeedQuery): Promise<PaginatedFeedResult> {
@@ -57,7 +58,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			}
 
 			const transformedPosts = this.transformPosts(posts);
-			const enriched = await this.enrichFeedWithCurrentData(transformedPosts);
+			const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
 
 			return {
 				data: enriched,
@@ -145,7 +146,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				}
 				return acc;
 			},
-			[]
+			[],
 		);
 
 		return {
@@ -184,52 +185,5 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		}
 		const author = "author" in post ? (post as Record<string, unknown>).author : undefined;
 		return (author as any) ?? {};
-	}
-
-	private async enrichFeedWithCurrentData(coreFeedData: FeedPost[]): Promise<FeedPost[]> {
-		if (!coreFeedData || coreFeedData.length === 0) return [];
-
-		// extract unique user publicIds from feed items
-		const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
-		const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
-
-		// batch fetch user data with tag-based caching
-		const userDataKey = `user_batch:${userPublicIds.sort().join(",")}`;
-		let userData = await this.redisService.getWithTags<UserLookupData[]>(userDataKey);
-
-		if (!userData) {
-			userData = await this.userReadRepository.findUsersByPublicIds(userPublicIds);
-			// cache with user-specific tags for avatar invalidation
-			const userTags = userPublicIds.map((id) => `user_data:${id}`);
-			await this.redisService.setWithTags(userDataKey, userData, userTags, 60);
-		}
-
-		const userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
-
-		// attempt to load per-post metadata with tag-based caching
-		const postMetaKeys = postPublicIds.map((id) => `post_meta:${id}`);
-		const metaResults = await Promise.all(
-			postMetaKeys.map((k) => this.redisService.getWithTags<PostMeta>(k).catch(() => null))
-		);
-		const metaMap = new Map<string, PostMeta>();
-		postPublicIds.forEach((id, idx) => {
-			if (metaResults[idx]) metaMap.set(id, metaResults[idx]!);
-		});
-
-		// merge fresh user/image data into core feed
-		return coreFeedData.map((item) => {
-			const meta = metaMap.get(item.publicId);
-			return {
-				...item,
-				likes: meta?.likes ?? item.likes,
-				commentsCount: meta?.commentsCount ?? item.commentsCount,
-				viewsCount: meta?.viewsCount ?? item.viewsCount,
-				user: {
-					publicId: userMap.get(item.userPublicId)?.publicId ?? item.user.publicId,
-					username: userMap.get(item.userPublicId)?.username ?? item.user.username,
-					avatar: userMap.get(item.userPublicId)?.avatar ?? item.user.avatar,
-				},
-			};
-		});
 	}
 }

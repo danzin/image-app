@@ -49,7 +49,7 @@ export class TagRepository extends BaseRepository<ITag> {
 	async searchTags(
 		searchQueries: string[],
 		options?: { limit?: number; minCount?: number },
-		session?: ClientSession
+		session?: ClientSession,
 	): Promise<ITag[]> {
 		try {
 			const { limit = 50, minCount = 0 } = options || {};
@@ -61,7 +61,7 @@ export class TagRepository extends BaseRepository<ITag> {
 						$text: { $search: searchText },
 						count: { $gte: minCount }, //filter unpopular tags
 					},
-					{ score: { $meta: "textScore" } }
+					{ score: { $meta: "textScore" } },
 				)
 				.sort({
 					score: { $meta: "textScore" }, // relevance
@@ -89,6 +89,25 @@ export class TagRepository extends BaseRepository<ITag> {
 			return await aggregation.exec();
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message);
+		}
+	}
+
+	/**
+	 * Finds multiple tags by their names.
+	 * @param {string[]} tags - The tag names to search for.
+	 * @param {ClientSession} [session] - Optional Mongoose session for transactions.
+	 * @returns {Promise<ITag[]>} - A promise that resolves to an array of found tags.
+	 * @throws {Error} - Throws a 'DatabaseError' if the operation fails.
+	 */
+	async findByTags(tags: string[], session?: ClientSession): Promise<ITag[]> {
+		try {
+			const query = this.model.find({ tag: { $in: tags } });
+			if (session) {
+				query.session(session);
+			}
+			return await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", "Failed to find tags", error);
 		}
 	}
 }

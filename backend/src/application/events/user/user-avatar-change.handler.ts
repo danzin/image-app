@@ -10,7 +10,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 
 	async handle(event: UserAvatarChangedEvent): Promise<void> {
 		logger.info(
-			`User ${event.userPublicId} changed avatar from "${event.oldAvatarUrl || "none"}" to "${event.newAvatarUrl}"`
+			`User ${event.userPublicId} changed avatar from "${event.oldAvatarUrl || "none"}" to "${event.newAvatarUrl}"`,
 		);
 
 		try {
@@ -30,7 +30,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 					oldAvatar: event.oldAvatarUrl,
 					newAvatar: event.newAvatarUrl,
 					timestamp: new Date().toISOString(),
-				})
+				}),
 			);
 
 			// Publish to profile_snapshot_updates channel for background worker to update embedded author snapshots in posts
@@ -45,12 +45,15 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 		} catch (error) {
 			console.error(`Error while handling avatar change for user ${event.userPublicId}:`, error);
 
-			// Fallback: try to clear all caches
+			// Fallback: try to clear all relevant user caches
 			try {
-				await Promise.all([
-					this.redis.del("*"), // Nuke everything
-				]);
-				logger.info(" Fallback: Cleared all Redis caches due to error");
+				const tags = [
+					`user_data:${event.userPublicId}`,
+					`user_feed:${event.userPublicId}`,
+					`user_for_you_feed:${event.userPublicId}`,
+				];
+				await this.redis.invalidateByTags(tags);
+				logger.info(`Fallback: Cleared specific user Redis caches due to error`);
 			} catch (fallbackError) {
 				console.error(" Even fallback cache clear failed:", fallbackError);
 			}
