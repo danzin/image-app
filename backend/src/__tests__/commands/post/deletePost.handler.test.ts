@@ -35,12 +35,19 @@ describe("DeletePostCommandHandler", () => {
 	let mockCommentRepository: {
 		deleteCommentsByPostId: SinonStub;
 	};
+	let mockCommunityMemberRepository: {
+		findByCommunityAndUser: SinonStub;
+	};
 	let mockTagService: {
 		decrementUsage: SinonStub;
 	};
 	let mockImageService: {
 		deleteImage: SinonStub;
-		removePostAttachment: SinonStub;
+		removePostAttachmentRecord: SinonStub;
+		deleteAttachmentAsset: SinonStub;
+	};
+	let mockRetryService: {
+		execute: SinonStub;
 	};
 	let mockRedisService: {
 		invalidateFeed: SinonStub;
@@ -78,13 +85,22 @@ describe("DeletePostCommandHandler", () => {
 			deleteCommentsByPostId: sinon.stub(),
 		};
 
+		mockCommunityMemberRepository = {
+			findByCommunityAndUser: sinon.stub(),
+		};
+
 		mockTagService = {
 			decrementUsage: sinon.stub(),
 		};
 
 		mockImageService = {
 			deleteImage: sinon.stub(),
-			removePostAttachment: sinon.stub().resolves({ removed: false }),
+			removePostAttachmentRecord: sinon.stub().resolves({ removed: false }),
+			deleteAttachmentAsset: sinon.stub().resolves(),
+		};
+
+		mockRetryService = {
+			execute: sinon.stub().callsFake(async (op: () => Promise<unknown>) => op()),
 		};
 
 		mockRedisService = {
@@ -106,10 +122,12 @@ describe("DeletePostCommandHandler", () => {
 			mockUserReadRepository as any,
 			mockUserWriteRepository as any,
 			mockCommentRepository as any,
+			mockCommunityMemberRepository as any,
 			mockTagService as any,
 			mockImageService as any,
 			mockRedisService as any,
-			mockEventBus as any
+			mockRetryService as any,
+			mockEventBus as any,
 		);
 
 		command = new DeletePostCommand(VALID_POST_PUBLIC_ID, VALID_USER_PUBLIC_ID);
@@ -185,7 +203,7 @@ describe("DeletePostCommandHandler", () => {
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockTagService.decrementUsage.resolves();
 			mockPostWriteRepository.delete.resolves();
-			mockImageService.removePostAttachment.resolves({ removed: true });
+			mockImageService.removePostAttachmentRecord.resolves({ removed: true, removedUrl: "http://image" });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -195,7 +213,9 @@ describe("DeletePostCommandHandler", () => {
 
 			expect(mockPostReadRepository.findByPublicId.calledWith(VALID_POST_PUBLIC_ID)).to.be.true;
 			expect(mockUserReadRepository.findByPublicId.calledWith(VALID_USER_PUBLIC_ID)).to.be.true;
-			expect(mockImageService.removePostAttachment.called).to.be.true;
+			expect(mockImageService.removePostAttachmentRecord.called).to.be.true;
+			expect(mockRetryService.execute.called).to.be.true;
+			expect(mockImageService.deleteAttachmentAsset.called).to.be.true;
 			expect(mockTagService.decrementUsage.calledWith(mockTagIds, mockSession)).to.be.true;
 			expect(mockPostWriteRepository.delete.called).to.be.true;
 			expect(mockCommentRepository.deleteCommentsByPostId.called).to.be.true;
@@ -234,7 +254,8 @@ describe("DeletePostCommandHandler", () => {
 
 			await handler.execute(command);
 
-			expect(mockImageService.removePostAttachment.called).to.be.false;
+			expect(mockImageService.removePostAttachmentRecord.called).to.be.false;
+			expect(mockRetryService.execute.called).to.be.false;
 			expect(mockTagService.decrementUsage.calledWith(mockTagIds, mockSession)).to.be.true;
 			expect(mockPostWriteRepository.delete.called).to.be.true;
 		});
@@ -261,7 +282,7 @@ describe("DeletePostCommandHandler", () => {
 			mockPostReadRepository.findByPublicId.resolves(mockPost);
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockPostWriteRepository.delete.resolves();
-			mockImageService.removePostAttachment.resolves({ removed: true });
+			mockImageService.removePostAttachmentRecord.resolves({ removed: true, removedUrl: "http://image" });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -297,7 +318,7 @@ describe("DeletePostCommandHandler", () => {
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockPostWriteRepository.delete.resolves();
 			mockTagService.decrementUsage.resolves();
-			mockImageService.removePostAttachment.rejects(new Error("Image service unavailable"));
+			mockImageService.removePostAttachmentRecord.rejects(new Error("Image service unavailable"));
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);
@@ -333,7 +354,7 @@ describe("DeletePostCommandHandler", () => {
 			mockCommentRepository.deleteCommentsByPostId.resolves();
 			mockTagService.decrementUsage.resolves();
 			mockPostWriteRepository.delete.resolves();
-			mockImageService.removePostAttachment.resolves({ removed: true });
+			mockImageService.removePostAttachmentRecord.resolves({ removed: true, removedUrl: "http://image" });
 
 			mockUnitOfWork.executeInTransaction.callsFake(async (callback) => {
 				return await callback(mockSession);

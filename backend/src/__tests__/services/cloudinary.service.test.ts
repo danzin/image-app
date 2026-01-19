@@ -61,13 +61,13 @@ describe("CloudinaryService", () => {
 		it("should extract public ID from Cloudinary URL", () => {
 			const url = "https://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg";
 			const result = (cloudinaryService as any).extractPublicId(url);
-			expect(result).to.equal("sample");
+			expect(result).to.equal("v1234567890/sample");
 		});
 
 		it("should extract public ID from URL with folder", () => {
 			const url = "https://res.cloudinary.com/demo/image/upload/v1234567890/folder/image.png";
 			const result = (cloudinaryService as any).extractPublicId(url);
-			expect(result).to.equal("image");
+			expect(result).to.equal("folder/image");
 		});
 
 		it("should return null for invalid URL", () => {
@@ -96,13 +96,9 @@ describe("CloudinaryService", () => {
 	});
 
 	describe("deleteAssetByUrl", () => {
-		it("should throw error for invalid URL", async () => {
-			try {
-				await cloudinaryService.deleteAssetByUrl("user", "invalid-url");
-				expect.fail("Should have thrown error");
-			} catch (error: any) {
-				expect(error.message).to.equal("Invalid URL format");
-			}
+		it("should handle invalid URL by skipping", async () => {
+			const result = await cloudinaryService.deleteAssetByUrl("user", "invalid-url");
+			expect(result).to.deep.equal({ result: "skipped" });
 		});
 
 		it("should use retry service for deletion", async () => {

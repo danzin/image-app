@@ -10,6 +10,7 @@ import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { RedisService } from "../../../../services/redis.service";
 import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
+import { RetryPresets, RetryService } from "../../../../services/retry.service";
 import { createError } from "../../../../utils/errors";
 import { UserAvatarChangedEvent } from "../../../events/user/user-interaction.event";
 
@@ -23,7 +24,8 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("RetryService") private readonly retryService: RetryService,
+		@inject("DTOService") private readonly dtoService: DTOService,
 	) {}
 
 	async execute(command: UpdateAvatarCommand): Promise<PublicUserDTO> {
@@ -61,22 +63,16 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 				const userId = user.id;
 
 				await this.userWriteRepository.updateAvatar(userId, newAvatarUrl!, session);
-
-				if (oldAvatarUrl) {
-					try {
-						await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldAvatarUrl);
-					} catch (deleteError) {
-						console.warn(`failed to delete old avatar ${oldAvatarUrl}`, deleteError);
-					}
-				}
 			});
+
+			await this.deleteOldAvatarAfterCommit(userPublicId, oldAvatarUrl);
 
 			await this.redisService.invalidateByTags([`user_data:${userPublicId}`]);
 
 			const avatarChangedEvent = new UserAvatarChangedEvent(
 				userPublicId,
 				oldAvatarUrl || undefined,
-				newAvatarUrl || undefined
+				newAvatarUrl || undefined,
 			);
 			await this.eventBus.publish(avatarChangedEvent);
 
@@ -101,7 +97,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(
 					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
+					(error as { name: string; message: string }).message,
 				);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
@@ -111,6 +107,21 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 					if (err) console.error("Failed to delete temp file:", err);
 				});
 			}
+		}
+	}
+
+	private async deleteOldAvatarAfterCommit(userPublicId: string, oldAvatarUrl: string | null): Promise<void> {
+		if (!oldAvatarUrl) {
+			return;
+		}
+
+		try {
+			await this.retryService.execute(
+				() => this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldAvatarUrl),
+				RetryPresets.externalApi(),
+			);
+		} catch (deleteError) {
+			console.warn(`failed to delete old avatar ${oldAvatarUrl}`, deleteError);
 		}
 	}
 }
