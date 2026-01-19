@@ -6,6 +6,7 @@ export class GetAllCommunitiesQuery implements IQuery {
 	constructor(
 		public readonly page: number = 1,
 		public readonly limit: number = 20,
-		public readonly search?: string
+		public readonly search?: string,
+		public readonly viewerPublicId?: string,
 	) {}
 }
