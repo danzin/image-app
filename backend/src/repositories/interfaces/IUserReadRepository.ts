@@ -22,6 +22,9 @@ export interface IUserReadRepository {
 	getAll(options: { search?: string[]; page?: number; limit?: number }): Promise<IUser[] | null>;
 	findWithPagination(options: PaginationOptions): Promise<PaginationResult<IUser>>;
 
+	// counts
+	countDocuments(filter: Record<string, unknown>): Promise<number>;
+
 	// suggestions and recommendations
 	getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]>;
 }

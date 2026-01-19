@@ -4,7 +4,7 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetCommunityDetailsQuery } from "./getCommunityDetails.query";
 import { CommunityRepository } from "../../../../repositories/community.repository";
 import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { ICommunity } from "../../../../types";
 import { createError } from "../../../../utils/errors";
 
@@ -20,7 +20,7 @@ export class GetCommunityDetailsQueryHandler
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject(UserRepository) private userRepository: UserRepository
+		@inject("UserReadRepository") private userRepository: IUserReadRepository,
 	) {}
 
 	async execute(query: GetCommunityDetailsQuery): Promise<CommunityDetailsResult> {
@@ -37,7 +37,7 @@ export class GetCommunityDetailsQueryHandler
 			if (user) {
 				const membership = await this.communityMemberRepository.findByCommunityAndUser(
 					community._id as Types.ObjectId,
-					user._id as Types.ObjectId
+					user._id as Types.ObjectId,
 				);
 				result.isMember = !!membership;
 				result.isCreator = community.creatorId.toString() === user.publicId.toString();

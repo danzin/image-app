@@ -10,7 +10,7 @@ const authorSchema = new Schema(
 		avatarUrl: { type: String, default: "" },
 		displayName: { type: String, default: "" },
 	},
-	{ _id: false }
+	{ _id: false },
 );
 
 const postSchema = new Schema<IPost>(
@@ -87,7 +87,7 @@ const postSchema = new Schema<IPost>(
 			required: false,
 		},
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
 
 postSchema.methods.isOwnedBy = function (userId: mongoose.Types.ObjectId | string): boolean {
@@ -124,14 +124,13 @@ postSchema.index({ user: 1, createdAt: -1 }); // profile feed queries
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
-postSchema.index({ publicId: 1 }, { unique: true }); // explicit index for frequent publicId lookups
 postSchema.index({ type: 1, createdAt: -1 }); // filter by post type (original vs repost)
 postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
 postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
 	{
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
-	}
+	},
 );
 postSchema.index({ repostOf: 1, createdAt: -1 }); // fetch reposts of a given post
 

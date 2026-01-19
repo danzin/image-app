@@ -12,14 +12,14 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 
 	async findByCommunityAndUser(
 		communityId: string | Types.ObjectId,
-		userId: string | Types.ObjectId
+		userId: string | Types.ObjectId,
 	): Promise<ICommunityMember | null> {
 		return this.model.findOne({ communityId, userId }).exec();
 	}
 
 	async findByCommunityAndUsers(
 		communityId: string | Types.ObjectId,
-		userIds: (string | Types.ObjectId)[]
+		userIds: (string | Types.ObjectId)[],
 	): Promise<ICommunityMember[]> {
 		return this.model.find({ communityId, userId: { $in: userIds } }).exec();
 	}
@@ -28,10 +28,17 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 		return this.model.find({ userId }).limit(limit).skip(skip).exec();
 	}
 
+	async findByUserAndCommunityIds(
+		userId: string | Types.ObjectId,
+		communityIds: (string | Types.ObjectId)[],
+	): Promise<ICommunityMember[]> {
+		return this.model.find({ userId, communityId: { $in: communityIds } }).exec();
+	}
+
 	async deleteByCommunityAndUser(
 		communityId: string | Types.ObjectId,
 		userId: string | Types.ObjectId,
-		session?: ClientSession
+		session?: ClientSession,
 	): Promise<void> {
 		const query = this.model.deleteOne({ communityId, userId });
 		if (session) query.session(session);
@@ -51,7 +58,7 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 	async findByCommunityId(
 		communityId: string | Types.ObjectId,
 		limit: number = 20,
-		skip: number = 0
+		skip: number = 0,
 	): Promise<ICommunityMember[]> {
 		return this.model.find({ communityId }).populate("userId").limit(limit).skip(skip).exec();
 	}

@@ -10,6 +10,7 @@ import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { RedisService } from "../../../../services/redis.service";
 import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
+import { RetryPresets, RetryService } from "../../../../services/retry.service";
 import { createError } from "../../../../utils/errors";
 import { UserCoverChangedEvent } from "../../../events/user/user-interaction.event";
 
@@ -23,7 +24,8 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("RetryService") private readonly retryService: RetryService,
+		@inject("DTOService") private readonly dtoService: DTOService,
 	) {}
 
 	async execute(command: UpdateCoverCommand): Promise<PublicUserDTO> {
@@ -61,22 +63,16 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 				const userId = user.id;
 
 				await this.userWriteRepository.updateCover(userId, newCoverUrl!, session);
-
-				if (oldCoverUrl) {
-					try {
-						await this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldCoverUrl);
-					} catch (deleteError) {
-						console.warn(`failed to delete old cover: ${oldCoverUrl}`, deleteError);
-					}
-				}
 			});
+
+			await this.deleteOldCoverAfterCommit(userPublicId, oldCoverUrl);
 
 			await this.redisService.invalidateByTags([`user_data:${userPublicId}`]);
 
 			const coverChangedEvent = new UserCoverChangedEvent(
 				userPublicId,
 				oldCoverUrl || undefined,
-				newCoverUrl || undefined
+				newCoverUrl || undefined,
 			);
 			await this.eventBus.publish(coverChangedEvent);
 
@@ -101,7 +97,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(
 					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
+					(error as { name: string; message: string }).message,
 				);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
@@ -111,6 +107,21 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 					if (err) console.error("Failed to delete temp file:", err);
 				});
 			}
+		}
+	}
+
+	private async deleteOldCoverAfterCommit(userPublicId: string, oldCoverUrl: string | null): Promise<void> {
+		if (!oldCoverUrl) {
+			return;
+		}
+
+		try {
+			await this.retryService.execute(
+				() => this.imageStorageService.deleteAssetByUrl(userPublicId, userPublicId, oldCoverUrl),
+				RetryPresets.externalApi(),
+			);
+		} catch (deleteError) {
+			console.warn(`failed to delete old cover: ${oldCoverUrl}`, deleteError);
 		}
 	}
 }

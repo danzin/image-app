@@ -45,9 +45,13 @@ export class PostReadRepository implements IPostReadRepository {
 		return this.postRepository.findByUserPublicId(userPublicId, options);
 	}
 
+	async findByCommunityId(communityId: string, page: number, limit: number): Promise<IPost[]> {
+		return this.postRepository.findByCommunityId(communityId, page, limit);
+	}
+
 	async findByTags(
 		tagIds: string[],
-		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
+		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string },
 	): Promise<PaginationResult<IPost>> {
 		return this.postRepository.findByTags(tagIds, options);
 	}
@@ -60,7 +64,7 @@ export class PostReadRepository implements IPostReadRepository {
 		followingIds: string[],
 		favoriteTags: string[],
 		limit: number,
-		skip: number
+		skip: number,
 	): Promise<PaginationResult<any>> {
 		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
@@ -76,7 +80,7 @@ export class PostReadRepository implements IPostReadRepository {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<PaginationResult<any>> {
 		return this.postRepository.getTrendingFeed(limit, skip, options);
 	}
@@ -87,6 +91,10 @@ export class PostReadRepository implements IPostReadRepository {
 
 	async countDocuments(filter: Record<string, unknown>): Promise<number> {
 		return this.postRepository.countDocuments(filter);
+	}
+
+	async countByCommunityId(communityId: string): Promise<number> {
+		return this.postRepository.countByCommunityId(communityId);
 	}
 
 	async getTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]> {

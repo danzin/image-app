@@ -3,18 +3,18 @@ import { inject, injectable } from "tsyringe";
 import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
 import { FeedService } from "../../../services/feed.service";
 import { RedisService } from "../../../services/redis.service";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
-import { PostRepository } from "../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../repositories/interfaces/IPostReadRepository";
 import { logger } from "../../../utils/winston";
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
 	constructor(
 		@inject("FeedService") private readonly feedService: FeedService,
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
-		@inject("PostRepository") private readonly postRepository: PostRepository
+		@inject("PostReadRepository") private readonly postRepository: IPostReadRepository,
 	) {}
 
 	async handle(event: UserInteractedWithPostEvent): Promise<void> {
@@ -142,7 +142,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 
 			await this.redis.publish("feed_updates", JSON.stringify(interactionMessage));
 			logger.info(
-				`Published real-time interaction event: ${event.interactionType} on post ${event.postId} by user ${event.userId}`
+				`Published real-time interaction event: ${event.interactionType} on post ${event.postId} by user ${event.userId}`,
 			);
 		} catch (error) {
 			console.error("Failed to publish interaction event:", error);

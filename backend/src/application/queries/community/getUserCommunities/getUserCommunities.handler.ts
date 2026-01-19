@@ -3,7 +3,7 @@ import { IQueryHandler } from "../../../common/interfaces/query-handler.interfac
 import { GetUserCommunitiesQuery } from "./getUserCommunities.query";
 import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
 import { CommunityRepository } from "../../../../repositories/community.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { ICommunity } from "../../../../types";
 import { createError } from "../../../../utils/errors";
 import { Types } from "mongoose";
@@ -21,7 +21,7 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 	constructor(
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
-		@inject(UserRepository) private userRepository: UserRepository
+		@inject("UserReadRepository") private userRepository: IUserReadRepository,
 	) {}
 
 	async execute(query: GetUserCommunitiesQuery): Promise<PaginatedCommunities> {

@@ -3,9 +3,10 @@ import { inject, injectable } from "tsyringe";
 import { DeleteCommentCommand } from "../../commands/comments/deleteComment/deleteComment.command";
 import { EventBus } from "../../common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
-import { PostRepository } from "../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "../../../repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "../../../repositories/comment.repository";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { createError } from "../../../utils/errors";
 import { FeedInteractionHandler } from "../../events/user/feed-interaction.handler";
 import { UnitOfWork } from "../../../database/UnitOfWork";
@@ -15,11 +16,12 @@ import { logger } from "../../../utils/winston";
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
 	constructor(
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostRepository") private readonly postRepository: PostRepository,
+		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
+		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
+		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**
@@ -35,7 +37,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		try {
 			logger.info(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
-				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
+				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`,
 			);
 
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
@@ -48,7 +50,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				throw createError("NotFoundError", "Comment not found");
 			}
 
-			const effectivePost = (await this.postRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
+			const effectivePost = (await this.postReadRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
 			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
 
 			// Check if user owns the comment or the post
@@ -79,12 +81,12 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				await this.commentRepository.deleteComment(command.commentId, session);
 
 				// Decrement comment count on post
-				await this.postRepository.updateCommentCount(comment.postId.toString(), -1, session);
+				await this.postWriteRepository.updateCommentCount(comment.postId.toString(), -1, session);
 
 				// Queue event for feed interaction handling and real-time updates
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(command.userPublicId, "comment_deleted", postPublicId, postTags, postOwnerId),
-					this.feedInteractionHandler
+					this.feedInteractionHandler,
 				);
 			});
 
