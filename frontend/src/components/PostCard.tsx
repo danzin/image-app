@@ -108,10 +108,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					}}
 				>
 					{post.community.avatar ? (
-						<Avatar
-							src={buildMediaUrl(post.community.avatar)}
-							sx={{ width: 16, height: 16 }}
-						/>
+						<Avatar src={buildMediaUrl(post.community.avatar)} sx={{ width: 16, height: 16 }} />
 					) : (
 						<GroupsIcon sx={{ fontSize: 16, color: "primary.main" }} />
 					)}
@@ -296,10 +293,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							}}
 						>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-								<Avatar
-									sx={{ width: 24, height: 24 }}
-									src={buildMediaUrl(post.repostOf.user.avatar)}
-								>
+								<Avatar sx={{ width: 24, height: 24 }} src={buildMediaUrl(post.repostOf.user.avatar)}>
 									{post.repostOf.user.username.charAt(0).toUpperCase()}
 								</Avatar>
 								<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
