@@ -2,14 +2,14 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { ImageDeletedEvent } from "./image.event";
 import { RedisService } from "../../../services/redis.service";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { logger } from "../../../utils/winston";
 
 @injectable()
 export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserRepository") private readonly userRepository: UserRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository
 	) {}
 
 	async handle(event: ImageDeletedEvent): Promise<void> {

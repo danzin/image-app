@@ -124,7 +124,6 @@ postSchema.index({ user: 1, createdAt: -1 }); // profile feed queries
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
-postSchema.index({ publicId: 1 }, { unique: true }); // explicit index for frequent publicId lookups
 postSchema.index({ type: 1, createdAt: -1 }); // filter by post type (original vs repost)
 postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
 postSchema.index(

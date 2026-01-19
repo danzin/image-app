@@ -33,6 +33,51 @@ export default [
 			"@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
 		},
 	},
+	// Backend application layer import boundaries
+	{
+		files: ["backend/src/application/**/*.ts"],
+		rules: {
+			"no-restricted-imports": [
+				"error",
+				{
+					paths: [
+						{
+							name: "../repositories/post.repository",
+							message: "Use PostReadRepository or PostWriteRepository instead",
+						},
+						{
+							name: "../../repositories/post.repository",
+							message: "Use PostReadRepository or PostWriteRepository instead",
+						},
+						{
+							name: "../../../repositories/post.repository",
+							message: "Use PostReadRepository or PostWriteRepository instead",
+						},
+						{
+							name: "../../../../repositories/post.repository",
+							message: "Use PostReadRepository or PostWriteRepository instead",
+						},
+						{
+							name: "../repositories/user.repository",
+							message: "Use UserReadRepository or UserWriteRepository instead",
+						},
+						{
+							name: "../../repositories/user.repository",
+							message: "Use UserReadRepository or UserWriteRepository instead",
+						},
+						{
+							name: "../../../repositories/user.repository",
+							message: "Use UserReadRepository or UserWriteRepository instead",
+						},
+						{
+							name: "../../../../repositories/user.repository",
+							message: "Use UserReadRepository or UserWriteRepository instead",
+						},
+					],
+				},
+			],
+		},
+	},
 	// API Gateway (Node)
 	{
 		files: ["api-gateway/src/**/*.ts"],

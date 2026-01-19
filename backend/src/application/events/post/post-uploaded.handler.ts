@@ -2,7 +2,7 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { PostUploadedEvent } from "../../events/post/post.event";
 import { RedisService } from "../../../services/redis.service";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
 import { CacheKeyBuilder } from "../../../utils/cache/CacheKeyBuilder";
 import { logger } from "../../../utils/winston";
@@ -11,7 +11,7 @@ import { logger } from "../../../utils/winston";
 export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
 	) {}
 

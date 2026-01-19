@@ -17,6 +17,7 @@ export interface IPostReadRepository {
 	// batch lookups
 	findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]>;
 	findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>>;
+	findByCommunityId(communityId: string, page: number, limit: number): Promise<IPost[]>;
 	findByTags(
 		tagIds: string[],
 		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
@@ -46,6 +47,7 @@ export interface IPostReadRepository {
 
 	// counts
 	countDocuments(filter: Record<string, unknown>): Promise<number>;
+	countByCommunityId(communityId: string): Promise<number>;
 
 	// tag analytics
 	getTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]>;
