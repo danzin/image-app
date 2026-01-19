@@ -2,7 +2,7 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { ImageUploadedEvent } from "./image.event";
 import { RedisService } from "../../../services/redis.service";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
 import { logger } from "../../../utils/winston";
 
@@ -10,8 +10,8 @@ import { logger } from "../../../utils/winston";
 export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
+		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
 	) {}
 
 	async handle(event: ImageUploadedEvent): Promise<void> {
@@ -78,7 +78,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 						tags: event.tags,
 						affectedUsers,
 						timestamp: new Date().toISOString(),
-					})
+					}),
 				);
 			}
 

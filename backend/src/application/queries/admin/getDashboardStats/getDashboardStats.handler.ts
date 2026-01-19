@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { GetDashboardStatsQuery } from "./getDashboardStats.query";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
-import { UserRepository } from "../../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
 import { ImageRepository } from "../../../../repositories/image.repository";
 
 export interface DashboardStatsResult {
@@ -20,8 +20,8 @@ export interface DashboardStatsResult {
 @injectable()
 export class GetDashboardStatsQueryHandler implements IQueryHandler<GetDashboardStatsQuery, DashboardStatsResult> {
 	constructor(
-		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
+		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
 	) {}
 
 	async execute(_query: GetDashboardStatsQuery): Promise<DashboardStatsResult> {

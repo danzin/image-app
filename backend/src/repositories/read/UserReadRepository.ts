@@ -53,6 +53,10 @@ export class UserReadRepository implements IUserReadRepository {
 		return this.userRepository.findWithPagination(options);
 	}
 
+	async countDocuments(filter: Record<string, unknown>): Promise<number> {
+		return this.userRepository.countDocuments(filter);
+	}
+
 	async getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]> {
 		return this.userRepository.getSuggestedUsersToFollow(currentUserId, limit);
 	}

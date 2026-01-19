@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
 import { GetCommunityFeedQuery } from "./getCommunityFeed.query";
-import { PostRepository } from "../../../../repositories/post.repository";
+import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
 import { CommunityRepository } from "../../../../repositories/community.repository";
 import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
 import { DTOService } from "../../../../services/dto.service";
@@ -19,10 +19,10 @@ interface PaginatedPosts {
 @injectable()
 export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityFeedQuery, PaginatedPosts> {
 	constructor(
-		@inject(PostRepository) private postRepository: PostRepository,
+		@inject("PostReadRepository") private postRepository: IPostReadRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject(DTOService) private dtoService: DTOService
+		@inject(DTOService) private dtoService: DTOService,
 	) {}
 
 	async execute(query: GetCommunityFeedQuery): Promise<PaginatedPosts> {

@@ -2,14 +2,14 @@ import { IEventHandler } from "../../common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { PostDeletedEvent } from "../../events/post/post.event";
 import { RedisService } from "../../../services/redis.service";
-import { UserRepository } from "../../../repositories/user.repository";
+import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { logger } from "../../../utils/winston";
 
 @injectable()
 export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserRepository") private readonly userRepository: UserRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 	) {}
 
 	async handle(event: PostDeletedEvent): Promise<void> {
@@ -56,7 +56,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 					postId: event.postId,
 					authorId: event.authorPublicId,
 					timestamp: new Date().toISOString(),
-				})
+				}),
 			);
 
 			logger.info(`Feed invalidation complete for post deletion`);

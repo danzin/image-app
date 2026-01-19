@@ -20,7 +20,7 @@ import { ICommunity } from "../types";
 export class CommunityController {
 	constructor(
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus
+		@inject("QueryBus") private readonly queryBus: QueryBus,
 	) {}
 
 	getAllCommunities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -28,8 +28,9 @@ export class CommunityController {
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 			const search = req.query.search as string;
+			const viewerPublicId = req.decodedUser?.publicId;
 
-			const query = new GetAllCommunitiesQuery(page, limit, search);
+			const query = new GetAllCommunitiesQuery(page, limit, search, viewerPublicId);
 			const result = await this.queryBus.execute(query);
 			res.status(200).json(result);
 		} catch (error) {

@@ -32,6 +32,13 @@ describe("CreatePostCommandHandler", () => {
 	let mockUserWriteRepository: {
 		update: SinonStub;
 	};
+	let mockCommunityRepository: {
+		findByPublicId: SinonStub;
+		findOneAndUpdate: SinonStub;
+	};
+	let mockCommunityMemberRepository: {
+		findByCommunityAndUser: SinonStub;
+	};
 	let mockTagService: {
 		ensureTagsExist: SinonStub;
 		incrementUsage: SinonStub;
@@ -41,6 +48,8 @@ describe("CreatePostCommandHandler", () => {
 		createPostAttachment: SinonStub;
 		deleteImage: SinonStub;
 		rollbackUpload: SinonStub;
+		uploadImage: SinonStub;
+		createImageRecord: SinonStub;
 	};
 	let mockRedisService: {
 		invalidateFeed: SinonStub;
@@ -59,6 +68,7 @@ describe("CreatePostCommandHandler", () => {
 	};
 	let mockNotificationService: {
 		notifyFollowers: SinonStub;
+		createNotification: SinonStub;
 	};
 
 	beforeEach(() => {
@@ -82,6 +92,15 @@ describe("CreatePostCommandHandler", () => {
 			update: sinon.stub(),
 		};
 
+		mockCommunityRepository = {
+			findByPublicId: sinon.stub(),
+			findOneAndUpdate: sinon.stub(),
+		};
+
+		mockCommunityMemberRepository = {
+			findByCommunityAndUser: sinon.stub(),
+		};
+
 		mockTagService = {
 			ensureTagsExist: sinon.stub(),
 			incrementUsage: sinon.stub(),
@@ -92,6 +111,8 @@ describe("CreatePostCommandHandler", () => {
 			createPostAttachment: sinon.stub(),
 			deleteImage: sinon.stub(),
 			rollbackUpload: sinon.stub(),
+			uploadImage: sinon.stub(),
+			createImageRecord: sinon.stub(),
 		};
 
 		mockRedisService = {
@@ -114,6 +135,7 @@ describe("CreatePostCommandHandler", () => {
 
 		mockNotificationService = {
 			notifyFollowers: sinon.stub(),
+			createNotification: sinon.stub(),
 		};
 
 		mockSession = {} as ClientSession;
@@ -124,6 +146,8 @@ describe("CreatePostCommandHandler", () => {
 			mockPostWriteRepository as any,
 			mockUserReadRepository as any,
 			mockUserWriteRepository as any,
+			mockCommunityRepository as any,
+			mockCommunityMemberRepository as any,
 			mockTagService as any,
 			mockImageService as any,
 			mockRedisService as any,
@@ -215,7 +239,11 @@ describe("CreatePostCommandHandler", () => {
 			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["sunset", "beach", "nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
-			mockImageService.createPostAttachment.resolves(mockImageResponse);
+			
+			// Mock upload and create record separately
+			mockImageService.uploadImage.resolves({ url: "/uploads/img-456.jpg", publicId: "cloudinary-id-123" });
+			mockImageService.createImageRecord.resolves(mockImageResponse);
+			
 			mockPostWriteRepository.create.resolves(mockCreatedPost);
 			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 
@@ -242,7 +270,10 @@ describe("CreatePostCommandHandler", () => {
 			expect(mockUserReadRepository.findByPublicId.calledWith(VALID_USER_PUBLIC_ID)).to.be.true;
 			expect(mockTagService.collectTagNames.called).to.be.true;
 			expect(mockTagService.ensureTagsExist.called).to.be.true;
-			expect(mockImageService.createPostAttachment.called).to.be.true;
+			
+			expect(mockImageService.uploadImage.called).to.be.true;
+			expect(mockImageService.createImageRecord.called).to.be.true;
+			
 			expect(mockPostWriteRepository.create.called).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
 			expect(mockDTOService.toPostDTO.calledWith(mockHydratedPost)).to.be.true;
@@ -293,7 +324,10 @@ describe("CreatePostCommandHandler", () => {
 			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
-			mockImageService.createPostAttachment.resolves(mockImageSummary);
+			
+			mockImageService.uploadImage.resolves({ url, publicId: "cloudinary-id-123" });
+			mockImageService.createImageRecord.resolves(mockImageSummary);
+			
 			mockPostWriteRepository.create.resolves(mockCreatedPost);
 			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 

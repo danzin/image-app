@@ -4,10 +4,13 @@ import { ImageRepository } from "../repositories/image.repository";
 import {
 	AttachmentCreationResult,
 	CreatePostAttachmentInput,
+	DeleteAttachmentAssetInput,
 	IImage,
 	IImageStorageService,
 	ImageDocWithId,
 	PopulatedUserField,
+	RemoveAttachmentRecordInput,
+	RemoveAttachmentRecordResult,
 	RemoveAttachmentInput,
 	RemoveAttachmentResult,
 } from "../types";
@@ -18,7 +21,7 @@ import { logger } from "../utils/winston";
 export class ImageService {
 	constructor(
 		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService
+		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 	) {}
 
 	async createPostAttachment(input: CreatePostAttachmentInput): Promise<AttachmentCreationResult> {
@@ -60,7 +63,7 @@ export class ImageService {
 					user: new mongoose.Types.ObjectId(input.userInternalId),
 					createdAt,
 				} as unknown as IImage,
-				input.session
+				input.session,
 			)) as ImageDocWithId;
 
 			return {
@@ -110,6 +113,29 @@ export class ImageService {
 		} catch (error) {
 			throw this.wrapError(error, "removePostAttachment");
 		}
+	}
+
+	async removePostAttachmentRecord(input: RemoveAttachmentRecordInput): Promise<RemoveAttachmentRecordResult> {
+		try {
+			const imageDoc = (await this.imageRepository.findById(input.imageId, input.session)) as ImageDocWithId | null;
+			if (!imageDoc) {
+				return { removed: false };
+			}
+
+			await this.imageRepository.delete(imageDoc._id.toString(), input.session);
+
+			return {
+				removed: true,
+				removedPublicId: imageDoc.publicId,
+				removedUrl: imageDoc.url,
+			};
+		} catch (error) {
+			throw this.wrapError(error, "removePostAttachmentRecord");
+		}
+	}
+
+	async deleteAttachmentAsset(input: DeleteAttachmentAssetInput): Promise<void> {
+		await this.imageStorageService.deleteAssetByUrl(input.requesterPublicId, input.ownerPublicId, input.url);
 	}
 
 	private resolveOwnerPublicId(imageDoc: IImage, fallback?: string): string | undefined {

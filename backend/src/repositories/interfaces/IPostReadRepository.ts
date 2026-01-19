@@ -17,9 +17,10 @@ export interface IPostReadRepository {
 	// batch lookups
 	findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]>;
 	findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>>;
+	findByCommunityId(communityId: string, page: number, limit: number): Promise<IPost[]>;
 	findByTags(
 		tagIds: string[],
-		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
+		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string },
 	): Promise<PaginationResult<IPost>>;
 
 	// paginated queries
@@ -30,7 +31,7 @@ export interface IPostReadRepository {
 		followingIds: string[],
 		favoriteTags: string[],
 		limit: number,
-		skip: number
+		skip: number,
 	): Promise<PaginationResult<any>>;
 	getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>>;
 	getTrendingFeed(
@@ -40,12 +41,13 @@ export interface IPostReadRepository {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<PaginationResult<any>>;
 	getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>>;
 
 	// counts
 	countDocuments(filter: Record<string, unknown>): Promise<number>;
+	countByCommunityId(communityId: string): Promise<number>;
 
 	// tag analytics
 	getTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]>;

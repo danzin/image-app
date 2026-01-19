@@ -64,6 +64,23 @@ export interface RemoveAttachmentResult {
 	removedUrl?: string;
 }
 
+export interface RemoveAttachmentRecordInput {
+	imageId: string;
+	session: ClientSession;
+}
+
+export interface RemoveAttachmentRecordResult {
+	removed: boolean;
+	removedPublicId?: string;
+	removedUrl?: string;
+}
+
+export interface DeleteAttachmentAssetInput {
+	requesterPublicId: string;
+	ownerPublicId: string;
+	url: string;
+}
+
 export interface IPostWithId extends IPost {
 	_id: mongoose.Types.ObjectId;
 }

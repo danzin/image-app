@@ -11,6 +11,7 @@ import { CommunityMemberRepository } from "../../../../repositories/communityMem
 import { TagService } from "../../../../services/tag.service";
 import { ImageService } from "../../../../services/image.service";
 import { RedisService } from "../../../../services/redis.service";
+import { RetryPresets, RetryService } from "../../../../services/retry.service";
 import { UnitOfWork } from "../../../../database/UnitOfWork";
 import { EventBus } from "../../../common/buses/event.bus";
 import { PostDeletedEvent } from "../../../events/post/post.event";
@@ -39,11 +40,13 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("ImageService") private readonly imageService: ImageService,
 		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("EventBus") private readonly eventBus: EventBus
+		@inject("RetryService") private readonly retryService: RetryService,
+		@inject("EventBus") private readonly eventBus: EventBus,
 	) {}
 
 	async execute(command: DeletePostCommand): Promise<DeletePostResult> {
 		let postAuthorPublicId: string | undefined;
+		let imageAssetToDelete: { url: string; ownerPublicId: string; requesterPublicId: string } | null = null;
 
 		try {
 			await this.unitOfWork.executeInTransaction(async (session) => {
@@ -59,13 +62,20 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 				await this.validateDeletePermission(user, post, session);
 
-				await this.handleImageDeletion(
+				const imageRemoval = await this.handleImageRecordDeletion(
 					post,
 					command.requesterPublicId,
-					postOwnerInternalId,
 					postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId,
-					session
+					session,
 				);
+
+				if (imageRemoval?.removedUrl) {
+					imageAssetToDelete = {
+						url: imageRemoval.removedUrl,
+						ownerPublicId: imageRemoval.ownerPublicId,
+						requesterPublicId: command.requesterPublicId,
+					};
+				}
 
 				await this.deletePostAndComments(post, session);
 				if (postOwnerInternalId) {
@@ -75,6 +85,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 				await this.decrementTagUsage(post, session);
 			});
 
+			await this.deleteImageAssetAfterCommit(imageAssetToDelete);
 			await this.invalidateCache(command.requesterPublicId);
 			await this.publishDeleteEvent(command.postPublicId, postAuthorPublicId ?? command.requesterPublicId);
 
@@ -136,15 +147,14 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		throw new PostAuthorizationError();
 	}
 
-	private async handleImageDeletion(
+	private async handleImageRecordDeletion(
 		post: IPost,
 		requesterPublicId: string,
-		ownerInternalId: string,
 		ownerPublicId: string,
-		session: ClientSession
-	): Promise<void> {
+		session: ClientSession,
+	): Promise<{ removedUrl: string; ownerPublicId: string } | null> {
 		if (!post.image) {
-			return;
+			return null;
 		}
 
 		// Ensure we handle both populated object and direct ID (though findByPublicId populates it)
@@ -153,21 +163,45 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 		if (!imageId) {
 			console.warn(`[DeletePostHandler] Post ${post.publicId} has image reference but no valid imageId`);
+			return null;
+		}
+
+		try {
+			const removal = await this.imageService.removePostAttachmentRecord({
+				imageId,
+				session,
+			});
+
+			if (removal.removed && removal.removedUrl) {
+				return { removedUrl: removal.removedUrl, ownerPublicId: ownerPublicId || requesterPublicId };
+			}
+		} catch (error) {
+			console.error(`[DeletePostHandler] Failed to delete image ${imageId} for post ${post.publicId}:`, error);
+			return null;
+		}
+
+		return null;
+	}
+
+	private async deleteImageAssetAfterCommit(
+		assetInfo: { url: string; ownerPublicId: string; requesterPublicId: string } | null,
+	): Promise<void> {
+		if (!assetInfo?.url) {
 			return;
 		}
 
 		try {
-			await this.imageService.removePostAttachment({
-				imageId,
-				requesterPublicId,
-				ownerInternalId: ownerInternalId || undefined,
-				ownerPublicId,
-				session,
-			});
+			await this.retryService.execute(
+				() =>
+					this.imageService.deleteAttachmentAsset({
+						requesterPublicId: assetInfo.requesterPublicId,
+						ownerPublicId: assetInfo.ownerPublicId,
+						url: assetInfo.url,
+					}),
+				RetryPresets.externalApi(),
+			);
 		} catch (error) {
-			// log the error but don't fail the entire post deletion
-			// the image cleanup can be handled by a separate maintenance job if needed
-			console.error(`[DeletePostHandler] Failed to delete image ${imageId} for post ${post.publicId}:`, error);
+			console.error(`[DeletePostHandler] Failed to delete image asset ${assetInfo.url}:`, error);
 		}
 	}
 

@@ -26,6 +26,9 @@ describe("NotificationService", () => {
 		// Mock WebSocketServer.getIO
 		mockWebSocketServer.getIO.returns({ to: () => ({ emit: () => {} }) } as any);
 
+		// ensure backfillNotifications returns a promise (resolves to void)
+		mockRedisService.backfillNotifications.resolves();
+
 		notificationService = new NotificationService(
 			mockWebSocketServer as any,
 			mockNotificationRepository as any,
