@@ -8,7 +8,7 @@ import { EventBus } from "../../../common/buses/event.bus";
 import { ColdStartFeedGeneratedEvent } from "../../../events/ColdStartFeedGenerated.event";
 import { createError } from "../../../../utils/errors";
 import { FollowRepository } from "../../../../repositories/follow.repository";
-import { CoreFeed, FeedPost, PaginatedFeedResult, UserLookupData } from "types/index";
+import { CoreFeed, FeedPost, PaginatedFeedResult } from "types/index";
 import { logger } from "../../../../utils/winston";
 import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
 
