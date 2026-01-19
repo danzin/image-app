@@ -38,7 +38,8 @@ export class LocalStorageService implements IImageStorageService {
 
 			const url = `/uploads/${safeUserId}/${filename}`;
 
-			return { url, publicId: filename };
+			// Return composite publicId (userId/filename) to enable O(1) deletion later
+			return { url, publicId: `${safeUserId}/${filename}` };
 		} catch (error) {
 			logger.error("Failed to upload image", { error });
 			if (error instanceof Error) {
@@ -51,26 +52,25 @@ export class LocalStorageService implements IImageStorageService {
 
 	async deleteImage(publicId: string): Promise<void> {
 		try {
-			// validate filename format
-			const safeFileName = this.validateFileName(publicId);
+			// Try to parse composite publicId (userId/filename)
+			const parts = publicId.split("/");
+			if (parts.length === 2) {
+				const [userId, filename] = parts;
+				const safeUserId = this.validateUserId(userId);
+				const safeFileName = this.validateFileName(filename);
+				const filePath = this.safeJoin(this.uploadsDir, safeUserId, safeFileName);
 
-			// search for the file in all user directories
-			const userDirs = await fs.promises.readdir(this.uploadsDir);
-
-			for (const userDir of userDirs) {
-				// validate each user directory name is a UUID
-				try {
-					const safeUserDir = this.validateUserId(userDir);
-					const filePath = this.safeJoin(this.uploadsDir, safeUserDir, safeFileName);
-
-					if (fs.existsSync(filePath)) {
-						await fs.promises.unlink(filePath);
-						return;
-					}
-				} catch (err) {
-					logger.warn(`Skipping invalid user directory: ${userDir}`, { error: err });
-					continue;
+				if (fs.existsSync(filePath)) {
+					await fs.promises.unlink(filePath);
+					return;
 				}
+			}
+
+			// Fallback: If publicId is just a filename (legacy data), we must scan (slow)
+			// This ensures backward compatibility but should be avoided for new uploads
+			if (!publicId.includes("/")) {
+				logger.warn("Performing slow O(N) scan for legacy image deletion", { publicId });
+				await this.deleteLegacyImage(publicId);
 			}
 		} catch (error) {
 			logger.error("Error deleting asset", { error });
@@ -78,6 +78,25 @@ export class LocalStorageService implements IImageStorageService {
 				throw createError(error.name, error.message);
 			} else {
 				throw createError("UnknownError", String(error));
+			}
+		}
+	}
+
+	private async deleteLegacyImage(filename: string): Promise<void> {
+		const safeFileName = this.validateFileName(filename);
+		const userDirs = await fs.promises.readdir(this.uploadsDir);
+
+		for (const userDir of userDirs) {
+			try {
+				const safeUserDir = this.validateUserId(userDir);
+				const filePath = this.safeJoin(this.uploadsDir, safeUserDir, safeFileName);
+
+				if (fs.existsSync(filePath)) {
+					await fs.promises.unlink(filePath);
+					return;
+				}
+			} catch (err) {
+				continue;
 			}
 		}
 	}
@@ -153,7 +172,7 @@ export class LocalStorageService implements IImageStorageService {
 						// skip files that don't match expected format
 						logger.warn(`Skipping invalid file: ${file}`, { error: err });
 					}
-				})
+				}),
 			);
 
 			// remove directory if empty
