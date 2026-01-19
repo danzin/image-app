@@ -19,6 +19,13 @@ interface PostCardProps {
 
 const BASE_URL = "/api";
 
+const buildMediaUrl = (value?: string) => {
+	if (!value) return undefined;
+	if (value.startsWith("http")) return value;
+	if (value.startsWith("/api/")) return value;
+	return value.startsWith("/") ? `${BASE_URL}${value}` : `${BASE_URL}/${value}`;
+};
+
 // Format large numbers 2345 -> 2.3K
 const formatCount = (count: number | undefined): string => {
 	if (count === undefined || count === null) {
@@ -102,7 +109,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				>
 					{post.community.avatar ? (
 						<Avatar
-							src={post.community.avatar.startsWith("http") ? post.community.avatar : `/api/${post.community.avatar}`}
+							src={buildMediaUrl(post.community.avatar)}
 							sx={{ width: 16, height: 16 }}
 						/>
 					) : (
@@ -146,7 +153,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				>
 					{post.user?.avatar ? (
 						<img
-							src={post.user.avatar.startsWith("http") ? post.user.avatar : `/api/${post.user.avatar}`}
+							src={buildMediaUrl(post.user.avatar)}
 							alt={post.user.username}
 							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
@@ -291,7 +298,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
 								<Avatar
 									sx={{ width: 24, height: 24 }}
-									src={post.repostOf.user.avatar ? `/api/${post.repostOf.user.avatar}` : undefined}
+									src={buildMediaUrl(post.repostOf.user.avatar)}
 								>
 									{post.repostOf.user.username.charAt(0).toUpperCase()}
 								</Avatar>
