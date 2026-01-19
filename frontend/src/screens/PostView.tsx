@@ -76,6 +76,7 @@ const PostView = () => {
 	const buildMediaUrl = (value?: string) => {
 		if (!value) return undefined;
 		if (value.startsWith("http")) return value;
+		if (value.startsWith("/api/")) return value;
 		return value.startsWith("/") ? `${BASE_URL}${value}` : `${BASE_URL}/${value}`;
 	};
 
@@ -290,6 +291,73 @@ const PostView = () => {
 								display: "block",
 							}}
 						/>
+					</Box>
+				)}
+
+				{post.type === "repost" && post.repostOf && (
+					<Box
+						sx={{
+							mt: 2,
+							border: `1px solid ${theme.palette.divider}`,
+							borderRadius: 3,
+							p: 1.5,
+							cursor: "pointer",
+							"&:hover": { bgcolor: "rgba(255, 255, 255, 0.03)" },
+						}}
+						onClick={(event) => {
+							event.stopPropagation();
+							navigate(`/posts/${post.repostOf!.publicId}`);
+						}}
+					>
+						<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+							<Avatar
+								sx={{ width: 24, height: 24 }}
+								src={buildMediaUrl(post.repostOf.user?.avatar)}
+							>
+								{(post.repostOf.user?.username || "U").charAt(0).toUpperCase()}
+							</Avatar>
+							<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+								{post.repostOf.user?.username || "Unknown"}
+							</Typography>
+						</Box>
+
+						{post.repostOf.body && (
+							<Typography variant="body2" sx={{ mb: post.repostOf.image ? 1.5 : 0 }}>
+								<RichText text={post.repostOf.body} />
+							</Typography>
+						)}
+
+						{post.repostOf.image && (
+							<Box
+								sx={{
+									borderRadius: 2,
+									overflow: "hidden",
+									width: "100%",
+									maxHeight: "400px",
+									display: "flex",
+									justifyContent: "center",
+									bgcolor: "black",
+								}}
+							>
+								<img
+									src={buildMediaUrl(post.repostOf.image.url)}
+									alt="Reposted content"
+									style={{
+										width: "100%",
+										height: "auto",
+										maxHeight: "400px",
+										objectFit: "cover",
+										display: "block",
+									}}
+								/>
+							</Box>
+						)}
+
+						<Box sx={{ display: "flex", gap: 2, mt: 1, color: "text.secondary" }}>
+							<Typography variant="caption">{post.repostOf.likes || 0} Likes</Typography>
+							<Typography variant="caption">{post.repostOf.repostCount || 0} Reposts</Typography>
+							<Typography variant="caption">{post.repostOf.commentsCount || 0} Comments</Typography>
+						</Box>
 					</Box>
 				)}
 
