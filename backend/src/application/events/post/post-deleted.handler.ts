@@ -9,7 +9,7 @@ import { logger } from "../../../utils/winston";
 export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 	) {}
 
 	async handle(event: PostDeletedEvent): Promise<void> {
@@ -56,7 +56,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 					postId: event.postId,
 					authorId: event.authorPublicId,
 					timestamp: new Date().toISOString(),
-				})
+				}),
 			);
 
 			logger.info(`Feed invalidation complete for post deletion`);

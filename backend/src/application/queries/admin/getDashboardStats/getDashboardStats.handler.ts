@@ -21,7 +21,7 @@ export interface DashboardStatsResult {
 export class GetDashboardStatsQueryHandler implements IQueryHandler<GetDashboardStatsQuery, DashboardStatsResult> {
 	constructor(
 		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository
+		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
 	) {}
 
 	async execute(_query: GetDashboardStatsQuery): Promise<DashboardStatsResult> {

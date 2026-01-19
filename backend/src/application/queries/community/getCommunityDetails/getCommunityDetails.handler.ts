@@ -20,7 +20,7 @@ export class GetCommunityDetailsQueryHandler
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject("UserReadRepository") private userRepository: IUserReadRepository
+		@inject("UserReadRepository") private userRepository: IUserReadRepository,
 	) {}
 
 	async execute(query: GetCommunityDetailsQuery): Promise<CommunityDetailsResult> {
@@ -37,7 +37,7 @@ export class GetCommunityDetailsQueryHandler
 			if (user) {
 				const membership = await this.communityMemberRepository.findByCommunityAndUser(
 					community._id as Types.ObjectId,
-					user._id as Types.ObjectId
+					user._id as Types.ObjectId,
 				);
 				result.isMember = !!membership;
 				result.isCreator = community.creatorId.toString() === user.publicId.toString();

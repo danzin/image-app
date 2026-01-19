@@ -10,7 +10,7 @@ const authorSchema = new Schema(
 		avatarUrl: { type: String, default: "" },
 		displayName: { type: String, default: "" },
 	},
-	{ _id: false }
+	{ _id: false },
 );
 
 const postSchema = new Schema<IPost>(
@@ -87,7 +87,7 @@ const postSchema = new Schema<IPost>(
 			required: false,
 		},
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
 
 postSchema.methods.isOwnedBy = function (userId: mongoose.Types.ObjectId | string): boolean {
@@ -130,7 +130,7 @@ postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
 	{
 		partialFilterExpression: { likesCount: { $gte: 1 } }, // trending mix: recent and likes
-	}
+	},
 );
 postSchema.index({ repostOf: 1, createdAt: -1 }); // fetch reposts of a given post
 

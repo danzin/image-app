@@ -51,7 +51,7 @@ export class PostReadRepository implements IPostReadRepository {
 
 	async findByTags(
 		tagIds: string[],
-		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
+		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string },
 	): Promise<PaginationResult<IPost>> {
 		return this.postRepository.findByTags(tagIds, options);
 	}
@@ -64,7 +64,7 @@ export class PostReadRepository implements IPostReadRepository {
 		followingIds: string[],
 		favoriteTags: string[],
 		limit: number,
-		skip: number
+		skip: number,
 	): Promise<PaginationResult<any>> {
 		return this.postRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip);
 	}
@@ -80,7 +80,7 @@ export class PostReadRepository implements IPostReadRepository {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<PaginationResult<any>> {
 		return this.postRepository.getTrendingFeed(limit, skip, options);
 	}

@@ -9,7 +9,7 @@ import { logger } from "../../../utils/winston";
 export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository
+		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 	) {}
 
 	async handle(event: ImageDeletedEvent): Promise<void> {

@@ -22,7 +22,7 @@ export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityF
 		@inject("PostReadRepository") private postRepository: IPostReadRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject(DTOService) private dtoService: DTOService
+		@inject(DTOService) private dtoService: DTOService,
 	) {}
 
 	async execute(query: GetCommunityFeedQuery): Promise<PaginatedPosts> {

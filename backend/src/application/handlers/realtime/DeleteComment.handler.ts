@@ -21,7 +21,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
+		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**
@@ -37,7 +37,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		try {
 			logger.info(
 				`[DELETECOMMENTHANDLER]:\r\n  Comment ID: ${command.commentId},
-				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`
+				 User publicId: ${command.userPublicId} \r\n command: ${JSON.stringify(command)}`,
 			);
 
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
@@ -86,7 +86,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 				// Queue event for feed interaction handling and real-time updates
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(command.userPublicId, "comment_deleted", postPublicId, postTags, postOwnerId),
-					this.feedInteractionHandler
+					this.feedInteractionHandler,
 				);
 			});
 

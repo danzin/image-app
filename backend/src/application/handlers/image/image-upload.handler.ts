@@ -11,7 +11,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 	constructor(
 		@inject("RedisService") private readonly redis: RedisService,
 		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository
+		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
 	) {}
 
 	async handle(event: ImageUploadedEvent): Promise<void> {
@@ -78,7 +78,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 						tags: event.tags,
 						affectedUsers,
 						timestamp: new Date().toISOString(),
-					})
+					}),
 				);
 			}
 

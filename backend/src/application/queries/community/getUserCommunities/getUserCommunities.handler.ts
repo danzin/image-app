@@ -21,7 +21,7 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 	constructor(
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
-		@inject("UserReadRepository") private userRepository: IUserReadRepository
+		@inject("UserReadRepository") private userRepository: IUserReadRepository,
 	) {}
 
 	async execute(query: GetUserCommunitiesQuery): Promise<PaginatedCommunities> {
