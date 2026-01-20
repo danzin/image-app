@@ -17,8 +17,7 @@ export class SearchService {
 		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
 	) {}
 
-	/** Universal search function. It uses a query and search throughout the database
-
+	/** Universal search function. It uses a query and search throughout the database for users, posts, and communities.
 	 */
 	async searchAll(query: string[]): Promise<{
 		users: IUser[] | null;
