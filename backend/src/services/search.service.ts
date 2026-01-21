@@ -14,11 +14,10 @@ export class SearchService {
 		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
-		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository
+		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
 	) {}
 
-	/** Universal search function. It uses a query and search throughout the database
-
+	/** Universal search function. It uses a query and search throughout the database for users, posts, and communities.
 	 */
 	async searchAll(query: string[]): Promise<{
 		users: IUser[] | null;
@@ -26,17 +25,15 @@ export class SearchService {
 		communities: ICommunity[] | null;
 	}> {
 		try {
-			//Search for users by query
-			const users = await this.userRepository.getAll({ search: query });
+			// Execute independent search queries in parallel
+			const [users, communities, tags] = await Promise.all([
+				this.userRepository.getAll({ search: query }),
+				this.communityRepository.search(query),
+				this.tagRepository.searchTags(query),
+			]);
 
-			// Search for communities
-			const communities = await this.communityRepository.search(query);
-
-			// Search for tags to find relevant posts
-			const tags = await this.tagRepository.searchTags(query);
+			// Search for posts by tag IDs (dependent on tags result)
 			const tagIds = tags.map((tag) => tag._id);
-
-			// Search for posts by tag IDs
 			const posts = await this.postRepository.findByTags(tagIds as string[]);
 
 			return {

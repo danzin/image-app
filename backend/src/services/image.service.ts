@@ -25,9 +25,10 @@ export class ImageService {
 	) {}
 
 	async createPostAttachment(input: CreatePostAttachmentInput): Promise<AttachmentCreationResult> {
+		let uploaded: { url: string; publicId: string } | undefined;
 		try {
-			const uploaded = await this.imageStorageService.uploadImage(input.filePath, input.userPublicId);
-			return this.createImageRecord({
+			uploaded = await this.imageStorageService.uploadImage(input.filePath, input.userPublicId);
+			return await this.createImageRecord({
 				url: uploaded.url,
 				storagePublicId: uploaded.publicId,
 				originalName: input.originalName,
@@ -35,6 +36,9 @@ export class ImageService {
 				session: input.session,
 			});
 		} catch (error) {
+			if (uploaded) {
+				await this.rollbackUpload(uploaded.publicId);
+			}
 			throw this.wrapError(error, "createPostAttachment");
 		}
 	}

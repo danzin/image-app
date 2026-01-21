@@ -93,7 +93,7 @@ export const fetchUserLikedPosts = async (pageParam: number, userPublicId: strin
 
 export const fetchUserComments = async (
 	pageParam: number,
-	userPublicId: string
+	userPublicId: string,
 ): Promise<{
 	comments: IComment[];
 	total: number;
@@ -172,7 +172,7 @@ export interface FollowListResponse {
 export const fetchFollowers = async (
 	userPublicId: string,
 	page: number = 1,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<FollowListResponse> => {
 	const { data } = await axiosClient.get(`/api/users/${userPublicId}/followers?page=${page}&limit=${limit}`);
 	return data;
@@ -181,7 +181,7 @@ export const fetchFollowers = async (
 export const fetchFollowing = async (
 	userPublicId: string,
 	page: number = 1,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<FollowListResponse> => {
 	const { data } = await axiosClient.get(`/api/users/${userPublicId}/following?page=${page}&limit=${limit}`);
 	return data;

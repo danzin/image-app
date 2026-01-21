@@ -42,7 +42,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
-		@inject("NotificationService") private readonly notificationService: NotificationService
+		@inject("NotificationService") private readonly notificationService: NotificationService,
 	) {}
 
 	async execute(command: CreatePostCommand): Promise<PostDTO> {
@@ -61,7 +61,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			}
 			const communityValidation = await this.validateCommunityMembership(
 				command.communityPublicId,
-				user._id as Types.ObjectId
+				user._id as Types.ObjectId,
 			);
 			communityInternalId = communityValidation.communityId;
 		}
@@ -84,6 +84,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			}
 		}
 
+		let mentionsToNotify: { publicId: string; username: string }[] = [];
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				const internalUserId = user._id as mongoose.Types.ObjectId;
@@ -102,7 +103,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					internalUserId,
 					uploadedImageUrl,
 					uploadedImagePublicId,
-					session
+					session,
 				);
 
 				const post = await this.createPost(
@@ -112,7 +113,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					tagIds,
 					imageSummary,
 					session,
-					communityInternalId
+					communityInternalId,
 				);
 
 				// increment user post count only for personal posts
@@ -123,7 +124,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					await this.communityRepository.findOneAndUpdate(
 						{ _id: communityInternalId },
 						{ $inc: { "stats.postCount": 1 } },
-						session
+						session,
 					);
 				}
 
@@ -147,25 +148,14 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 							continue;
 						}
 
-						logger.info(`[CreatePost] Creating notification for ${mentionedUser.username} (${mentionedUser.publicId})`);
-						await this.notificationService.createNotification({
-							receiverId: mentionedUser.publicId,
-							actionType: "mention",
-							actorId: user.publicId,
-							actorUsername: user.username,
-							actorAvatar: user.avatar,
-							targetId: post.publicId,
-							targetType: "post",
-							targetPreview: normalizedBody.substring(0, 50) + (normalizedBody.length > 50 ? "..." : ""),
-							session,
-						});
+						mentionsToNotify.push({ publicId: mentionedUser.publicId, username: mentionedUser.username });
 					}
 				}
 
 				const distinctTags = Array.from(new Set(tagNames));
 				this.eventBus.queueTransactional(
 					new PostUploadedEvent(post.publicId, user.publicId, distinctTags),
-					this.postUploadHandler
+					this.postUploadHandler,
 				);
 
 				return {
@@ -174,6 +164,30 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					tagNames,
 				};
 			});
+
+			// Process notifications outside the transaction to avoid locking and latency
+			if (mentionsToNotify.length > 0) {
+				Promise.all(
+					mentionsToNotify.map((mentionedUser) =>
+						this.notificationService
+							.createNotification({
+								receiverId: mentionedUser.publicId,
+								actionType: "mention",
+								actorId: user.publicId,
+								actorUsername: user.username,
+								actorAvatar: user.avatar,
+								targetId: result.post.publicId,
+								targetType: "post",
+								targetPreview: command.body
+									? command.body.substring(0, 50) + (command.body.length > 50 ? "..." : "")
+									: "",
+							})
+							.catch((err) =>
+								logger.error("Failed to send mention notification", { error: err, userId: mentionedUser.publicId }),
+							),
+					),
+				);
+			}
 
 			return await this.finalizePost(result);
 		} catch (error) {
@@ -204,7 +218,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 	private async validateCommunityMembership(
 		communityPublicId: string,
-		userId: Types.ObjectId
+		userId: Types.ObjectId,
 	): Promise<{ communityId: Types.ObjectId }> {
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
@@ -247,7 +261,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		internalUserId: mongoose.Types.ObjectId,
 		uploadedUrl: string | null,
 		uploadedPublicId: string | null,
-		session: ClientSession
+		session: ClientSession,
 	): Promise<AttachmentSummary> {
 		if (!uploadedUrl || !uploadedPublicId) {
 			return { docId: null };
@@ -275,7 +289,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		tagIds: mongoose.Types.ObjectId[],
 		imageSummary: AttachmentSummary,
 		session: ClientSession,
-		communityId: Types.ObjectId | null = null
+		communityId: Types.ObjectId | null = null,
 	): Promise<IPost> {
 		const postSlug = imageSummary.slug ?? this.generatePostSlug(normalizedBody);
 		const postPublicId = uuidv4();
