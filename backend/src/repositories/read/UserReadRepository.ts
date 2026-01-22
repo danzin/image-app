@@ -33,6 +33,10 @@ export class UserReadRepository implements IUserReadRepository {
 		return this.userRepository.findByEmail(email, session);
 	}
 
+	async findByResetToken(token: string, session?: ClientSession): Promise<IUser | null> {
+		return this.userRepository.findByResetToken(token, session);
+	}
+
 	async findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]> {
 		return this.userRepository.findUsersByPublicIds(userPublicIds);
 	}

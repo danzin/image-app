@@ -1,21 +1,24 @@
 import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { RequestPasswordResetCommand } from "./RequestPasswordResetCommand";
-import { UserRepository } from "../../../../repositories/user.repository";
 import { createError } from "../../../../utils/errors";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { IUserReadRepository, IUserWriteRepository } from "repositories/interfaces";
 
 @injectable()
 export class RequestPasswordResetHandler implements ICommandHandler<RequestPasswordResetCommand, void> {
 	private resend: Resend;
 
-	constructor(@inject("UserRepository") private readonly userRepository: UserRepository) {
+	constructor(
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+	) {
 		this.resend = new Resend(process.env.RESEND_API_KEY);
 	}
 
 	async execute(command: RequestPasswordResetCommand): Promise<void> {
-		const user = await this.userRepository.findByEmail(command.email);
+		const user = await this.userReadRepository.findByEmail(command.email);
 		if (!user) {
 			return;
 		}
@@ -24,11 +27,11 @@ export class RequestPasswordResetHandler implements ICommandHandler<RequestPassw
 		const resetToken = crypto.randomBytes(32).toString("hex");
 		const resetTokenExpires = Date.now() + 3600000; // 1 hour
 
-		await this.userRepository.update(user.id, { resetToken, resetTokenExpires });
+		await this.userWriteRepository.update(user.id, { resetToken, resetTokenExpires });
 
 		try {
 			await this.resend.emails.send({
-				from: "noreply@ascendance.social",
+				from: "noreply@ascendance.dev",
 				to: user.email,
 				subject: "Password Reset Request",
 				html: `<p>You requested a password reset. Click <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}">here</a> to reset your password.</p>`,

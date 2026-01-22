@@ -12,6 +12,7 @@ export interface IUserReadRepository {
 	findInternalIdByPublicId(publicId: string): Promise<string | null>;
 	findByUsername(username: string, session?: ClientSession): Promise<IUser | null>;
 	findByEmail(email: string, session?: ClientSession): Promise<IUser | null>;
+	findByResetToken(token: string, session?: ClientSession): Promise<IUser | null>;
 
 	// batch lookups
 	findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]>;
