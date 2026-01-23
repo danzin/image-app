@@ -12,6 +12,7 @@ interface BaseUserDTO {
 
 export interface AdminUserDTO extends BaseUserDTO {
 	email: string;
+	isEmailVerified: boolean;
 	isAdmin: boolean;
 	isBanned: boolean;
 	bannedAt?: Date;

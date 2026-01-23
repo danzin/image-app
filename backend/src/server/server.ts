@@ -2,6 +2,7 @@ import "reflect-metadata";
 import express, { Application } from "express";
 import cookieParser from "cookie-parser";
 import http from "http";
+import helmet from "helmet";
 import { injectable, inject } from "tsyringe";
 import { UserRoutes } from "../routes/user.routes";
 import { ImageRoutes } from "../routes/image.routes";
@@ -55,7 +56,7 @@ export class Server {
 		@inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
 		@inject("MetricsService") private readonly metricsService: MetricsService,
 		@inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
-		@inject("TelemetryRoutes") private readonly telemetryRoutes: TelemetryRoutes
+		@inject("TelemetryRoutes") private readonly telemetryRoutes: TelemetryRoutes,
 	) {
 		this.app = express();
 		this.initializeMiddlewares();
@@ -68,6 +69,7 @@ export class Server {
 	 */
 	private initializeMiddlewares(): void {
 		this.app.set("trust proxy", 1);
+		this.app.use(helmet());
 		this.app.use(this.metricsService.httpMetricsMiddleware());
 		this.app.use((req, res, next) => {
 			logger.info(`[Backend] ${req.method} ${req.originalUrl}`);

@@ -15,6 +15,7 @@ export interface PublicUserDTO {
 
 export interface AuthenticatedUserDTO extends PublicUserDTO {
 	email: string;
+	isEmailVerified: boolean;
 }
 
 export interface AdminUserDTO extends AuthenticatedUserDTO {
@@ -176,6 +177,7 @@ export class DTOService {
 		return {
 			...this.toPublicUserDTO(user),
 			email: user.email,
+			isEmailVerified: user.isEmailVerified ?? true,
 		};
 	}
 
@@ -188,6 +190,7 @@ export class DTOService {
 		return {
 			...this.toPublicUserDTO(user),
 			email: user.email,
+			isEmailVerified: user.isEmailVerified ?? true,
 			isAdmin: user.isAdmin,
 			isBanned: user.isBanned,
 			bannedAt: user.bannedAt,

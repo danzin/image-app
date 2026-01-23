@@ -1,7 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository";
-import { DTOService, PublicUserDTO, AdminUserDTO } from "./dto.service";
+import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "./dto.service";
 import { createError } from "../utils/errors";
 import { IUser } from "../types";
 
@@ -9,7 +9,7 @@ import { IUser } from "../types";
 export class AuthService {
 	constructor(
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("DTOService") private readonly dtoService: DTOService,
 	) {}
 
 	/**
@@ -36,7 +36,7 @@ export class AuthService {
 	 * @param password - User's password
 	 * @returns The authenticated user and token
 	 */
-	async login(email: string, password: string): Promise<{ user: PublicUserDTO | AdminUserDTO; token: string }> {
+	async login(email: string, password: string): Promise<{ user: AuthenticatedUserDTO | AdminUserDTO; token: string }> {
 		try {
 			const user = await this.userRepository.findByEmail(email);
 			if (!user || !(await user.comparePassword?.(password))) {
@@ -46,14 +46,14 @@ export class AuthService {
 			const token = this.generateToken(user);
 
 			// Assign appropriate DTO
-			const userDTO = user.isAdmin ? this.dtoService.toAdminDTO(user) : this.dtoService.toPublicDTO(user);
+			const userDTO = user.isAdmin ? this.dtoService.toAdminDTO(user) : this.dtoService.toAuthenticatedUserDTO(user);
 
 			return { user: userDTO, token };
 		} catch (error) {
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(
 					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
+					(error as { name: string; message: string }).message,
 				);
 			} else {
 				throw createError("InternalServerError", "An unknown error occurred.");

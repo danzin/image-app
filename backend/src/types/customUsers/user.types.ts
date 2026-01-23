@@ -23,6 +23,9 @@ export interface IUser extends Document {
 	followingCount?: number;
 	resetToken?: string;
 	resetTokenExpires?: Date;
+	isEmailVerified?: boolean;
+	emailVerificationToken?: string;
+	emailVerificationExpires?: Date;
 
 	comparePassword(candidatePassword: string): Promise<boolean>;
 	canViewPost(post: Pick<IPost, "canBeViewedBy" | "user" | "author">): boolean;

@@ -29,6 +29,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { RetryService } from "../services/retry.service";
 import { TransactionQueueService } from "../services/transaction-queue.service";
 import { TelemetryService } from "../services/telemetry.service";
+import { EmailService } from "../services/email.service";
 import { FeedEnrichmentService } from "../services/feed-enrichment.service";
 
 export function registerServices(): void {
@@ -56,6 +57,7 @@ export function registerServices(): void {
 	container.registerSingleton("UserActionService", UserActionService);
 	container.registerSingleton("RetryService", RetryService);
 	container.registerSingleton("TransactionQueueService", TransactionQueueService);
+	container.registerSingleton("EmailService", EmailService);
 
 	const realtimeHandlers = [
 		container.resolve(NewPostMessageHandler),

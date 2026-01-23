@@ -14,7 +14,7 @@ export const useRegister = () => {
 
 		onSuccess: (data) => {
 			setAuthUser(data.user);
-			toast.success("Registration successful! You are now logged in.");
+			toast.success("Registration successful! Check your email to verify your account.");
 		},
 
 		onError: (error) => {
