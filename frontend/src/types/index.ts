@@ -189,7 +189,7 @@ export interface UseImagesResult {
 	imagesByTagQuery: (
 		tags: string[],
 		page: number,
-		limit: number
+		limit: number,
 	) => UseInfiniteQueryResult<InfiniteData<PaginatedResponse<IImage>>, Error>;
 	deleteImage: (id: string) => Promise<void>;
 }
@@ -209,12 +209,12 @@ export interface GalleryProps {
 export interface Notification {
 	id: string;
 	userId: string;
-	actionType: string; // 'like' | 'comment' | 'follow'
+	actionType: string; // 'like' | 'comment' | 'follow' | 'message'
 	actorId: string; // actor's publicId
 	actorUsername?: string; // denormalized username
 	actorAvatar?: string; // actor avatar URL
-	targetId?: string; // post/image publicId
-	targetType?: string; // 'post' | 'image' | 'user'
+	targetId?: string; // post/image/conversation publicId
+	targetType?: string; // 'post' | 'image' | 'user' | 'conversation'
 	targetPreview?: string; // preview text/snippet
 	timestamp: string;
 	isRead: boolean;
