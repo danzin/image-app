@@ -1,6 +1,10 @@
 import express from "express";
 import { UserController } from "../controllers/user.controller";
-import { AuthFactory } from "../middleware/authentication.middleware";
+import {
+	AuthFactory,
+	forgotPasswordEmailRateLimit,
+	forgotPasswordIpRateLimit,
+} from "../middleware/authentication.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
 import {
@@ -32,7 +36,7 @@ export class UserRoutes {
 		this.router.post(
 			"/register",
 			new ValidationMiddleware({ body: registrationSchema }).validate(),
-			this.userController.register
+			this.userController.register,
 		);
 
 		this.router.post("/login", new ValidationMiddleware({ body: loginSchema }).validate(), this.userController.login);
@@ -41,14 +45,16 @@ export class UserRoutes {
 
 		this.router.post(
 			"/forgot-password",
+			forgotPasswordIpRateLimit,
 			new ValidationMiddleware({ body: requestPasswordResetSchema }).validate(),
-			this.userController.requestPasswordReset
+			forgotPasswordEmailRateLimit,
+			this.userController.requestPasswordReset,
 		);
 
 		this.router.post(
 			"/reset-password",
 			new ValidationMiddleware({ body: resetPasswordSchema }).validate(),
-			this.userController.resetPassword
+			this.userController.resetPassword,
 		);
 
 		// Public user data endpoints
@@ -57,26 +63,26 @@ export class UserRoutes {
 		this.router.get(
 			"/profile/:username",
 			new ValidationMiddleware({ params: usernameSchema }).validate(),
-			this.userController.getUserByUsername
+			this.userController.getUserByUsername,
 		);
 
 		this.router.get(
 			"/public/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getUserByPublicId
+			this.userController.getUserByPublicId,
 		);
 
 		// followers/following lists (public)
 		this.router.get(
 			"/:publicId/followers",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getFollowers
+			this.userController.getFollowers,
 		);
 
 		this.router.get(
 			"/:publicId/following",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getFollowing
+			this.userController.getFollowing,
 		);
 
 		// === Protected Routes (authentication required) ===
@@ -88,40 +94,40 @@ export class UserRoutes {
 		this.router.put(
 			"/me/edit",
 			new ValidationMiddleware({ body: updateProfileSchema }).validate(),
-			this.userController.updateProfile
+			this.userController.updateProfile,
 		);
 		this.router.put("/me/avatar", upload.single("avatar"), this.userController.updateAvatar);
 		this.router.put("/me/cover", upload.single("cover"), this.userController.updateCover);
 		this.router.put(
 			"/me/change-password",
 			new ValidationMiddleware({ body: changePasswordSchema }).validate(),
-			this.userController.changePassword
+			this.userController.changePassword,
 		);
 
 		// Social actions
 		this.router.post(
 			"/follow/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.followUserByPublicId
+			this.userController.followUserByPublicId,
 		);
 
 		this.router.delete(
 			"/unfollow/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.unfollowUserByPublicId
+			this.userController.unfollowUserByPublicId,
 		);
 
 		this.router.get(
 			"/follows/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.checkFollowStatus
+			this.userController.checkFollowStatus,
 		);
 
 		// Post interactions
 		this.router.post(
 			"/like/post/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.likeActionByPublicId
+			this.userController.likeActionByPublicId,
 		);
 
 		// Account deletion

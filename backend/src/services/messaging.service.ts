@@ -19,6 +19,7 @@ import { EventBus } from "../application/common/buses/event.bus";
 import { MessageSentEvent } from "../application/events/message/message.event";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
 import { NotificationService } from "./notification.service";
+import { sanitizeTextInput } from "../utils/sanitizers";
 
 /*
 Notes on messaging system:
@@ -181,8 +182,12 @@ export class MessagingService {
 	}
 
 	async sendMessage(senderPublicId: string, payload: SendMessagePayload): Promise<MessageDTO> {
-		if (!payload.body || payload.body.trim().length === 0) {
-			throw createError("ValidationError", "Message body cannot be empty");
+		let sanitizedBody: string;
+		try {
+			sanitizedBody = sanitizeTextInput(payload.body, 5000);
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Invalid message body";
+			throw createError("ValidationError", message);
 		}
 
 		const senderInternalId = await this.userRepository.findInternalIdByPublicId(senderPublicId);
@@ -254,7 +259,7 @@ export class MessagingService {
 				{
 					conversation: new mongoose.Types.ObjectId(conversationId),
 					sender: new mongoose.Types.ObjectId(senderInternalId),
-					body: payload.body.trim(),
+					body: sanitizedBody,
 					attachments:
 						Array.isArray(payload.attachments) && payload.attachments.length > 0
 							? payload.attachments.map((attachment) => ({ ...attachment }))
@@ -311,7 +316,7 @@ export class MessagingService {
 						actorAvatar: populatedMessage.sender?.avatar,
 						targetId: conversationDoc!.publicId,
 						targetType: "conversation",
-						targetPreview: payload.body.substring(0, 50) + (payload.body.length > 50 ? "..." : ""),
+						targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
 						session,
 					}),
 				),
