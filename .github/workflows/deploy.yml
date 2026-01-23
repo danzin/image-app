@@ -24,7 +24,7 @@ jobs:
           context: .
           file: ./frontend/frontend.Dockerfile
           push: true
-          tags: ghcr.io/${{ github.danzin }}/photoapp-frontend:latest
+          tags: ghcr.io/danzin/photoapp-frontend:latest
           build-args: |
             VITE_API_URL=/
             VITE_SOCKET_URL=/
@@ -35,7 +35,7 @@ jobs:
           context: .
           file: ./backend/backend.Dockerfile
           push: true
-          tags: ghcr.io/${{ github.danzin }}/photoapp-backend:latest
+          tags: ghcr.io/danzin/photoapp-backend:latest
 
       - name: Build and push Gateway
         uses: docker/build-push-action@v5
@@ -43,8 +43,7 @@ jobs:
           context: .
           file: ./api-gateway/gateway.Dockerfile
           push: true
-          tags: ghcr.io/${{ github.danzin }}/photoapp-gateway:latest
-
+          tags: ghcr.io/danzin/photoapp-gateway:latest
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
