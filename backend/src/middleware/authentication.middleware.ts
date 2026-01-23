@@ -118,6 +118,27 @@ export const adminRateLimit = rateLimit({
 	keyGenerator: (req) => `admin-${req.decodedUser?.publicId || req.ip}`,
 });
 
+export const forgotPasswordIpRateLimit = rateLimit({
+	windowMs: Number(process.env.FORGOT_PASSWORD_IP_WINDOW_MS) || 15 * 60 * 1000,
+	max: Number(process.env.FORGOT_PASSWORD_IP_MAX) || 5,
+	message: "Too many password reset requests, please try again later",
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req) => `forgot-password-ip:${req.ip}`,
+});
+
+export const forgotPasswordEmailRateLimit = rateLimit({
+	windowMs: Number(process.env.FORGOT_PASSWORD_EMAIL_WINDOW_MS) || 60 * 60 * 1000,
+	max: Number(process.env.FORGOT_PASSWORD_EMAIL_MAX) || 3,
+	message: "Too many password reset requests, please try again later",
+	standardHeaders: true,
+	legacyHeaders: false,
+	keyGenerator: (req) => {
+		const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+		return `forgot-password-email:${email || "unknown"}`;
+	},
+});
+
 // Enhanced admin-only middleware (requires authentication first)
 export const enhancedAdminOnly = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -132,7 +153,7 @@ export const enhancedAdminOnly = async (req: Request, res: Response, next: NextF
 		// Check admin privileges from JWT
 		if (!decodedUser.isAdmin) {
 			console.warn(
-				`[SECURITY] Unauthorized admin access attempt by user ${decodedUser.username} (${decodedUser.publicId}) from IP ${req.ip}`
+				`[SECURITY] Unauthorized admin access attempt by user ${decodedUser.username} (${decodedUser.publicId}) from IP ${req.ip}`,
 			);
 			return res.status(403).json({ error: "Admin privileges required" });
 		}
@@ -160,7 +181,7 @@ export const enhancedAdminOnly = async (req: Request, res: Response, next: NextF
 		}
 
 		logger.info(
-			`[ADMIN_AUDIT] ${decodedUser.username} (${decodedUser.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`
+			`[ADMIN_AUDIT] ${decodedUser.username} (${decodedUser.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`,
 		);
 
 		// Add admin context to request
