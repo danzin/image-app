@@ -15,7 +15,7 @@ services:
 
   # --- APP LAYER ---
   backend:
-    image: promiscuous/photoapp-backend:latest
+    image: ghcr.io/danzin/photoapp-backend:latest
     container_name: backend
     restart: always
     environment:
@@ -42,7 +42,7 @@ services:
       retries: 5
 
   api-gateway:
-    image: promiscuous/photoapp-gateway:latest
+    image: ghcr.io/danzin/photoapp-gateway:latest
     container_name: api-gateway
     restart: always
     environment:
@@ -57,7 +57,7 @@ services:
       - app-network
 
   frontend:
-    image: promiscuous/photoapp-frontend:latest
+    image: ghcr.io/danzin/photoapp-frontend:latest
     container_name: frontend
     restart: always
     depends_on:
