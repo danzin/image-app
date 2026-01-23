@@ -21,6 +21,7 @@ import {
 	CheckCircle as CheckCircleIcon,
 	ExpandMore as ExpandMoreIcon,
 	AlternateEmail as AlternateEmailIcon,
+	ChatBubbleOutline as ChatBubbleOutlineIcon,
 } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
@@ -45,7 +46,7 @@ const Notifications: React.FC = () => {
 					fetchNextPage();
 				}
 			},
-			{ threshold: 0.1 }
+			{ threshold: 0.1 },
 		);
 
 		if (observerTarget.current) {
@@ -67,6 +68,8 @@ const Notifications: React.FC = () => {
 				return <PersonAddIcon sx={{ color: "#10b981", fontSize: 20 }} />;
 			case "mention":
 				return <AlternateEmailIcon sx={{ color: "#f59e0b", fontSize: 20 }} />;
+			case "message":
+				return <ChatBubbleOutlineIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />;
 			default:
 				return null;
 		}
@@ -84,6 +87,8 @@ const Notifications: React.FC = () => {
 				return "started following you";
 			case "mention":
 				return "mentioned you in a comment";
+			case "message":
+				return "sent you a message";
 			default:
 				return notification.actionType;
 		}
@@ -104,6 +109,8 @@ const Notifications: React.FC = () => {
 			// for comment replies, navigate to the post containing the comment
 			// the targetId should be the post publicId from the backend
 			navigate(`/posts/${notification.targetId}`);
+		} else if (notification.targetId && notification.targetType === "conversation") {
+			navigate(`/messages?conversation=${notification.targetId}`);
 		} else if (notification.actionType === "follow") {
 			navigate(`/profile/${notification.actorId}`);
 		}
