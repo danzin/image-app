@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /wp-admin
+Disallow: /admin
+Disallow: /backup
+Disallow: /trap
+Disallow: /api
+
+Sitemap: /sitemap.xml
