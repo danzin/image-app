@@ -1,21 +1,17 @@
 import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { RequestPasswordResetCommand } from "./RequestPasswordResetCommand";
-import { createError } from "../../../../utils/errors";
-import { Resend } from "resend";
 import crypto from "crypto";
-import { IUserReadRepository, IUserWriteRepository } from "repositories/interfaces";
+import { IUserReadRepository, IUserWriteRepository } from "../../../../repositories/interfaces";
+import { EmailService } from "../../../../services/email.service";
 
 @injectable()
 export class RequestPasswordResetHandler implements ICommandHandler<RequestPasswordResetCommand, void> {
-	private resend: Resend;
-
 	constructor(
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-	) {
-		this.resend = new Resend(process.env.RESEND_API_KEY);
-	}
+		@inject("EmailService") private readonly emailService: EmailService,
+	) {}
 
 	async execute(command: RequestPasswordResetCommand): Promise<void> {
 		const user = await this.userReadRepository.findByEmail(command.email);
@@ -29,16 +25,6 @@ export class RequestPasswordResetHandler implements ICommandHandler<RequestPassw
 
 		await this.userWriteRepository.update(user.id, { resetToken, resetTokenExpires });
 
-		try {
-			await this.resend.emails.send({
-				from: "noreply@ascendance.dev",
-				to: user.email,
-				subject: "Password Reset Request",
-				html: `<p>You requested a password reset. Click <a href="${process.env.FRONTEND_URL}/reset-password?token=${resetToken}">here</a> to reset your password.</p>`,
-			});
-		} catch (error) {
-			console.error("Error sending email:", error);
-			throw createError("InternalServerError", "Failed to send password reset email");
-		}
+		await this.emailService.sendPasswordResetEmail(user.email, resetToken);
 	}
 }

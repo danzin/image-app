@@ -194,3 +194,11 @@ export const requestPasswordReset = async (payload: { email: string }): Promise<
 export const resetPassword = async (payload: { token: string; newPassword: string }): Promise<void> => {
 	await axiosClient.post("/api/users/reset-password", payload);
 };
+
+export const verifyEmail = async (payload: {
+	email: string;
+	token: string;
+}): Promise<AuthenticatedUserDTO | AdminUserDTO> => {
+	const response = await axiosClient.post("/api/users/verify-email", payload);
+	return response.data;
+};

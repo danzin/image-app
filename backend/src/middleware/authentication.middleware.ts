@@ -63,10 +63,24 @@ export class BearerTokenStrategy extends AuthStrategy {
 export class AuthenticationMiddleware {
 	constructor(private strategy: AuthStrategy) {}
 
+	private async enforceVerifiedEmail(decodedUser: DecodedUser): Promise<void> {
+		const userReadRepository = container.resolve<IUserReadRepository>("UserReadRepository");
+		const user = await userReadRepository.findByPublicId(decodedUser.publicId);
+
+		if (!user) {
+			throw createError("AuthenticationError", "User not found");
+		}
+
+		if (user.isEmailVerified === false) {
+			throw createError("ForbiddenError", "Email verification required");
+		}
+	}
+
 	handle(): RequestHandler {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
+				await this.enforceVerifiedEmail(req.decodedUser);
 				logger.info(`[AUTH] User authenticated: ${req.decodedUser.username} (${req.decodedUser.publicId})`);
 				next();
 			} catch (error) {
@@ -98,6 +112,7 @@ export class AuthenticationMiddleware {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
 				req.decodedUser = await this.strategy.authenticate(req);
+				await this.enforceVerifiedEmail(req.decodedUser);
 				logger.info(`[AUTH] Optional auth - User authenticated: ${req.decodedUser.username}`);
 			} catch {
 				// Silently fail for optional authentication

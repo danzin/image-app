@@ -175,6 +175,22 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
+	async findByEmailVerificationToken(email: string, token: string, session?: ClientSession): Promise<IUser | null> {
+		try {
+			const query = this.model
+				.findOne({
+					email,
+					emailVerificationToken: token,
+					emailVerificationExpires: { $gt: new Date() },
+				})
+				.select("+emailVerificationToken +emailVerificationExpires");
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
 	/**
 	 * Retrieves paginated users from the database.
 	 * @param options - Pagination options (page, limit, sorting).

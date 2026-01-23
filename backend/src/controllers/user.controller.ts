@@ -30,6 +30,7 @@ import { GetFollowingQuery } from "../application/queries/users/getFollowing/get
 import { GetFollowingResult } from "../application/queries/users/getFollowing/getFollowing.handler";
 import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
 import { ResetPasswordCommand } from "../application/commands/users/resetPassword/ResetPasswordCommand";
+import { VerifyEmailCommand } from "../application/commands/users/verifyEmail/VerifyEmailCommand";
 
 import { logger } from "../utils/winston";
 
@@ -52,7 +53,7 @@ export class UserController {
 	constructor(
 		@inject("AuthService") private readonly authService: AuthService,
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus
+		@inject("QueryBus") private readonly queryBus: QueryBus,
 	) {}
 
 	register = async (req: Request, res: Response, next: NextFunction) => {
@@ -374,6 +375,17 @@ export class UserController {
 			const command = new ResetPasswordCommand(token, newPassword);
 			await this.commandBus.dispatch(command);
 			res.status(200).json({ message: "Password reset successful" });
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { email, token } = req.body;
+			const command = new VerifyEmailCommand(email, token);
+			const user = await this.commandBus.dispatch(command);
+			res.status(200).json(user);
 		} catch (error) {
 			next(error);
 		}

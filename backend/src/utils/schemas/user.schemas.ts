@@ -78,3 +78,11 @@ export const resetPasswordSchema = z
 	})
 	.strict()
 	.transform(sanitizeForMongo);
+
+export const verifyEmailSchema = z
+	.object({
+		email: z.string().email(),
+		token: z.string().regex(/^\d{5}$/, "Token must be 5 digits"),
+	})
+	.strict()
+	.transform(sanitizeForMongo);

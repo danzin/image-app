@@ -16,6 +16,7 @@ import {
 	changePasswordSchema,
 	requestPasswordResetSchema,
 	resetPasswordSchema,
+	verifyEmailSchema,
 } from "../utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
 
@@ -55,6 +56,12 @@ export class UserRoutes {
 			"/reset-password",
 			new ValidationMiddleware({ body: resetPasswordSchema }).validate(),
 			this.userController.resetPassword,
+		);
+
+		this.router.post(
+			"/verify-email",
+			new ValidationMiddleware({ body: verifyEmailSchema }).validate(),
+			this.userController.verifyEmail,
 		);
 
 		// Public user data endpoints
