@@ -100,10 +100,17 @@ const userSchema = new Schema<IUser>(
 		},
 		resetToken: { type: String, select: false },
 		resetTokenExpires: { type: Date, select: false },
+		isEmailVerified: {
+			type: Boolean,
+			default: false,
+			required: true,
+		},
+		emailVerificationToken: { type: String, select: false },
+		emailVerificationExpires: { type: Date, select: false },
 	},
 	{
 		timestamps: true,
-	}
+	},
 );
 
 // Hash pasword when a new user is registered

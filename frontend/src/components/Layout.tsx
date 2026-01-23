@@ -7,6 +7,7 @@ import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
+import VerifyEmail from "../screens/VerifyEmail";
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -16,6 +17,8 @@ const Layout: React.FC = () => {
 	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 	const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 	const { user } = useAuth();
+	const isEmailVerified = user ? !("isEmailVerified" in user) || user.isEmailVerified !== false : true;
+	const shouldLockToVerification = !!user && !isEmailVerified;
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
 	const isAdminPage = location.pathname.startsWith("/admin");
@@ -40,6 +43,22 @@ const Layout: React.FC = () => {
 			: avatarUrl
 				? `${BASE_URL}/${avatarUrl}`
 				: undefined;
+
+	if (shouldLockToVerification) {
+		return (
+			<Box
+				sx={{
+					minHeight: "100vh",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					bgcolor: "background.default",
+				}}
+			>
+				<VerifyEmail />
+			</Box>
+		);
+	}
 
 	return (
 		<Box

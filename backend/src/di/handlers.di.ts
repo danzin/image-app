@@ -117,6 +117,8 @@ import { RequestPasswordResetHandler } from "../application/commands/users/reque
 import { RequestPasswordResetCommand } from "../application/commands/users/requestPasswordReset/RequestPasswordResetCommand";
 import { ResetPasswordHandler } from "../application/commands/users/resetPassword/ResetPasswordHandler";
 import { ResetPasswordCommand } from "../application/commands/users/resetPassword/ResetPasswordCommand";
+import { VerifyEmailHandler } from "../application/commands/users/verifyEmail/VerifyEmailHandler";
+import { VerifyEmailCommand } from "../application/commands/users/verifyEmail/VerifyEmailCommand";
 import { CreateCommunityCommand } from "../application/commands/community/createCommunity/createCommunity.command";
 import { CreateCommunityCommandHandler } from "../application/commands/community/createCommunity/createCommunity.handler";
 import { JoinCommunityCommand } from "../application/commands/community/joinCommunity/joinCommunity.command";
@@ -184,6 +186,7 @@ export function registerCQRS(): void {
 	container.register("UserDeletedHandler", { useClass: UserDeletedHandler });
 	container.register("RequestPasswordResetHandler", { useClass: RequestPasswordResetHandler });
 	container.register("ResetPasswordHandler", { useClass: ResetPasswordHandler });
+	container.register("VerifyEmailHandler", { useClass: VerifyEmailHandler });
 
 	container.register("CreateCommunityCommandHandler", { useClass: CreateCommunityCommandHandler });
 	container.register("JoinCommunityCommandHandler", { useClass: JoinCommunityCommandHandler });
@@ -242,15 +245,15 @@ export function initCQRS(): void {
 	commandBus.register(LikeActionCommand, container.resolve<LikeActionCommandHandler>("LikeActionCommandHandler"));
 	commandBus.register(
 		LikeActionByPublicIdCommand,
-		container.resolve<LikeActionByPublicIdCommandHandler>("LikeActionByPublicIdCommandHandler")
+		container.resolve<LikeActionByPublicIdCommandHandler>("LikeActionByPublicIdCommandHandler"),
 	);
 	commandBus.register(
 		CreateCommentCommand,
-		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler")
+		container.resolve<CreateCommentCommandHandler>("CreateCommentCommandHandler"),
 	);
 	commandBus.register(
 		DeleteCommentCommand,
-		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler")
+		container.resolve<DeleteCommentCommandHandler>("DeleteCommentCommandHandler"),
 	);
 	commandBus.register(LikeCommentCommand, container.resolve<LikeCommentCommandHandler>("LikeCommentCommandHandler"));
 	commandBus.register(CreatePostCommand, container.resolve<CreatePostCommandHandler>("CreatePostCommandHandler"));
@@ -258,33 +261,34 @@ export function initCQRS(): void {
 	commandBus.register(RepostPostCommand, container.resolve<RepostPostCommandHandler>("RepostPostCommandHandler"));
 	commandBus.register(
 		RecordPostViewCommand,
-		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler")
+		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler"),
 	);
 	commandBus.register(
 		UpdateProfileCommand,
-		container.resolve<UpdateProfileCommandHandler>("UpdateProfileCommandHandler")
+		container.resolve<UpdateProfileCommandHandler>("UpdateProfileCommandHandler"),
 	);
 	commandBus.register(
 		ChangePasswordCommand,
-		container.resolve<ChangePasswordCommandHandler>("ChangePasswordCommandHandler")
+		container.resolve<ChangePasswordCommandHandler>("ChangePasswordCommandHandler"),
 	);
 
 	commandBus.register(
 		RequestPasswordResetCommand,
-		container.resolve<RequestPasswordResetHandler>("RequestPasswordResetHandler")
+		container.resolve<RequestPasswordResetHandler>("RequestPasswordResetHandler"),
 	);
 
 	commandBus.register(ResetPasswordCommand, container.resolve<ResetPasswordHandler>("ResetPasswordHandler"));
+	commandBus.register(VerifyEmailCommand, container.resolve<VerifyEmailHandler>("VerifyEmailHandler"));
 
 	commandBus.register(BanUserCommand, container.resolve<BanUserCommandHandler>("BanUserCommandHandler"));
 	commandBus.register(UnbanUserCommand, container.resolve<UnbanUserCommandHandler>("UnbanUserCommandHandler"));
 	commandBus.register(
 		PromoteToAdminCommand,
-		container.resolve<PromoteToAdminCommandHandler>("PromoteToAdminCommandHandler")
+		container.resolve<PromoteToAdminCommandHandler>("PromoteToAdminCommandHandler"),
 	);
 	commandBus.register(
 		DemoteFromAdminCommand,
-		container.resolve<DemoteFromAdminCommandHandler>("DemoteFromAdminCommandHandler")
+		container.resolve<DemoteFromAdminCommandHandler>("DemoteFromAdminCommandHandler"),
 	);
 	commandBus.register(LogRequestCommand, container.resolve<LogRequestCommandHandler>("LogRequestCommandHandler"));
 
@@ -294,7 +298,7 @@ export function initCQRS(): void {
 	eventBus.subscribe(UserAvatarChangedEvent, container.resolve<UserAvatarChangedHandler>("UserAvatarChangedHandler"));
 	eventBus.subscribe(
 		UserUsernameChangedEvent,
-		container.resolve<UserUsernameChangedHandler>("UserUsernameChangedHandler")
+		container.resolve<UserUsernameChangedHandler>("UserUsernameChangedHandler"),
 	);
 	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
 	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
@@ -303,112 +307,112 @@ export function initCQRS(): void {
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
 	queryBus.register(
 		GetDashboardStatsQuery,
-		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler")
+		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler"),
 	);
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
 	queryBus.register(
 		GetTrendingTagsQuery,
-		container.resolve<GetTrendingTagsQueryHandler>("GetTrendingTagsQueryHandler")
+		container.resolve<GetTrendingTagsQueryHandler>("GetTrendingTagsQueryHandler"),
 	);
 	queryBus.register(
 		GetPersonalizedFeedQuery,
-		container.resolve<GetPersonalizedFeedQueryHandler>("GetPersonalizedFeedQueryHandler")
+		container.resolve<GetPersonalizedFeedQueryHandler>("GetPersonalizedFeedQueryHandler"),
 	);
 	queryBus.register(GetForYouFeedQuery, container.resolve<GetForYouFeedQueryHandler>("GetForYouFeedQueryHandler"));
 	queryBus.register(
 		GetTrendingFeedQuery,
-		container.resolve<GetTrendingFeedQueryHandler>("GetTrendingFeedQueryHandler")
+		container.resolve<GetTrendingFeedQueryHandler>("GetTrendingFeedQueryHandler"),
 	);
 	queryBus.register(
 		GetPostByPublicIdQuery,
-		container.resolve<GetPostByPublicIdQueryHandler>("GetPostByPublicIdQueryHandler")
+		container.resolve<GetPostByPublicIdQueryHandler>("GetPostByPublicIdQueryHandler"),
 	);
 	queryBus.register(GetPostBySlugQuery, container.resolve<GetPostBySlugQueryHandler>("GetPostBySlugQueryHandler"));
 	queryBus.register(GetPostsQuery, container.resolve<GetPostsQueryHandler>("GetPostsQueryHandler"));
 	queryBus.register(GetPostsByUserQuery, container.resolve<GetPostsByUserQueryHandler>("GetPostsByUserQueryHandler"));
 	queryBus.register(
 		SearchPostsByTagsQuery,
-		container.resolve<SearchPostsByTagsQueryHandler>("SearchPostsByTagsQueryHandler")
+		container.resolve<SearchPostsByTagsQueryHandler>("SearchPostsByTagsQueryHandler"),
 	);
 	queryBus.register(GetAllTagsQuery, container.resolve<GetAllTagsQueryHandler>("GetAllTagsQueryHandler"));
 	queryBus.register(
 		GetLikedPostsByUserQuery,
-		container.resolve<GetLikedPostsByUserHandler>("GetLikedPostsByUserHandler")
+		container.resolve<GetLikedPostsByUserHandler>("GetLikedPostsByUserHandler"),
 	);
 	queryBus.register(
 		GetUserByPublicIdQuery,
-		container.resolve<GetUserByPublicIdQueryHandler>("GetUserByPublicIdQueryHandler")
+		container.resolve<GetUserByPublicIdQueryHandler>("GetUserByPublicIdQueryHandler"),
 	);
 	queryBus.register(
 		GetUserByUsernameQuery,
-		container.resolve<GetUserByUsernameQueryHandler>("GetUserByUsernameQueryHandler")
+		container.resolve<GetUserByUsernameQueryHandler>("GetUserByUsernameQueryHandler"),
 	);
 	queryBus.register(GetUsersQuery, container.resolve<GetUsersQueryHandler>("GetUsersQueryHandler"));
 	queryBus.register(
 		CheckFollowStatusQuery,
-		container.resolve<CheckFollowStatusQueryHandler>("CheckFollowStatusQueryHandler")
+		container.resolve<CheckFollowStatusQueryHandler>("CheckFollowStatusQueryHandler"),
 	);
 	queryBus.register(GetFollowersQuery, container.resolve<GetFollowersQueryHandler>("GetFollowersQueryHandler"));
 	queryBus.register(GetFollowingQuery, container.resolve<GetFollowingQueryHandler>("GetFollowingQueryHandler"));
 	queryBus.register(
 		GetAllPostsAdminQuery,
-		container.resolve<GetAllPostsAdminQueryHandler>("GetAllPostsAdminQueryHandler")
+		container.resolve<GetAllPostsAdminQueryHandler>("GetAllPostsAdminQueryHandler"),
 	);
 	queryBus.register(
 		GetAllUsersAdminQuery,
-		container.resolve<GetAllUsersAdminQueryHandler>("GetAllUsersAdminQueryHandler")
+		container.resolve<GetAllUsersAdminQueryHandler>("GetAllUsersAdminQueryHandler"),
 	);
 	queryBus.register(
 		GetAdminUserProfileQuery,
-		container.resolve<GetAdminUserProfileQueryHandler>("GetAdminUserProfileQueryHandler")
+		container.resolve<GetAdminUserProfileQueryHandler>("GetAdminUserProfileQueryHandler"),
 	);
 	queryBus.register(GetUserStatsQuery, container.resolve<GetUserStatsQueryHandler>("GetUserStatsQueryHandler"));
 	queryBus.register(
 		GetRecentActivityQuery,
-		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler")
+		container.resolve<GetRecentActivityQueryHandler>("GetRecentActivityQueryHandler"),
 	);
 	queryBus.register(GetRequestLogsQuery, container.resolve<GetRequestLogsQueryHandler>("GetRequestLogsQueryHandler"));
 
 	commandBus.register(
 		CreateCommunityCommand,
-		container.resolve<CreateCommunityCommandHandler>("CreateCommunityCommandHandler")
+		container.resolve<CreateCommunityCommandHandler>("CreateCommunityCommandHandler"),
 	);
 	commandBus.register(
 		JoinCommunityCommand,
-		container.resolve<JoinCommunityCommandHandler>("JoinCommunityCommandHandler")
+		container.resolve<JoinCommunityCommandHandler>("JoinCommunityCommandHandler"),
 	);
 	commandBus.register(
 		LeaveCommunityCommand,
-		container.resolve<LeaveCommunityCommandHandler>("LeaveCommunityCommandHandler")
+		container.resolve<LeaveCommunityCommandHandler>("LeaveCommunityCommandHandler"),
 	);
 	queryBus.register(
 		GetCommunityDetailsQuery,
-		container.resolve<GetCommunityDetailsQueryHandler>("GetCommunityDetailsQueryHandler")
+		container.resolve<GetCommunityDetailsQueryHandler>("GetCommunityDetailsQueryHandler"),
 	);
 	queryBus.register(
 		GetUserCommunitiesQuery,
-		container.resolve<GetUserCommunitiesQueryHandler>("GetUserCommunitiesQueryHandler")
+		container.resolve<GetUserCommunitiesQueryHandler>("GetUserCommunitiesQueryHandler"),
 	);
 	queryBus.register(
 		GetCommunityFeedQuery,
-		container.resolve<GetCommunityFeedQueryHandler>("GetCommunityFeedQueryHandler")
+		container.resolve<GetCommunityFeedQueryHandler>("GetCommunityFeedQueryHandler"),
 	);
 	commandBus.register(
 		UpdateCommunityCommand,
-		container.resolve<UpdateCommunityCommandHandler>("UpdateCommunityCommandHandler")
+		container.resolve<UpdateCommunityCommandHandler>("UpdateCommunityCommandHandler"),
 	);
 	commandBus.register(
 		DeleteCommunityCommand,
-		container.resolve<DeleteCommunityCommandHandler>("DeleteCommunityCommandHandler")
+		container.resolve<DeleteCommunityCommandHandler>("DeleteCommunityCommandHandler"),
 	);
 	commandBus.register(KickMemberCommand, container.resolve<KickMemberCommandHandler>("KickMemberCommandHandler"));
 	queryBus.register(
 		GetAllCommunitiesQuery,
-		container.resolve<GetAllCommunitiesQueryHandler>("GetAllCommunitiesQueryHandler")
+		container.resolve<GetAllCommunitiesQueryHandler>("GetAllCommunitiesQueryHandler"),
 	);
 	queryBus.register(
 		GetCommunityMembersQuery,
-		container.resolve<GetCommunityMembersQueryHandler>("GetCommunityMembersQueryHandler")
+		container.resolve<GetCommunityMembersQueryHandler>("GetCommunityMembersQueryHandler"),
 	);
 
 	const realtimeHandlers = [

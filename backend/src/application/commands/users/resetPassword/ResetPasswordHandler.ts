@@ -2,7 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
 import { ResetPasswordCommand } from "./ResetPasswordCommand";
 import { createError } from "../../../../utils/errors";
-import { IUserReadRepository, IUserWriteRepository } from "repositories/interfaces";
+import { IUserReadRepository, IUserWriteRepository } from "../../../../repositories/interfaces";
 
 @injectable()
 export class ResetPasswordHandler implements ICommandHandler<ResetPasswordCommand, void> {

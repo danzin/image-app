@@ -43,11 +43,19 @@ type UseFollowListOptions = Omit<
 
 // Get current authenticated user at /me
 export const useCurrentUser = () => {
+	const queryClient = useQueryClient();
+	const cachedUser = queryClient.getQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"]);
+	const isEmailVerified = cachedUser
+		? !("isEmailVerified" in cachedUser) || cachedUser.isEmailVerified !== false
+		: true;
+
 	return useQuery<AuthenticatedUserDTO | AdminUserDTO | null>({
 		queryKey: ["currentUser"],
 		queryFn: ({ signal }) => fetchCurrentUser(signal),
-		staleTime: 0, // always consider stale so invalidation triggers refetch
-		refetchOnWindowFocus: true,
+		staleTime: 5 * 60_000,
+		refetchOnWindowFocus: false,
+		refetchOnMount: false,
+		enabled: isEmailVerified,
 		retry: (failureCount, error: any) => {
 			return failureCount < 3;
 		},

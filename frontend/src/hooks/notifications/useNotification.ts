@@ -3,10 +3,13 @@ import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from "@ta
 import { fetchNotifications, markNotificationAsRead } from "../../api/notificationApi";
 import { Notification } from "../../types";
 import { useSocket } from "../context/useSocket";
+import { useAuth } from "../context/useAuth";
 
 export const useNotifications = () => {
 	const socket = useSocket();
 	const queryClient = useQueryClient();
+	const { user } = useAuth();
+	const isVerified = user ? !("isEmailVerified" in user) || user.isEmailVerified !== false : false;
 
 	// use infinite query for cursor-based pagination
 	const notificationsQuery = useInfiniteQuery<Notification[]>({
@@ -15,6 +18,7 @@ export const useNotifications = () => {
 			// pageParam is the timestamp cursor for pagination
 			return fetchNotifications(signal, pageParam as string | undefined);
 		},
+		enabled: isVerified,
 		initialPageParam: undefined, // first page has no cursor
 		getNextPageParam: (lastPage) => {
 			// if there are less notifications than requested, there are no more pages
@@ -67,7 +71,7 @@ export const useNotifications = () => {
 
 	// This handles real-time notifications with WebSocket
 	useEffect(() => {
-		if (!socket) return;
+		if (!socket || !isVerified) return;
 
 		const handleNew = (notification: Notification) => {
 			console.log("[useNotifications] New notification received:", notification);
@@ -102,7 +106,7 @@ export const useNotifications = () => {
 				return {
 					...old,
 					pages: old.pages.map((page: Notification[]) =>
-						page.map((notif) => (notif.id === updatedNotification.id ? updatedNotification : notif))
+						page.map((notif) => (notif.id === updatedNotification.id ? updatedNotification : notif)),
 					),
 				};
 			});
@@ -116,7 +120,7 @@ export const useNotifications = () => {
 			socket.off("new_notification", handleNew);
 			socket.off("notification_read", handleRead);
 		};
-	}, [socket, queryClient]);
+	}, [socket, queryClient, isVerified]);
 
 	return {
 		notifications,

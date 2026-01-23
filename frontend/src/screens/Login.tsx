@@ -7,15 +7,16 @@ import { Box, Container, Link, Typography } from "@mui/material";
 
 const Login: React.FC = () => {
 	const navigate = useNavigate();
-	const { mutate: loginMutation, isPending, isSuccess } = useLogin();
+	const { mutate: loginMutation, isPending, data } = useLogin();
 
 	useEffect(() => {
-		if (isSuccess) {
-			console.log("Login success detected in component, navigating...");
-			const timer = setTimeout(() => navigate("/"), 1000);
+		if (data?.user) {
+			const isVerified = data.user.isEmailVerified !== false;
+			const destination = isVerified ? "/" : `/verify-email?email=${encodeURIComponent(data.user.email)}`;
+			const timer = setTimeout(() => navigate(destination), 1000);
 			return () => clearTimeout(timer);
 		}
-	}, [isSuccess, navigate]);
+	}, [data, navigate]);
 
 	const handleLogin = (formData: { email: string; password: string }) => {
 		loginMutation(formData);
