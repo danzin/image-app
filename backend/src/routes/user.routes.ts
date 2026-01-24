@@ -5,6 +5,7 @@ import {
 	forgotPasswordEmailRateLimit,
 	forgotPasswordIpRateLimit,
 } from "../middleware/authentication.middleware";
+import { honeypotMiddleware } from "../middleware/honeypot.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
 import {
@@ -36,17 +37,24 @@ export class UserRoutes {
 		// Authentication endpoints
 		this.router.post(
 			"/register",
+			honeypotMiddleware,
 			new ValidationMiddleware({ body: registrationSchema }).validate(),
 			this.userController.register,
 		);
 
-		this.router.post("/login", new ValidationMiddleware({ body: loginSchema }).validate(), this.userController.login);
+		this.router.post(
+			"/login",
+			honeypotMiddleware,
+			new ValidationMiddleware({ body: loginSchema }).validate(),
+			this.userController.login,
+		);
 
 		this.router.post("/logout", this.userController.logout);
 
 		this.router.post(
 			"/forgot-password",
 			forgotPasswordIpRateLimit,
+			honeypotMiddleware,
 			new ValidationMiddleware({ body: requestPasswordResetSchema }).validate(),
 			forgotPasswordEmailRateLimit,
 			this.userController.requestPasswordReset,
