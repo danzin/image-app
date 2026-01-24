@@ -27,6 +27,7 @@ export const registrationSchema = z
 			.min(1)
 			.max(30),
 		confirmPassword: z.string(),
+		website: z.string().optional(),
 	})
 	.strict()
 	.transform(sanitizeForMongo)
@@ -39,6 +40,7 @@ export const loginSchema = z
 	.object({
 		email: z.string().email(),
 		password: z.string(),
+		website: z.string().optional(),
 	})
 	.strict()
 	.transform(sanitizeForMongo);
@@ -67,6 +69,7 @@ export const changePasswordSchema = z
 export const requestPasswordResetSchema = z
 	.object({
 		email: z.string().email(),
+		website: z.string().optional(),
 	})
 	.strict()
 	.transform(sanitizeForMongo);

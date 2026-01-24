@@ -34,8 +34,8 @@ const AuthForm = <T extends Record<string, string>>({
 				acc[field.name] = initialValues[field.name] ?? "";
 				return acc;
 			},
-			{} as Record<keyof T, string>
-		)
+			{} as Record<keyof T, string>,
+		),
 	);
 
 	const [showPassword, setShowPassword] = useState(false);
