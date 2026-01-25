@@ -9,21 +9,23 @@ const SearchResults = () => {
 	const location = useLocation();
 
 	// Parse the search query
-	const rawQuery = new URLSearchParams(location.search).get("q") || "";
+	const searchParams = new URLSearchParams(location.search);
+	const queryParam = searchParams.get("q") || "";
+	const tagsParam = searchParams.get("tags") || "";
+	const displayQuery = tagsParam || queryParam;
 
 	// prevent unnecessary re-renders
-	const searchTerms = useMemo(
-		() =>
-			rawQuery
-				.split(",")
-				.map((t) => t.trim())
-				.filter((t) => t.length > 0),
-		[rawQuery]
-	);
+	const searchTerms = useMemo(() => {
+		const baseQuery = tagsParam || queryParam;
+		return baseQuery
+			.split(",")
+			.map((t) => t.trim())
+			.filter((t) => t.length > 0);
+	}, [queryParam, tagsParam]);
 
 	const [activeTab, setActiveTab] = useState<"posts" | "users" | "communities">("posts");
 
-	const { data: searchData, isFetching: isSearchingUsers } = useSearch(rawQuery);
+	const { data: searchData, isFetching: isSearchingUsers } = useSearch(queryParam);
 
 	// Fetch Posts with infinite scroll
 	const {
@@ -43,7 +45,7 @@ const SearchResults = () => {
 
 	useEffect(() => {
 		setActiveTab("posts");
-	}, [rawQuery]);
+	}, [displayQuery]);
 
 	useEffect(() => {
 		if (!isLoadingPosts && !isSearchingUsers && activeTab === "posts") {
@@ -101,7 +103,7 @@ const SearchResults = () => {
 								/>
 							) : (
 								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No posts found for "{rawQuery}".
+									No posts found for "{displayQuery}".
 								</Typography>
 							)}
 						</Box>
@@ -136,7 +138,7 @@ const SearchResults = () => {
 								))
 							) : (
 								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No users found matching "{rawQuery}".
+									No users found matching "{displayQuery}".
 								</Typography>
 							)}
 						</Box>
@@ -176,7 +178,7 @@ const SearchResults = () => {
 								))
 							) : (
 								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No communities found matching "{rawQuery}".
+									No communities found matching "{displayQuery}".
 								</Typography>
 							)}
 						</Box>
