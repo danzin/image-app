@@ -1,5 +1,5 @@
 import { IncomingMessage } from "http";
-import { Socket } from "net";
+import net, { Socket } from "net";
 import http from "http";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
@@ -46,27 +46,11 @@ const allowedApiPrefixes = [
 ];
 
 const getClientIp = (req: Request): string => {
-	const cfConnectingIp = req.headers["cf-connecting-ip"];
-	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
-		return cfConnectingIp.trim();
-	}
+	// If Cloudflare Pseudo IPv4 is done, this header contains the IPv4
+	const cfIp = req.headers["cf-connecting-ip"];
+	if (typeof cfIp === "string" && cfIp) return cfIp.trim();
 
-	const trueClientIp = req.headers["true-client-ip"];
-	if (typeof trueClientIp === "string" && trueClientIp.trim()) {
-		return trueClientIp.trim();
-	}
-
-	const xRealIp = req.headers["x-real-ip"];
-	if (typeof xRealIp === "string" && xRealIp.trim()) {
-		return xRealIp.trim();
-	}
-
-	const xForwardedFor = req.headers["x-forwarded-for"];
-	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
-		return xForwardedFor.split(",")[0].trim();
-	}
-
-	return req.ip || req.socket.remoteAddress || "unknown";
+	return req.ip || "unknown";
 };
 
 app.set("trust proxy", true); // Trust the Nginx proxy (loopback) and Cloudflare
@@ -142,6 +126,11 @@ const apiProxy = createProxyMiddleware({
 	pathRewrite: (path) => (path.startsWith("/api") ? path.replace("/api", "") : path),
 	on: {
 		proxyReq: (proxyReq, req, _res) => {
+			const cfIp = (req as Request).headers["cf-connecting-ip"];
+			if (typeof cfIp === "string") {
+				proxyReq.setHeader("CF-Connecting-IP", cfIp);
+				proxyReq.setHeader("X-Real-IP", cfIp);
+			}
 			const origin = (req as Request).headers.origin;
 			console.log(`[Gateway] Proxying ${(req as Request).method} ${(req as Request).originalUrl} | Origin: ${origin}`);
 		},
