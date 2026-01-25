@@ -3,7 +3,7 @@ import { IPost, ITag } from "../types";
 
 export const fetchPersonalizedFeed = async (
 	pageParam: number,
-	limit: number
+	limit: number,
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -17,7 +17,7 @@ export const fetchPersonalizedFeed = async (
 
 export const fetchTrendingFeed = async (
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -32,7 +32,7 @@ export const fetchTrendingFeed = async (
 export const fetchNewFeed = async (
 	pageParam: number,
 	limit: number = 20,
-	refresh: boolean = false
+	refresh: boolean = false,
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -53,7 +53,7 @@ export const fetchNewFeed = async (
 
 export const fetchForYouFeed = async (
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -67,7 +67,7 @@ export const fetchForYouFeed = async (
 
 export const fetchPosts = async (
 	pageParam: number,
-	limit: number = 10
+	limit: number = 10,
 ): Promise<{
 	data: IPost[];
 	total: number;
@@ -92,7 +92,20 @@ export const fetchPostBySlug = async (slug: string) => {
 };
 
 export const fetchPostsByTag = async ({ tags, page, limit }: { tags: string[]; page: number; limit: number }) => {
-	const tagString = tags.join(",");
+	const tagString = tags
+		.map((tag) => tag.trim())
+		.filter((tag) => tag.length > 0)
+		.join(",");
+
+	if (!tagString) {
+		return {
+			data: [],
+			total: 0,
+			page,
+			limit,
+			totalPages: 0,
+		};
+	}
 	const { data } = await axiosClient.get(`/api/posts/search/tags?tags=${tagString}&page=${page}&limit=${limit}`);
 	console.log(data);
 	return data;
@@ -125,7 +138,7 @@ export const repostPost = async (postPublicId: string, body?: string): Promise<I
 export const fetchPostsByCommunity = async (
 	communityId: string,
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: IPost[];
 	total: number;
