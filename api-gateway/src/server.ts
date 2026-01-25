@@ -69,7 +69,7 @@ const getClientIp = (req: Request): string => {
 	return req.ip || req.socket.remoteAddress || "unknown";
 };
 
-app.set("trust proxy", 1); // Trust the first hop (Nginx)
+app.set("trust proxy", true); // Trust the Nginx proxy (loopback) and Cloudflare
 
 const allowedOrigins = [
 	...envAllowedOrigins,
