@@ -29,6 +29,22 @@ const httpRequestsTotal = new client.Counter({
 	registers: [metricsRegistry],
 });
 
+const allowedApiPrefixes = [
+	"/users",
+	"/images",
+	"/posts",
+	"/search",
+	"/admin",
+	"/notifications",
+	"/feed",
+	"/favorites",
+	"/messaging",
+	"/communities",
+	"/telemetry",
+	"/metrics",
+	"/health",
+];
+
 app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 const allowedOrigins = [
@@ -118,7 +134,7 @@ const apiProxy = createProxyMiddleware({
 				console.log(
 					`[Gateway] Added CORS headers for ${(req as Request).originalUrl} | Status: ${
 						proxyRes.statusCode
-					} | Origin: ${origin}`
+					} | Origin: ${origin}`,
 				);
 			} else if (origin) {
 				console.warn(`[Gateway] Origin not in allowed list: ${origin}`);
@@ -162,11 +178,33 @@ app.use("/uploads", (req, res, next) => {
 
 // Proxy /api
 console.log(`[Gateway] Proxy /api -> ${config.backendUrl}`);
-app.use("/api", apiProxy);
+app.use("/api", (req, res, next) => {
+	const requestPath = req.path || "/";
+	const isAllowed = allowedApiPrefixes.some((prefix) => requestPath === prefix || requestPath.startsWith(`${prefix}/`));
+
+	if (!isAllowed) {
+		res.status(404).json({
+			error: "Route not found",
+			method: req.method,
+			path: req.originalUrl,
+		});
+		return;
+	}
+
+	apiProxy(req, res, next);
+});
 
 // Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
 console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
 app.use("/socket.io", apiProxy);
+
+app.use((req, res) => {
+	res.status(404).json({
+		error: "Route not found",
+		method: req.method,
+		path: req.originalUrl,
+	});
+});
 
 // Global error handler
 app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
