@@ -45,6 +45,30 @@ const allowedApiPrefixes = [
 	"/health",
 ];
 
+const getClientIp = (req: Request): string => {
+	const cfConnectingIp = req.headers["cf-connecting-ip"];
+	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
+		return cfConnectingIp.trim();
+	}
+
+	const trueClientIp = req.headers["true-client-ip"];
+	if (typeof trueClientIp === "string" && trueClientIp.trim()) {
+		return trueClientIp.trim();
+	}
+
+	const xRealIp = req.headers["x-real-ip"];
+	if (typeof xRealIp === "string" && xRealIp.trim()) {
+		return xRealIp.trim();
+	}
+
+	const xForwardedFor = req.headers["x-forwarded-for"];
+	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
+		return xForwardedFor.split(",")[0].trim();
+	}
+
+	return req.ip || req.socket.remoteAddress || "unknown";
+};
+
 app.set("trust proxy", 1); // Trust the first hop (Nginx)
 
 const allowedOrigins = [
@@ -164,7 +188,7 @@ app.get("/health", (req, res) => {
 
 // Global incoming log
 app.use((req, res, next) => {
-	console.log(`[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from IP: ${req.ip}`);
+	console.log(`[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from IP: ${getClientIp(req)}`);
 	next();
 });
 

@@ -22,6 +22,30 @@ export const logBehaviour = (req: Request, res: Response, next: NextFunction) =>
 	next();
 };
 
+const getClientIp = (req: Request): string => {
+	const cfConnectingIp = req.headers["cf-connecting-ip"];
+	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
+		return cfConnectingIp.trim();
+	}
+
+	const trueClientIp = req.headers["true-client-ip"];
+	if (typeof trueClientIp === "string" && trueClientIp.trim()) {
+		return trueClientIp.trim();
+	}
+
+	const xRealIp = req.headers["x-real-ip"];
+	if (typeof xRealIp === "string" && xRealIp.trim()) {
+		return xRealIp.trim();
+	}
+
+	const xForwardedFor = req.headers["x-forwarded-for"];
+	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
+		return xForwardedFor.split(",")[0].trim();
+	}
+
+	return req.ip || req.socket.remoteAddress || "unknown";
+};
+
 export const detailedRequestLogging = (req: Request, res: Response, next: NextFunction) => {
 	const logObject = {
 		method: req.method,
@@ -31,7 +55,7 @@ export const detailedRequestLogging = (req: Request, res: Response, next: NextFu
 		body: req.body,
 		headers: req.headers,
 		decodedUser: req?.decodedUser || {},
-		ip: req.ip,
+		ip: getClientIp(req),
 		timestamp: new Date().toISOString(),
 	};
 

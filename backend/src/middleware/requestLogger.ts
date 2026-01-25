@@ -3,6 +3,30 @@ import { container } from "tsyringe";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { LogRequestCommand } from "../application/commands/admin/logRequest/logRequest.command";
 
+const getClientIp = (req: Request): string => {
+	const cfConnectingIp = req.headers["cf-connecting-ip"];
+	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
+		return cfConnectingIp.trim();
+	}
+
+	const trueClientIp = req.headers["true-client-ip"];
+	if (typeof trueClientIp === "string" && trueClientIp.trim()) {
+		return trueClientIp.trim();
+	}
+
+	const xRealIp = req.headers["x-real-ip"];
+	if (typeof xRealIp === "string" && xRealIp.trim()) {
+		return xRealIp.trim();
+	}
+
+	const xForwardedFor = req.headers["x-forwarded-for"];
+	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
+		return xForwardedFor.split(",")[0].trim();
+	}
+
+	return req.ip || req.socket.remoteAddress || "unknown";
+};
+
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
 	const startTime = Date.now();
 
@@ -24,7 +48,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 			const command = new LogRequestCommand({
 				method: req.method,
 				route,
-				ip: req.ip || req.socket.remoteAddress || "unknown",
+				ip: getClientIp(req),
 				statusCode: res.statusCode,
 				responseTimeMs,
 				userId,
