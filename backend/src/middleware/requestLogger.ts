@@ -3,6 +3,17 @@ import { container } from "tsyringe";
 import { CommandBus } from "../application/common/buses/command.bus";
 import { LogRequestCommand } from "../application/commands/admin/logRequest/logRequest.command";
 
+const extractIpv4 = (value: string): string | undefined => {
+	const trimmed = value.trim();
+	const mappedMatch = trimmed.match(/::ffff:(\d{1,3}(?:\.\d{1,3}){3})/i);
+	if (mappedMatch?.[1]) {
+		return mappedMatch[1];
+	}
+
+	const ipv4Match = trimmed.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/);
+	return ipv4Match?.[1];
+};
+
 const getClientIp = (req: Request): string => {
 	const cfConnectingIp = req.headers["cf-connecting-ip"];
 	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
@@ -21,10 +32,17 @@ const getClientIp = (req: Request): string => {
 
 	const xForwardedFor = req.headers["x-forwarded-for"];
 	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
-		return xForwardedFor.split(",")[0].trim();
+		const forwardedIps = xForwardedFor.split(",").map((ip) => ip.trim());
+		const ipv4FromForwarded = forwardedIps.map((ip) => extractIpv4(ip)).find((ip) => ip !== undefined);
+		return ipv4FromForwarded || forwardedIps[0];
 	}
 
-	return req.ip || req.socket.remoteAddress || "unknown";
+	const directIp = req.ip || req.socket.remoteAddress;
+	if (directIp) {
+		return extractIpv4(directIp) || directIp;
+	}
+
+	return "unknown";
 };
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
