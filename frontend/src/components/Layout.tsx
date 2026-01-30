@@ -24,6 +24,8 @@ const Layout: React.FC = () => {
 	const isAdminPage = location.pathname.startsWith("/admin");
 	const isNotificationsPage = location.pathname.startsWith("/notifications");
 
+	// determine if we should show mobile top bar (hide on messages and notifications)
+	const showMobileTopBar = !isMessagesPage && !isNotificationsPage;
 	// determine if we should show mobile search bar (only on home and explore)
 	const showMobileSearchBar = location.pathname === "/" || location.pathname.startsWith("/discover");
 	// determine if we should show the FAB post button (hide on messages and notifications)
@@ -123,7 +125,7 @@ const Layout: React.FC = () => {
 					}}
 				>
 					{/* Mobile Top Bar */}
-					{isMobile && (
+					{isMobile && showMobileTopBar && (
 						<Box
 							sx={{
 								position: "sticky",
@@ -185,8 +187,8 @@ const Layout: React.FC = () => {
 
 					<Outlet />
 
-					{/* Bottom Padding for Mobile Nav */}
-					{isMobile && <Box sx={{ height: 80 }} />}
+					{/* Bottom Padding for Mobile Nav - not needed for messages/notifications which manage their own layout */}
+					{isMobile && !isMessagesPage && !isNotificationsPage && <Box sx={{ height: 80 }} />}
 				</Box>
 
 				{/* --- Right Sidebar (Desktop) --- */}
