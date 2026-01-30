@@ -108,11 +108,7 @@ const MobileTopBar: React.FC = () => {
 				{user?.username?.charAt(0).toUpperCase()}
 			</Avatar>
 
-			<Box
-				component="form"
-				onSubmit={handleSearch}
-				sx={{ flex: 1, display: "flex", alignItems: "center" }}
-			>
+			<Box component="form" onSubmit={handleSearch} sx={{ flex: 1, display: "flex", alignItems: "center" }}>
 				<TextField
 					size="small"
 					placeholder="Search..."
