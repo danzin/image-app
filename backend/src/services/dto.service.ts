@@ -105,6 +105,16 @@ export class DTOService {
 		const imageData = source.image ? (source.image as any) : null;
 		const image = imageData?.url && imageData?.publicId ? { url: imageData.url, publicId: imageData.publicId } : null;
 		const userSnapshot = this.resolvePostUserSnapshot(source);
+
+		// calculate likes count from the source
+		const likesCount = Array.isArray(source.likes)
+			? source.likes.length
+			: typeof source.likes === "number"
+				? source.likes
+				: typeof source.likesCount === "number"
+					? source.likesCount
+					: 0;
+
 		return {
 			publicId: source.publicId,
 			user: {
@@ -115,6 +125,9 @@ export class DTOService {
 			body: source.body,
 			slug: source.slug,
 			image,
+			likes: likesCount,
+			repostCount: source.repostCount ?? 0,
+			commentsCount: source.commentsCount ?? 0,
 		};
 	}
 

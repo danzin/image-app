@@ -20,6 +20,9 @@ export interface PostDTO {
 			url: string;
 			publicId: string;
 		} | null;
+		likes?: number;
+		repostCount?: number;
+		commentsCount?: number;
 	};
 
 	// Image data - nested format

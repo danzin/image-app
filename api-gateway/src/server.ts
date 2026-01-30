@@ -33,6 +33,7 @@ const allowedApiPrefixes = [
 	"/users",
 	"/images",
 	"/posts",
+	"/comments",
 	"/search",
 	"/admin",
 	"/notifications",
