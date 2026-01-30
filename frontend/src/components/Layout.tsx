@@ -31,7 +31,13 @@ const Layout: React.FC = () => {
 	// determine if we should show the FAB post button (hide on messages and notifications)
 	const showMobileFab = !isMessagesPage && !isNotificationsPage;
 
-	const handleOpenUploadModal = () => setIsUploadModalOpen(true);
+	const handleOpenUploadModal = () => {
+		if (!user) {
+			navigate("/login");
+			return;
+		}
+		setIsUploadModalOpen(true);
+	};
 	const handleCloseUploadModal = () => setIsUploadModalOpen(false);
 
 	const handleMobileSearch = (e: React.FormEvent) => {

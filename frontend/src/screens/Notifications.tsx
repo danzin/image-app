@@ -146,8 +146,13 @@ const Notifications: React.FC = () => {
 				maxWidth: 700,
 				mx: "auto",
 				p: 3,
-				height: isMobile ? "calc(100vh - 56px)" : "100vh",
+				// use dvh for mobile browsers with dynamic address bars
+				height: isMobile ? "calc(100dvh - 56px)" : "100dvh",
 				overflow: "auto",
+				// fallback for browsers that don't support dvh
+				"@supports not (height: 100dvh)": {
+					height: isMobile ? "calc(100vh - 56px)" : "100vh",
+				},
 			}}
 		>
 			<Typography
