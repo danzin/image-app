@@ -22,6 +22,12 @@ const Layout: React.FC = () => {
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
 	const isAdminPage = location.pathname.startsWith("/admin");
+	const isNotificationsPage = location.pathname.startsWith("/notifications");
+
+	// determine if we should show mobile search bar (only on home and explore)
+	const showMobileSearchBar = location.pathname === "/" || location.pathname.startsWith("/discover");
+	// determine if we should show the FAB post button (hide on messages and notifications)
+	const showMobileFab = !isMessagesPage && !isNotificationsPage;
 
 	const handleOpenUploadModal = () => setIsUploadModalOpen(true);
 	const handleCloseUploadModal = () => setIsUploadModalOpen(false);
@@ -142,33 +148,35 @@ const Layout: React.FC = () => {
 							>
 								{user?.username?.charAt(0).toUpperCase()}
 							</Avatar>
-							<Box
-								component="form"
-								onSubmit={handleMobileSearch}
-								sx={{ flex: 1, display: "flex", alignItems: "center" }}
-							>
-								<TextField
-									size="small"
-									placeholder="Search..."
-									value={mobileSearchQuery}
-									onChange={(e) => setMobileSearchQuery(e.target.value)}
-									fullWidth
-									InputProps={{
-										startAdornment: (
-											<InputAdornment position="start">
-												<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-											</InputAdornment>
-										),
-										sx: {
-											borderRadius: 3,
-											bgcolor: "rgba(255, 255, 255, 0.08)",
-											"& fieldset": { border: "none" },
-											height: 36,
-											fontSize: "0.875rem",
-										},
-									}}
-								/>
-							</Box>
+							{showMobileSearchBar && (
+								<Box
+									component="form"
+									onSubmit={handleMobileSearch}
+									sx={{ flex: 1, display: "flex", alignItems: "center" }}
+								>
+									<TextField
+										size="small"
+										placeholder="Search..."
+										value={mobileSearchQuery}
+										onChange={(e) => setMobileSearchQuery(e.target.value)}
+										fullWidth
+										InputProps={{
+											startAdornment: (
+												<InputAdornment position="start">
+													<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
+												</InputAdornment>
+											),
+											sx: {
+												borderRadius: 3,
+												bgcolor: "rgba(255, 255, 255, 0.08)",
+												"& fieldset": { border: "none" },
+												height: 36,
+												fontSize: "0.875rem",
+											},
+										}}
+									/>
+								</Box>
+							)}
 							<IconButton component={RouterLink} to="/favorites" sx={{ color: "text.primary" }}>
 								<BookmarkIcon />
 							</IconButton>
@@ -210,7 +218,7 @@ const Layout: React.FC = () => {
 			{isMobile && <BottomNav />}
 
 			{/* Mobile FAB */}
-			{isMobile && (
+			{isMobile && showMobileFab && (
 				<Fab
 					color="primary"
 					aria-label="add"
