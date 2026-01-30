@@ -224,8 +224,15 @@ const Messages = () => {
 		<Box
 			sx={{
 				display: "flex",
-				height: { xs: "calc(100vh - 56px)", md: "100vh" },
-				maxHeight: { xs: "calc(100vh - 56px)", md: "100vh" },
+				// use dvh (dynamic viewport height) for mobile browsers with address bars
+				// fallback to vh for older browsers
+				height: { xs: "calc(100dvh - 56px)", md: "100dvh" },
+				maxHeight: { xs: "calc(100dvh - 56px)", md: "100dvh" },
+				// fallback for browsers that don't support dvh
+				"@supports not (height: 100dvh)": {
+					height: { xs: "calc(100vh - 56px)", md: "100vh" },
+					maxHeight: { xs: "calc(100vh - 56px)", md: "100vh" },
+				},
 				overflow: "hidden",
 				bgcolor: "background.default",
 			}}
