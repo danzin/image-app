@@ -30,6 +30,7 @@ import { useConversationMessages } from "../hooks/messaging/useConversationMessa
 import { useSendMessage } from "../hooks/messaging/useSendMessage";
 import { useMarkConversationRead } from "../hooks/messaging/useMarkConversationRead";
 import { useAuth } from "../hooks/context/useAuth";
+import { useSocket } from "../hooks/context/useSocket";
 import { ConversationSummaryDTO, MessageDTO } from "../types";
 
 const CONVERSATION_PANEL_WIDTH = 380;
@@ -81,6 +82,7 @@ const Messages = () => {
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const [draftBody, setDraftBody] = useState("");
 	const { user } = useAuth();
+	const socket = useSocket();
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 	const lastMessageCountRef = useRef<number>(0);
 	const markedAsReadRef = useRef<Set<string>>(new Set());
@@ -95,6 +97,19 @@ const Messages = () => {
 		const params = new URLSearchParams(location.search);
 		return params.get("conversation");
 	}, [location.search]);
+
+	// notify backend when viewing a conversation to suppress notifications
+	useEffect(() => {
+		if (!socket) return;
+
+		if (selectedConversationId) {
+			socket.emit("conversation_opened", selectedConversationId);
+		}
+
+		return () => {
+			socket.emit("conversation_closed");
+		};
+	}, [selectedConversationId, socket]);
 
 	const firstConversationId = conversations[0]?.publicId;
 

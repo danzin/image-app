@@ -20,6 +20,7 @@ import { MessageSentEvent } from "../application/events/message/message.event";
 import { MessageSentHandler } from "../application/events/message/message-sent.handler";
 import { NotificationService } from "./notification.service";
 import { sanitizeTextInput } from "../utils/sanitizers";
+import { isUserViewingConversation } from "../server/socketServer";
 
 /*
 Notes on messaging system:
@@ -304,23 +305,30 @@ export class MessagingService {
 
 			const participantPublicIds = participantDocs.map((doc) => doc.publicId);
 
-			// Create notifications for recipients
+			// Create notifications only for recipients who are NOT currently viewing this conversation
 			const recipients = participantPublicIds.filter((id: string) => id !== senderPublicId);
-			await Promise.all(
-				recipients.map((recipientId) =>
-					this.notificationService.createNotification({
-						receiverId: recipientId,
-						actionType: "message",
-						actorId: senderPublicId,
-						actorUsername: populatedMessage.sender?.username,
-						actorAvatar: populatedMessage.sender?.avatar,
-						targetId: conversationDoc!.publicId,
-						targetType: "conversation",
-						targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
-						session,
-					}),
-				),
+			const recipientsNeedingNotification = recipients.filter(
+				(recipientId) => !isUserViewingConversation(recipientId, conversationDoc!.publicId),
 			);
+
+			// only create notifications for users not actively viewing the conversation
+			if (recipientsNeedingNotification.length > 0) {
+				await Promise.all(
+					recipientsNeedingNotification.map((recipientId) =>
+						this.notificationService.createNotification({
+							receiverId: recipientId,
+							actionType: "message",
+							actorId: senderPublicId,
+							actorUsername: populatedMessage.sender?.username,
+							actorAvatar: populatedMessage.sender?.avatar,
+							targetId: conversationDoc!.publicId,
+							targetType: "conversation",
+							targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
+							session,
+						}),
+					),
+				);
+			}
 
 			this.eventBus.queueTransactional(
 				new MessageSentEvent(conversationDoc!.publicId, senderPublicId, recipients, message.publicId),

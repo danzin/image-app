@@ -7,6 +7,13 @@ import cookieParser from "cookie-parser";
 import { createError } from "../utils/errors";
 import { logger } from "../utils/winston";
 
+// track users who have a conversation open (userId -> conversationId)
+const activeConversations = new Map<string, string>();
+
+export function isUserViewingConversation(userPublicId: string, conversationPublicId: string): boolean {
+	return activeConversations.get(userPublicId) === conversationPublicId;
+}
+
 @injectable()
 export class WebSocketServer {
 	private io: SocketIOServer | null = null; // Stores the socket.io server instance
@@ -142,7 +149,30 @@ export class WebSocketServer {
 				});
 			});
 
+			// track when user opens a conversation (for suppressing notifications)
+			socket.on("conversation_opened", (conversationId: string) => {
+				const userId = socket.data.user?.publicId;
+				if (userId && conversationId) {
+					activeConversations.set(userId, conversationId);
+					logger.info(`User ${userId} opened conversation ${conversationId}`);
+				}
+			});
+
+			// track when user closes/leaves a conversation
+			socket.on("conversation_closed", () => {
+				const userId = socket.data.user?.publicId;
+				if (userId) {
+					activeConversations.delete(userId);
+					logger.info(`User ${userId} closed their conversation`);
+				}
+			});
+
 			socket.on("disconnect", () => {
+				// clean up active conversation tracking on disconnect
+				const userId = socket.data.user?.publicId;
+				if (userId) {
+					activeConversations.delete(userId);
+				}
 				logger.info("Client disconnected:", socket.id);
 			});
 		});
