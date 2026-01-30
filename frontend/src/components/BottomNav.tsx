@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next";
 
 const SCROLL_THRESHOLD = 15; // minimum scroll distance to trigger hide/show
 const SCROLL_UP_MULTIPLIER = 0.5; // show nav faster when scrolling up
+const TOUCH_THRESHOLD = 30; // minimum touch move distance to trigger hide/show
 
 const BottomNav: React.FC = () => {
 	const { t } = useTranslation();
@@ -23,17 +24,12 @@ const BottomNav: React.FC = () => {
 	const [isVisible, setIsVisible] = useState(true);
 	const lastScrollY = useRef(0);
 	const accumulatedDelta = useRef(0);
+	const touchStartY = useRef(0);
+	const isTouching = useRef(false);
 
 	const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-	// pages where we should NOT hide the nav (e.g., messages needs the input visible)
-	const isMessagesPage = location.pathname.startsWith("/messages");
-	const isNotificationsPage = location.pathname.startsWith("/notifications");
-	const shouldDisableHiding = isMessagesPage || isNotificationsPage;
-
 	const handleScroll = useCallback(() => {
-		if (shouldDisableHiding) return;
-
 		const currentScrollY = window.scrollY;
 		const delta = currentScrollY - lastScrollY.current;
 
@@ -48,26 +44,48 @@ const BottomNav: React.FC = () => {
 		// accumulate scroll delta for smoother detection
 		accumulatedDelta.current += delta;
 
-		// scrolling down - need more accumulated scroll to hide
+		// scrolling down - hide bottom nav
 		if (accumulatedDelta.current > SCROLL_THRESHOLD) {
 			setIsVisible(false);
 			accumulatedDelta.current = 0;
 		}
-		// scrolling up - show faster (lower threshold)
+		// scrolling up - reveal bottom nav faster
 		else if (accumulatedDelta.current < -SCROLL_THRESHOLD * SCROLL_UP_MULTIPLIER) {
 			setIsVisible(true);
 			accumulatedDelta.current = 0;
 		}
 
 		lastScrollY.current = currentScrollY;
-	}, [shouldDisableHiding]);
+	}, []);
+
+	const handleTouchStart = useCallback((e: TouchEvent) => {
+		touchStartY.current = e.touches[0].clientY;
+		isTouching.current = true;
+	}, []);
+
+	const handleTouchMove = useCallback((e: TouchEvent) => {
+		if (!isTouching.current) return;
+
+		const currentY = e.touches[0].clientY;
+		const deltaY = touchStartY.current - currentY;
+
+		// swiping up (positive delta, finger moves up) - hide bottom nav
+		if (deltaY > TOUCH_THRESHOLD) {
+			setIsVisible(false);
+			touchStartY.current = currentY; // reset to allow continuous gestures
+		}
+		// swiping down (negative delta, finger moves down) - show bottom nav
+		else if (deltaY < -TOUCH_THRESHOLD) {
+			setIsVisible(true);
+			touchStartY.current = currentY;
+		}
+	}, []);
+
+	const handleTouchEnd = useCallback(() => {
+		isTouching.current = false;
+	}, []);
 
 	useEffect(() => {
-		if (shouldDisableHiding) {
-			setIsVisible(true);
-			return;
-		}
-
 		let rafId: number;
 		let lastTime = 0;
 		const throttleMs = 16; // ~60fps
@@ -88,12 +106,18 @@ const BottomNav: React.FC = () => {
 		};
 
 		window.addEventListener("scroll", onScroll, { passive: true });
+		window.addEventListener("touchstart", handleTouchStart, { passive: true });
+		window.addEventListener("touchmove", handleTouchMove, { passive: true });
+		window.addEventListener("touchend", handleTouchEnd, { passive: true });
 
 		return () => {
 			window.removeEventListener("scroll", onScroll);
+			window.removeEventListener("touchstart", handleTouchStart);
+			window.removeEventListener("touchmove", handleTouchMove);
+			window.removeEventListener("touchend", handleTouchEnd);
 			if (rafId) cancelAnimationFrame(rafId);
 		};
-	}, [shouldDisableHiding, handleScroll]);
+	}, [handleScroll, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
 	// reset visibility when navigating to a new page
 	useEffect(() => {

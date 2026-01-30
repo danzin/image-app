@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
 import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, Fab, IconButton } from "@mui/material";
 import { Search as SearchIcon, Add as AddIcon, Bookmark as BookmarkIcon } from "@mui/icons-material";
@@ -8,6 +8,8 @@ import BottomNav from "./BottomNav";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 import VerifyEmail from "../screens/VerifyEmail";
+
+const TOUCH_THRESHOLD = 30;
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -19,6 +21,55 @@ const Layout: React.FC = () => {
 	const { user } = useAuth();
 	const isEmailVerified = user ? !("isEmailVerified" in user) || user.isEmailVerified !== false : true;
 	const shouldLockToVerification = !!user && !isEmailVerified;
+
+	// top bar visibility state for touch gestures
+	const [isTopBarVisible, setIsTopBarVisible] = useState(true);
+	const touchStartY = useRef(0);
+	const isTouching = useRef(false);
+
+	const handleTouchStart = useCallback((e: TouchEvent) => {
+		touchStartY.current = e.touches[0].clientY;
+		isTouching.current = true;
+	}, []);
+
+	const handleTouchMove = useCallback((e: TouchEvent) => {
+		if (!isTouching.current) return;
+
+		const currentY = e.touches[0].clientY;
+		const deltaY = touchStartY.current - currentY;
+
+		// swiping up (positive delta, finger moves up) - hide top bar (same as bottom nav)
+		if (deltaY > TOUCH_THRESHOLD) {
+			setIsTopBarVisible(false);
+			touchStartY.current = currentY;
+		}
+		// swiping down (negative delta, finger moves down) - show top bar (same as bottom nav)
+		else if (deltaY < -TOUCH_THRESHOLD) {
+			setIsTopBarVisible(true);
+			touchStartY.current = currentY;
+		}
+	}, []);
+
+	const handleTouchEnd = useCallback(() => {
+		isTouching.current = false;
+	}, []);
+
+	useEffect(() => {
+		window.addEventListener("touchstart", handleTouchStart, { passive: true });
+		window.addEventListener("touchmove", handleTouchMove, { passive: true });
+		window.addEventListener("touchend", handleTouchEnd, { passive: true });
+
+		return () => {
+			window.removeEventListener("touchstart", handleTouchStart);
+			window.removeEventListener("touchmove", handleTouchMove);
+			window.removeEventListener("touchend", handleTouchEnd);
+		};
+	}, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+
+	// reset top bar visibility when navigating
+	useEffect(() => {
+		setIsTopBarVisible(true);
+	}, [location.pathname]);
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
 	const isAdminPage = location.pathname.startsWith("/admin");
@@ -146,6 +197,9 @@ const Layout: React.FC = () => {
 								justifyContent: "space-between",
 								px: 2,
 								gap: 1.5,
+								transform: isTopBarVisible ? "translateY(0)" : "translateY(-100%)",
+								transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+								willChange: "transform",
 							}}
 						>
 							<Avatar
