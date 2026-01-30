@@ -38,6 +38,7 @@ const resources = {
 			},
 			common: {
 				who_to_follow: "Who to follow",
+				no_suggestions_right_now: "Check back later for new people to follow",
 				trends_for_you: "Trending now",
 				language: "Language",
 				show_more: "Show more",
@@ -137,6 +138,7 @@ const resources = {
 			},
 			common: {
 				who_to_follow: "Кого да последвате",
+				no_suggestions_right_now: "Проверете по-късно за нови хора за последване",
 				trends_for_you: "Актуално сега",
 				language: "Език",
 				show_more: "Виж повече",

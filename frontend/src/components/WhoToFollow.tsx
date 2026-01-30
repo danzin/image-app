@@ -58,7 +58,16 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 	}
 
 	if (!data?.suggestions || data.suggestions.length === 0) {
-		return null;
+		return (
+			<Box sx={{ px: 2, py: 2 }}>
+				<Typography variant="h6" sx={{ mb: 1, fontWeight: 800 }}>
+					{t("common.who_to_follow")}
+				</Typography>
+				<Typography variant="body2" color="text.secondary">
+					{t("common.no_suggestions_right_now")}
+				</Typography>
+			</Box>
+		);
 	}
 
 	const handleFollow = async (e: React.MouseEvent, publicId: string) => {
