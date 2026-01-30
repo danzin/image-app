@@ -13,6 +13,7 @@ import {
 	Chip,
 	IconButton,
 	Button,
+	useMediaQuery,
 } from "@mui/material";
 import {
 	Favorite as FavoriteIcon,
@@ -33,6 +34,7 @@ const BASE_URL = "/api";
 const Notifications: React.FC = () => {
 	const theme = useTheme();
 	const navigate = useNavigate();
+	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const { notifications, isLoading, markAsRead, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotifications();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
@@ -144,6 +146,8 @@ const Notifications: React.FC = () => {
 				maxWidth: 700,
 				mx: "auto",
 				p: 3,
+				height: isMobile ? "calc(100vh - 56px)" : "100vh",
+				overflow: "auto",
 			}}
 		>
 			<Typography

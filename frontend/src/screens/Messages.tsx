@@ -62,9 +62,16 @@ const getConversationTitle = (conversation: ConversationSummaryDTO, currentUserI
 	return label || "Direct Message";
 };
 
-const getConversationAvatar = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
+const getOtherParticipant = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
 	const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
-	return others[0]?.avatar || conversation.participants[0]?.avatar || "";
+	// return the first other participant, or null if somehow there are none
+	return others[0] || null;
+};
+
+const getConversationAvatar = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
+	const other = getOtherParticipant(conversation, currentUserId);
+	// only return the other participant's avatar, never fall back to current user's avatar
+	return other?.avatar || "";
 };
 
 const Messages = () => {
@@ -81,7 +88,7 @@ const Messages = () => {
 
 	const conversations = useMemo(
 		() => conversationsQuery.data?.pages.flatMap((p) => p.conversations) ?? [],
-		[conversationsQuery.data]
+		[conversationsQuery.data],
 	);
 
 	const selectedConversationId = useMemo(() => {
@@ -217,8 +224,8 @@ const Messages = () => {
 		<Box
 			sx={{
 				display: "flex",
-				height: "100vh",
-				maxHeight: "100vh",
+				height: { xs: "calc(100vh - 56px)", md: "100vh" },
+				maxHeight: { xs: "calc(100vh - 56px)", md: "100vh" },
 				overflow: "hidden",
 				bgcolor: "background.default",
 			}}
@@ -260,6 +267,7 @@ const Messages = () => {
 							{conversations.map((conversation) => {
 								const title = getConversationTitle(conversation, user?.publicId);
 								const avatarUrl = getConversationAvatar(conversation, user?.publicId);
+								const otherParticipant = getOtherParticipant(conversation, user?.publicId);
 								const lastMessagePreview = conversation.lastMessage?.body ?? "No messages yet";
 								const isSelected = conversation.publicId === selectedConversationId;
 
@@ -280,7 +288,9 @@ const Messages = () => {
 										}}
 									>
 										<ListItemAvatar sx={{ minWidth: 56 }}>
-											<Avatar src={avatarUrl} alt={title} sx={{ width: 40, height: 40 }} />
+											<Avatar src={avatarUrl} alt={title} sx={{ width: 40, height: 40 }}>
+												{otherParticipant?.username?.charAt(0).toUpperCase()}
+											</Avatar>
 										</ListItemAvatar>
 										<ListItemText
 											primary={
@@ -378,7 +388,9 @@ const Messages = () => {
 										<Avatar
 											src={getConversationAvatar(selectedConversation, user?.publicId)}
 											sx={{ width: 32, height: 32 }}
-										/>
+										>
+											{getOtherParticipant(selectedConversation, user?.publicId)?.username?.charAt(0).toUpperCase()}
+										</Avatar>
 										<Typography variant="h6" fontWeight={700} fontSize="1.1rem">
 											{getConversationTitle(selectedConversation, user?.publicId)}
 										</Typography>
