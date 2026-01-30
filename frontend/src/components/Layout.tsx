@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Outlet, Link as RouterLink, useLocation, useNavigate } from "react-router-dom";
-import { Box, useTheme, useMediaQuery, Avatar, TextField, InputAdornment, Fab, IconButton } from "@mui/material";
-import { Search as SearchIcon, Add as AddIcon, Bookmark as BookmarkIcon } from "@mui/icons-material";
+import React, { useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Box, useTheme, useMediaQuery, Fab } from "@mui/material";
+import { Add as AddIcon } from "@mui/icons-material";
 import LeftSidebar from "./LeftSidebar";
 import RightSidebar from "./RightSidebar";
 import BottomNav from "./BottomNav";
+import MobileTopBar from "./MobileTopBar";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 import VerifyEmail from "../screens/VerifyEmail";
-
-const TOUCH_THRESHOLD = 30;
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -17,59 +16,9 @@ const Layout: React.FC = () => {
 	const navigate = useNavigate();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-	const [mobileSearchQuery, setMobileSearchQuery] = useState("");
 	const { user } = useAuth();
 	const isEmailVerified = user ? !("isEmailVerified" in user) || user.isEmailVerified !== false : true;
 	const shouldLockToVerification = !!user && !isEmailVerified;
-
-	// top bar visibility state for touch gestures
-	const [isTopBarVisible, setIsTopBarVisible] = useState(true);
-	const touchStartY = useRef(0);
-	const isTouching = useRef(false);
-
-	const handleTouchStart = useCallback((e: TouchEvent) => {
-		touchStartY.current = e.touches[0].clientY;
-		isTouching.current = true;
-	}, []);
-
-	const handleTouchMove = useCallback((e: TouchEvent) => {
-		if (!isTouching.current) return;
-
-		const currentY = e.touches[0].clientY;
-		const deltaY = touchStartY.current - currentY;
-
-		// swiping up (positive delta, finger moves up) - hide top bar (same as bottom nav)
-		if (deltaY > TOUCH_THRESHOLD) {
-			setIsTopBarVisible(false);
-			touchStartY.current = currentY;
-		}
-		// swiping down (negative delta, finger moves down) - show top bar (same as bottom nav)
-		else if (deltaY < -TOUCH_THRESHOLD) {
-			setIsTopBarVisible(true);
-			touchStartY.current = currentY;
-		}
-	}, []);
-
-	const handleTouchEnd = useCallback(() => {
-		isTouching.current = false;
-	}, []);
-
-	useEffect(() => {
-		window.addEventListener("touchstart", handleTouchStart, { passive: true });
-		window.addEventListener("touchmove", handleTouchMove, { passive: true });
-		window.addEventListener("touchend", handleTouchEnd, { passive: true });
-
-		return () => {
-			window.removeEventListener("touchstart", handleTouchStart);
-			window.removeEventListener("touchmove", handleTouchMove);
-			window.removeEventListener("touchend", handleTouchEnd);
-		};
-	}, [handleTouchStart, handleTouchMove, handleTouchEnd]);
-
-	// reset top bar visibility when navigating
-	useEffect(() => {
-		setIsTopBarVisible(true);
-	}, [location.pathname]);
 
 	const isMessagesPage = location.pathname.startsWith("/messages");
 	const isAdminPage = location.pathname.startsWith("/admin");
@@ -77,8 +26,6 @@ const Layout: React.FC = () => {
 
 	// determine if we should show mobile top bar (only on home and explore)
 	const showMobileTopBar = location.pathname === "/" || location.pathname.startsWith("/discover");
-	// determine if we should show mobile search bar (only on home and explore) - same as top bar
-	const showMobileSearchBar = showMobileTopBar;
 	// determine if we should show the FAB post button (hide on messages and notifications)
 	const showMobileFab = !isMessagesPage && !isNotificationsPage;
 
@@ -90,24 +37,6 @@ const Layout: React.FC = () => {
 		setIsUploadModalOpen(true);
 	};
 	const handleCloseUploadModal = () => setIsUploadModalOpen(false);
-
-	const handleMobileSearch = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (mobileSearchQuery.trim()) {
-			navigate(`/results?q=${encodeURIComponent(mobileSearchQuery.trim())}`);
-			setMobileSearchQuery("");
-		}
-	};
-
-	const BASE_URL = "/api";
-	const avatarUrl = user?.avatar || "";
-	const fullAvatarUrl = avatarUrl.startsWith("http")
-		? avatarUrl
-		: avatarUrl.startsWith("/")
-			? `${BASE_URL}${avatarUrl}`
-			: avatarUrl
-				? `${BASE_URL}/${avatarUrl}`
-				: undefined;
 
 	if (shouldLockToVerification) {
 		return (
@@ -182,68 +111,7 @@ const Layout: React.FC = () => {
 					}}
 				>
 					{/* Mobile Top Bar */}
-					{isMobile && showMobileTopBar && (
-						<Box
-							sx={{
-								position: "sticky",
-								top: 0,
-								zIndex: 1100,
-								bgcolor: "rgba(0, 0, 0, 0.65)",
-								backdropFilter: "blur(12px)",
-								borderBottom: `1px solid ${theme.palette.divider}`,
-								height: 53,
-								display: "flex",
-								alignItems: "center",
-								justifyContent: "space-between",
-								px: 2,
-								gap: 1.5,
-								transform: isTopBarVisible ? "translateY(0)" : "translateY(-100%)",
-								transition: "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
-								willChange: "transform",
-							}}
-						>
-							<Avatar
-								component={RouterLink}
-								to={user ? `/profile/${user.publicId}` : "/login"}
-								src={fullAvatarUrl}
-								sx={{ width: 32, height: 32, cursor: "pointer", flexShrink: 0 }}
-							>
-								{user?.username?.charAt(0).toUpperCase()}
-							</Avatar>
-							{showMobileSearchBar && (
-								<Box
-									component="form"
-									onSubmit={handleMobileSearch}
-									sx={{ flex: 1, display: "flex", alignItems: "center" }}
-								>
-									<TextField
-										size="small"
-										placeholder="Search..."
-										value={mobileSearchQuery}
-										onChange={(e) => setMobileSearchQuery(e.target.value)}
-										fullWidth
-										InputProps={{
-											startAdornment: (
-												<InputAdornment position="start">
-													<SearchIcon sx={{ color: "text.secondary", fontSize: 20 }} />
-												</InputAdornment>
-											),
-											sx: {
-												borderRadius: 3,
-												bgcolor: "rgba(255, 255, 255, 0.08)",
-												"& fieldset": { border: "none" },
-												height: 36,
-												fontSize: "0.875rem",
-											},
-										}}
-									/>
-								</Box>
-							)}
-							<IconButton component={RouterLink} to="/favorites" sx={{ color: "text.primary" }}>
-								<BookmarkIcon />
-							</IconButton>
-						</Box>
-					)}
+					{isMobile && showMobileTopBar && <MobileTopBar />}
 
 					<Outlet />
 
