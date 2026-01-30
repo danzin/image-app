@@ -24,10 +24,10 @@ const Layout: React.FC = () => {
 	const isAdminPage = location.pathname.startsWith("/admin");
 	const isNotificationsPage = location.pathname.startsWith("/notifications");
 
-	// determine if we should show mobile top bar (hide on messages and notifications)
-	const showMobileTopBar = !isMessagesPage && !isNotificationsPage;
-	// determine if we should show mobile search bar (only on home and explore)
-	const showMobileSearchBar = location.pathname === "/" || location.pathname.startsWith("/discover");
+	// determine if we should show mobile top bar (only on home and explore)
+	const showMobileTopBar = location.pathname === "/" || location.pathname.startsWith("/discover");
+	// determine if we should show mobile search bar (only on home and explore) - same as top bar
+	const showMobileSearchBar = showMobileTopBar;
 	// determine if we should show the FAB post button (hide on messages and notifications)
 	const showMobileFab = !isMessagesPage && !isNotificationsPage;
 

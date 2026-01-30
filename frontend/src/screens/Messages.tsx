@@ -384,7 +384,21 @@ const Messages = () => {
 									</IconButton>
 								)}
 								{selectedConversation && (
-									<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+									<Box
+										sx={{
+											display: "flex",
+											alignItems: "center",
+											gap: 1.5,
+											cursor: "pointer",
+											"&:hover": { opacity: 0.8 },
+										}}
+										onClick={() => {
+											const otherUser = getOtherParticipant(selectedConversation, user?.publicId);
+											if (otherUser?.publicId) {
+												navigate(`/profile/${otherUser.publicId}`);
+											}
+										}}
+									>
 										<Avatar
 											src={getConversationAvatar(selectedConversation, user?.publicId)}
 											sx={{ width: 32, height: 32 }}
