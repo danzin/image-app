@@ -30,6 +30,8 @@ import Communities from "./screens/Communities";
 import CommunityDetails from "./screens/CommunityDetails";
 import CommunityMembers from "./screens/CommunityMembers";
 
+import AdminUserDetail from "./screens/AdminUserDetail";
+
 // initialize telemetry on app load
 import "./lib/telemetry";
 
@@ -65,6 +67,7 @@ function App() {
 									<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
 									<Route path="notifications" element={<ProtectedRoute element={<Notifications />} />} />
 									<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
+									<Route path="admin/users/:id" element={<AdminRoute element={<AdminUserDetail />} />} />
 								</Route>
 							</Routes>
 							<ReactQueryDevtools initialIsOpen={false} />

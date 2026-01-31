@@ -23,6 +23,9 @@ export const useAdminUsers = (params: {
 	limit?: number;
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";
+	search?: string;
+	startDate?: string;
+	endDate?: string;
 }) => {
 	return useQuery({
 		queryKey: ["admin", "users", params],
@@ -192,6 +195,7 @@ export const useRequestLogs = (params: {
 	statusCode?: number;
 	startDate?: string;
 	endDate?: string;
+	search?: string;
 }) => {
 	return useQuery({
 		queryKey: ["admin", "requestLogs", params],

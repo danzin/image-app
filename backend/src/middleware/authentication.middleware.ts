@@ -195,6 +195,21 @@ export const enhancedAdminOnly = async (req: Request, res: Response, next: NextF
 			return res.status(403).json({ error: "Admin privileges required" });
 		}
 
+		const adminEmailsEnv = process.env.ADMIN_EMAILS;
+		if (adminEmailsEnv) {
+			const allowedEmails = adminEmailsEnv
+				.split(",")
+				.map((e) => e.trim().toLowerCase())
+				.filter((e) => e.length > 0);
+
+			if (user.email && !allowedEmails.includes(user.email.toLowerCase())) {
+				console.warn(
+					`[SECURITY] Admin access denied for ${user.email} (not in ADMIN_EMAILS allowlist) from IP ${req.ip}`,
+				);
+				return res.status(403).json({ error: "Admin privileges restricted" });
+			}
+		}
+
 		logger.info(
 			`[ADMIN_AUDIT] ${decodedUser.username} (${decodedUser.publicId}) performing ${req.method} ${req.path} from IP ${req.ip}`,
 		);

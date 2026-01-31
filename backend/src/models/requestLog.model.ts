@@ -6,6 +6,7 @@ const RequestLogSchema = new Schema<IRequestLog>(
 		timestamp: { type: Date, required: true },
 		metadata: {
 			userId: { type: String },
+			email: { type: String },
 			method: { type: String, required: true },
 			route: { type: String, required: true },
 			ip: { type: String, required: true },
@@ -23,5 +24,14 @@ const RequestLogSchema = new Schema<IRequestLog>(
 		expireAfterSeconds: 60 * 60 * 24 * 30, // 30 days
 	},
 );
+
+// Indexes for search and filtering
+RequestLogSchema.index({ "metadata.userId": 1 });
+RequestLogSchema.index({ "metadata.ip": 1 });
+RequestLogSchema.index({ "metadata.email": 1 });
+RequestLogSchema.index({ "metadata.method": 1 });
+RequestLogSchema.index({ "metadata.statusCode": 1 });
+// Route might be high cardinality, but useful for exact match filtering if we add it later
+RequestLogSchema.index({ "metadata.route": 1 });
 
 export const RequestLogModel = mongoose.model<IRequestLog>("RequestLog", RequestLogSchema);

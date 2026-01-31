@@ -17,6 +17,7 @@ export interface UserStatsResult {
 		likeCount: number;
 		joinDate: Date;
 		lastActivity: Date;
+		lastIp?: string;
 	};
 }
 
@@ -38,8 +39,8 @@ export class GetUserStatsQueryHandler implements IQueryHandler<GetUserStatsQuery
 
 		const [imageCount, followerCount, followingCount, likeCount] = await Promise.all([
 			this.imageRepository.countDocuments({ user: user.id }),
-			this.followRepository.countDocuments({ followee: user.id }),
-			this.followRepository.countDocuments({ follower: user.id }),
+			this.followRepository.countDocuments({ followeeId: user.id }),
+			this.followRepository.countDocuments({ followerId: user.id }),
 			this.postLikeRepository.countLikesByUser(user.id),
 		]);
 
@@ -51,7 +52,8 @@ export class GetUserStatsQueryHandler implements IQueryHandler<GetUserStatsQuery
 				followingCount,
 				likeCount,
 				joinDate: user.createdAt,
-				lastActivity: user.updatedAt,
+				lastActivity: user.lastActive || user.updatedAt,
+				lastIp: user.lastIp,
 			},
 		};
 	}

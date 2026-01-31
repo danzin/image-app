@@ -9,6 +9,7 @@ export interface IUserWriteRepository {
 	// CRUD operations
 	create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser>;
 	update(id: string, updateData: any, session?: ClientSession): Promise<IUser | null>;
+	updateByPublicId(publicId: string, updateData: any, session?: ClientSession): Promise<IUser | null>;
 	delete(id: string, session?: ClientSession): Promise<boolean>;
 
 	// profile updates
