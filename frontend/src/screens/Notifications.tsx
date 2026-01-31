@@ -27,7 +27,6 @@ import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
-import { useBottomNav } from "../context/BottomNav/BottomNavContext";
 
 const BASE_URL = "/api";
 const BOTTOM_NAV_HEIGHT = 56;
@@ -36,7 +35,6 @@ const Notifications: React.FC = () => {
 	const theme = useTheme();
 	const navigate = useNavigate();
 	const { notifications, isLoading, markAsRead, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotifications();
-	const { isVisible: isBottomNavVisible } = useBottomNav();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -145,31 +143,18 @@ const Notifications: React.FC = () => {
 		<Box
 			sx={{
 				maxWidth: 700,
+				width: "100%",
 				mx: "auto",
-				p: 3,
-				// use dvh for mobile browsers with dynamic address bars
-				height: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				maxHeight: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				// fallback for browsers that don't support dvh
-				"@supports not (height: 100dvh)": {
-					height: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-					maxHeight: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-				},
-				overflow: "auto",
-				// smooth transition when bottom nav hides/shows
-				transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+				px: { xs: 2, sm: 3 },
+				py: 3,
+				boxSizing: "border-box",
+				overflowX: "hidden",
+				overflowY: "auto",
+				// on mobile, let the Layout handle the bottom padding for the nav
+				// on desktop, fill available space
+				minHeight: { xs: "auto", md: "100%" },
+				// add bottom padding on mobile to account for bottom nav
+				pb: { xs: `${BOTTOM_NAV_HEIGHT + 24}px`, md: 3 },
 			}}
 		>
 			<Typography
@@ -213,7 +198,9 @@ const Notifications: React.FC = () => {
 								onClick={() => handleNotificationClick(notification)}
 								sx={{
 									mb: 1,
-									borderRadius: 3,
+									borderRadius: { xs: 2, sm: 3 },
+									px: { xs: 1.5, sm: 2 },
+									py: { xs: 1, sm: 1.5 },
 									background: notification.isRead
 										? "linear-gradient(145deg, rgba(99, 102, 241, 0.15) 0%, rgba(236, 72, 153, 0.1) 100%)"
 										: "linear-gradient(145deg, rgba(26, 26, 46, 0.4) 0%, rgba(22, 33, 62, 0.4) 100%)",
@@ -223,8 +210,9 @@ const Notifications: React.FC = () => {
 									cursor: "pointer",
 									transition: "all 0.3s ease",
 									position: "relative",
+									overflow: "hidden",
 									"&:hover": {
-										transform: "translateX(4px)",
+										transform: { xs: "none", sm: "translateX(4px)" },
 										borderColor: theme.palette.primary.main,
 										background: "linear-gradient(145deg, rgba(99, 102, 241, 0.2) 0%, rgba(236, 72, 153, 0.15) 100%)",
 									},
@@ -260,6 +248,10 @@ const Notifications: React.FC = () => {
 								</ListItemAvatar>
 
 								<ListItemText
+									sx={{
+										overflow: "hidden",
+										minWidth: 0,
+									}}
 									primary={
 										<Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
 											<Typography
@@ -268,6 +260,7 @@ const Notifications: React.FC = () => {
 												sx={{
 													fontWeight: 600,
 													color: theme.palette.primary.light,
+													wordBreak: "break-word",
 												}}
 											>
 												{notification.actorUsername || "Someone"}
@@ -299,6 +292,7 @@ const Notifications: React.FC = () => {
 														color: alpha(theme.palette.text.primary, 0.7),
 														mb: 0.5,
 														fontStyle: "italic",
+														wordBreak: "break-word",
 													}}
 												>
 													"{notification.targetPreview}"
