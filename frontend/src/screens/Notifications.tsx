@@ -13,7 +13,6 @@ import {
 	Chip,
 	IconButton,
 	Button,
-	useMediaQuery,
 } from "@mui/material";
 import {
 	Favorite as FavoriteIcon,
@@ -28,14 +27,16 @@ import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
 import { useNavigate } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
+import { useBottomNav } from "../context/BottomNav/BottomNavContext";
 
 const BASE_URL = "/api";
+const BOTTOM_NAV_HEIGHT = 56;
 
 const Notifications: React.FC = () => {
 	const theme = useTheme();
 	const navigate = useNavigate();
-	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 	const { notifications, isLoading, markAsRead, hasNextPage, fetchNextPage, isFetchingNextPage } = useNotifications();
+	const { isVisible: isBottomNavVisible } = useBottomNav();
 
 	const observerTarget = useRef<HTMLDivElement>(null);
 
@@ -147,12 +148,28 @@ const Notifications: React.FC = () => {
 				mx: "auto",
 				p: 3,
 				// use dvh for mobile browsers with dynamic address bars
-				height: isMobile ? "calc(100dvh - 56px)" : "100dvh",
-				overflow: "auto",
+				height: {
+					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
+					md: "100dvh",
+				},
+				maxHeight: {
+					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
+					md: "100dvh",
+				},
 				// fallback for browsers that don't support dvh
 				"@supports not (height: 100dvh)": {
-					height: isMobile ? "calc(100vh - 56px)" : "100vh",
+					height: {
+						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
+						md: "100vh",
+					},
+					maxHeight: {
+						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
+						md: "100vh",
+					},
 				},
+				overflow: "auto",
+				// smooth transition when bottom nav hides/shows
+				transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 			}}
 		>
 			<Typography
