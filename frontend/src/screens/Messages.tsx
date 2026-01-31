@@ -31,9 +31,11 @@ import { useSendMessage } from "../hooks/messaging/useSendMessage";
 import { useMarkConversationRead } from "../hooks/messaging/useMarkConversationRead";
 import { useAuth } from "../hooks/context/useAuth";
 import { useSocket } from "../hooks/context/useSocket";
+import { useBottomNav } from "../context/BottomNav/BottomNavContext";
 import { ConversationSummaryDTO, MessageDTO } from "../types";
 
 const CONVERSATION_PANEL_WIDTH = 380;
+const BOTTOM_NAV_HEIGHT = 56;
 
 const formatTimestamp = (timestamp: string) => {
 	try {
@@ -83,6 +85,7 @@ const Messages = () => {
 	const [draftBody, setDraftBody] = useState("");
 	const { user } = useAuth();
 	const socket = useSocket();
+	const { isVisible: isBottomNavVisible } = useBottomNav();
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 	const lastMessageCountRef = useRef<number>(0);
 	const markedAsReadRef = useRef<Set<string>>(new Set());
@@ -478,6 +481,9 @@ const Messages = () => {
 								p: 1.5,
 								borderTop: `1px solid ${theme.palette.divider}`,
 								bgcolor: "background.default",
+								// smooth transition when bottom nav hides/shows
+								pb: isMobile ? (isBottomNavVisible ? `${BOTTOM_NAV_HEIGHT + 12}px` : 1.5) : 1.5,
+								transition: "padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 							}}
 						>
 							<Paper
@@ -504,11 +510,14 @@ const Messages = () => {
 								<TextField
 									fullWidth
 									variant="standard"
-									placeholder="Start a new message"
+									placeholder="Write a message"
 									value={draftBody}
 									onChange={(event) => setDraftBody(event.target.value)}
 									InputProps={{
 										disableUnderline: true,
+										sx: {
+											fontSize: { xs: "0.85rem", sm: "1rem" },
+										},
 									}}
 									sx={{ px: 2 }}
 								/>
