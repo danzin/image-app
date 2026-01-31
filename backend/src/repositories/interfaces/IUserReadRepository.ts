@@ -29,4 +29,10 @@ export interface IUserReadRepository {
 
 	// suggestions and recommendations
 	getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]>;
+	getSuggestedUsersLowTraffic(
+		currentUserId: string,
+		limit?: number,
+		recentlyActiveUserPublicIds?: string[],
+	): Promise<any[]>;
+	getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<any[]>;
 }

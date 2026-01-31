@@ -15,6 +15,7 @@ import { FavoriteService } from "../services/favorite.service";
 import { MessagingService } from "../services/messaging.service";
 import { TagService } from "../services/tag.service";
 import { LocalStorageService } from "../services/localStorage.service";
+import { UserActivityService } from "../services/user-activity.service";
 import { IImageStorageService } from "../types";
 import { NewPostMessageHandler } from "../application/handlers/realtime/NewPostMessageHandler";
 import { GlobalNewPostMessageHandler } from "../application/handlers/realtime/GlobalNewPostMessageHandler";
@@ -55,6 +56,7 @@ export function registerServices(): void {
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("UserActionService", UserActionService);
+	container.registerSingleton("UserActivityService", UserActivityService);
 	container.registerSingleton("RetryService", RetryService);
 	container.registerSingleton("TransactionQueueService", TransactionQueueService);
 	container.registerSingleton("EmailService", EmailService);
