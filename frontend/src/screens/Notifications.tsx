@@ -71,7 +71,7 @@ const Notifications: React.FC = () => {
 			case "mention":
 				return <AlternateEmailIcon sx={{ color: "#f59e0b", fontSize: 20 }} />;
 			case "message":
-				return <ChatBubbleOutlineIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />;
+				return <ChatBubbleOutlineIcon sx={{ color: "#0ea5e9", fontSize: 20 }} />;
 			default:
 				return null;
 		}
@@ -235,7 +235,7 @@ const Notifications: React.FC = () => {
 										src={avatarUrl}
 										sx={{
 											border: "2px solid rgba(99, 102, 241, 0.3)",
-											background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+											background: "linear-gradient(45deg, #0ea5e9, #38bdf8)",
 										}}
 									>
 										{notification.actorUsername?.charAt(0).toUpperCase()}

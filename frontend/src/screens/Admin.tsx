@@ -259,7 +259,7 @@ export const AdminDashboard: React.FC = () => {
 													cursor={{ fill: "rgba(99, 102, 241, 0.1)" }}
 												/>
 												<Legend />
-												<Bar dataKey="users" fill="#6366f1" radius={[8, 8, 0, 0]} />
+												<Bar dataKey="users" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
 											</BarChart>
 										</ResponsiveContainer>
 									</Box>

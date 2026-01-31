@@ -4,9 +4,9 @@ export const theme = createTheme({
 	palette: {
 		mode: "dark", // switches MUI internal logic to dark mode
 		primary: {
-			main: "#8b5cf6",
-			light: "#a78bfa",
-			dark: "#7c3aed",
+			main: "#0ea5e9",
+			light: "#38bdf8",
+			dark: "#0284c7",
 			contrastText: "#ffffff",
 		},
 		secondary: {
@@ -143,7 +143,7 @@ export const theme = createTheme({
 					color: "#e7e9ea",
 
 					"&:hover": {
-						backgroundColor: "#8b5cf6",
+						backgroundColor: "#0ea5e9",
 						boxShadow: "none",
 					},
 				},
@@ -163,7 +163,7 @@ export const theme = createTheme({
 					color: "#71767b",
 					"&:hover": {
 						backgroundColor: "white",
-						color: "#8b5cf6",
+						color: "#0ea5e9",
 					},
 				},
 			},
@@ -180,7 +180,7 @@ export const theme = createTheme({
 						borderColor: "#71767b",
 					},
 					"&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-						borderColor: "#8b5cf6",
+						borderColor: "#0ea5e9",
 					},
 					color: "#e7e9ea",
 				},

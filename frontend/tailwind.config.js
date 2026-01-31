@@ -7,7 +7,7 @@ export default {
 				background: "#000000",
 				primary: "#ffffff", // text-primary
 				secondary: "#a1a1aa", // text-secondary
-				accent: "#8b5cf6", // violet
+				accent: "#0ea5e9", // light blue
 				divider: "rgba(255, 255, 255, 0.12)",
 			},
 		},
