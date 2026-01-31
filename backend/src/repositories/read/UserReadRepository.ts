@@ -68,4 +68,16 @@ export class UserReadRepository implements IUserReadRepository {
 	async getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]> {
 		return this.userRepository.getSuggestedUsersToFollow(currentUserId, limit);
 	}
+
+	async getSuggestedUsersLowTraffic(
+		currentUserId: string,
+		limit?: number,
+		recentlyActiveUserPublicIds?: string[],
+	): Promise<any[]> {
+		return this.userRepository.getSuggestedUsersLowTraffic(currentUserId, limit, recentlyActiveUserPublicIds);
+	}
+
+	async getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<any[]> {
+		return this.userRepository.getSuggestedUsersHighTraffic(currentUserId, limit);
+	}
 }

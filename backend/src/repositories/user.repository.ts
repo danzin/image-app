@@ -450,6 +450,283 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
+	/**
+	 * Get suggested users for low-traffic mode: any user who has posted at least once
+	 * that the current user is not following
+	 * Uses simpler aggregation optimized for small user bases
+	 * @param currentUserId internal user ID to exclude
+	 * @param limit maximum results
+	 * @param recentlyActiveUserPublicIds optional list of publicIds to prioritize (from activity tracking)
+	 */
+	async getSuggestedUsersLowTraffic(
+		currentUserId: string,
+		limit: number = 5,
+		recentlyActiveUserPublicIds?: string[],
+	): Promise<any[]> {
+		try {
+			const followingIds = (await this.followRepository.getFollowingObjectIds(currentUserId))
+				.map((id) => {
+					try {
+						return new Types.ObjectId(id);
+					} catch {
+						return null;
+					}
+				})
+				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
+
+			// if we have recently active users from Redis, prioritize them
+			let priorityUserMatch = {};
+			if (recentlyActiveUserPublicIds && recentlyActiveUserPublicIds.length > 0) {
+				priorityUserMatch = { publicId: { $in: recentlyActiveUserPublicIds } };
+			}
+
+			const result = await this.model.aggregate([
+				// exclude current user, users already followed, and banned users
+				{
+					$match: {
+						_id: { $ne: new Types.ObjectId(currentUserId), $nin: followingIds },
+						isBanned: false,
+						...priorityUserMatch,
+					},
+				},
+				// lookup posts for each user
+				{
+					$lookup: {
+						from: "posts",
+						localField: "_id",
+						foreignField: "user",
+						as: "posts",
+					},
+				},
+				// only users who have posted at least once
+				{
+					$match: {
+						"posts.0": { $exists: true },
+					},
+				},
+				// calculate basic metrics
+				{
+					$addFields: {
+						postCount: { $size: "$posts" },
+						totalLikes: {
+							$reduce: {
+								input: "$posts",
+								initialValue: 0,
+								in: {
+									$add: [
+										"$$value",
+										{
+											$cond: [
+												{ $isArray: "$$this.likes" },
+												{ $size: { $ifNull: ["$$this.likes", []] } },
+												{ $ifNull: ["$$this.likesCount", 0] },
+											],
+										},
+									],
+								},
+							},
+						},
+						// get most recent post date for sorting
+						lastPostDate: {
+							$max: "$posts.createdAt",
+						},
+					},
+				},
+				// sort by most recent activity first
+				{ $sort: { lastPostDate: -1 } },
+				{ $limit: limit },
+				// project needed fields
+				{
+					$project: {
+						publicId: 1,
+						username: 1,
+						avatar: 1,
+						bio: 1,
+						followerCount: { $ifNull: ["$followerCount", 0] },
+						postCount: 1,
+						totalLikes: 1,
+						score: { $literal: 0 }, // placeholder score for low traffic mode
+					},
+				},
+			]);
+
+			return result;
+		} catch (error) {
+			console.error("Error in getSuggestedUsersLowTraffic:", error);
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	/**
+	 * Get suggested users for high-traffic mode: users with significant engagement
+	 * Prioritizes regular posters and users whose posts get attention
+	 * @param currentUserId internal user ID to exclude
+	 * @param limit maximum results
+	 */
+	async getSuggestedUsersHighTraffic(currentUserId: string, limit: number = 5): Promise<any[]> {
+		try {
+			const sevenDaysAgo = new Date();
+			sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+			const thirtyDaysAgo = new Date();
+			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+			const followingIds = (await this.followRepository.getFollowingObjectIds(currentUserId))
+				.map((id) => {
+					try {
+						return new Types.ObjectId(id);
+					} catch {
+						return null;
+					}
+				})
+				.filter((value): value is Types.ObjectId => value instanceof Types.ObjectId);
+
+			const result = await this.model.aggregate([
+				// exclude current user, followed users, and banned users
+				{
+					$match: {
+						_id: { $ne: new Types.ObjectId(currentUserId), $nin: followingIds },
+						isBanned: false,
+					},
+				},
+				// lookup posts
+				{
+					$lookup: {
+						from: "posts",
+						localField: "_id",
+						foreignField: "user",
+						as: "posts",
+					},
+				},
+				// lookup followers
+				{
+					$lookup: {
+						from: "follows",
+						localField: "_id",
+						foreignField: "followeeId",
+						as: "followerLinks",
+					},
+				},
+				// lookup favorites (saved posts)
+				{
+					$lookup: {
+						from: "favorites",
+						let: { postIds: "$posts._id" },
+						pipeline: [{ $match: { $expr: { $in: ["$post", "$$postIds"] } } }],
+						as: "favoriteLinks",
+					},
+				},
+				// calculate engagement metrics
+				{
+					$addFields: {
+						followerCount: { $size: "$followerLinks" },
+						postCount: { $size: "$posts" },
+						// posts in last 7 days (recent activity indicator)
+						recentPostCount: {
+							$size: {
+								$filter: {
+									input: "$posts",
+									as: "post",
+									cond: { $gte: ["$$post.createdAt", sevenDaysAgo] },
+								},
+							},
+						},
+						// posts in last 30 days (consistency indicator)
+						monthlyPostCount: {
+							$size: {
+								$filter: {
+									input: "$posts",
+									as: "post",
+									cond: { $gte: ["$$post.createdAt", thirtyDaysAgo] },
+								},
+							},
+						},
+						totalLikes: {
+							$reduce: {
+								input: "$posts",
+								initialValue: 0,
+								in: {
+									$add: [
+										"$$value",
+										{
+											$cond: [
+												{ $isArray: "$$this.likes" },
+												{ $size: { $ifNull: ["$$this.likes", []] } },
+												{ $ifNull: ["$$this.likesCount", 0] },
+											],
+										},
+									],
+								},
+							},
+						},
+						// total comments on their posts
+						totalComments: {
+							$reduce: {
+								input: "$posts",
+								initialValue: 0,
+								in: { $add: ["$$value", { $ifNull: ["$$this.commentsCount", 0] }] },
+							},
+						},
+						// how many times their posts were saved
+						savedCount: { $size: "$favoriteLinks" },
+					},
+				},
+				// filter for users with meaningful engagement
+				// must have posted in last 30 days AND have some engagement
+				{
+					$match: {
+						monthlyPostCount: { $gte: 1 },
+						$or: [
+							{ totalLikes: { $gte: 3 } },
+							{ followerCount: { $gte: 2 } },
+							{ recentPostCount: { $gte: 2 } },
+							{ totalComments: { $gte: 1 } },
+							{ savedCount: { $gte: 1 } },
+						],
+					},
+				},
+				// engagement score formula:
+				// - recent posts (35%): regular posting is most important
+				// - likes (25%): content quality indicator
+				// - followers (20%): social proof
+				// - comments (10%): engagement depth
+				// - saves (10%): high-quality content indicator
+				{
+					$addFields: {
+						score: {
+							$add: [
+								{ $multiply: ["$recentPostCount", 3.5] },
+								{ $multiply: ["$totalLikes", 0.25] },
+								{ $multiply: ["$followerCount", 2] },
+								{ $multiply: ["$totalComments", 1] },
+								{ $multiply: ["$savedCount", 1] },
+							],
+						},
+					},
+				},
+				{ $sort: { score: -1 } },
+				{ $limit: limit },
+				{
+					$project: {
+						publicId: 1,
+						username: 1,
+						avatar: 1,
+						bio: 1,
+						followerCount: 1,
+						postCount: 1,
+						totalLikes: 1,
+						score: 1,
+					},
+				},
+			]);
+
+			return result;
+		} catch (error) {
+			console.error("Error in getSuggestedUsersHighTraffic:", error);
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
 	async updateFollowerCount(userId: string, increment: number, session?: ClientSession): Promise<void> {
 		try {
 			const query = this.model.findByIdAndUpdate(userId, { $inc: { followerCount: increment } }, { session });
