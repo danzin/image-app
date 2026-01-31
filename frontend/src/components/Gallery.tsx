@@ -194,7 +194,7 @@ const Gallery: React.FC<GalleryProps> = ({
 						<CircularProgress
 							size={32}
 							sx={{
-								color: "#6366f1",
+								color: "#0ea5e9",
 								"& .MuiCircularProgress-circle": {
 									strokeLinecap: "round",
 								},
