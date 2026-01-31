@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
-import { RedisService } from "../../services/redis.service";
-import { MetricsService } from "../../metrics/metrics.service";
+import { RedisService } from "@/services/redis.service";
+import { MetricsService } from "@/metrics/metrics.service";
 
 describe("RedisService", () => {
 	let redisService: RedisService;

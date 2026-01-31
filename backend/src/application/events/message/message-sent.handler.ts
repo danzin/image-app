@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
-import { MessageSentEvent } from "../../events/message/message.event";
-import { RedisService } from "../../../services/redis.service";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
+import { MessageSentEvent } from "@/application/events/message/message.event";
+import { RedisService } from "@/services/redis.service";
 
 @injectable()
 export class MessageSentHandler implements IEventHandler<MessageSentEvent> {

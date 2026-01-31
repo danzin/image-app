@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IFavorite } from "types/index";
+import { IFavorite } from "@/types";
 
 const favoriteSchema = new Schema<IFavorite>(
 	{
@@ -14,7 +14,7 @@ const favoriteSchema = new Schema<IFavorite>(
 			required: true,
 		},
 	},
-	{ timestamps: true } // Autmatically manage createdAt and updatedAt fields
+	{ timestamps: true }, // Autmatically manage createdAt and updatedAt fields
 );
 
 favoriteSchema.index({ userId: 1, postId: 1 }, { unique: true }); // compound index to ensure a user can only favorite a post once

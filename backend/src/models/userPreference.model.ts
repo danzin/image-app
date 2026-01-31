@@ -1,4 +1,4 @@
-import { IUserPreference } from "../types";
+import { IUserPreference } from "@/types";
 import mongoose, { Schema } from "mongoose";
 
 const userPreferenceSchema = new Schema(

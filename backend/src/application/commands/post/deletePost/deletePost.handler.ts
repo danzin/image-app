@@ -1,21 +1,21 @@
 import { inject, injectable } from "tsyringe";
 import mongoose, { ClientSession } from "mongoose";
 import { DeletePostCommand } from "./deletePost.command";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { CommentRepository } from "../../../../repositories/comment.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { TagService } from "../../../../services/tag.service";
-import { ImageService } from "../../../../services/image.service";
-import { RedisService } from "../../../../services/redis.service";
-import { RetryPresets, RetryService } from "../../../../services/retry.service";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { EventBus } from "../../../common/buses/event.bus";
-import { PostDeletedEvent } from "../../../events/post/post.event";
-import { IPost, IUser } from "../../../../types";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { TagService } from "@/services/tag.service";
+import { ImageService } from "@/services/image.service";
+import { RedisService } from "@/services/redis.service";
+import { RetryPresets, RetryService } from "@/services/retry.service";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { PostDeletedEvent } from "@/application/events/post/post.event";
+import { IPost, IUser } from "@/types";
 import {
 	PostAuthorizationError,
 	PostNotFoundError,

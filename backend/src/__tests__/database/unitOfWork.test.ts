@@ -2,8 +2,8 @@ import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
 import mongoose from "mongoose";
-import { UnitOfWork, TransactionMetrics } from "../../database/UnitOfWork";
-import { EventBus } from "../../application/common/buses/event.bus";
+import { UnitOfWork, TransactionMetrics } from "@/database/UnitOfWork";
+import { EventBus } from "@/application/common/buses/event.bus";
 
 // skipping UnitOfWork tests - mongoose.connection.readyState is a non-configurable property
 // that cannot be stubbed with sinon, these tests require integration testing with a real

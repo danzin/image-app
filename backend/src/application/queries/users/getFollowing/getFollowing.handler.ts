@@ -1,9 +1,9 @@
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetFollowingQuery } from "./getFollowing.query";
 import { inject, injectable } from "tsyringe";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces";
-import { createError } from "../../../../utils/errors";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { IUserReadRepository } from "@/repositories/interfaces";
+import { createError } from "@/utils/errors";
 
 export interface FollowUserItem {
 	publicId: string;
@@ -24,7 +24,7 @@ export interface GetFollowingResult {
 export class GetFollowingQueryHandler implements IQueryHandler<GetFollowingQuery, GetFollowingResult> {
 	constructor(
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 	) {}
 
 	async execute(query: GetFollowingQuery): Promise<GetFollowingResult> {

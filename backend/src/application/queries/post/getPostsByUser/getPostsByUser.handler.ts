@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetPostsByUserQuery } from "./getPostsByUser.query";
-import { IPostReadRepository } from "../../../../repositories/interfaces";
-import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
-import { UserPostsResult } from "../../../../types";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { createError } from "../../../../utils/errors";
+import { IPostReadRepository } from "@/repositories/interfaces";
+import { DTOService, PublicUserDTO } from "@/services/dto.service";
+import { UserPostsResult } from "@/types";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQuery, UserPostsResult> {

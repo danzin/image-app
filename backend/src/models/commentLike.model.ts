@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { ICommentLike } from "../types";
+import { ICommentLike } from "@/types";
 
 const commentLikeSchema = new Schema<ICommentLike>(
 	{

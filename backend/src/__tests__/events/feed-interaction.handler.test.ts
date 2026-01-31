@@ -3,14 +3,14 @@ import { describe, it, beforeEach, afterEach } from "mocha";
 import { container } from "tsyringe";
 import { expect } from "chai";
 import * as sinon from "sinon";
-import { FeedInteractionHandler } from "../../application/events/user/feed-interaction.handler";
-import { UserInteractedWithPostEvent } from "../../application/events/user/user-interaction.event";
-import { FeedService } from "../../services/feed.service";
-import { RedisService } from "../../services/redis.service";
-import { UserRepository } from "../../repositories/user.repository";
-import { UserPreferenceRepository } from "../../repositories/userPreference.repository";
-import { PostRepository } from "../../repositories/post.repository";
-import { IPost } from "../../types";
+import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { FeedService } from "@/services/feed.service";
+import { RedisService } from "@/services/redis.service";
+import { UserRepository } from "@/repositories/user.repository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { PostRepository } from "@/repositories/post.repository";
+import { IPost } from "@/types";
 
 describe("FeedInteractionHandler", () => {
 	let handler: FeedInteractionHandler;

@@ -1,13 +1,13 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetTrendingFeedQuery } from "./getTrendingFeed.query";
-import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
-import { RedisService } from "../../../../services/redis.service";
-import { DTOService } from "../../../../services/dto.service";
-import { createError } from "../../../../utils/errors";
-import { redisLogger } from "../../../../utils/winston";
-import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag, UserLookupData, PostMeta } from "../../../../types";
-import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
+import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import { RedisService } from "@/services/redis.service";
+import { DTOService } from "@/services/dto.service";
+import { createError } from "@/utils/errors";
+import { redisLogger } from "@/utils/winston";
+import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag, UserLookupData, PostMeta } from "@/types";
+import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
 
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {

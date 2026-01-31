@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { IPost, IUser } from "../types";
+import { IPost, IUser } from "@/types";
 
 const authorSchema = new Schema(
 	{

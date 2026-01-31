@@ -1,13 +1,13 @@
 import { inject, injectable } from "tsyringe";
-import { PostRepository } from "../repositories/post.repository";
-import { PostLikeRepository } from "../repositories/postLike.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { TagRepository } from "../repositories/tag.repository";
+import { PostRepository } from "@/repositories/post.repository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { TagRepository } from "@/repositories/tag.repository";
 import { DTOService } from "./dto.service";
-import { createError } from "../utils/errors";
-import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "../types";
+import { createError } from "@/utils/errors";
+import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "@/types";
 import { TagService } from "./tag.service";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class PostService {

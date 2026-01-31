@@ -1,9 +1,9 @@
 import mongoose, { Model, ClientSession, Types } from "mongoose";
 import { BaseRepository } from "./base.repository";
-import { IImage } from "../types";
-import { createError, isNamedError } from "../utils/errors";
+import { IImage } from "@/types";
+import { createError, isNamedError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class ImageRepository extends BaseRepository<IImage> {

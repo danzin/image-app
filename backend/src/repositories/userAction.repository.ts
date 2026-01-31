@@ -1,8 +1,8 @@
 import { ClientSession, Model } from "mongoose";
-import { IUserAction, PaginationOptions, PaginationResult } from "../types";
+import { IUserAction, PaginationOptions, PaginationResult } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { createError } from "../utils/errors";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class UserActionRepository extends BaseRepository<IUserAction> {

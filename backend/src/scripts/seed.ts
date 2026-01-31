@@ -6,7 +6,7 @@ import FormData from "form-data";
 import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 const args = yargsParser(process.argv.slice(2));
 const isDocker = args.docker === true;
@@ -29,8 +29,8 @@ if (!process.env.MONGODB_URI) {
 	process.exit(1);
 }
 
-import { DatabaseConfig } from "../config/dbConfig";
-import { PublicUserDTO } from "../services/dto.service";
+import { DatabaseConfig } from "@/config/dbConfig";
+import { PublicUserDTO } from "@/services/dto.service";
 import { setupContainerCore, registerCQRS, initCQRS } from "../di/container";
 
 const API_BASE_URL = "http://localhost:8000/api";

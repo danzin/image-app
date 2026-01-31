@@ -2,8 +2,8 @@ import { injectable, inject } from "tsyringe";
 import { createClient, RedisClientType } from "redis";
 import fs from "fs";
 import { performance } from "perf_hooks";
-import { redisLogger } from "../utils/winston";
-import { INotification } from "../types";
+import { redisLogger } from "@/utils/winston";
+import { INotification } from "@/types";
 import { MetricsService } from "../metrics/metrics.service";
 
 type RedisHash = { [key: string]: string | number | Buffer };

@@ -1,31 +1,31 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { CommandBus } from "../application/common/buses/command.bus";
-import { QueryBus } from "../application/common/buses/query.bus";
-import { CreatePostCommand } from "../application/commands/post/createPost/createPost.command";
-import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
-import { RecordPostViewCommand } from "../application/commands/post/recordPostView/recordPostView.command";
-import { RepostPostCommand } from "../application/commands/post/repostPost/repostPost.command";
-import { GetPostByPublicIdQuery } from "../application/queries/post/getPostByPublicId/getPostByPublicId.query";
-import { GetPostBySlugQuery } from "../application/queries/post/getPostBySlug/getPostBySlug.query";
-import { GetPostsQuery } from "../application/queries/post/getPosts/getPosts.query";
-import { GetPostsByUserQuery } from "../application/queries/post/getPostsByUser/getPostsByUser.query";
-import { GetLikedPostsByUserQuery } from "../application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
-import { SearchPostsByTagsQuery } from "../application/queries/post/searchPostsByTags/searchPostsByTags.query";
-import { GetAllTagsQuery } from "../application/queries/tags/getAllTags/getAllTags.query";
-import { GetUserByUsernameQuery } from "../application/queries/users/getUserByUsername/getUserByUsername.query";
-import { createError } from "../utils/errors";
-import { errorLogger } from "../utils/winston";
-import { PostDTO, PaginationResult, ITag, UserPostsResult } from "../types";
-import { safeFireAndForget } from "../utils/helpers";
-import { PublicUserDTO } from "../services/dto.service";
-import { logger } from "../utils/winston";
+import { CommandBus } from "@/application/common/buses/command.bus";
+import { QueryBus } from "@/application/common/buses/query.bus";
+import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
+import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
+import { RecordPostViewCommand } from "@/application/commands/post/recordPostView/recordPostView.command";
+import { RepostPostCommand } from "@/application/commands/post/repostPost/repostPost.command";
+import { GetPostByPublicIdQuery } from "@/application/queries/post/getPostByPublicId/getPostByPublicId.query";
+import { GetPostBySlugQuery } from "@/application/queries/post/getPostBySlug/getPostBySlug.query";
+import { GetPostsQuery } from "@/application/queries/post/getPosts/getPosts.query";
+import { GetPostsByUserQuery } from "@/application/queries/post/getPostsByUser/getPostsByUser.query";
+import { GetLikedPostsByUserQuery } from "@/application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
+import { SearchPostsByTagsQuery } from "@/application/queries/post/searchPostsByTags/searchPostsByTags.query";
+import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTags.query";
+import { GetUserByUsernameQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
+import { createError } from "@/utils/errors";
+import { errorLogger } from "@/utils/winston";
+import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
+import { safeFireAndForget } from "@/utils/helpers";
+import { PublicUserDTO } from "@/services/dto.service";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class PostController {
 	constructor(
 		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus
+		@inject("QueryBus") private readonly queryBus: QueryBus,
 	) {}
 
 	createPost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -51,7 +51,7 @@ export class PostController {
 				undefined,
 				file?.path,
 				originalName,
-				communityPublicId
+				communityPublicId,
 			);
 			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);

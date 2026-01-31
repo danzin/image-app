@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { ImageRepository } from "../repositories/image.repository";
+import { ImageRepository } from "@/repositories/image.repository";
 import {
 	AttachmentCreationResult,
 	CreatePostAttachmentInput,
@@ -13,9 +13,9 @@ import {
 	RemoveAttachmentRecordResult,
 	RemoveAttachmentInput,
 	RemoveAttachmentResult,
-} from "../types";
-import { createError } from "../utils/errors";
-import { logger } from "../utils/winston";
+} from "@/types";
+import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class ImageService {

@@ -9,9 +9,9 @@ import {
 	slugSchema,
 	searchByTagsSchema,
 	repostSchema,
-} from "../utils/schemas/post.schemas";
-import { usernameSchema } from "../utils/schemas/user.schemas";
-import upload from "../config/multer";
+} from "@/utils/schemas/post.schemas";
+import { usernameSchema } from "@/utils/schemas/user.schemas";
+import upload from "@/config/multer";
 
 @injectable()
 export class PostRoutes {

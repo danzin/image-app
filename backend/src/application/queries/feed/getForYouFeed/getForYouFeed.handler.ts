@@ -1,14 +1,14 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetForYouFeedQuery } from "./getForYouFeed.query";
-import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
-import { UserPreferenceRepository } from "../../../../repositories/userPreference.repository";
-import { RedisService } from "../../../../services/redis.service";
-import { EventBus } from "../../../common/buses/event.bus";
-import { createError } from "../../../../utils/errors";
-import { errorLogger, redisLogger } from "../../../../utils/winston";
-import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
-import { FeedPost, PaginatedFeedResult, UserLookupData, IPost } from "../../../../types";
+import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { RedisService } from "@/services/redis.service";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { createError } from "@/utils/errors";
+import { errorLogger, redisLogger } from "@/utils/winston";
+import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
+import { FeedPost, PaginatedFeedResult, UserLookupData, IPost } from "@/types";
 
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQuery, PaginatedFeedResult> {

@@ -1,10 +1,10 @@
 import mongoose from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { ConversationRepository } from "../repositories/conversation.repository";
-import { MessageRepository } from "../repositories/message.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { createError } from "../utils/errors";
+import { ConversationRepository } from "@/repositories/conversation.repository";
+import { MessageRepository } from "@/repositories/message.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { createError } from "@/utils/errors";
 import {
 	ConversationSummaryDTO,
 	HydratedConversation,
@@ -13,13 +13,13 @@ import {
 	MessageDTO,
 	SendMessagePayload,
 	UserPublicIdLean,
-} from "../types";
+} from "@/types";
 import { DTOService } from "./dto.service";
-import { EventBus } from "../application/common/buses/event.bus";
-import { MessageSentEvent } from "../application/events/message/message.event";
-import { MessageSentHandler } from "../application/events/message/message-sent.handler";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { MessageSentEvent } from "@/application/events/message/message.event";
+import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
 import { NotificationService } from "./notification.service";
-import { sanitizeTextInput } from "../utils/sanitizers";
+import { sanitizeTextInput } from "@/utils/sanitizers";
 import { isUserViewingConversation } from "../server/socketServer";
 
 /*

@@ -1,6 +1,6 @@
 import { Router, Request, Response, text } from "express";
 import { injectable, inject } from "tsyringe";
-import { TelemetryService } from "../services/telemetry.service";
+import { TelemetryService } from "@/services/telemetry.service";
 
 @injectable()
 export class TelemetryRoutes {

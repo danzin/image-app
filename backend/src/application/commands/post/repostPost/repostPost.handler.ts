@@ -1,20 +1,20 @@
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { RepostPostCommand } from "./repostPost.command";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "../../../../services/notification.service";
-import { DTOService } from "../../../../services/dto.service";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { createError } from "../../../../utils/errors";
-import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "../../../../utils/sanitizers";
-import { IPost, IUser, PostDTO } from "../../../../types";
-import { EventBus } from "../../../common/buses/event.bus";
-import { PostUploadedEvent } from "../../../events/post/post.event";
-import { PostUploadHandler } from "../../../events/post/post-uploaded.handler";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { NotificationService } from "@/services/notification.service";
+import { DTOService } from "@/services/dto.service";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { createError } from "@/utils/errors";
+import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "@/utils/sanitizers";
+import { IPost, IUser, PostDTO } from "@/types";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { PostUploadedEvent } from "@/application/events/post/post.event";
+import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
 
 const MAX_BODY_LENGTH = 300;
 

@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { container } from "tsyringe";
-import { createError } from "../utils/errors";
+import { createError } from "@/utils/errors";
 import rateLimit from "express-rate-limit";
-import { DecodedUser, AdminContext } from "../types";
-import { IUserReadRepository } from "../repositories/interfaces/IUserReadRepository";
-import { logger } from "../utils/winston";
+import { DecodedUser, AdminContext } from "@/types";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { logger } from "@/utils/winston";
 
 declare global {
 	namespace Express {

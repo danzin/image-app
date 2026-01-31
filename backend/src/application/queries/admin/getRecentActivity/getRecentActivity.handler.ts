@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetRecentActivityQuery } from "./getRecentActivity.query";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { PaginationResult, IUserAction } from "../../../../types";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { PaginationResult, IUserAction } from "@/types";
 import mongoose from "mongoose";
 
 export interface ActivityItem {

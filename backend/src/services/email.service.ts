@@ -1,6 +1,6 @@
 import { injectable } from "tsyringe";
 import { Resend } from "resend";
-import { createError } from "../utils/errors";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class EmailService {

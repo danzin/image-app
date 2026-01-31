@@ -4,13 +4,13 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStubbedInstance } from "sinon";
 import { ClientSession, Types } from "mongoose";
-import { FavoriteService } from "../../services/favorite.service";
-import { FavoriteRepository } from "../../repositories/favorite.repository";
-import { UserRepository } from "../../repositories/user.repository";
-import { PostRepository } from "../../repositories/post.repository";
-import { UnitOfWork } from "../../database/UnitOfWork";
-import { DTOService } from "../../services/dto.service";
-import { IFavorite, PostDTO } from "../../types";
+import { FavoriteService } from "@/services/favorite.service";
+import { FavoriteRepository } from "@/repositories/favorite.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { PostRepository } from "@/repositories/post.repository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { DTOService } from "@/services/dto.service";
+import { IFavorite, PostDTO } from "@/types";
 
 chai.use(chaiAsPromised);
 
@@ -36,7 +36,7 @@ describe("FavoriteService", () => {
 			unitOfWork as unknown as UnitOfWork,
 			userRepository as unknown as UserRepository,
 			postRepository as unknown as PostRepository,
-			dtoService as unknown as DTOService
+			dtoService as unknown as DTOService,
 		);
 
 		unitOfWork.executeInTransaction.callsFake(async (callback) => callback(session));

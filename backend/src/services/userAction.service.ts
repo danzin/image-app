@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
-import { UserActionRepository } from "../repositories/userAction.repository";
-import { logger } from "../utils/winston";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class UserActionService {

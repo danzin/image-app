@@ -1,19 +1,19 @@
 import { container } from "tsyringe";
 
-import User from "../models/user.model";
-import Image, { Tag } from "../models/image.model";
-import Post from "../models/post.model";
-import PostLike from "../models/postLike.model";
-import PostView from "../models/postView.model";
-import { Comment } from "../models/comment.model";
-import { CommentLike } from "../models/commentLike.model";
-import Favorite from "../models/favorite.model";
-import Conversation from "../models/conversation.model";
-import Message from "../models/message.model";
-import Follow from "../models/follow.model";
-import Notification from "../models/notification.model";
-import UserAction from "../models/userAction.model";
-import { UserPreference } from "../models/userPreference.model";
+import User from "@/models/user.model";
+import Image, { Tag } from "@/models/image.model";
+import Post from "@/models/post.model";
+import PostLike from "@/models/postLike.model";
+import PostView from "@/models/postView.model";
+import { Comment } from "@/models/comment.model";
+import { CommentLike } from "@/models/commentLike.model";
+import Favorite from "@/models/favorite.model";
+import Conversation from "@/models/conversation.model";
+import Message from "@/models/message.model";
+import Follow from "@/models/follow.model";
+import Notification from "@/models/notification.model";
+import UserAction from "@/models/userAction.model";
+import { UserPreference } from "@/models/userPreference.model";
 import { WebSocketServer } from "../server/socketServer";
 
 export function registerCoreComponents(): void {

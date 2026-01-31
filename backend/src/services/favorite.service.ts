@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { FavoriteRepository } from "../repositories/favorite.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { PostRepository } from "../repositories/post.repository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { FavoriteRepository } from "@/repositories/favorite.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { PostRepository } from "@/repositories/post.repository";
 import { DTOService } from "./dto.service";
-import { IFavorite, PaginationResult, PostDTO } from "../types";
-import { createError } from "../utils/errors";
+import { IFavorite, PaginationResult, PostDTO } from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class FavoriteService {

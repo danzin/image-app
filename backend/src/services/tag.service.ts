@@ -1,9 +1,9 @@
 import { inject, injectable } from "tsyringe";
 import mongoose, { ClientSession } from "mongoose";
-import { TagRepository } from "../repositories/tag.repository";
+import { TagRepository } from "@/repositories/tag.repository";
 import { RedisService } from "./redis.service";
-import { ITag } from "../types/index";
-import { logger } from "../utils/winston";
+import { ITag } from "@/types/index";
+import { logger } from "@/utils/winston";
 
 // key for tracking tag activity metrics
 export const TAG_ACTIVITY_METRICS_KEY = "trending_tags:activity_metrics";

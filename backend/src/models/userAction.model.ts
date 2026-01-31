@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IUserAction } from "../types";
+import { IUserAction } from "@/types";
 
 const userActionSchema = new Schema<IUserAction>({
 	userId: { type: Schema.Types.ObjectId, ref: "User", required: true },

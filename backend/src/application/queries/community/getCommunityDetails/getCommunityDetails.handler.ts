@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { Types } from "mongoose";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetCommunityDetailsQuery } from "./getCommunityDetails.query";
-import { CommunityRepository } from "../../../../repositories/community.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { ICommunity } from "../../../../types";
-import { createError } from "../../../../utils/errors";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { ICommunity } from "@/types";
+import { createError } from "@/utils/errors";
 
 interface CommunityDetailsResult extends Omit<ICommunity, never> {
 	isMember?: boolean;

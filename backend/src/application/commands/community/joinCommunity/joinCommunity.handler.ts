@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { Types } from "mongoose";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { JoinCommunityCommand } from "./joinCommunity.command";
-import { CommunityRepository } from "../../../../repositories/community.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { UserRepository } from "../../../../repositories/user.repository";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { createError } from "../../../../utils/errors";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class JoinCommunityCommandHandler implements ICommandHandler<JoinCommunityCommand, void> {

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IPostView } from "../types";
+import { IPostView } from "@/types";
 
 const postViewSchema = new Schema<IPostView>(
 	{

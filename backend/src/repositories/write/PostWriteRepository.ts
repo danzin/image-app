@@ -1,6 +1,6 @@
 import mongoose, { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IPost } from "../../types";
+import { IPost } from "@/types";
 import { IPostWriteRepository } from "../interfaces/IPostWriteRepository";
 import { PostRepository } from "../post.repository";
 

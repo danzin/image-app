@@ -1,8 +1,8 @@
 import { injectable } from "tsyringe";
 import { Server } from "socket.io";
 import { IRealtimeMessageHandler } from "../realtime/IRealtimeMessageHandler.interface";
-import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
-import { logger } from "../../../utils/winston";
+import { FeedUpdateMessage } from "@/services/real-time-feed.service";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class PostDeletedMessageHandler implements IRealtimeMessageHandler {

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IImage, ITag } from "../types";
+import { IImage, ITag } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
 const imageSchema = new Schema<IImage>({

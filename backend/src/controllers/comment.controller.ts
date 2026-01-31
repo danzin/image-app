@@ -1,11 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { CommentService } from "../services/comment.service";
-import { createError } from "../utils/errors";
+import { CommentService } from "@/services/comment.service";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
-import { CommandBus } from "../application/common/buses/command.bus";
-import { CreateCommentCommand } from "../application/commands/comments/createComment/createComment.command";
-import { DeleteCommentCommand } from "../application/commands/comments/deleteComment/deleteComment.command";
-import { LikeCommentCommand } from "../application/commands/comments/likeComment/likeComment.command";
+import { CommandBus } from "@/application/common/buses/command.bus";
+import { CreateCommentCommand } from "@/application/commands/comments/createComment/createComment.command";
+import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
+import { LikeCommentCommand } from "@/application/commands/comments/likeComment/likeComment.command";
 
 /**
  * Comment Controller
@@ -15,7 +15,7 @@ import { LikeCommentCommand } from "../application/commands/comments/likeComment
 export class CommentController {
 	constructor(
 		@inject("CommentService") private readonly commentService: CommentService,
-		@inject("CommandBus") private readonly commandBus: CommandBus
+		@inject("CommandBus") private readonly commandBus: CommandBus,
 	) {}
 
 	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {

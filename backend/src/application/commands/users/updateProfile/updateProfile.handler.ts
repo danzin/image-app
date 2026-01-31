@@ -1,14 +1,14 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { UpdateProfileCommand } from "./updateProfile.command";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
-import { EventBus } from "../../../common/buses/event.bus";
-import { UserUsernameChangedEvent } from "../../../events/user/user-interaction.event";
-import { createError } from "../../../../utils/errors";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { DTOService, PublicUserDTO } from "@/services/dto.service";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserUsernameChangedEvent } from "@/application/events/user/user-interaction.event";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfileCommand, PublicUserDTO> {

@@ -4,7 +4,7 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types, Document } from "mongoose";
-import { BaseRepository } from "../../repositories/base.repository";
+import { BaseRepository } from "@/repositories/base.repository";
 
 chai.use(chaiAsPromised);
 

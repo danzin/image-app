@@ -1,5 +1,5 @@
 import mongoose, { ClientSession } from "mongoose";
-import { IPost } from "../../types";
+import { IPost } from "@/types";
 
 /**
  * Write-only repository interface for post mutations

@@ -1,7 +1,7 @@
 import mongoose, { ClientSession, FilterQuery, ModifyResult, UpdateQuery } from "mongoose";
-import { IRepository } from "../types";
-import { createError } from "../utils/errors";
-import { logger } from "../utils/winston";
+import { IRepository } from "@/types";
+import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 
 /**
  * BaseRepository provides generic CRUD operations for MongoDB models.

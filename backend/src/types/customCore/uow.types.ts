@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
-import { ImageRepository } from "../../repositories/image.repository";
-import { UserRepository } from "../../repositories/user.repository";
+import { ImageRepository } from "@/repositories/image.repository";
+import { UserRepository } from "@/repositories/user.repository";
 
 export interface IUnitOfWork {
   commit(): Promise<void>;

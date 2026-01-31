@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
 import { GetDashboardStatsQuery } from "./getDashboardStats.query";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { ImageRepository } from "../../../../repositories/image.repository";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { ImageRepository } from "@/repositories/image.repository";
 
 export interface DashboardStatsResult {
 	totalUsers: number;

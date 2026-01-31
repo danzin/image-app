@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
 import { WebSocketServer } from "../server/socketServer";
-import { IRealtimeMessageHandler } from "../application/handlers/realtime/IRealtimeMessageHandler.interface";
-import { logger } from "../utils/winston";
+import { IRealtimeMessageHandler } from "@/application/handlers/realtime/IRealtimeMessageHandler.interface";
+import { logger } from "@/utils/winston";
 
 export interface FeedUpdateMessage {
 	type:

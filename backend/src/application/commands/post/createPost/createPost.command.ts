@@ -1,4 +1,4 @@
-import { ICommand } from "../../../common/interfaces/command.interface";
+import { ICommand } from "@/application/common/interfaces/command.interface";
 
 export class CreatePostCommand implements ICommand {
 	readonly type = "CreatePostCommand";

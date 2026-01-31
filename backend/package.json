@@ -5,21 +5,21 @@
 	"type": "commonjs",
 	"scripts": {
 		"test": "cross-env TS_NODE_PROJECT=tsconfig.test.json mocha",
-		"start:dev": "nodemon ./src/main.ts",
-		"start": "node ./dist/main.js",
-		"start:trending-worker": "ts-node ./src/workers/trending.worker.ts",
-		"start:trending-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/trending.worker.ts",
-		"start:trending-worker:prod": "node ./dist/workers/trending.worker.js",
-		"start:profile-sync-worker": "ts-node ./src/workers/profile-sync.worker.ts",
-		"start:profile-sync-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/profile-sync.worker.ts",
-		"start:profile-sync-worker:prod": "node ./dist/workers/profile-sync.worker.js",
-		"start:newFeedWarmCache-worker": "ts-node ./src/workers/newFeedWarmCache.worker.ts",
-		"start:newFeedWarmCache-worker:dev": "ts-node-dev --respawn --transpile-only --pretty ./src/workers/newFeedWarmCache.worker.ts",
-		"start:newFeedWarmCache-worker:prod": "node ./dist/workers/newFeedWarmCache.worker.js",
-		"seed:dev": "ts-node ./src/scripts/seed.ts --dev",
-		"seed:docker": "ts-node ./src/scripts/seed.ts --docker",
-		"stress-test": "ts-node ./src/scripts/stress-test.ts",
-		"build": "tsc"
+		"start:dev": "nodemon --exec \"ts-node -r tsconfig-paths/register\" ./src/main.ts",
+		"start": "node -r tsconfig-paths/register ./dist/main.js",
+		"start:trending-worker": "ts-node -r tsconfig-paths/register ./src/workers/trending.worker.ts",
+		"start:trending-worker:dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only --pretty ./src/workers/trending.worker.ts",
+		"start:trending-worker:prod": "node -r tsconfig-paths/register ./dist/workers/trending.worker.js",
+		"start:profile-sync-worker": "ts-node -r tsconfig-paths/register ./src/workers/profile-sync.worker.ts",
+		"start:profile-sync-worker:dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only --pretty ./src/workers/profile-sync.worker.ts",
+		"start:profile-sync-worker:prod": "node -r tsconfig-paths/register ./dist/workers/profile-sync.worker.js",
+		"start:newFeedWarmCache-worker": "ts-node -r tsconfig-paths/register ./src/workers/newFeedWarmCache.worker.ts",
+		"start:newFeedWarmCache-worker:dev": "ts-node-dev -r tsconfig-paths/register --respawn --transpile-only --pretty ./src/workers/newFeedWarmCache.worker.ts",
+		"start:newFeedWarmCache-worker:prod": "node -r tsconfig-paths/register ./dist/workers/newFeedWarmCache.worker.js",
+		"seed:dev": "ts-node -r tsconfig-paths/register ./src/scripts/seed.ts --dev",
+		"seed:docker": "ts-node -r tsconfig-paths/register ./src/scripts/seed.ts --docker",
+		"stress-test": "ts-node -r tsconfig-paths/register ./src/scripts/stress-test.ts",
+		"build": "tsc && tsc-alias"
 	},
 	"author": "",
 	"license": "ISC",
@@ -82,6 +82,8 @@
 		"mocha": "^11.2.2",
 		"sinon": "^20.0.0",
 		"supertest": "^7.0.0",
-		"ts-node": "^10.9.2"
+		"ts-node": "^10.9.2",
+		"tsc-alias": "^1.8.16",
+		"tsconfig-paths": "^4.2.0"
 	}
 }

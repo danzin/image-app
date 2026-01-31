@@ -1,21 +1,21 @@
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { CreateCommentCommand } from "./createComment.command";
-import { EventBus } from "../../../common/buses/event.bus";
-import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { CommentRepository } from "../../../../repositories/comment.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "../../../../services/notification.service";
-import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { NotificationService } from "@/services/notification.service";
+import { createError } from "@/utils/errors";
+import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
-import { sanitizeForMongo, isValidPublicId } from "../../../../utils/sanitizers";
-import { IComment, TransformedComment } from "types/index";
+import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
+import { IComment, TransformedComment } from "@/types";
 import mongoose from "mongoose";
-import { logger } from "../../../../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
@@ -27,7 +27,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler
+		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**
@@ -214,7 +214,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(command.userPublicId, "comment", sanitizedPostId, postTags, postOwnerId),
-					this.feedInteractionHandler
+					this.feedInteractionHandler,
 				);
 			});
 

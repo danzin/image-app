@@ -8,9 +8,9 @@ import {
 	updateCommentSchema,
 	commentIdSchema,
 	commentsQuerySchema,
-} from "../utils/schemas/comment.schemas";
-import { postPublicIdSchema } from "../utils/schemas/post.schemas";
-import { publicIdSchema as userPublicIdSchema } from "../utils/schemas/user.schemas";
+} from "@/utils/schemas/comment.schemas";
+import { postPublicIdSchema } from "@/utils/schemas/post.schemas";
+import { publicIdSchema as userPublicIdSchema } from "@/utils/schemas/user.schemas";
 
 @injectable()
 export class CommentRoutes {

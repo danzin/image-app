@@ -1,7 +1,7 @@
 import mongoose, { Model, ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IFavorite, IPost } from "types/index";
+import { IFavorite, IPost } from "@/types";
 
 @injectable()
 export class FavoriteRepository extends BaseRepository<IFavorite> {
@@ -27,7 +27,7 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 	async findFavoritesByUserId(
 		userId: string,
 		page: number = 1,
-		limit: number = 20
+		limit: number = 20,
 	): Promise<{ data: IPost[]; total: number }> {
 		const skip = (page - 1) * limit;
 

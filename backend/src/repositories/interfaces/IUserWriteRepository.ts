@@ -1,5 +1,5 @@
 import { ClientSession } from "mongoose";
-import { IUser } from "../../types";
+import { IUser } from "@/types";
 
 /**
  * Write-only repository interface for user mutations

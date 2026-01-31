@@ -5,7 +5,7 @@ import "reflect-metadata";
 // Integration test to verify security features work together
 describe("Security - NoSQL Injection & XSS Prevention", () => {
 	it("should have sanitizer utilities available", () => {
-		const { sanitizeForMongo, isValidPublicId, sanitizeTextInput } = require("../../utils/sanitizers");
+		const { sanitizeForMongo, isValidPublicId, sanitizeTextInput } = require("@/utils/sanitizers");
 
 		expect(sanitizeForMongo).to.exist;
 		expect(isValidPublicId).to.exist;
@@ -13,7 +13,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should sanitize NoSQL operators through the full stack", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const maliciousPayload = {
 			username: "admin",
@@ -31,7 +31,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should strip XSS through sanitizeTextInput", () => {
-		const { sanitizeTextInput } = require("../../utils/sanitizers");
+		const { sanitizeTextInput } = require("@/utils/sanitizers");
 
 		const xssInput = '<script>alert("XSS")</script>Safe content';
 		const sanitized = sanitizeTextInput(xssInput);
@@ -41,7 +41,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should validate publicId format", () => {
-		const { isValidPublicId } = require("../../utils/sanitizers");
+		const { isValidPublicId } = require("@/utils/sanitizers");
 
 		const validUuid = "bcac4271-2976-4d96-bb5b-364edc5eea0c";
 		const invalidUuid = "not-a-uuid";
@@ -53,7 +53,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should prevent prototype pollution through sanitizeForMongo", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const maliciousPayload = {
 			normalField: "safe",
@@ -72,13 +72,13 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should have CreatePostCommandHandler using sanitizers", () => {
-		const { CreatePostCommandHandler } = require("../../application/commands/post/createPost/createPost.handler");
+		const { CreatePostCommandHandler } = require("@/application/commands/post/createPost/createPost.handler");
 
 		expect(CreatePostCommandHandler).to.exist;
 
 		// verify handler file imports sanitizers
 		const handlerSource = require("fs").readFileSync(
-			require("path").join(__dirname, "../../application/commands/post/createPost/createPost.handler.ts"),
+			require("path").join(__dirname, "@/application/commands/post/createPost/createPost.handler.ts"),
 			"utf8"
 		);
 
@@ -90,13 +90,13 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	it("should have CreateCommentCommandHandler using sanitizers", () => {
 		const {
 			CreateCommentCommandHandler,
-		} = require("../../application/commands/comments/createComment/create-comment.handler");
+		} = require("@/application/commands/comments/createComment/create-comment.handler");
 
 		expect(CreateCommentCommandHandler).to.exist;
 
 		// verify handler uses sanitizers
 		const handlerSource = require("fs").readFileSync(
-			require("path").join(__dirname, "../../application/commands/comments/createComment/create-comment.handler.ts"),
+			require("path").join(__dirname, "@/application/commands/comments/createComment/create-comment.handler.ts"),
 			"utf8"
 		);
 
@@ -105,7 +105,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should strip path traversal attacks", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const malicious = {
 			"user.role": "admin",
@@ -123,7 +123,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should handle deeply nested malicious payloads", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const malicious = {
 			level1: {
@@ -152,7 +152,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should sanitize arrays of malicious objects", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const malicious = {
 			tags: [{ $gt: 0 }, { __proto__: { evil: true } }, { "bad.path": "value" }, { safe: "tag" }],
@@ -166,7 +166,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should enforce text length limits", () => {
-		const { sanitizeTextInput } = require("../../utils/sanitizers");
+		const { sanitizeTextInput } = require("@/utils/sanitizers");
 
 		const longText = "a".repeat(5001);
 
@@ -174,7 +174,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should reject empty input after sanitization", () => {
-		const { sanitizeTextInput } = require("../../utils/sanitizers");
+		const { sanitizeTextInput } = require("@/utils/sanitizers");
 
 		const onlyHtml = "<script>alert('xss')</script><div></div>";
 
@@ -182,7 +182,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should preserve MongoDB ObjectIds during sanitization", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 		const mongoose = require("mongoose");
 
 		const objectId = new mongoose.Types.ObjectId();
@@ -200,7 +200,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should handle all MongoDB injection operators", () => {
-		const { sanitizeForMongo } = require("../../utils/sanitizers");
+		const { sanitizeForMongo } = require("@/utils/sanitizers");
 
 		const malicious = {
 			$where: "malicious code",
@@ -219,7 +219,7 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should strip common XSS vectors", () => {
-		const { sanitizeTextInput } = require("../../utils/sanitizers");
+		const { sanitizeTextInput } = require("@/utils/sanitizers");
 
 		const xssVectors = [
 			{ input: '<script>alert("XSS")</script>Safe', expected: "Safe" },
@@ -241,8 +241,8 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	});
 
 	it("should have error handling for CreatePost command", () => {
-		const { CreatePostCommandHandler } = require("../../application/commands/post/createPost/createPost.handler");
-		const { createError } = require("../../utils/errors");
+		const { CreatePostCommandHandler } = require("@/application/commands/post/createPost/createPost.handler");
+		const { createError } = require("@/utils/errors");
 
 		expect(CreatePostCommandHandler).to.exist;
 
@@ -254,8 +254,8 @@ describe("Security - NoSQL Injection & XSS Prevention", () => {
 	it("should have error handling for CreateComment command", () => {
 		const {
 			CreateCommentCommandHandler,
-		} = require("../../application/commands/comments/createComment/create-comment.handler");
-		const { createError } = require("../../utils/errors");
+		} = require("@/application/commands/comments/createComment/create-comment.handler");
+		const { createError } = require("@/utils/errors");
 
 		expect(CreateCommentCommandHandler).to.exist;
 

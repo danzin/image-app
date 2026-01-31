@@ -1,4 +1,4 @@
-import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
+import { FeedUpdateMessage } from "@/services/real-time-feed.service";
 
 export interface IRealtimeMessageHandler {
 	/**

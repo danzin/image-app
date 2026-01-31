@@ -1,11 +1,11 @@
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetLikedPostsByUserQuery } from "./getLikedPostsByUser.query";
 import { inject, injectable } from "tsyringe";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
-import { DTOService } from "../../../../services/dto.service";
-import { PaginationResult, PostDTO } from "../../../../types";
-import { createError } from "../../../../utils/errors";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import { DTOService } from "@/services/dto.service";
+import { PaginationResult, PostDTO } from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsByUserQuery, PaginationResult<PostDTO>> {

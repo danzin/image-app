@@ -1,14 +1,14 @@
 import { inject, injectable } from "tsyringe";
 import { FollowUserCommand } from "./followUser.command";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { NotificationService } from "../../../../services/notification.service";
-import { RedisService } from "../../../../services/redis.service";
-import { createError } from "../../../../utils/errors";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { NotificationService } from "@/services/notification.service";
+import { RedisService } from "@/services/redis.service";
+import { createError } from "@/utils/errors";
 
 export interface FollowUserResult {
 	action: "followed" | "unfollowed";

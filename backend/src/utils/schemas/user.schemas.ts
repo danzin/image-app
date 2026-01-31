@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sanitizeForMongo } from "../../utils/sanitizers";
+import { sanitizeForMongo } from "@/utils/sanitizers";
 
 export const publicIdSchema = z
 	.object({

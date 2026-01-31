@@ -1,20 +1,20 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { CommandBus } from "../application/common/buses/command.bus";
-import { QueryBus } from "../application/common/buses/query.bus";
-import { CreateCommunityCommand } from "../application/commands/community/createCommunity/createCommunity.command";
-import { JoinCommunityCommand } from "../application/commands/community/joinCommunity/joinCommunity.command";
-import { LeaveCommunityCommand } from "../application/commands/community/leaveCommunity/leaveCommunity.command";
-import { GetCommunityDetailsQuery } from "../application/queries/community/getCommunityDetails/getCommunityDetails.query";
-import { GetUserCommunitiesQuery } from "../application/queries/community/getUserCommunities/getUserCommunities.query";
-import { GetCommunityFeedQuery } from "../application/queries/community/getCommunityFeed/getCommunityFeed.query";
-import { GetAllCommunitiesQuery } from "../application/queries/community/getAllCommunities/getAllCommunities.query";
-import { GetCommunityMembersQuery } from "../application/queries/community/getCommunityMembers/getCommunityMembers.query";
-import { UpdateCommunityCommand } from "../application/commands/community/updateCommunity/updateCommunity.command";
-import { DeleteCommunityCommand } from "../application/commands/community/deleteCommunity/deleteCommunity.command";
-import { KickMemberCommand } from "../application/commands/community/kickMember/kickMember.command";
-import { createError } from "../utils/errors";
-import { ICommunity } from "../types";
+import { CommandBus } from "@/application/common/buses/command.bus";
+import { QueryBus } from "@/application/common/buses/query.bus";
+import { CreateCommunityCommand } from "@/application/commands/community/createCommunity/createCommunity.command";
+import { JoinCommunityCommand } from "@/application/commands/community/joinCommunity/joinCommunity.command";
+import { LeaveCommunityCommand } from "@/application/commands/community/leaveCommunity/leaveCommunity.command";
+import { GetCommunityDetailsQuery } from "@/application/queries/community/getCommunityDetails/getCommunityDetails.query";
+import { GetUserCommunitiesQuery } from "@/application/queries/community/getUserCommunities/getUserCommunities.query";
+import { GetCommunityFeedQuery } from "@/application/queries/community/getCommunityFeed/getCommunityFeed.query";
+import { GetAllCommunitiesQuery } from "@/application/queries/community/getAllCommunities/getAllCommunities.query";
+import { GetCommunityMembersQuery } from "@/application/queries/community/getCommunityMembers/getCommunityMembers.query";
+import { UpdateCommunityCommand } from "@/application/commands/community/updateCommunity/updateCommunity.command";
+import { DeleteCommunityCommand } from "@/application/commands/community/deleteCommunity/deleteCommunity.command";
+import { KickMemberCommand } from "@/application/commands/community/kickMember/kickMember.command";
+import { createError } from "@/utils/errors";
+import { ICommunity } from "@/types";
 
 @injectable()
 export class CommunityController {

@@ -1,19 +1,19 @@
 import { inject, injectable } from "tsyringe";
-import { PostRepository } from "../repositories/post.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { UserPreferenceRepository } from "../repositories/userPreference.repository";
-import { UserActionRepository } from "../repositories/userAction.repository";
-import { FollowRepository } from "../repositories/follow.repository";
-import { createError } from "../utils/errors";
+import { PostRepository } from "@/repositories/post.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { createError } from "@/utils/errors";
 import { RedisService } from "./redis.service";
 import { DTOService } from "./dto.service";
 import { FeedEnrichmentService } from "./feed-enrichment.service";
-import { EventBus } from "../application/common/buses/event.bus";
-import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "../types";
-import { ColdStartFeedGeneratedEvent } from "../application/events/ColdStartFeedGenerated.event";
-import { logger } from "../utils/winston";
-import { CacheConfig } from "../config/cacheConfig";
-import { CacheKeyBuilder } from "../utils/cache/CacheKeyBuilder";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "@/types";
+import { ColdStartFeedGeneratedEvent } from "@/application/events/ColdStartFeedGenerated.event";
+import { logger } from "@/utils/winston";
+import { CacheConfig } from "@/config/cacheConfig";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 /**
  * @class FeedService

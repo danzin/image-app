@@ -1,10 +1,10 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
-import { createError } from "../utils/errors";
-import { CloudinaryDeleteResponse, DeletionResult } from "../types";
+import { createError } from "@/utils/errors";
+import { CloudinaryDeleteResponse, DeletionResult } from "@/types";
 import { injectable, inject } from "tsyringe";
-import { IImageStorageService } from "../types/customImageStorage/imageStorage.types";
-import { logger } from "../utils/winston";
+import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
+import { logger } from "@/utils/winston";
 import { RetryService, RetryPresets } from "./retry.service";
 
 @injectable()

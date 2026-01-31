@@ -2,11 +2,11 @@ import "reflect-metadata";
 import { describe, it, before, after, beforeEach } from "mocha";
 import { expect } from "chai";
 import { container } from "tsyringe";
-import { RedisService } from "../../services/redis.service";
-import { TagService, TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "../../services/tag.service";
-import { GetTrendingTagsQueryHandler } from "../../application/queries/tags/getTrendingTags/getTrendingTags.handler";
-import { GetTrendingTagsQuery } from "../../application/queries/tags/getTrendingTags/getTrendingTags.query";
-import { MetricsService } from "../../metrics/metrics.service";
+import { RedisService } from "@/services/redis.service";
+import { TagService, TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "@/services/tag.service";
+import { GetTrendingTagsQueryHandler } from "@/application/queries/tags/getTrendingTags/getTrendingTags.handler";
+import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
+import { MetricsService } from "@/metrics/metrics.service";
 import mongoose from "mongoose";
 
 /**

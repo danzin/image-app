@@ -4,7 +4,7 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Types } from "mongoose";
-import { TagService } from "../../services/tag.service";
+import { TagService } from "@/services/tag.service";
 
 chai.use(chaiAsPromised);
 
@@ -72,7 +72,7 @@ describe("TagService", () => {
 			expect(mockTagRepository.findByTags.calledOnce).to.be.true;
 			const args = mockTagRepository.findByTags.firstCall.args;
 			expect(args[0]).to.have.members(["nature", "landscape"]);
-			
+
 			expect(result).to.have.lengthOf(2);
 			expect(result[0]._id.toString()).to.equal(existingTags[0]._id.toString());
 			expect(result[1]._id.toString()).to.equal(existingTags[1]._id.toString());

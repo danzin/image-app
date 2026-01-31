@@ -1,11 +1,11 @@
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetWhoToFollowQuery } from "./getWhoToFollow.query";
 import { inject, injectable } from "tsyringe";
-import { IUserReadRepository } from "../../../../repositories/interfaces";
-import { RedisService } from "../../../../services/redis.service";
-import { UserActivityService, PlatformActivityLevel } from "../../../../services/user-activity.service";
-import { createError } from "../../../../utils/errors";
-import { logger } from "../../../../utils/winston";
+import { IUserReadRepository } from "@/repositories/interfaces";
+import { RedisService } from "@/services/redis.service";
+import { UserActivityService, PlatformActivityLevel } from "@/services/user-activity.service";
+import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 
 export interface SuggestedUser {
 	publicId: string;

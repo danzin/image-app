@@ -1,7 +1,7 @@
 import { container } from "tsyringe";
 import * as cron from "node-cron";
-import { FeedService } from "../../services/feed.service";
-import { logger } from "../../utils/winston";
+import { FeedService } from "@/services/feed.service";
+import { logger } from "@/utils/winston";
 
 export class NewFeedWarmCacheWorker {
 	private cronJob?: cron.ScheduledTask;

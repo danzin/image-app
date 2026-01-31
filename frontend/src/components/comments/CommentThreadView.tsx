@@ -59,7 +59,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 	const deleteCommentMutation = useDeleteComment();
 	const likeCommentMutation = useLikeComment();
 
-	const isOwner = user?.publicId === comment.user.publicId;
+	const isOwner = user?.publicId === comment.user?.publicId;
 	const isMenuOpen = Boolean(anchorEl);
 
 	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -158,6 +158,106 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 		}
 	};
 
+	// render deleted comment placeholder
+	if (comment.isDeleted) {
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					gap: isMobile ? 1 : 1.5,
+					py: isFocused ? (isMobile ? 1.5 : 2) : isMobile ? 1 : 1.5,
+					px: isMobile ? 1.5 : 2,
+					cursor: isAncestor || (!isFocused && (comment.replyCount ?? 0) > 0) ? "pointer" : "default",
+					bgcolor: isFocused ? "action.selected" : "transparent",
+					opacity: 0.6,
+					"&:hover": {
+						bgcolor: isAncestor || !isFocused ? "action.hover" : isFocused ? "action.selected" : "transparent",
+					},
+					position: "relative",
+				}}
+				onClick={isAncestor ? handleAncestorClick : handleCommentClick}
+			>
+				{/* Avatar column with thread line */}
+				<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
+					<Avatar
+						sx={{
+							width: isFocused ? (isMobile ? 40 : 48) : isMobile ? 32 : 40,
+							height: isFocused ? (isMobile ? 40 : 48) : isMobile ? 32 : 40,
+							bgcolor: "action.disabledBackground",
+						}}
+					>
+						?
+					</Avatar>
+					{isAncestor && (
+						<Box
+							sx={{
+								width: 2,
+								flexGrow: 1,
+								bgcolor: "divider",
+								mt: 0.5,
+							}}
+						/>
+					)}
+				</Box>
+
+				{/* Content */}
+				<Box sx={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5, flexWrap: "wrap" }}>
+						<Typography
+							variant={isFocused ? "subtitle1" : "subtitle2"}
+							component="span"
+							sx={{
+								fontWeight: 600,
+								color: "text.disabled",
+								fontSize: isMobile ? (isFocused ? "0.95rem" : "0.875rem") : undefined,
+							}}
+						>
+							[deleted]
+						</Typography>
+						<Typography variant="caption" color="text.disabled" sx={{ fontSize: isMobile ? "0.7rem" : undefined }}>
+							· {formatDate(comment.createdAt)}
+						</Typography>
+					</Box>
+
+					<Typography
+						variant={isFocused ? "body1" : "body2"}
+						sx={{
+							wordBreak: "break-word",
+							fontSize: isMobile ? (isFocused ? "0.9rem" : "0.8125rem") : undefined,
+							color: "text.disabled",
+							fontStyle: "italic",
+						}}
+					>
+						{comment.content}
+					</Typography>
+
+					{/* Show reply count for deleted comments */}
+					{(comment.replyCount ?? 0) > 0 && (
+						<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: isMobile ? 0.5 : 1 }}>
+							<ChatBubbleOutlineIcon fontSize="small" sx={{ color: "text.disabled", fontSize: isMobile ? 16 : 18 }} />
+							<Typography
+								variant="caption"
+								sx={{
+									color: "primary.main",
+									fontWeight: 600,
+									cursor: "pointer",
+									"&:hover": { textDecoration: "underline" },
+									fontSize: isMobile ? "0.7rem" : undefined,
+								}}
+								onClick={(e) => {
+									e.stopPropagation();
+									navigate(`/comments/${comment.id}`);
+								}}
+							>
+								{comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
+							</Typography>
+						</Box>
+					)}
+				</Box>
+			</Box>
+		);
+	}
+
 	return (
 		<Box
 			sx={{
@@ -177,26 +277,28 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 			{/* Avatar column with thread line */}
 			<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0 }}>
 				<Avatar
-					src={comment.user.avatar}
-					alt={comment.user.username}
+					src={comment.user?.avatar}
+					alt={comment.user?.username || "User"}
 					sx={{
 						width: isFocused ? (isMobile ? 40 : 48) : isMobile ? 32 : 40,
 						height: isFocused ? (isMobile ? 40 : 48) : isMobile ? 32 : 40,
-						cursor: "pointer",
+						cursor: comment.user ? "pointer" : "default",
 					}}
 					onClick={(e) => {
 						e.stopPropagation();
-						navigate(`/profile/${comment.user.publicId}`);
+						if (comment.user?.publicId) {
+							navigate(`/profile/${comment.user.publicId}`);
+						}
 					}}
 				>
-					{comment.user.avatar ? (
+					{comment.user?.avatar ? (
 						<img
-							src={comment.user.avatar.startsWith("http") ? comment.user.avatar : `/api/${comment.user.avatar}`}
-							alt={comment.user.username}
+							src={comment.user?.avatar?.startsWith("http") ? comment.user?.avatar : `/api/${comment.user?.avatar}`}
+							alt={comment.user?.username || "User"}
 							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
 					) : (
-						<span>{comment.user.username?.charAt(0).toUpperCase()}</span>
+						<span>{comment.user?.username?.charAt(0).toUpperCase() || "?"}</span>
 					)}
 				</Avatar>
 				{/* Thread connector line for ancestors */}
@@ -220,8 +322,8 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 						component="span"
 						sx={{
 							fontWeight: 600,
-							cursor: "pointer",
-							"&:hover": { textDecoration: "underline" },
+							cursor: comment.user ? "pointer" : "default",
+							"&:hover": comment.user ? { textDecoration: "underline" } : {},
 							fontSize: isMobile ? (isFocused ? "0.95rem" : "0.875rem") : undefined,
 							overflow: "hidden",
 							textOverflow: "ellipsis",
@@ -230,16 +332,18 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 						}}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigate(`/profile/${comment.user.publicId}`);
+							if (comment.user?.publicId) {
+								navigate(`/profile/${comment.user.publicId}`);
+							}
 						}}
 					>
-						{comment.user.username}
+						{comment.user?.username || "[unknown]"}
 					</Typography>
 					<Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? "0.7rem" : undefined }}>
 						· {formatDate(comment.createdAt)}
 						{comment.isEdited && " (edited)"}
 					</Typography>
-					{isOwner && (
+					{isOwner && !comment.isDeleted && (
 						<IconButton size="small" onClick={handleMenuClick} sx={{ ml: "auto", p: 0.5 }}>
 							<MoreVertIcon fontSize="small" />
 						</IconButton>
@@ -495,7 +599,7 @@ const CommentThreadView: React.FC = () => {
 								maxRows={4}
 								value={replyContent}
 								onChange={(e) => setReplyContent(e.target.value)}
-								placeholder={`Reply to @${comment.user.username}...`}
+								placeholder={`Reply to @${comment.user?.username || "comment"}...`}
 								variant="outlined"
 								size="small"
 								inputProps={{ maxLength: 280 }}

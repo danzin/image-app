@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { AppError, isAppError, isMongoDBDuplicateKeyError } from "../../utils/errors";
+import { AppError, isAppError, isMongoDBDuplicateKeyError } from "@/utils/errors";
 
 export class PostNotFoundError extends AppError {
 	constructor(message = "Post not found", context?: Record<string, unknown>) {

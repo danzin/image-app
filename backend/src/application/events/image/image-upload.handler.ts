@@ -1,10 +1,10 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { ImageUploadedEvent } from "./image.event";
-import { RedisService } from "../../../services/redis.service";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
-import { logger } from "../../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {

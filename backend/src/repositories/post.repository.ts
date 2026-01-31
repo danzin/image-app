@@ -8,8 +8,8 @@ import {
 	TrendingTag,
 	CursorPaginationOptions,
 	CursorPaginationResult,
-} from "../types";
-import { createError } from "../utils/errors";
+} from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {

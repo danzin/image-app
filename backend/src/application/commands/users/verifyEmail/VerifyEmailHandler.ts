@@ -1,9 +1,9 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { VerifyEmailCommand } from "./VerifyEmailCommand";
-import { createError } from "../../../../utils/errors";
-import { IUserReadRepository, IUserWriteRepository } from "../../../../repositories/interfaces";
-import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "../../../../services/dto.service";
+import { createError } from "@/utils/errors";
+import { IUserReadRepository, IUserWriteRepository } from "@/repositories/interfaces";
+import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "@/services/dto.service";
 
 export type VerifyEmailResult = AdminUserDTO | AuthenticatedUserDTO;
 

@@ -2,9 +2,9 @@ import "reflect-metadata";
 import { container } from "tsyringe";
 import { performance } from "perf_hooks";
 import type { RedisClientType } from "redis";
-import { RedisService } from "../../services/redis.service";
-import { PostRepository } from "../../repositories/post.repository";
-import { logger } from "../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { PostRepository } from "@/repositories/post.repository";
+import { logger } from "@/utils/winston";
 
 /** Handles trending feed updates and calculations
  * This worker uses a classic write-behind cache pattern. It runs the expensive mongo aggregation once
@@ -116,7 +116,7 @@ export class TrendingWorker {
 					this.GROUP,
 					this.CONSUMER,
 					{ key: this.STREAM, id: ">" },
-					{ COUNT: this.READ_COUNT, BLOCK: 5_000 }
+					{ COUNT: this.READ_COUNT, BLOCK: 5_000 },
 				);
 
 				if (!responses) {
@@ -180,8 +180,8 @@ export class TrendingWorker {
 					// fallback to parallel fetch (bounded by chunk size)
 					posts = await Promise.all(
 						postIds.map((id) =>
-							this.postRepo.findByPublicId ? this.postRepo.findByPublicId(id) : Promise.resolve(null)
-						)
+							this.postRepo.findByPublicId ? this.postRepo.findByPublicId(id) : Promise.resolve(null),
+						),
 					);
 				}
 
@@ -214,7 +214,7 @@ export class TrendingWorker {
 
 					logger.info(
 						`[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
-							`recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`
+							`recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`,
 					);
 
 					// update trending score in sorted set (use "trending:posts" key to match handler)
@@ -233,8 +233,8 @@ export class TrendingWorker {
 								lastUpdated: Date.now(),
 							},
 							metaTags,
-							300 // 5 min TTL
-						)
+							300, // 5 min TTL
+						),
 					);
 				}
 
@@ -276,7 +276,7 @@ export class TrendingWorker {
 				this.GROUP,
 				this.CONSUMER,
 				this.RECLAIM_MIN_IDLE_MS,
-				toClaim
+				toClaim,
 			)) as Array<{ id: string; message: Record<string, string> }>;
 
 			for (const msg of claimed) {
@@ -347,8 +347,8 @@ export class TrendingWorker {
 							lastUpdated: Date.now(),
 						},
 						metaTags,
-						300
-					)
+						300,
+					),
 				);
 			}
 

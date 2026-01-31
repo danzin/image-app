@@ -1,6 +1,6 @@
 import { ClientSession, Model } from "mongoose";
-import { ITag } from "../types";
-import { createError } from "../utils/errors";
+import { ITag } from "@/types";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 

@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { LogRequestCommand } from "./logRequest.command";
-import { RequestLogRepository } from "../../../../repositories/requestLog.repository";
+import { RequestLogRepository } from "@/repositories/requestLog.repository";
 
 @injectable()
 export class LogRequestCommandHandler implements ICommandHandler<LogRequestCommand, void> {

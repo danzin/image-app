@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from "uuid";
 import * as fs from "fs";
 import * as path from "path";
-import { IImageStorageService } from "../types";
+import { IImageStorageService } from "@/types";
 import { injectable } from "tsyringe";
-import { createError } from "../utils/errors";
-import { logger } from "../utils/winston";
+import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class LocalStorageService implements IImageStorageService {

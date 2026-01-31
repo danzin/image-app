@@ -2,9 +2,9 @@ import { describe, beforeEach, afterEach, it } from "mocha";
 import { expect } from "chai";
 import sinon, { SinonStub } from "sinon";
 import { Request, Response } from "express";
-import { FavoriteController } from "../../controllers/favorite.controller";
-import { FavoriteService } from "../../services/favorite.service";
-import { PaginationResult, PostDTO } from "../../types";
+import { FavoriteController } from "@/controllers/favorite.controller";
+import { FavoriteService } from "@/services/favorite.service";
+import { PaginationResult, PostDTO } from "@/types";
 
 interface TestRequest extends Request {
 	decodedUser?: {

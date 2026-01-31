@@ -1,8 +1,8 @@
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IRequestLog, PaginationOptions, PaginationResult } from "../types";
-import { RequestLogModel } from "../models/requestLog.model";
-import { createError } from "../utils/errors";
+import { IRequestLog, PaginationOptions, PaginationResult } from "@/types";
+import { RequestLogModel } from "@/models/requestLog.model";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class RequestLogRepository extends BaseRepository<IRequestLog> {

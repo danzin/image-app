@@ -1,10 +1,10 @@
 import "reflect-metadata";
 import { container } from "tsyringe";
 import mongoose from "mongoose";
-import { RedisService } from "../../services/redis.service";
-import { PostRepository } from "../../repositories/post.repository";
-import { UserRepository } from "../../repositories/user.repository";
-import { logger } from "../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { PostRepository } from "@/repositories/post.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { logger } from "@/utils/winston";
 
 interface ProfileSnapshotMessage {
 	type: "avatar_changed" | "username_changed";

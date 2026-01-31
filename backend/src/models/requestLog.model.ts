@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IRequestLog } from "types/index";
+import { IRequestLog } from "@/types";
 
 const RequestLogSchema = new Schema<IRequestLog>(
 	{
@@ -21,7 +21,7 @@ const RequestLogSchema = new Schema<IRequestLog>(
 			granularity: "seconds",
 		},
 		expireAfterSeconds: 60 * 60 * 24 * 30, // 30 days
-	}
+	},
 );
 
 export const RequestLogModel = mongoose.model<IRequestLog>("RequestLog", RequestLogSchema);

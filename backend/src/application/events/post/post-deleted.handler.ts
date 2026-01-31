@@ -1,9 +1,9 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { PostDeletedEvent } from "../../events/post/post.event";
-import { RedisService } from "../../../services/redis.service";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { logger } from "../../../utils/winston";
+import { PostDeletedEvent } from "@/application/events/post/post.event";
+import { RedisService } from "@/services/redis.service";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {

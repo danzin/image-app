@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { injectable, inject } from "tsyringe";
 import { MetricsService } from "../metrics/metrics.service";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { TransactionQueueService } from "../services/transaction-queue.service";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { TransactionQueueService } from "@/services/transaction-queue.service";
 
 @injectable()
 export class MetricsRoutes {

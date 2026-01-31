@@ -4,8 +4,8 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Types } from "mongoose";
-import { CreatePostCommand } from "../../../application/commands/post/createPost/createPost.command";
-import { CreatePostCommandHandler } from "../../../application/commands/post/createPost/createPost.handler";
+import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
+import { CreatePostCommandHandler } from "@/application/commands/post/createPost/createPost.handler";
 
 chai.use(chaiAsPromised);
 
@@ -154,7 +154,7 @@ describe("CreatePostCommandHandler", () => {
 			mockDTOService as any,
 			mockEventBus as any,
 			mockPostUploadHandler as any,
-			mockNotificationService as any
+			mockNotificationService as any,
 		);
 
 		command = new CreatePostCommand(
@@ -162,7 +162,7 @@ describe("CreatePostCommandHandler", () => {
 			"Beautiful sunset at the beach #sunset #beach",
 			["nature"],
 			"/uploads/sunset.jpg",
-			"sunset.jpg"
+			"sunset.jpg",
 		);
 	});
 
@@ -239,11 +239,11 @@ describe("CreatePostCommandHandler", () => {
 			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["sunset", "beach", "nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
-			
+
 			// Mock upload and create record separately
 			mockImageService.uploadImage.resolves({ url: "/uploads/img-456.jpg", publicId: "cloudinary-id-123" });
 			mockImageService.createImageRecord.resolves(mockImageResponse);
-			
+
 			mockPostWriteRepository.create.resolves(mockCreatedPost);
 			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 
@@ -270,10 +270,10 @@ describe("CreatePostCommandHandler", () => {
 			expect(mockUserReadRepository.findByPublicId.calledWith(VALID_USER_PUBLIC_ID)).to.be.true;
 			expect(mockTagService.collectTagNames.called).to.be.true;
 			expect(mockTagService.ensureTagsExist.called).to.be.true;
-			
+
 			expect(mockImageService.uploadImage.called).to.be.true;
 			expect(mockImageService.createImageRecord.called).to.be.true;
-			
+
 			expect(mockPostWriteRepository.create.called).to.be.true;
 			expect(mockUnitOfWork.executeInTransaction.called).to.be.true;
 			expect(mockDTOService.toPostDTO.calledWith(mockHydratedPost)).to.be.true;
@@ -324,10 +324,10 @@ describe("CreatePostCommandHandler", () => {
 			mockUserReadRepository.findByPublicId.resolves(mockUser);
 			mockTagService.collectTagNames.returns(["nature"]);
 			mockTagService.ensureTagsExist.resolves(mockTagDocs);
-			
+
 			mockImageService.uploadImage.resolves({ url, publicId: "cloudinary-id-123" });
 			mockImageService.createImageRecord.resolves(mockImageSummary);
-			
+
 			mockPostWriteRepository.create.resolves(mockCreatedPost);
 			mockPostReadRepository.findByPublicId.resolves(mockHydratedPost);
 

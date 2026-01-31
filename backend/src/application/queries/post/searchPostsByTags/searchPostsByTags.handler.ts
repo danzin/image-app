@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { SearchPostsByTagsQuery } from "./searchPostsByTags.query";
-import { IPostReadRepository } from "../../../../repositories/interfaces";
-import { TagService } from "../../../../services/tag.service";
-import { DTOService } from "../../../../services/dto.service";
-import { PaginationResult, PostDTO } from "../../../../types";
+import { IPostReadRepository } from "@/repositories/interfaces";
+import { TagService } from "@/services/tag.service";
+import { DTOService } from "@/services/dto.service";
+import { PaginationResult, PostDTO } from "@/types";
 
 @injectable()
 export class SearchPostsByTagsQueryHandler implements IQueryHandler<SearchPostsByTagsQuery, PaginationResult<PostDTO>> {

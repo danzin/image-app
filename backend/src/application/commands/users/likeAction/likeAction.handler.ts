@@ -1,21 +1,21 @@
-import { ICommandHandler } from "../../../../application/common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { LikeActionCommand } from "./likeAction.command";
-import { IPost } from "../../../../types/index";
-import { EventBus } from "../../../../application/common/buses/event.bus";
-import { UserInteractedWithPostEvent } from "../../../../application/events/user/user-interaction.event";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "../../../../services/notification.service";
-import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
-import { FeedService } from "../../../../services/feed.service";
+import { IPost } from "@/types/index";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { NotificationService } from "@/services/notification.service";
+import { createError } from "@/utils/errors";
+import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { FeedService } from "@/services/feed.service";
 import { ClientSession } from "mongoose";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { logger } from "../../../../utils/winston";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { logger } from "@/utils/winston";
 @injectable()
 export class LikeActionCommandHandler implements ICommandHandler<LikeActionCommand, IPost> {
 	constructor(

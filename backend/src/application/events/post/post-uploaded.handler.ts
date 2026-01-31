@@ -1,12 +1,12 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { PostUploadedEvent } from "../../events/post/post.event";
-import { RedisService } from "../../../services/redis.service";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
-import { UserActivityService } from "../../../services/user-activity.service";
-import { CacheKeyBuilder } from "../../../utils/cache/CacheKeyBuilder";
-import { logger } from "../../../utils/winston";
+import { PostUploadedEvent } from "@/application/events/post/post.event";
+import { RedisService } from "@/services/redis.service";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { UserActivityService } from "@/services/user-activity.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {

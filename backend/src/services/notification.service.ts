@@ -1,14 +1,14 @@
 import { ClientSession } from "mongoose";
-import { NotificationRepository } from "../repositories/notification.respository";
-import { INotification, NotificationPlain } from "../types";
-import { createError, isErrorWithStatusCode } from "../utils/errors";
+import { NotificationRepository } from "@/repositories/notification.respository";
+import { INotification, NotificationPlain } from "@/types";
+import { createError, isErrorWithStatusCode } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
-import { UserRepository } from "../repositories/user.repository";
-import { ImageRepository } from "../repositories/image.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { ImageRepository } from "@/repositories/image.repository";
 import { RedisService } from "./redis.service";
-import { redisLogger, errorLogger, logger } from "../utils/winston";
+import { redisLogger, errorLogger, logger } from "@/utils/winston";
 
 @injectable()
 export class NotificationService {

@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { ICommunity } from "../types";
-import { Community } from "../models/community.model";
+import { ICommunity } from "@/types";
+import { Community } from "@/models/community.model";
 
 @injectable()
 export class CommunityRepository extends BaseRepository<ICommunity> {

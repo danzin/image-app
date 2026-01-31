@@ -1,10 +1,10 @@
-import { IQueryHandler } from "../../../../application/common/interfaces/query-handler.interface";
-import { GetMeQuery } from "../../../queries/users/getMe/getMe.query";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
+import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
 import { inject, injectable } from "tsyringe";
-import { IUserReadRepository } from "../../../../repositories/interfaces";
-import { createError } from "../../../../utils/errors";
-import { IUser } from "../../../../types/index.js";
-import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "../../../../services/dto.service";
+import { IUserReadRepository } from "@/repositories/interfaces";
+import { createError } from "@/utils/errors";
+import { IUser } from "@/types/index.js";
+import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "@/services/dto.service";
 import jwt from "jsonwebtoken";
 
 export interface GetMeResult {

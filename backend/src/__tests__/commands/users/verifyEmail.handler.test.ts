@@ -3,8 +3,8 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import chai from "chai";
 import sinon, { SinonStub } from "sinon";
-import { VerifyEmailHandler } from "../../../application/commands/users/verifyEmail/VerifyEmailHandler";
-import { VerifyEmailCommand } from "../../../application/commands/users/verifyEmail/VerifyEmailCommand";
+import { VerifyEmailHandler } from "@/application/commands/users/verifyEmail/VerifyEmailHandler";
+import { VerifyEmailCommand } from "@/application/commands/users/verifyEmail/VerifyEmailCommand";
 
 chai.use(chaiAsPromised);
 

@@ -1,14 +1,14 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { CommentRepository } from "../../../../repositories/comment.repository";
-import { CommentLikeRepository } from "../../../../repositories/commentLike.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { NotificationService } from "../../../../services/notification.service";
-import { createError } from "../../../../utils/errors";
-import { CommentLikeResult, IComment } from "../../../../types";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { CommentLikeRepository } from "@/repositories/commentLike.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { NotificationService } from "@/services/notification.service";
+import { createError } from "@/utils/errors";
+import { CommentLikeResult, IComment } from "@/types";
 import { LikeCommentCommand } from "./likeComment.command";
 
 @injectable()

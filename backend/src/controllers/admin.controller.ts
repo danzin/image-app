@@ -1,25 +1,25 @@
 import { Request, Response, NextFunction } from "express";
 import { injectable, inject } from "tsyringe";
-import { createError } from "../utils/errors";
-import { CommandBus } from "../application/common/buses/command.bus";
-import { QueryBus } from "../application/common/buses/query.bus";
-import { DeletePostCommand } from "../application/commands/post/deletePost/deletePost.command";
-import { DeleteUserCommand } from "../application/commands/users/deleteUser/deleteUser.command";
-import { GetAllPostsAdminQuery } from "../application/queries/post/getAllPostsAdmin/getAllPostsAdmin.query";
-import { GetDashboardStatsQuery } from "../application/queries/admin/getDashboardStats/getDashboardStats.query";
-import { DashboardStatsResult } from "../application/queries/admin/getDashboardStats/getDashboardStats.handler";
-import { PaginationResult, PostDTO } from "../types";
-import { GetAllUsersAdminQuery } from "../application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
-import { GetAdminUserProfileQuery } from "../application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
-import { GetUserStatsQuery } from "../application/queries/admin/getUserStats/getUserStats.query";
-import { GetRecentActivityQuery } from "../application/queries/admin/getRecentActivity/getRecentActivity.query";
-import { GetRequestLogsQuery } from "../application/queries/admin/getRequestLogs/getRequestLogs.query";
-import { BanUserCommand } from "../application/commands/admin/banUser/banUser.command";
-import { UnbanUserCommand } from "../application/commands/admin/unbanUser/unbanUser.command";
-import { PromoteToAdminCommand } from "../application/commands/admin/promoteToAdmin/promoteToAdmin.command";
-import { DemoteFromAdminCommand } from "../application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
-import { AdminUserDTO } from "../services/dto.service";
-import { RedisService } from "../services/redis.service";
+import { createError } from "@/utils/errors";
+import { CommandBus } from "@/application/common/buses/command.bus";
+import { QueryBus } from "@/application/common/buses/query.bus";
+import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
+import { DeleteUserCommand } from "@/application/commands/users/deleteUser/deleteUser.command";
+import { GetAllPostsAdminQuery } from "@/application/queries/post/getAllPostsAdmin/getAllPostsAdmin.query";
+import { GetDashboardStatsQuery } from "@/application/queries/admin/getDashboardStats/getDashboardStats.query";
+import { DashboardStatsResult } from "@/application/queries/admin/getDashboardStats/getDashboardStats.handler";
+import { PaginationResult, PostDTO } from "@/types";
+import { GetAllUsersAdminQuery } from "@/application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
+import { GetAdminUserProfileQuery } from "@/application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
+import { GetUserStatsQuery } from "@/application/queries/admin/getUserStats/getUserStats.query";
+import { GetRecentActivityQuery } from "@/application/queries/admin/getRecentActivity/getRecentActivity.query";
+import { GetRequestLogsQuery } from "@/application/queries/admin/getRequestLogs/getRequestLogs.query";
+import { BanUserCommand } from "@/application/commands/admin/banUser/banUser.command";
+import { UnbanUserCommand } from "@/application/commands/admin/unbanUser/unbanUser.command";
+import { PromoteToAdminCommand } from "@/application/commands/admin/promoteToAdmin/promoteToAdmin.command";
+import { DemoteFromAdminCommand } from "@/application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
+import { AdminUserDTO } from "@/services/dto.service";
+import { RedisService } from "@/services/redis.service";
 
 @injectable()
 export class AdminUserController {

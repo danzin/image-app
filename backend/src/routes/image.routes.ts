@@ -1,9 +1,9 @@
 import express from "express";
 import { ImageController } from "../controllers/image.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import { slugSchema, publicIdSchema, searchByTagsSchema } from "../utils/schemas/post.schemas";
-import { usernameSchema } from "../utils/schemas/user.schemas";
-import upload from "../config/multer";
+import { slugSchema, publicIdSchema, searchByTagsSchema } from "@/utils/schemas/post.schemas";
+import { usernameSchema } from "@/utils/schemas/user.schemas";
+import upload from "@/config/multer";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
 

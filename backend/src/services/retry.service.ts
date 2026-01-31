@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 /**
  * Configuration for retry operations

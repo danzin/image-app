@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetUserStatsQuery } from "./getUserStats.query";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { ImageRepository } from "../../../../repositories/image.repository";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { DTOService, AdminUserDTO } from "../../../../services/dto.service";
-import { createError } from "../../../../utils/errors";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { ImageRepository } from "@/repositories/image.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { DTOService, AdminUserDTO } from "@/services/dto.service";
+import { createError } from "@/utils/errors";
 
 export interface UserStatsResult {
 	user: AdminUserDTO;

@@ -1,9 +1,9 @@
-import { CommentRepository } from "../repositories/comment.repository";
-import { PostRepository } from "../repositories/post.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { createError } from "../utils/errors";
-import { IComment, TransformedComment } from "types/index";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { PostRepository } from "@/repositories/post.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { createError } from "@/utils/errors";
+import { IComment, TransformedComment } from "@/types";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 
@@ -16,7 +16,7 @@ export class CommentService {
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("PostRepository") private readonly postRepository: PostRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
+		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 	) {}
 
 	async createComment(userId: string, postPublicId: string, content: string): Promise<TransformedComment> {
@@ -44,7 +44,7 @@ export class CommentService {
 					postId: post._id as mongoose.Types.ObjectId,
 					userId: new mongoose.Types.ObjectId(userId),
 				} as Partial<IComment>,
-				session
+				session,
 			);
 
 			createdCommentId = comment._id.toString();
@@ -71,7 +71,7 @@ export class CommentService {
 		postPublicId: string,
 		page: number = 1,
 		limit: number = 10,
-		parentId: string | null = null
+		parentId: string | null = null,
 	) {
 		// Validate post exists
 		const post = await this.postRepository.findByPublicId(postPublicId);
@@ -83,7 +83,7 @@ export class CommentService {
 			(post._id as mongoose.Types.ObjectId).toString(),
 			page,
 			limit,
-			parentId
+			parentId,
 		);
 	}
 
@@ -135,7 +135,7 @@ export class CommentService {
 		const hydratedPost = await this.postRepository.findByPublicId(post.publicId);
 		const effectivePost = hydratedPost ?? post;
 
-		const isCommentOwner = comment.userId.toString() === userId;
+		const isCommentOwner = comment.userId && comment.userId.toString() === userId;
 		const postOwnerInternalId = this.extractUserInternalId(effectivePost.user);
 		const isPostOwner = postOwnerInternalId === userId;
 

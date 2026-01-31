@@ -1,7 +1,7 @@
 // import mongoose from "mongoose";
-// import UserAction from "../models/userAction.model";
-// import Notification from "../models/notification.model";
-// import { INotification, IUserAction } from "../types";
+// import UserAction from "@/models/userAction.model";
+// import Notification from "@/models/notification.model";
+// import { INotification, IUserAction } from "@/types";
 
 // export class UserActionRepository {
 //   private model: mongoose.Model<IUserAction>;

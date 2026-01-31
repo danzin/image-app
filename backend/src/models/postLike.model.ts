@@ -1,5 +1,5 @@
 import { Schema, model } from "mongoose";
-import { IPostLike } from "../types";
+import { IPostLike } from "@/types";
 
 const postLikeSchema = new Schema<IPostLike>(
 	{

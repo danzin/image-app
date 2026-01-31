@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated } from "../types";
+import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated } from "@/types";
 
 export interface PublicUserDTO {
 	publicId: string;

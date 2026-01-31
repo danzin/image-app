@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 interface TelemetryEvent {
 	type: "ttfi" | "scroll_depth" | "flow_start" | "flow_complete" | "flow_abandon";

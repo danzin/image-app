@@ -1,9 +1,9 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { RequestPasswordResetCommand } from "./RequestPasswordResetCommand";
 import crypto from "crypto";
-import { IUserReadRepository, IUserWriteRepository } from "../../../../repositories/interfaces";
-import { EmailService } from "../../../../services/email.service";
+import { IUserReadRepository, IUserWriteRepository } from "@/repositories/interfaces";
+import { EmailService } from "@/services/email.service";
 
 @injectable()
 export class RequestPasswordResetHandler implements ICommandHandler<RequestPasswordResetCommand, void> {
