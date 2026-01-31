@@ -26,29 +26,41 @@ export class GetAllCommunitiesQueryHandler
 		const { page, limit, search, viewerPublicId } = query;
 		const result = await this.communityRepository.findAll(page, limit, search);
 
-		if (!viewerPublicId || result.data.length === 0) {
+		if (result.data.length === 0) {
 			return result;
 		}
 
-		const viewer = await this.userReadRepository.findByPublicId(viewerPublicId);
-		if (!viewer) {
-			return result;
-		}
-
-		const viewerId = (viewer as any)._id?.toString?.() ?? "";
-		if (!viewerId) {
-			return result;
-		}
-
+		// fetch actual member counts for all communities
 		const communityIds = result.data.map((community) => community._id);
-		const memberships = await this.communityMemberRepository.findByUserAndCommunityIds(viewerId, communityIds);
-		const membershipSet = new Set(memberships.map((member) => member.communityId.toString()));
+		const memberCounts = await Promise.all(
+			communityIds.map((id) => this.communityMemberRepository.countByCommunityId(id)),
+		);
+		const memberCountMap = new Map(communityIds.map((id, index) => [id.toString(), memberCounts[index]]));
+
+		let viewerId = "";
+		let membershipSet = new Set<string>();
+
+		if (viewerPublicId) {
+			const viewer = await this.userReadRepository.findByPublicId(viewerPublicId);
+			if (viewer) {
+				viewerId = (viewer as any)._id?.toString?.() ?? "";
+				if (viewerId) {
+					const memberships = await this.communityMemberRepository.findByUserAndCommunityIds(viewerId, communityIds);
+					membershipSet = new Set(memberships.map((member) => member.communityId.toString()));
+				}
+			}
+		}
 
 		const data = result.data.map((community) => {
 			const plain = community.toObject ? community.toObject() : community;
 			const communityId = community._id.toString();
+			const actualMemberCount = memberCountMap.get(communityId) ?? plain.stats?.memberCount ?? 0;
 			return {
 				...plain,
+				stats: {
+					...plain.stats,
+					memberCount: actualMemberCount,
+				},
 				isMember: membershipSet.has(communityId),
 				isCreator: community.creatorId?.toString() === viewerId,
 			} as ICommunity;

@@ -11,6 +11,7 @@ import { createError } from "@/utils/errors";
 interface CommunityDetailsResult extends Omit<ICommunity, never> {
 	isMember?: boolean;
 	isCreator?: boolean;
+	isAdmin?: boolean;
 }
 
 @injectable()
@@ -29,7 +30,16 @@ export class GetCommunityDetailsQueryHandler
 			throw createError("NotFound", "Community not found");
 		}
 
+		// get the actual member count from the database
+		const actualMemberCount = await this.communityMemberRepository.countByCommunityId(community._id);
+
 		const result: CommunityDetailsResult = community.toJSON() as CommunityDetailsResult;
+
+		// override stats with actual count to ensure accuracy
+		result.stats = {
+			...result.stats,
+			memberCount: actualMemberCount,
+		};
 
 		// check if viewer is a member
 		if (query.viewerPublicId) {
@@ -40,7 +50,8 @@ export class GetCommunityDetailsQueryHandler
 					user._id as Types.ObjectId,
 				);
 				result.isMember = !!membership;
-				result.isCreator = community.creatorId.toString() === user.publicId.toString();
+				result.isAdmin = membership?.role === "admin";
+				result.isCreator = community.creatorId.toString() === (user._id as Types.ObjectId).toString();
 			}
 		}
 

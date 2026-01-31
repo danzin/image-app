@@ -1,6 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchCommunity, createCommunity, joinCommunity, leaveCommunity, kickMember } from "../../api/communityApi";
-import { CreateCommunityDTO } from "../../types";
+import {
+	fetchCommunity,
+	createCommunity,
+	joinCommunity,
+	leaveCommunity,
+	kickMember,
+	updateCommunity,
+} from "../../api/communityApi";
+import { CreateCommunityDTO, UpdateCommunityDTO } from "../../types";
 import { toast } from "react-toastify";
 import { AxiosError } from "axios";
 
@@ -23,6 +30,23 @@ export const useCreateCommunity = () => {
 		},
 		onError: (error: AxiosError<{ message?: string }>) => {
 			toast.error(error.response?.data?.message || "Failed to create community");
+		},
+	});
+};
+
+export const useUpdateCommunity = () => {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ communityId, updates }: { communityId: string; updates: UpdateCommunityDTO }) =>
+			updateCommunity(communityId, updates),
+		onSuccess: (data) => {
+			queryClient.invalidateQueries({ queryKey: ["community"] });
+			queryClient.invalidateQueries({ queryKey: ["communities"] });
+			toast.success("Community updated successfully!");
+		},
+		onError: (error: AxiosError<{ message?: string }>) => {
+			toast.error(error.response?.data?.message || "Failed to update community");
 		},
 	});
 };

@@ -15,6 +15,7 @@ const communitySchema = new Schema<ICommunity>(
 		slug: { type: String, required: true, unique: true, index: true },
 		description: { type: String, default: "" },
 		avatar: { type: String, default: "" },
+		coverPhoto: { type: String, default: "" },
 		creatorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 		stats: {
 			memberCount: { type: Number, default: 1 },
@@ -31,7 +32,7 @@ const communitySchema = new Schema<ICommunity>(
 				return ret;
 			},
 		},
-	}
+	},
 );
 
 communitySchema.index({ name: "text", description: "text" });

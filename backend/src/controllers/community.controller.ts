@@ -138,11 +138,23 @@ export class CommunityController {
 		try {
 			const { decodedUser } = req;
 			const { id } = req.params;
-			const updates = req.body;
+			const { name, description } = req.body;
 
 			if (!decodedUser || !decodedUser.publicId) {
 				throw createError("AuthenticationError", "User information missing");
 			}
+
+			// handle file uploads - req.files comes from multer fields middleware
+			const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+			const avatarPath = files?.avatar?.[0]?.path;
+			const coverPhotoPath = files?.coverPhoto?.[0]?.path;
+
+			const updates = {
+				name,
+				description,
+				avatarPath,
+				coverPhotoPath,
+			};
 
 			const command = new UpdateCommunityCommand(id, decodedUser.publicId, updates);
 			const community = (await this.commandBus.dispatch(command)) as ICommunity;

@@ -1,10 +1,10 @@
 import axiosClient from "./axiosClient";
-import { ICommunity, CreateCommunityDTO, ICommunityMember } from "../types";
+import { ICommunity, CreateCommunityDTO, ICommunityMember, UpdateCommunityDTO } from "../types";
 
 export const fetchCommunityMembers = async (
 	slug: string,
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: ICommunityMember[];
 	total: number;
@@ -18,7 +18,7 @@ export const fetchCommunityMembers = async (
 
 export const fetchCommunities = async (
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: ICommunity[];
 	total: number;
@@ -32,7 +32,7 @@ export const fetchCommunities = async (
 
 export const fetchUserCommunities = async (
 	pageParam: number,
-	limit: number = 20
+	limit: number = 20,
 ): Promise<{
 	data: ICommunity[];
 	total: number;
@@ -58,6 +58,21 @@ export const createCommunity = async (communityData: CreateCommunityDTO): Promis
 	}
 
 	const { data } = await axiosClient.post("/api/communities", formData, {
+		headers: {
+			"Content-Type": "multipart/form-data",
+		},
+	});
+	return data;
+};
+
+export const updateCommunity = async (communityPublicId: string, updates: UpdateCommunityDTO): Promise<ICommunity> => {
+	const formData = new FormData();
+	if (updates.name) formData.append("name", updates.name);
+	if (updates.description !== undefined) formData.append("description", updates.description);
+	if (updates.avatar) formData.append("avatar", updates.avatar);
+	if (updates.coverPhoto) formData.append("coverPhoto", updates.coverPhoto);
+
+	const { data } = await axiosClient.patch(`/api/communities/${communityPublicId}`, formData, {
 		headers: {
 			"Content-Type": "multipart/form-data",
 		},

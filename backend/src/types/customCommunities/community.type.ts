@@ -7,6 +7,7 @@ export interface ICommunity extends Document {
 	slug: string;
 	description: string;
 	avatar: string;
+	coverPhoto: string;
 	creatorId: Types.ObjectId;
 	stats: {
 		memberCount: number;
