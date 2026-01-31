@@ -13,6 +13,9 @@ export interface IUser extends Document {
 	bio: string;
 	createdAt: Date;
 	updatedAt: Date;
+	registrationIp?: string;
+	lastActive?: Date;
+	lastIp?: string;
 	isAdmin: boolean;
 	isBanned: boolean;
 	bannedAt?: Date;

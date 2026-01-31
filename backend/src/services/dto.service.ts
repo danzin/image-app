@@ -25,6 +25,9 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 	bannedReason?: string;
 	bannedBy?: string;
 	updatedAt: Date;
+	registrationIp?: string;
+	lastActive?: Date;
+	lastIp?: string;
 }
 
 @injectable()
@@ -210,6 +213,9 @@ export class DTOService {
 			bannedReason: user.bannedReason,
 			bannedBy: user.bannedBy?.toString(),
 			updatedAt: user.updatedAt,
+			registrationIp: user.registrationIp,
+			lastActive: user.lastActive,
+			lastIp: user.lastIp,
 		};
 	}
 

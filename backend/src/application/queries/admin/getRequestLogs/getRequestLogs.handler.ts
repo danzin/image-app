@@ -12,6 +12,7 @@ export interface RequestLogDTO {
 	statusCode: number;
 	responseTimeMs: number;
 	userId?: string;
+	email?: string;
 	userAgent?: string;
 }
 
@@ -20,7 +21,7 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 	constructor(@inject("RequestLogRepository") private readonly requestLogRepository: RequestLogRepository) {}
 
 	async execute(query: GetRequestLogsQuery): Promise<PaginationResult<RequestLogDTO>> {
-		const { page = 1, limit = 50, userId, statusCode, startDate, endDate } = query.options;
+		const { page = 1, limit = 50, userId, statusCode, startDate, endDate, search } = query.options;
 
 		const filter: any = {};
 
@@ -36,6 +37,19 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 			filter.timestamp = {};
 			if (startDate) filter.timestamp.$gte = startDate;
 			if (endDate) filter.timestamp.$lte = endDate;
+		}
+
+		if (search) {
+			const regex = { $regex: search, $options: "i" };
+			// If filter.$or already exists (unlikely given previous logic, but safe to check), merge or push
+			// For now, assume exclusive usage of simple filters + search
+			filter.$or = [
+				{ "metadata.ip": regex },
+				{ "metadata.method": regex },
+				{ "metadata.route": regex },
+				{ "metadata.userId": regex },
+				{ "metadata.email": regex },
+			];
 		}
 
 		const result = await this.requestLogRepository.findWithPagination({
@@ -54,6 +68,7 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 			statusCode: log.metadata.statusCode,
 			responseTimeMs: log.metadata.responseTimeMs,
 			userId: log.metadata.userId,
+			email: log.metadata.email,
 			userAgent: log.metadata.userAgent,
 		}));
 

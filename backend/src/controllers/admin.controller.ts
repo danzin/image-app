@@ -31,12 +31,27 @@ export class AdminUserController {
 
 	getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { page, limit, sortBy, sortOrder } = req.query;
+			const { page, limit, sortBy, sortOrder, search, startDate, endDate } = req.query;
+
+			const filter: any = {};
+
+			if (search) {
+				const searchRegex = { $regex: search, $options: "i" };
+				filter.$or = [{ username: searchRegex }, { email: searchRegex }];
+			}
+
+			if (startDate || endDate) {
+				filter.createdAt = {};
+				if (startDate) filter.createdAt.$gte = new Date(startDate as string);
+				if (endDate) filter.createdAt.$lte = new Date(endDate as string);
+			}
+
 			const options = {
 				page: page ? parseInt(page as string, 10) : 1,
 				limit: limit ? parseInt(limit as string, 10) : 20,
 				sortBy: sortBy as string | undefined,
 				sortOrder: sortOrder as "asc" | "desc" | undefined,
+				filter,
 			};
 			const query = new GetAllUsersAdminQuery(options);
 			const result = await this.queryBus.execute(query);
@@ -230,7 +245,7 @@ export class AdminUserController {
 	// === REQUEST LOGS ===
 	getRequestLogs = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { page, limit, userId, statusCode, startDate, endDate } = req.query;
+			const { page, limit, userId, statusCode, startDate, endDate, search } = req.query;
 			const options = {
 				page: page ? parseInt(page as string, 10) : 1,
 				limit: limit ? parseInt(limit as string, 10) : 50,
@@ -238,6 +253,7 @@ export class AdminUserController {
 				statusCode: statusCode ? parseInt(statusCode as string, 10) : undefined,
 				startDate: startDate ? new Date(startDate as string) : undefined,
 				endDate: endDate ? new Date(endDate as string) : undefined,
+				search: search as string | undefined,
 			};
 			const query = new GetRequestLogsQuery(options);
 			const result = await this.queryBus.execute(query);

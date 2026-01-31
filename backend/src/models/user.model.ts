@@ -55,10 +55,24 @@ const userSchema = new Schema<IUser>(
 		createdAt: {
 			type: Date,
 			default: Date.now,
+			index: true,
 		},
 		updatedAt: {
 			type: Date,
 			default: Date.now,
+		},
+		registrationIp: {
+			type: String,
+			required: false,
+		},
+		lastActive: {
+			type: Date,
+			required: false,
+			index: true,
+		},
+		lastIp: {
+			type: String,
+			required: false,
 		},
 		isAdmin: {
 			type: Boolean,
@@ -87,6 +101,7 @@ const userSchema = new Schema<IUser>(
 			type: Number,
 			default: 0,
 			required: true,
+			index: true,
 		},
 		followingCount: {
 			type: Number,
@@ -97,6 +112,7 @@ const userSchema = new Schema<IUser>(
 			type: Number,
 			default: 0,
 			required: true,
+			index: true,
 		},
 		resetToken: { type: String, select: false },
 		resetTokenExpires: { type: Date, select: false },

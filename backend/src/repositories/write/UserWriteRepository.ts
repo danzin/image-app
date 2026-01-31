@@ -21,6 +21,10 @@ export class UserWriteRepository implements IUserWriteRepository {
 		return this.userRepository.update(id, updateData, session);
 	}
 
+	async updateByPublicId(publicId: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+		return this.userRepository.updateByPublicId(publicId, updateData, session);
+	}
+
 	async delete(id: string, session?: ClientSession): Promise<boolean> {
 		return this.userRepository.delete(id, session);
 	}

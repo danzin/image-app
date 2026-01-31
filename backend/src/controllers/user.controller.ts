@@ -59,7 +59,8 @@ export class UserController {
 	register = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { username, email, password } = req.body;
-			const command = new RegisterUserCommand(username, email, password);
+			const ip = (req.headers["cf-connecting-ip"] as string) || req.ip || "unknown";
+			const command = new RegisterUserCommand(username, email, password, undefined, undefined, ip);
 			const { user, token } = await this.commandBus.dispatch<RegisterUserResult>(command);
 			res.cookie("token", token, cookieOptions);
 			res.status(201).json({ user, token }); // Return both user and token
