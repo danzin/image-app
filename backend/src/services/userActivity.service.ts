@@ -2,32 +2,24 @@ import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
 import { logger } from "../utils/winston";
 
-// key for tracking user posting activity metrics
 export const USER_ACTIVITY_METRICS_KEY = "who_to_follow:activity_metrics";
 
 export interface UserActivityMetrics {
-	// rolling count of posts created (with exponential decay)
 	postCount: number;
-	// timestamp of last update
 	lastUpdated: number;
-	// count of posts in the last hour (for rate calculation)
 	recentPostCount: number;
-	// when the recent count window started
 	recentWindowStart: number;
-	// total unique users who have posted (rough estimate)
 	uniquePosters: number;
 }
 
-// TTL configuration based on activity level
 export const WHO_TO_FOLLOW_TTL_CONFIG = {
-	HIGH_ACTIVITY: 300, // 5 minutes - lots of new users posting
-	MEDIUM_ACTIVITY: 900, // 15 minutes
-	LOW_ACTIVITY: 1800, // 30 minutes
-	VERY_LOW_ACTIVITY: 3600, // 1 hour
-	DORMANT: 7200, // 2 hours - site basically inactive but still check periodically
+	HIGH_ACTIVITY: 300,
+	MEDIUM_ACTIVITY: 900,
+	LOW_ACTIVITY: 1800,
+	VERY_LOW_ACTIVITY: 3600,
+	DORMANT: 7200,
 };
 
-// activity thresholds (posts per hour)
 export const USER_ACTIVITY_THRESHOLDS = {
 	HIGH: 20, // 20+ posts/hour = high activity
 	MEDIUM: 5, // 5-20 posts/hour = medium
@@ -41,7 +33,7 @@ export const PLATFORM_SIZE_THRESHOLDS = {
 	// minimum posts per hour to consider "high traffic"
 	HIGH_TRAFFIC_POSTS_PER_HOUR: 10,
 	// minimum unique posters to consider having "many users"
-	MANY_USERS_THRESHOLD: 50,
+	MANY_USERS_THRESHOLD: 25,
 };
 
 export type PlatformActivityLevel = "high" | "medium" | "low" | "dormant";
@@ -81,8 +73,8 @@ export class UserActivityService {
 					recentPostCount += 1;
 				}
 
-				// track unique posters in a rolling set (simplified: increment if new activity)
-				// for more accurate tracking we could use HyperLogLog but this is good enough
+				// track unique posters in a rolling set (increment if new activity)
+				// for more accurate tracking we could use HyperLogLog but this is good enough fpr now
 				const uniquePosters = Math.max(existing.uniquePosters, Math.ceil(decayedCount / 3));
 
 				await this.redisService.set(
@@ -116,7 +108,7 @@ export class UserActivityService {
 
 			logger.debug(`[UserActivityService] Tracked post created by ${userPublicId}`);
 		} catch (error) {
-			// non-critical, just log
+			// just log
 			logger.warn("[UserActivityService] Error tracking user activity", error);
 		}
 	}
@@ -134,7 +126,7 @@ export class UserActivityService {
 			// add user with current timestamp as score
 			await this.redisService.zadd(key, score, userPublicId);
 
-			// clean up old entries (older than 7 days)
+			// clean up entries older than 7 days
 			const cutoff = Date.now() - sevenDaysMs;
 			await this.redisService.zremRangeByScore(key, "-inf", cutoff.toString());
 
