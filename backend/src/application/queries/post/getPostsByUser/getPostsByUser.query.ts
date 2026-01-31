@@ -1,4 +1,4 @@
-import { IQuery } from "../../../common/interfaces/query.interface";
+import { IQuery } from "@/application/common/interfaces/query.interface";
 
 export class GetPostsByUserQuery implements IQuery {
 	readonly type = "GetPostsByUserQuery";

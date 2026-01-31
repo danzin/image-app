@@ -1,12 +1,12 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon, { SinonStubbedInstance } from "sinon";
-import { NotificationService } from "../../services/notification.service";
-import { NotificationRepository } from "../../repositories/notification.respository";
-import { RedisService } from "../../services/redis.service";
-import { WebSocketServer } from "../../server/socketServer";
-import { UserRepository } from "../../repositories/user.repository";
-import { ImageRepository } from "../../repositories/image.repository";
+import { NotificationService } from "@/services/notification.service";
+import { NotificationRepository } from "@/repositories/notification.respository";
+import { RedisService } from "@/services/redis.service";
+import { WebSocketServer } from "@/server/socketServer";
+import { UserRepository } from "@/repositories/user.repository";
+import { ImageRepository } from "@/repositories/image.repository";
 
 describe("NotificationService", () => {
 	let notificationService: NotificationService;

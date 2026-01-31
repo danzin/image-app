@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { container } from "tsyringe";
-import { CommandBus } from "../application/common/buses/command.bus";
-import { LogRequestCommand } from "../application/commands/admin/logRequest/logRequest.command";
+import { CommandBus } from "@/application/common/buses/command.bus";
+import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
 import net from "net"; // Built-in Node module
 
 const getClientIp = (req: Request): string => {

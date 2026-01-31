@@ -35,7 +35,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const createCommentMutation = useCreateComment();
 	const likeCommentMutation = useLikeComment();
 
-	const isOwner = user?.publicId === comment.user.publicId;
+	const isOwner = user?.publicId === comment.user?.publicId;
 	const isMenuOpen = Boolean(anchorEl);
 
 	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -147,6 +147,63 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 		}
 	};
 
+	// render deleted comment placeholder
+	if (comment.isDeleted) {
+		return (
+			<Box
+				sx={{
+					display: "flex",
+					gap: 1,
+					py: 1,
+					cursor: (comment.replyCount || 0) > 0 ? "pointer" : "default",
+					"&:hover": (comment.replyCount || 0) > 0 ? { bgcolor: "action.hover" } : {},
+					borderRadius: 1,
+					opacity: 0.6,
+				}}
+				onClick={handleCommentClick}
+			>
+				<Avatar sx={{ width: 32, height: 32, bgcolor: "action.disabledBackground" }}>?</Avatar>
+
+				<Box sx={{ flex: 1, minWidth: 0 }}>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+						<Typography variant="subtitle2" component="span" sx={{ fontWeight: 600, color: "text.disabled" }}>
+							[deleted]
+						</Typography>
+						<Typography variant="caption" color="text.disabled">
+							{formatDate(comment.createdAt)}
+						</Typography>
+					</Box>
+
+					<Typography variant="body2" sx={{ wordBreak: "break-word", color: "text.disabled", fontStyle: "italic" }}>
+						{comment.content}
+					</Typography>
+
+					{/* Show reply count for deleted comments with replies */}
+					{(comment.replyCount || 0) > 0 && (
+						<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5 }}>
+							<ChatBubbleOutlineIcon fontSize="small" sx={{ color: "text.disabled" }} />
+							<Typography
+								variant="caption"
+								sx={{
+									color: "primary.main",
+									fontWeight: 600,
+									cursor: "pointer",
+									"&:hover": { textDecoration: "underline" },
+								}}
+								onClick={(e) => {
+									e.stopPropagation();
+									navigate(`/comments/${comment.id}`);
+								}}
+							>
+								{comment.replyCount} {comment.replyCount === 1 ? "reply" : "replies"}
+							</Typography>
+						</Box>
+					)}
+				</Box>
+			</Box>
+		);
+	}
+
 	return (
 		<Box
 			sx={{
@@ -160,22 +217,24 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 			onClick={handleCommentClick}
 		>
 			<Avatar
-				src={comment.user.avatar}
-				alt={comment.user.username}
+				src={comment.user?.avatar}
+				alt={comment.user?.username || "User"}
 				sx={{ width: 32, height: 32, cursor: "pointer" }}
 				onClick={(e) => {
 					e.stopPropagation();
-					navigate(`/profile/${comment.user?.publicId}`);
+					if (comment.user?.publicId) {
+						navigate(`/profile/${comment.user.publicId}`);
+					}
 				}}
 			>
 				{comment.user?.avatar ? (
 					<img
-						src={comment.user.avatar.startsWith("http") ? comment.user.avatar : `/api/${comment.user.avatar}`}
-						alt={comment.user.username}
+						src={comment.user?.avatar?.startsWith("http") ? comment.user?.avatar : `/api/${comment.user?.avatar}`}
+						alt={comment.user?.username || "User"}
 						style={{ width: "100%", height: "100%", objectFit: "cover" }}
 					/>
 				) : (
-					<span>{comment.user?.username?.charAt(0).toUpperCase()}</span>
+					<span>{comment.user?.username?.charAt(0).toUpperCase() || "?"}</span>
 				)}
 			</Avatar>
 
@@ -184,13 +243,19 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					<Typography
 						variant="subtitle2"
 						component="span"
-						sx={{ fontWeight: 600, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+						sx={{
+							fontWeight: 600,
+							cursor: comment.user ? "pointer" : "default",
+							"&:hover": comment.user ? { textDecoration: "underline" } : {},
+						}}
 						onClick={(e) => {
 							e.stopPropagation();
-							navigate(`/profile/${comment.user?.publicId}`);
+							if (comment.user?.publicId) {
+								navigate(`/profile/${comment.user.publicId}`);
+							}
 						}}
 					>
-						{comment.user.username}
+						{comment.user?.username || "[unknown]"}
 					</Typography>
 					<Typography variant="caption" color="text.secondary">
 						{formatDate(comment.createdAt)}
@@ -299,7 +364,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 						<TextField
 							fullWidth
 							size="small"
-							placeholder={`Reply to ${comment.user.username}...`}
+							placeholder={`Reply to ${comment.user?.username || "comment"}...`}
 							value={replyContent}
 							onChange={(e) => setReplyContent(e.target.value)}
 							multiline

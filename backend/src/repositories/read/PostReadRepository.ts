@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "../../types";
+import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "@/types";
 import { IPostReadRepository } from "../interfaces/IPostReadRepository";
 import { PostRepository } from "../post.repository";
 

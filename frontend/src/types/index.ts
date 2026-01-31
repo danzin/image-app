@@ -141,10 +141,12 @@ export interface IComment {
 		publicId: string;
 		username: string;
 		avatar?: string;
-	};
+	} | null;
 	createdAt: Date;
 	updatedAt: Date;
 	isEdited: boolean;
+	isDeleted?: boolean;
+	deletedBy?: "user" | "admin" | null;
 }
 
 export interface CommentCreateDto {

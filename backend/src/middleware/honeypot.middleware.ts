@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 export const honeypotMiddleware = (req: Request, res: Response, next: NextFunction) => {
 	const website = typeof req.body?.website === "string" ? req.body.website.trim() : "";

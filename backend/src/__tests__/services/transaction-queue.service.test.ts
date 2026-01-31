@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
-import { TransactionQueueService } from "../../services/transaction-queue.service";
-import { UnitOfWork } from "../../database/UnitOfWork";
+import { TransactionQueueService } from "@/services/transaction-queue.service";
+import { UnitOfWork } from "@/database/UnitOfWork";
 import { ClientSession } from "mongoose";
 
 describe("TransactionQueueService", () => {

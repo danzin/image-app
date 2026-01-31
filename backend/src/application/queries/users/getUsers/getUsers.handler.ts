@@ -1,15 +1,15 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetUsersQuery } from "./getUsers.query";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
-import { PaginationResult } from "../../../../types";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { DTOService, PublicUserDTO } from "@/services/dto.service";
+import { PaginationResult } from "@/types";
 
 @injectable()
 export class GetUsersQueryHandler implements IQueryHandler<GetUsersQuery, PaginationResult<PublicUserDTO>> {
 	constructor(
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject("DTOService") private readonly dtoService: DTOService,
 	) {}
 
 	async execute(query: GetUsersQuery): Promise<PaginationResult<PublicUserDTO>> {

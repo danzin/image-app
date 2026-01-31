@@ -4,8 +4,8 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Types } from "mongoose";
-import { DeletePostCommand } from "../../../application/commands/post/deletePost/deletePost.command";
-import { DeletePostCommandHandler } from "../../../application/commands/post/deletePost/deletePost.handler";
+import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
+import { DeletePostCommandHandler } from "@/application/commands/post/deletePost/deletePost.handler";
 
 chai.use(chaiAsPromised);
 

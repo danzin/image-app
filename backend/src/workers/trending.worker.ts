@@ -1,15 +1,15 @@
 import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 logger.info("MONGODB_URI in worker:", { uri: process.env.MONGODB_URI });
 
 import { container } from "tsyringe";
-import { setupContainerCore, registerCQRS, initCQRS } from "../di/container";
-import { DatabaseConfig } from "../config/dbConfig";
+import { setupContainerCore, registerCQRS, initCQRS } from "@/di/container";
+import { DatabaseConfig } from "@/config/dbConfig";
 import { TrendingWorker } from "../workers/_impl/trending.worker.impl";
 
 const worker = new TrendingWorker();

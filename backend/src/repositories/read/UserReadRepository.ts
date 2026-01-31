@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IUser, PaginationOptions, PaginationResult } from "../../types";
+import { IUser, PaginationOptions, PaginationResult } from "@/types";
 import { IUserReadRepository } from "../interfaces/IUserReadRepository";
 import { UserRepository } from "../user.repository";
 

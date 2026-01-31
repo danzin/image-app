@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { CheckFollowStatusQuery } from "./checkFollowStatus.query";
-import { FollowRepository } from "../../../../repositories/follow.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
 
 @injectable()
 export class CheckFollowStatusQueryHandler implements IQueryHandler<CheckFollowStatusQuery, boolean> {

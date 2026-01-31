@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
 import jwt from "jsonwebtoken";
-import { createError } from "../../../../utils/errors";
-import { ICommandHandler } from "../../../../application/common/interfaces/command-handler.interface";
-import { IUser } from "../../../../types/index";
-import { DTOService, AuthenticatedUserDTO } from "../../../../services/dto.service";
-import { EmailService } from "../../../../services/email.service";
+import { createError } from "@/utils/errors";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
+import { IUser } from "@/types/index";
+import { DTOService, AuthenticatedUserDTO } from "@/services/dto.service";
+import { EmailService } from "@/services/email.service";
 import crypto from "crypto";
 
 export interface RegisterUserResult {

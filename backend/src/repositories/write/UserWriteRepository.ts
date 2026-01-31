@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IUser } from "../../types";
+import { IUser } from "@/types";
 import { IUserWriteRepository } from "../interfaces/IUserWriteRepository";
 import { UserRepository } from "../user.repository";
 

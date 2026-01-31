@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import { FeedService } from "../services/feed.service";
+import { FeedService } from "@/services/feed.service";
 import { inject, injectable } from "tsyringe";
-import { createError } from "../utils/errors";
-import { QueryBus } from "../application/common/buses/query.bus";
-import { GetTrendingTagsQuery } from "../application/queries/tags/getTrendingTags/getTrendingTags.query";
-import { GetPersonalizedFeedQuery } from "../application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
-import { GetForYouFeedQuery } from "../application/queries/feed/getForYouFeed/getForYouFeed.query";
-import { GetTrendingFeedQuery } from "../application/queries/feed/getTrendingFeed/getTrendingFeed.query";
+import { createError } from "@/utils/errors";
+import { QueryBus } from "@/application/common/buses/query.bus";
+import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
+import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
+import { GetForYouFeedQuery } from "@/application/queries/feed/getForYouFeed/getForYouFeed.query";
+import { GetTrendingFeedQuery } from "@/application/queries/feed/getTrendingFeed/getTrendingFeed.query";
 @injectable()
 export class FeedController {
 	constructor(

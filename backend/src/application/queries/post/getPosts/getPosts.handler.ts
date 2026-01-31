@@ -1,11 +1,11 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetPostsQuery } from "./getPosts.query";
-import { FeedService } from "../../../../services/feed.service";
-import { PaginationResult, PostDTO } from "../../../../types";
-import { QueryBus } from "../../../common/buses/query.bus";
+import { FeedService } from "@/services/feed.service";
+import { PaginationResult, PostDTO } from "@/types";
+import { QueryBus } from "@/application/common/buses/query.bus";
 import { GetTrendingFeedQuery } from "../../feed/getTrendingFeed/getTrendingFeed.query";
-import { logger } from "../../../../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class GetPostsQueryHandler implements IQueryHandler<GetPostsQuery, PaginationResult<PostDTO>> {

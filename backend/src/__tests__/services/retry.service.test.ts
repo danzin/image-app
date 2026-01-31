@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
-import { RetryService, RetryConfig } from "../../services/retry.service";
+import { RetryService, RetryConfig } from "@/services/retry.service";
 
 describe("RetryService", () => {
 	let retryService: RetryService;

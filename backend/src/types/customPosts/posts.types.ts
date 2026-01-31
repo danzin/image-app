@@ -1,5 +1,5 @@
 import mongoose, { ClientSession, Document } from "mongoose";
-import { IImage } from "types/customImages/images.types";
+import { IImage } from "@/types/customImages/images.types";
 import { IUser } from "../customUsers/user.types";
 
 export interface IPost extends Document {

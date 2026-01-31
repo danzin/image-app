@@ -9,10 +9,12 @@ export interface IComment extends Document {
 	replyCount: number;
 	depth: number;
 	likesCount: number;
-	userId: mongoose.Types.ObjectId;
+	userId: mongoose.Types.ObjectId | null;
 	createdAt: Date;
 	updatedAt: Date;
 	isEdited: boolean;
+	isDeleted: boolean;
+	deletedBy: "user" | "admin" | null;
 }
 
 export interface CommentCreateDto {
@@ -63,10 +65,12 @@ export interface TransformedComment {
 		publicId: string;
 		username: string;
 		avatar?: string;
-	};
+	} | null;
 	createdAt: Date;
 	updatedAt: Date;
 	isEdited: boolean;
+	isDeleted: boolean;
+	deletedBy: "user" | "admin" | null;
 }
 
 // interface for populated comment from lean() query
@@ -78,8 +82,10 @@ export interface PopulatedCommentLean {
 	replyCount: number;
 	depth: number;
 	likesCount: number;
-	userId: { publicId: string; username: string; avatar?: string };
+	userId: { publicId: string; username: string; avatar?: string } | null;
 	createdAt: Date;
 	updatedAt: Date;
 	isEdited: boolean;
+	isDeleted: boolean;
+	deletedBy: "user" | "admin" | null;
 }

@@ -1,16 +1,16 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetPersonalizedFeedQuery } from "./getPersonalizedFeed.query";
-import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
-import { UserPreferenceRepository } from "../../../../repositories/userPreference.repository";
-import { RedisService } from "../../../../services/redis.service";
-import { EventBus } from "../../../common/buses/event.bus";
-import { ColdStartFeedGeneratedEvent } from "../../../events/ColdStartFeedGenerated.event";
-import { createError } from "../../../../utils/errors";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { CoreFeed, FeedPost, PaginatedFeedResult } from "types/index";
-import { logger } from "../../../../utils/winston";
-import { FeedEnrichmentService } from "../../../../services/feed-enrichment.service";
+import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { RedisService } from "@/services/redis.service";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { ColdStartFeedGeneratedEvent } from "@/application/events/ColdStartFeedGenerated.event";
+import { createError } from "@/utils/errors";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { CoreFeed, FeedPost, PaginatedFeedResult } from "@/types";
+import { logger } from "@/utils/winston";
+import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
 
 @injectable()
 export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersonalizedFeedQuery, any> {

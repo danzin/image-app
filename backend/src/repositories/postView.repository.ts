@@ -1,9 +1,9 @@
 import { injectable } from "tsyringe";
 import { ClientSession, Types } from "mongoose";
-import PostView from "../models/postView.model";
+import PostView from "@/models/postView.model";
 import { BaseRepository } from "./base.repository";
-import { IPostView } from "../types";
-import { createError } from "../utils/errors";
+import { IPostView } from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class PostViewRepository extends BaseRepository<IPostView> {

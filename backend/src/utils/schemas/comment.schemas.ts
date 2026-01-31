@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sanitizeForMongo, sanitize } from "../../utils/sanitizers";
+import { sanitizeForMongo, sanitize } from "@/utils/sanitizers";
 
 const parentIdField = z
 	.string()

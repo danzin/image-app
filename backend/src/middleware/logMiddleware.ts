@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { behaviourLogger, detailedRequestLogger } from "../utils/winston";
+import { behaviourLogger, detailedRequestLogger } from "@/utils/winston";
 declare module "express-serve-static-core" {
 	interface Request {
 		_startTime: number;

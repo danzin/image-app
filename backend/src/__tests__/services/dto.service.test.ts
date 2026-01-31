@@ -1,6 +1,6 @@
 import { describe, it } from "mocha";
 import { expect } from "chai";
-import { DTOService } from "../../services/dto.service";
+import { DTOService } from "@/services/dto.service";
 
 const basePost = {
 	body: "",

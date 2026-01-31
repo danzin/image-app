@@ -1,16 +1,16 @@
-import { ICommandHandler } from "../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { DeleteCommentCommand } from "../../commands/comments/deleteComment/deleteComment.command";
-import { EventBus } from "../../common/buses/event.bus";
-import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
-import { IPostReadRepository } from "../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../repositories/interfaces/IPostWriteRepository";
-import { CommentRepository } from "../../../repositories/comment.repository";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { createError } from "../../../utils/errors";
-import { FeedInteractionHandler } from "../../events/user/feed-interaction.handler";
-import { UnitOfWork } from "../../../database/UnitOfWork";
-import { logger } from "../../../utils/winston";
+import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { createError } from "@/utils/errors";
+import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
@@ -54,7 +54,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
 
 			// Check if user owns the comment or the post
-			const isCommentOwner = comment.userId.toString() === user.id;
+			const isCommentOwner = comment.userId && comment.userId.toString() === user.id;
 			const { ownerInternalId: postOwnerInternalId } = this.extractPostOwnerInfo(effectivePost as any);
 			const postOwnerMatch = postOwnerInternalId === user.id;
 

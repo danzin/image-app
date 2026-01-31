@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { SearchService } from "../services/search.service";
-import { createError } from "../utils/errors";
+import { SearchService } from "@/services/search.service";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 
 @injectable()

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { container } from "tsyringe";
-import { UserActionService } from "../services/userAction.service";
+import { UserActionService } from "@/services/userAction.service";
 
 export function logUserAction(req: Request, res: Response, next: NextFunction): void {
 	const userId = req?.decodedUser?.publicId;

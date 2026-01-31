@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IFollow } from "../types";
+import { IFollow } from "@/types";
 
 const followSchema = new Schema<IFollow>({
 	followerId: { type: Schema.Types.ObjectId, ref: "User", required: true },

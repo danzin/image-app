@@ -1,4 +1,4 @@
-import { IEvent } from "../../common/interfaces/event.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 
 /**
  * Fired when a new post is created

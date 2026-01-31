@@ -1,8 +1,9 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./frontend" },
-    { "path": "./backend" },
-    { "path": "./api-gateway" }
-  ]
+	"files": [],
+	"references": [
+		{ "path": "./frontend" },
+		{ "path": "./backend" },
+		{ "path": "./backend/tsconfig.test.json" },
+		{ "path": "./api-gateway" }
+	]
 }

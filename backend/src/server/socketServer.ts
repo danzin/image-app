@@ -4,8 +4,8 @@ import { AuthFactory } from "../middleware/authentication.middleware";
 import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import cookieParser from "cookie-parser";
-import { createError } from "../utils/errors";
-import { logger } from "../utils/winston";
+import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 
 // track users who have a conversation open (userId -> conversationId)
 const activeConversations = new Map<string, string>();

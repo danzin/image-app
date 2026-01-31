@@ -5,9 +5,9 @@ import * as chai from "chai";
 import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
-import { ImageRepository } from "../../repositories/image.repository";
+import { ImageRepository } from "@/repositories/image.repository";
 import { ClientSession, Model, Types } from "mongoose";
-import { IImage, PaginationOptions } from "../../types";
+import { IImage, PaginationOptions } from "@/types";
 
 chai.use(chaiAsPromised);
 

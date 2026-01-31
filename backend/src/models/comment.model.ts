@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { IComment } from "types/index";
+import { IComment } from "@/types";
 const commentSchema = new Schema<IComment>(
 	{
 		content: {
@@ -38,17 +38,28 @@ const commentSchema = new Schema<IComment>(
 		userId: {
 			type: Schema.Types.ObjectId,
 			ref: "User",
-			required: true,
+			required: false,
+			default: null,
 			index: true, // Index for fast queries by userid
 		},
 		isEdited: {
 			type: Boolean,
 			default: false,
 		},
+		isDeleted: {
+			type: Boolean,
+			default: false,
+			index: true,
+		},
+		deletedBy: {
+			type: String,
+			enum: ["user", "admin", null],
+			default: null,
+		},
 	},
 	{
 		timestamps: true,
-	}
+	},
 );
 
 // Compound index for efficient pagination by post

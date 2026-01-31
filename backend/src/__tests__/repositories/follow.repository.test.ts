@@ -5,9 +5,9 @@ import * as chai from "chai";
 import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
-import { FollowRepository } from "../../repositories/follow.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
 import { ClientSession, Model, Types } from "mongoose";
-import { IFollow } from "../../types";
+import { IFollow } from "@/types";
 
 chai.use(chaiAsPromised);
 
@@ -200,7 +200,7 @@ describe("FollowRepository", () => {
 			mockUsersCollection.findOne.rejects(dbError);
 
 			await expect(repository.isFollowingByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"Database connection failed"
+				"Database connection failed",
 			);
 		});
 	});
@@ -323,7 +323,7 @@ describe("FollowRepository", () => {
 			expect(
 				mockModel.create.calledOnceWith([{ followerId: followerId.toString(), followeeId: followeeId.toString() }], {
 					session: mockSession,
-				})
+				}),
 			).to.be.true;
 		});
 
@@ -340,7 +340,7 @@ describe("FollowRepository", () => {
 				.resolves(mockFolloweeUser);
 
 			await expect(repository.addFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"One or both users not found"
+				"One or both users not found",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -361,7 +361,7 @@ describe("FollowRepository", () => {
 			mockUsersCollection.findOne.withArgs({ publicId: followeePublicId }, { projection: { _id: 1 } }).resolves(null);
 
 			await expect(repository.addFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"One or both users not found"
+				"One or both users not found",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -390,7 +390,7 @@ describe("FollowRepository", () => {
 			mockModel.findOne.resolves(existingFollow);
 
 			await expect(repository.addFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"Already following this user"
+				"Already following this user",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -407,7 +407,7 @@ describe("FollowRepository", () => {
 			mockUsersCollection.findOne.rejects(dbError);
 
 			await expect(repository.addFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"Database connection failed"
+				"Database connection failed",
 			);
 		});
 	});
@@ -493,8 +493,8 @@ describe("FollowRepository", () => {
 			expect(
 				mockModel.deleteOne.calledOnceWith(
 					{ followerId: followerId.toString(), followeeId: followeeId.toString() },
-					{ session: undefined }
-				)
+					{ session: undefined },
+				),
 			).to.be.true;
 		});
 
@@ -527,8 +527,8 @@ describe("FollowRepository", () => {
 			expect(
 				mockModel.deleteOne.calledOnceWith(
 					{ followerId: followerId.toString(), followeeId: followeeId.toString() },
-					{ session: mockSession }
-				)
+					{ session: mockSession },
+				),
 			).to.be.true;
 		});
 
@@ -545,7 +545,7 @@ describe("FollowRepository", () => {
 				.resolves(mockFolloweeUser);
 
 			await expect(repository.removeFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"One or both users not found"
+				"One or both users not found",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -566,7 +566,7 @@ describe("FollowRepository", () => {
 			mockUsersCollection.findOne.withArgs({ publicId: followeePublicId }, { projection: { _id: 1 } }).resolves(null);
 
 			await expect(repository.removeFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"One or both users not found"
+				"One or both users not found",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -594,7 +594,7 @@ describe("FollowRepository", () => {
 			mockModel.findOne.resolves(null);
 
 			await expect(repository.removeFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"Not following this user"
+				"Not following this user",
 			);
 
 			expect(mockUsersCollection.findOne.calledTwice).to.be.true;
@@ -611,7 +611,7 @@ describe("FollowRepository", () => {
 			mockUsersCollection.findOne.rejects(dbError);
 
 			await expect(repository.removeFollowByPublicId(followerPublicId, followeePublicId)).to.be.rejectedWith(
-				"Database connection failed"
+				"Database connection failed",
 			);
 		});
 	});

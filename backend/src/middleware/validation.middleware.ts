@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import { z, ZodError } from "zod";
-import { createError } from "../utils/errors";
+import { createError } from "@/utils/errors";
 
 interface ValidationSchema {
 	body?: z.ZodTypeAny;

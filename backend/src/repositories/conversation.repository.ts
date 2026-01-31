@@ -1,8 +1,8 @@
 import mongoose, { ClientSession, Model } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IConversation } from "../types";
-import { createError } from "../utils/errors";
+import { IConversation } from "@/types";
+import { createError } from "@/utils/errors";
 
 /*
 Notes on messaging system:

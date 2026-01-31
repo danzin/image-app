@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { Model } from "mongoose";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { ChangePasswordCommand } from "./changePassword.command";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { IUser } from "../../../../types";
-import { createError } from "../../../../utils/errors";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { IUser } from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class ChangePasswordCommandHandler implements ICommandHandler<ChangePasswordCommand, void> {

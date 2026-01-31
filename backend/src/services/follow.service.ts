@@ -1,12 +1,12 @@
-import { FollowRepository } from "../repositories/follow.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
 import { NotificationService } from "./notification.service";
-import { UserActionRepository } from "../repositories/userAction.repository";
-import { createError } from "../utils/errors";
-import { UserRepository } from "../repositories/user.repository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { createError } from "@/utils/errors";
+import { UserRepository } from "@/repositories/user.repository";
 import { RedisService } from "./redis.service";
-import { UnitOfWork } from "../database/UnitOfWork";
+import { UnitOfWork } from "@/database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class FollowService {

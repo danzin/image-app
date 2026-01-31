@@ -1,4 +1,4 @@
-import { IEvent } from "../common/interfaces/event.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 
 // Event triggered when a cold start feed is generated for a user
 export class ColdStartFeedGeneratedEvent implements IEvent {

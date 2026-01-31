@@ -1,6 +1,6 @@
 import multer from "multer";
 import fs from "fs";
-import { createError } from "../utils/errors";
+import { createError } from "@/utils/errors";
 
 const tmpDir = "/tmp/uploads";
 if (!fs.existsSync(tmpDir)) {

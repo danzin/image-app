@@ -7,7 +7,7 @@ import {
 } from "../middleware/authentication.middleware";
 import { honeypotMiddleware } from "../middleware/honeypot.middleware";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import upload from "../config/multer";
+import upload from "@/config/multer";
 import {
 	registrationSchema,
 	loginSchema,
@@ -18,7 +18,7 @@ import {
 	requestPasswordResetSchema,
 	resetPasswordSchema,
 	verifyEmailSchema,
-} from "../utils/schemas/user.schemas";
+} from "@/utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
 
 @injectable()

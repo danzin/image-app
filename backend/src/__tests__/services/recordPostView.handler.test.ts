@@ -2,11 +2,11 @@ import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
 import mongoose from "mongoose";
-import { RecordPostViewCommandHandler } from "../../application/commands/post/recordPostView/recordPostView.handler";
-import { RecordPostViewCommand } from "../../application/commands/post/recordPostView/recordPostView.command";
-import { TransactionQueueService } from "../../services/transaction-queue.service";
-import { FeedService } from "../../services/feed.service";
-import { PostViewRepository } from "../../repositories/postView.repository";
+import { RecordPostViewCommandHandler } from "@/application/commands/post/recordPostView/recordPostView.handler";
+import { RecordPostViewCommand } from "@/application/commands/post/recordPostView/recordPostView.command";
+import { TransactionQueueService } from "@/services/transaction-queue.service";
+import { FeedService } from "@/services/feed.service";
+import { PostViewRepository } from "@/repositories/postView.repository";
 
 describe("RecordPostViewCommandHandler", () => {
 	let handler: RecordPostViewCommandHandler;
@@ -60,7 +60,7 @@ describe("RecordPostViewCommandHandler", () => {
 			postViewRepoStub,
 			userReadRepoStub,
 			feedServiceStub,
-			transactionQueueStub
+			transactionQueueStub,
 		);
 	});
 

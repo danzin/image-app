@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
-import { AdaptiveTTL, ActivityThresholds, PlatformSizeThresholds } from "../config/cacheConfig";
-import { logger } from "../utils/winston";
+import { AdaptiveTTL, ActivityThresholds, PlatformSizeThresholds } from "@/config/cacheConfig";
+import { logger } from "@/utils/winston";
 
 export const USER_ACTIVITY_METRICS_KEY = "who_to_follow:activity_metrics";
 

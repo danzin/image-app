@@ -1,8 +1,8 @@
 import { ClientSession, Model } from "mongoose";
-import { INotification } from "../types";
+import { INotification } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class NotificationRepository extends BaseRepository<INotification> {

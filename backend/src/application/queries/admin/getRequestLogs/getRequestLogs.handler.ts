@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetRequestLogsQuery } from "./getRequestLogs.query";
-import { RequestLogRepository } from "../../../../repositories/requestLog.repository";
-import { PaginationResult, IRequestLog } from "../../../../types";
+import { RequestLogRepository } from "@/repositories/requestLog.repository";
+import { PaginationResult, IRequestLog } from "@/types";
 
 export interface RequestLogDTO {
 	timestamp: Date;

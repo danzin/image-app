@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetCommunityMembersQuery } from "./getCommunityMembers.query";
-import { CommunityRepository } from "../../../../repositories/community.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { createError } from "../../../../utils/errors";
-import { ICommunityMember } from "../../../../types";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { createError } from "@/utils/errors";
+import { ICommunityMember } from "@/types";
 
 interface PaginatedMembers {
 	data: ICommunityMember[];

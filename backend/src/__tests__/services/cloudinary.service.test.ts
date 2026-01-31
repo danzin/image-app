@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
-import { CloudinaryService } from "../../services/cloudinary.service";
-import { RetryService, RetryPresets } from "../../services/retry.service";
+import { CloudinaryService } from "@/services/cloudinary.service";
+import { RetryService, RetryPresets } from "@/services/retry.service";
 
 describe("CloudinaryService", () => {
 	let cloudinaryService: CloudinaryService;
@@ -106,7 +106,7 @@ describe("CloudinaryService", () => {
 
 			const result = await cloudinaryService.deleteAssetByUrl(
 				"user",
-				"https://res.cloudinary.com/demo/image/upload/v123/test.jpg"
+				"https://res.cloudinary.com/demo/image/upload/v123/test.jpg",
 			);
 
 			expect(retryServiceStub.execute.calledOnce).to.be.true;

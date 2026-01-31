@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetAllCommunitiesQuery } from "./getAllCommunities.query";
-import { CommunityRepository } from "../../../../repositories/community.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { ICommunity } from "../../../../types";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { ICommunity } from "@/types";
 
 @injectable()
 export class GetAllCommunitiesQueryHandler

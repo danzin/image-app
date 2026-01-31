@@ -1,8 +1,8 @@
 import { ClientSession, Model, Types } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { ICommentLike } from "../types";
-import { createError } from "../utils/errors";
+import { ICommentLike } from "@/types";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class CommentLikeRepository extends BaseRepository<ICommentLike> {

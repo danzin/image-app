@@ -8,7 +8,7 @@ import {
 	conversationParamsSchema,
 	initiateConversationSchema,
 	sendMessageSchema,
-} from "../utils/schemas/messaging.schemas";
+} from "@/utils/schemas/messaging.schemas";
 
 @injectable()
 export class MessagingRoutes {

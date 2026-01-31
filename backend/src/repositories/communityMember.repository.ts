@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { ICommunityMember } from "../types";
-import { CommunityMember } from "../models/communityMember.model";
+import { ICommunityMember } from "@/types";
+import { CommunityMember } from "@/models/communityMember.model";
 import { ClientSession, Types } from "mongoose";
 
 @injectable()

@@ -1,14 +1,14 @@
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetPostByPublicIdQuery } from "./getPostByPublicId.query";
-import { IPostReadRepository, IUserReadRepository } from "../../../../repositories/interfaces";
-import { FavoriteRepository } from "../../../../repositories/favorite.repository";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { DTOService } from "../../../../services/dto.service";
-import { createError } from "../../../../utils/errors";
-import { IPost, PostDTO } from "../../../../types";
+import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import { FavoriteRepository } from "@/repositories/favorite.repository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { DTOService } from "@/services/dto.service";
+import { createError } from "@/utils/errors";
+import { IPost, PostDTO } from "@/types";
 
 @injectable()
 export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPublicIdQuery, PostDTO> {

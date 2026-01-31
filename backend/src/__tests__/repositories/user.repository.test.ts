@@ -4,8 +4,8 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types } from "mongoose";
-import { UserRepository } from "../../repositories/user.repository";
-import { IUser, PaginationOptions, PaginationResult } from "../../types";
+import { UserRepository } from "@/repositories/user.repository";
+import { IUser, PaginationOptions, PaginationResult } from "@/types";
 
 // chai.use(chaiAsPromised);
 

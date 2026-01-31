@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { UserDeletedEvent } from "./user-interaction.event";
-import { RedisService } from "../../../services/redis.service";
-import { logger } from "../../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { logger } from "@/utils/winston";
 
 /**
  * Handles cache cleanup when a user is deleted

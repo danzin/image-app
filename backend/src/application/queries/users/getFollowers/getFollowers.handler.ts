@@ -1,9 +1,9 @@
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetFollowersQuery } from "./getFollowers.query";
 import { inject, injectable } from "tsyringe";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces";
-import { createError } from "../../../../utils/errors";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { IUserReadRepository } from "@/repositories/interfaces";
+import { createError } from "@/utils/errors";
 
 export interface FollowUserItem {
 	publicId: string;

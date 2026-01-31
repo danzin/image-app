@@ -1,23 +1,23 @@
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 import { RecordPostViewCommand } from "./recordPostView.command";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { PostViewRepository } from "../../../../repositories/postView.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { FeedService } from "../../../../services/feed.service";
-import { TransactionQueueService } from "../../../../services/transaction-queue.service";
-import { createError } from "../../../../utils/errors";
-import { isValidPublicId } from "../../../../utils/sanitizers";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { PostViewRepository } from "@/repositories/postView.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { FeedService } from "@/services/feed.service";
+import { TransactionQueueService } from "@/services/transaction-queue.service";
+import { createError } from "@/utils/errors";
+import { isValidPublicId } from "@/utils/sanitizers";
 import {
 	PostAuthorizationError,
 	PostNotFoundError,
 	UserNotFoundError,
 	mapPostError,
-} from "../../../errors/post.errors";
-import { logger } from "../../../../utils/winston";
-import { IPost, IUser } from "types/index";
+} from "@/application/errors/post.errors";
+import { logger } from "@/utils/winston";
+import { IPost, IUser } from "@/types";
 
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
@@ -27,7 +27,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("FeedService") private readonly feedService: FeedService,
-		@inject("TransactionQueueService") private readonly transactionQueue: TransactionQueueService
+		@inject("TransactionQueueService") private readonly transactionQueue: TransactionQueueService,
 	) {}
 
 	async execute(command: RecordPostViewCommand): Promise<boolean> {
@@ -87,7 +87,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 								await this.feedService.updatePostViewMeta(command.postPublicId, updatedPost.viewsCount);
 							}
 						},
-						{ priority: "low", loadThreshold: 30 }
+						{ priority: "low", loadThreshold: 30 },
 					)
 					.catch((err) => {
 						// log but don't fail the request - view counts are non-critical

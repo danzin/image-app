@@ -1,16 +1,22 @@
 {
 	"extends": "./tsconfig.json",
 	"compilerOptions": {
+		"composite": true,
 		"module": "CommonJS",
 		"moduleResolution": "node",
 		"types": ["mocha", "node"],
 		"noEmit": true,
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"baseUrl": "./src",
+		"paths": {
+			"@/*": ["./*"]
+		}
 	},
 	"include": ["src/**/*.ts"],
 	"exclude": ["node_modules", "dist"],
 	"ts-node": {
 		"transpileOnly": true,
-		"files": true
+		"files": true,
+		"require": ["tsconfig-paths/register"]
 	}
 }

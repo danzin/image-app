@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetAllTagsQuery } from "./getAllTags.query";
-import { TagRepository } from "../../../../repositories/tag.repository";
-import { ITag } from "../../../../types";
+import { TagRepository } from "@/repositories/tag.repository";
+import { ITag } from "@/types";
 
 @injectable()
 export class GetAllTagsQueryHandler implements IQueryHandler<GetAllTagsQuery, ITag[]> {

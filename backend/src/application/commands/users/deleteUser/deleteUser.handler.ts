@@ -1,25 +1,25 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DeleteUserCommand } from "./deleteUser.command";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { ImageRepository } from "../../../../repositories/image.repository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { CommentRepository } from "../../../../repositories/comment.repository";
-import { FollowRepository } from "../../../../repositories/follow.repository";
-import { FavoriteRepository } from "../../../../repositories/favorite.repository";
-import { NotificationRepository } from "../../../../repositories/notification.respository";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { UserPreferenceRepository } from "../../../../repositories/userPreference.repository";
-import { ConversationRepository } from "../../../../repositories/conversation.repository";
-import { MessageRepository } from "../../../../repositories/message.repository";
-import { PostViewRepository } from "../../../../repositories/postView.repository";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { IImageStorageService } from "../../../../types";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { createError } from "../../../../utils/errors";
-import { EventBus } from "../../../common/buses/event.bus";
-import { UserDeletedEvent } from "../../../events/user/user-interaction.event";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { ImageRepository } from "@/repositories/image.repository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { CommentRepository } from "@/repositories/comment.repository";
+import { FollowRepository } from "@/repositories/follow.repository";
+import { FavoriteRepository } from "@/repositories/favorite.repository";
+import { NotificationRepository } from "@/repositories/notification.respository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { ConversationRepository } from "@/repositories/conversation.repository";
+import { MessageRepository } from "@/repositories/message.repository";
+import { PostViewRepository } from "@/repositories/postView.repository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { IImageStorageService } from "@/types";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { createError } from "@/utils/errors";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 
 @injectable()
 export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserCommand, void> {

@@ -1,10 +1,10 @@
-import { ImageRepository } from "../repositories/image.repository";
-import { PostRepository } from "../repositories/post.repository";
-import { TagRepository } from "../repositories/tag.repository";
-import { UserRepository } from "../repositories/user.repository";
-import { CommunityRepository } from "../repositories/community.repository";
-import { IPost, IUser, ICommunity } from "../types";
-import { createError } from "../utils/errors";
+import { ImageRepository } from "@/repositories/image.repository";
+import { PostRepository } from "@/repositories/post.repository";
+import { TagRepository } from "@/repositories/tag.repository";
+import { UserRepository } from "@/repositories/user.repository";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { IPost, IUser, ICommunity } from "@/types";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 
 @injectable()

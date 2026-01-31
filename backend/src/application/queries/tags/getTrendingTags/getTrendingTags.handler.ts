@@ -1,14 +1,14 @@
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetTrendingTagsQuery } from "./getTrendingTags.query";
 import { inject, injectable } from "tsyringe";
-import { RedisService } from "../../../../services/redis.service";
-import { TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "../../../../services/tag.service";
-import { IPostReadRepository } from "../../../../repositories/interfaces";
-import { AdaptiveTTL, ActivityThresholds } from "../../../../config/cacheConfig";
-import { createError } from "../../../../utils/errors";
-import { GetTrendingTagsResult, TrendingTag } from "types/index";
-import { logger } from "../../../../utils/winston";
-import { CacheKeyBuilder } from "../../../../utils/cache/CacheKeyBuilder";
+import { RedisService } from "@/services/redis.service";
+import { TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "@/services/tag.service";
+import { IPostReadRepository } from "@/repositories/interfaces";
+import { AdaptiveTTL, ActivityThresholds } from "@/config/cacheConfig";
+import { createError } from "@/utils/errors";
+import { GetTrendingTagsResult, TrendingTag } from "@/types";
+import { logger } from "@/utils/winston";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 @injectable()
 export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTagsQuery, GetTrendingTagsResult> {

@@ -1,4 +1,4 @@
-import { ICommand } from "../../../common/interfaces/command.interface";
+import { ICommand } from "@/application/common/interfaces/command.interface";
 
 export class UnbanUserCommand implements ICommand {
 	readonly type = "UnbanUserCommand";

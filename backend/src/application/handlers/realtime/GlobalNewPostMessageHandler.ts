@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
-import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
-import { logger } from "../../../utils/winston";
+import { FeedUpdateMessage } from "@/services/real-time-feed.service";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class GlobalNewPostMessageHandler implements IRealtimeMessageHandler {

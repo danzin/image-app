@@ -1,7 +1,7 @@
 import { injectable, inject } from "tsyringe";
 import { ClientSession } from "mongoose";
-import { UnitOfWork } from "../database/UnitOfWork";
-import { logger } from "../utils/winston";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { logger } from "@/utils/winston";
 
 /**
  * Priority levels for queued transactions

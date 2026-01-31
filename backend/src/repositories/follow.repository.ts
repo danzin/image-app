@@ -1,6 +1,6 @@
 import mongoose, { Model, ClientSession } from "mongoose";
-import { createError } from "../utils/errors";
-import { IFollow } from "../types";
+import { createError } from "@/utils/errors";
+import { IFollow } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 

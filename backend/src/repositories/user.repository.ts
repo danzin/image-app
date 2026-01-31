@@ -1,10 +1,10 @@
 import { Model, ClientSession, Types } from "mongoose";
-import { IUser, PaginationOptions, PaginationResult } from "../types";
-import { createError, isMongoDBDuplicateKeyError } from "../utils/errors";
+import { IUser, PaginationOptions, PaginationResult } from "@/types";
+import { createError, isMongoDBDuplicateKeyError } from "@/utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 /**
  * UserRepository provides database access for user-related operations.

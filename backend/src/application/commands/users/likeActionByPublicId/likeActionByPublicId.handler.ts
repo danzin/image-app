@@ -1,21 +1,21 @@
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { LikeActionByPublicIdCommand } from "./likeActionByPublicId.command";
-import { IPost, PostDTO } from "../../../../types/index";
-import { EventBus } from "../../../common/buses/event.bus";
-import { UserInteractedWithPostEvent } from "../../../events/user/user-interaction.event";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "../../../../repositories/interfaces/IPostWriteRepository";
-import { PostLikeRepository } from "../../../../repositories/postLike.repository";
-import { UserActionRepository } from "../../../../repositories/userAction.repository";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "../../../../services/notification.service";
-import { DTOService } from "../../../../services/dto.service";
-import { createError } from "../../../../utils/errors";
-import { FeedInteractionHandler } from "../../../events/user/feed-interaction.handler";
+import { IPost, PostDTO } from "@/types/index";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { UserActionRepository } from "@/repositories/userAction.repository";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { NotificationService } from "@/services/notification.service";
+import { DTOService } from "@/services/dto.service";
+import { createError } from "@/utils/errors";
+import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { ClientSession } from "mongoose";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { logger } from "../../../../utils/winston";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {

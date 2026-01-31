@@ -1,4 +1,4 @@
-import { IEvent } from "../../common/interfaces/event.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 
 export class MessageSentEvent implements IEvent {
 	readonly type = "MessageSentEvent";

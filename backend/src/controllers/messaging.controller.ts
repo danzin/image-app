@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { MessagingService } from "../services/messaging.service";
-import { createError } from "../utils/errors";
-import { SendMessagePayload } from "../types";
+import { MessagingService } from "@/services/messaging.service";
+import { createError } from "@/utils/errors";
+import { SendMessagePayload } from "@/types";
 
 @injectable()
 export class MessagingController {

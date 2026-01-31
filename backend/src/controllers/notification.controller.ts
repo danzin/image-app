@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
-import { NotificationService } from "../services/notification.service";
-import { createError } from "../utils/errors";
+import { NotificationService } from "@/services/notification.service";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class NotificationController {

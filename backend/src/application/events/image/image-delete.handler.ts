@@ -1,9 +1,9 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { ImageDeletedEvent } from "./image.event";
-import { RedisService } from "../../../services/redis.service";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { logger } from "../../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {

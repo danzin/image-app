@@ -1,7 +1,7 @@
-import { EventBus } from "../application/common/buses/event.bus";
+import { EventBus } from "@/application/common/buses/event.bus";
 import mongoose, { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 /**
  * Configuration for transaction execution

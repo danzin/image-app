@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { IConversation } from "../types";
+import { IConversation } from "@/types";
 
 const conversationSchema = new Schema<IConversation>(
 	{

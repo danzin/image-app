@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { PromoteToAdminCommand } from "./promoteToAdmin.command";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { DTOService, AdminUserDTO } from "../../../../services/dto.service";
-import { createError } from "../../../../utils/errors";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { DTOService, AdminUserDTO } from "@/services/dto.service";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class PromoteToAdminCommandHandler implements ICommandHandler<PromoteToAdminCommand, AdminUserDTO> {

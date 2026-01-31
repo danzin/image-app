@@ -1,7 +1,7 @@
 import { Schema, model, CallbackError } from "mongoose";
 import validator from "validator";
 import bcryptjs from "bcryptjs";
-import { IPost, IUser } from "../types";
+import { IPost, IUser } from "@/types";
 import { v4 as uuidv4 } from "uuid";
 
 const userSchema = new Schema<IUser>(

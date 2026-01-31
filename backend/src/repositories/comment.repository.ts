@@ -1,6 +1,6 @@
 import { Model, ClientSession } from "mongoose";
 import { BaseRepository } from "./base.repository";
-import { IComment, PopulatedCommentLean, TransformedComment } from "types/index";
+import { IComment, PopulatedCommentLean, TransformedComment } from "@/types";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -10,13 +10,59 @@ export class CommentRepository extends BaseRepository<IComment> {
 	}
 
 	/**
+	 * Transform a populated comment to the frontend format
+	 * Handles deleted comments by hiding user info and showing deletion message
+	 */
+	private transformComment(comment: PopulatedCommentLean): TransformedComment {
+		if (comment.isDeleted) {
+			return {
+				id: comment._id.toString(),
+				content: comment.deletedBy === "admin" ? "[removed by moderator]" : "[deleted by user]",
+				postPublicId: comment.postId.publicId,
+				parentId: comment.parentId ? comment.parentId.toString() : null,
+				replyCount: comment.replyCount ?? 0,
+				depth: comment.depth ?? 0,
+				likesCount: 0,
+				user: null,
+				createdAt: comment.createdAt,
+				updatedAt: comment.updatedAt,
+				isEdited: false,
+				isDeleted: true,
+				deletedBy: comment.deletedBy,
+			};
+		}
+
+		return {
+			id: comment._id.toString(),
+			content: comment.content,
+			postPublicId: comment.postId.publicId,
+			parentId: comment.parentId ? comment.parentId.toString() : null,
+			replyCount: comment.replyCount ?? 0,
+			depth: comment.depth ?? 0,
+			likesCount: comment.likesCount ?? 0,
+			user: comment.userId
+				? {
+						publicId: comment.userId.publicId,
+						username: comment.userId.username,
+						avatar: comment.userId.avatar,
+					}
+				: null,
+			createdAt: comment.createdAt,
+			updatedAt: comment.updatedAt,
+			isEdited: comment.isEdited,
+			isDeleted: false,
+			deletedBy: null,
+		};
+	}
+
+	/**
 	 * Get comments for a specific post with pagination
 	 */
 	async getCommentsByPostId(
 		postId: string,
 		page: number = 1,
 		limit: number = 10,
-		parentId: string | null = null
+		parentId: string | null = null,
 	): Promise<{
 		comments: TransformedComment[];
 		total: number;
@@ -41,23 +87,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		]);
 
 		// Transform the data to match frontend interface
-		const transformedComments = comments.map((comment) => ({
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
-			user: {
-				publicId: comment.userId.publicId,
-				username: comment.userId.username,
-				avatar: comment.userId.avatar,
-			},
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-		}));
+		const transformedComments = comments.map((comment) => this.transformComment(comment));
 
 		return {
 			comments: transformedComments,
@@ -71,7 +101,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async getCommentsByUserId(
 		userId: string,
 		page: number = 1,
-		limit: number = 10
+		limit: number = 10,
 	): Promise<{
 		comments: TransformedComment[];
 		total: number;
@@ -80,37 +110,23 @@ export class CommentRepository extends BaseRepository<IComment> {
 		totalPages: number;
 	}> {
 		const skip = (page - 1) * limit;
+		// exclude deleted comments from user's comment history
+		const filter = { userId, isDeleted: { $ne: true } };
 
 		const [comments, total] = await Promise.all([
 			this.model
-				.find({ userId })
+				.find(filter)
 				.populate("postId", "slug publicId")
 				.populate("userId", "publicId username avatar")
 				.sort({ createdAt: -1 })
 				.skip(skip)
 				.limit(limit)
 				.lean<PopulatedCommentLean[]>(),
-			this.model.countDocuments({ userId }),
+			this.model.countDocuments(filter),
 		]);
 
 		// Transform the data to match frontend interface
-		const transformedComments = comments.map((comment) => ({
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
-			user: {
-				publicId: comment.userId.publicId,
-				username: comment.userId.username,
-				avatar: comment.userId.avatar,
-			},
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-		}));
+		const transformedComments = comments.map((comment) => this.transformComment(comment));
 
 		return {
 			comments: transformedComments,
@@ -133,7 +149,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 					isEdited: true,
 					updatedAt: new Date(),
 				},
-				{ new: true, session }
+				{ new: true, session },
 			)
 			.populate("userId", "publicId username avatar")
 			.populate("postId", "publicId")
@@ -142,23 +158,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		if (!comment) return null;
 
 		// Transform the data to match frontend interface
-		return {
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
-			user: {
-				publicId: comment.userId.publicId,
-				username: comment.userId.username,
-				avatar: comment.userId.avatar,
-			},
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-		};
+		return this.transformComment(comment);
 	}
 
 	/**
@@ -173,24 +173,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 
 		if (!comment) return null;
 
-		// Transform the data to match frontend interface
-		return {
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
-			user: {
-				publicId: comment.userId.publicId,
-				username: comment.userId.username,
-				avatar: comment.userId.avatar,
-			},
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-		};
+		return this.transformComment(comment);
 	}
 
 	async updateReplyCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
@@ -200,13 +183,52 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async updateLikesCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
 		await this.model.updateOne({ _id: commentId }, { $inc: { likesCount: delta } }, { session });
 	}
+
+	/**
+	 * Hard delete a comment - removes it from the database entirely
+	 */
 	async deleteComment(commentId: string, session?: ClientSession): Promise<IComment | null> {
 		return await this.model.findByIdAndDelete(commentId, { session }).populate("userId", "username avatar").lean();
 	}
 
+	/**
+	 * Soft delete a comment - marks it as deleted but preserves the record for reply chain integrity
+	 * Clears user association and content
+	 */
+	async softDeleteComment(
+		commentId: string,
+		deletedBy: "user" | "admin",
+		session?: ClientSession,
+	): Promise<IComment | null> {
+		return await this.model
+			.findByIdAndUpdate(
+				commentId,
+				{
+					$set: {
+						isDeleted: true,
+						deletedBy: deletedBy,
+						userId: null,
+						content: deletedBy === "admin" ? "[removed by moderator]" : "[deleted by user]",
+						likesCount: 0,
+					},
+				},
+				{ session, new: true },
+			)
+			.lean();
+	}
+
+	/**
+	 * Check if a comment has any replies
+	 */
+	async hasReplies(commentId: string): Promise<boolean> {
+		const count = await this.model.countDocuments({ parentId: commentId });
+		return count > 0;
+	}
+
 	async isCommentOwner(commentId: string, userId: string): Promise<boolean> {
 		const comment = await this.model.findById(commentId).lean();
-		return comment ? comment.userId.toString() === userId : false;
+		if (!comment || !comment.userId) return false;
+		return comment.userId.toString() === userId;
 	}
 
 	async deleteCommentsByPostId(postId: string, session?: ClientSession): Promise<number> {
@@ -255,7 +277,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async getCommentReplies(
 		commentId: string,
 		page: number = 1,
-		limit: number = 10
+		limit: number = 10,
 	): Promise<{
 		comments: TransformedComment[];
 		total: number;
@@ -277,23 +299,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 			this.model.countDocuments({ parentId: commentId }),
 		]);
 
-		const transformedComments = comments.map((comment) => ({
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
-			user: {
-				publicId: comment.userId.publicId,
-				username: comment.userId.username,
-				avatar: comment.userId.avatar,
-			},
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-		}));
+		const transformedComments = comments.map((comment) => this.transformComment(comment));
 
 		return {
 			comments: transformedComments,

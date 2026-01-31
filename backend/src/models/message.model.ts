@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
-import { IMessage } from "../types";
+import { IMessage } from "@/types";
 
 const messageSchema = new Schema<IMessage>(
 	{

@@ -1,5 +1,5 @@
-import { IQuery } from "../../../common/interfaces/query.interface";
-import { PaginationOptions } from "../../../../types";
+import { IQuery } from "@/application/common/interfaces/query.interface";
+import { PaginationOptions } from "@/types";
 
 export class GetAllUsersAdminQuery implements IQuery {
 	readonly type = "GetAllUsersAdminQuery";

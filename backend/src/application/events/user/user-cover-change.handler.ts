@@ -1,8 +1,8 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { UserCoverChangedEvent } from "./user-interaction.event";
-import { RedisService } from "../../../services/redis.service";
-import { logger } from "../../../utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class UserCoverChangedHandler implements IEventHandler<UserCoverChangedEvent> {

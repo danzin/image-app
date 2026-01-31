@@ -1,9 +1,9 @@
 import { injectable, inject } from "tsyringe";
 import jwt from "jsonwebtoken";
-import { UserRepository } from "../repositories/user.repository";
+import { UserRepository } from "@/repositories/user.repository";
 import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "./dto.service";
-import { createError } from "../utils/errors";
-import { IUser } from "../types";
+import { createError } from "@/utils/errors";
+import { IUser } from "@/types";
 
 @injectable()
 export class AuthService {

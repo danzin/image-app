@@ -1,10 +1,10 @@
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
-import { IUserReadRepository } from "../repositories/interfaces";
-import { FeedPost, UserLookupData } from "../types";
-import { CacheKeyBuilder } from "../utils/cache/CacheKeyBuilder";
-import { CacheConfig } from "../config/cacheConfig";
-import { UserRepository } from "../repositories/user.repository";
+import { IUserReadRepository } from "@/repositories/interfaces";
+import { FeedPost, UserLookupData } from "@/types";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { CacheConfig } from "@/config/cacheConfig";
+import { UserRepository } from "@/repositories/user.repository";
 
 @injectable()
 export class FeedEnrichmentService {

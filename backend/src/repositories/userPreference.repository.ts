@@ -1,8 +1,8 @@
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { ClientSession, Model } from "mongoose";
-import { IUser, IUserPreference } from "../types";
-import { createError } from "../utils/errors";
+import { IUser, IUserPreference } from "@/types";
+import { createError } from "@/utils/errors";
 import { UserRepository } from "./user.repository";
 
 @injectable()

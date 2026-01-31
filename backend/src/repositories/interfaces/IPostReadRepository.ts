@@ -1,5 +1,5 @@
 import { ClientSession } from "mongoose";
-import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "../../types";
+import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "@/types";
 
 /**
  * Read-only repository interface for post queries

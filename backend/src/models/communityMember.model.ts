@@ -1,5 +1,5 @@
 import mongoose, { Schema } from "mongoose";
-import { ICommunityMember } from "../types";
+import { ICommunityMember } from "@/types";
 
 const communityMemberSchema = new Schema<ICommunityMember>({
 	communityId: { type: Schema.Types.ObjectId, ref: "Community", required: true },

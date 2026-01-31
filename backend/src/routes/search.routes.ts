@@ -1,5 +1,5 @@
 import express from "express";
-import { SearchController } from "../controllers/search.controller";
+import { SearchController } from "@/controllers/search.controller";
 import { inject, injectable } from "tsyringe";
 
 @injectable()

@@ -1,18 +1,18 @@
 import { inject, injectable } from "tsyringe";
 import * as fs from "fs";
-import { ICommandHandler } from "../../../common/interfaces/command-handler.interface";
+import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { UpdateAvatarCommand } from "./updateAvatar.command";
-import { IUserReadRepository } from "../../../../repositories/interfaces/IUserReadRepository";
-import { IUserWriteRepository } from "../../../../repositories/interfaces/IUserWriteRepository";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { IImageStorageService } from "../../../../types";
-import { UnitOfWork } from "../../../../database/UnitOfWork";
-import { EventBus } from "../../../common/buses/event.bus";
-import { RedisService } from "../../../../services/redis.service";
-import { DTOService, PublicUserDTO } from "../../../../services/dto.service";
-import { RetryPresets, RetryService } from "../../../../services/retry.service";
-import { createError } from "../../../../utils/errors";
-import { UserAvatarChangedEvent } from "../../../events/user/user-interaction.event";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { IImageStorageService } from "@/types";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { RedisService } from "@/services/redis.service";
+import { DTOService, PublicUserDTO } from "@/services/dto.service";
+import { RetryPresets, RetryService } from "@/services/retry.service";
+import { createError } from "@/utils/errors";
+import { UserAvatarChangedEvent } from "@/application/events/user/user-interaction.event";
 
 @injectable()
 export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarCommand, PublicUserDTO> {

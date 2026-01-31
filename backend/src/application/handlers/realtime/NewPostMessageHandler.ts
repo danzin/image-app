@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
-import { FeedUpdateMessage } from "../../../services/real-time-feed.service";
-import { logger } from "../../../utils/winston";
+import { FeedUpdateMessage } from "@/services/real-time-feed.service";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class NewPostMessageHandler implements IRealtimeMessageHandler {
@@ -34,7 +34,7 @@ export class NewPostMessageHandler implements IRealtimeMessageHandler {
 		});
 
 		logger.info(
-			`Real-time notification sent to ${message.affectedUsers?.length || 0} specific users for new post ${postId}`
+			`Real-time notification sent to ${message.affectedUsers?.length || 0} specific users for new post ${postId}`,
 		);
 	}
 }

@@ -1,9 +1,9 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetAllPostsAdminQuery } from "./getAllPostsAdmin.query";
-import { IPostReadRepository } from "../../../../repositories/interfaces";
-import { DTOService } from "../../../../services/dto.service";
-import { PaginationResult, PostDTO } from "../../../../types";
+import { IPostReadRepository } from "@/repositories/interfaces";
+import { DTOService } from "@/services/dto.service";
+import { PaginationResult, PostDTO } from "@/types";
 
 @injectable()
 export class GetAllPostsAdminQueryHandler implements IQueryHandler<GetAllPostsAdminQuery, PaginationResult<PostDTO>> {

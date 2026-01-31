@@ -1,4 +1,4 @@
-import { IEvent } from "../../common/interfaces/event.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 
 export class UserInteractedWithPostEvent implements IEvent {
 	readonly type = "UserInteractedWithPostEvent";

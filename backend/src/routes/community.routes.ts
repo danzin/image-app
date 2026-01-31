@@ -10,8 +10,8 @@ import {
 	communitySlugSchema,
 	kickMemberSchema,
 	communitySearchSchema,
-} from "../utils/schemas/community.schemas";
-import upload from "../config/multer";
+} from "@/utils/schemas/community.schemas";
+import upload from "@/config/multer";
 
 @injectable()
 export class CommunityRoutes {

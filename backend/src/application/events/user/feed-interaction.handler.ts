@@ -1,12 +1,12 @@
-import { IEventHandler } from "../../common/interfaces/event-handler.interface";
+import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { inject, injectable } from "tsyringe";
-import { UserInteractedWithPostEvent } from "../../events/user/user-interaction.event";
-import { FeedService } from "../../../services/feed.service";
-import { RedisService } from "../../../services/redis.service";
-import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
-import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
-import { IPostReadRepository } from "../../../repositories/interfaces/IPostReadRepository";
-import { logger } from "../../../utils/winston";
+import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
+import { FeedService } from "@/services/feed.service";
+import { RedisService } from "@/services/redis.service";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { logger } from "@/utils/winston";
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
 	constructor(

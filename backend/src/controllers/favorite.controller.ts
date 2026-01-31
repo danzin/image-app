@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { inject, injectable } from "tsyringe";
-import { FavoriteService } from "../services/favorite.service";
-import { createError } from "../utils/errors";
+import { FavoriteService } from "@/services/favorite.service";
+import { createError } from "@/utils/errors";
 
 @injectable()
 export class FavoriteController {

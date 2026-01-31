@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import mongoose from "mongoose";
-import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "../../utils/sanitizers";
+import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "@/utils/sanitizers";
 
 describe("Sanitizers", () => {
 	describe("sanitizeForMongo", () => {

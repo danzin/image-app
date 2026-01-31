@@ -1,13 +1,13 @@
 import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
-import { logger } from "../utils/winston";
+import { logger } from "@/utils/winston";
 
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import { container } from "tsyringe";
-import { setupContainerCore, registerCQRS, initCQRS } from "../di/container";
-import { DatabaseConfig } from "../config/dbConfig";
+import { setupContainerCore, registerCQRS, initCQRS } from "@/di/container";
+import { DatabaseConfig } from "@/config/dbConfig";
 import { ProfileSyncWorker } from "./_impl/profile-sync.worker.impl";
 
 const worker = new ProfileSyncWorker();

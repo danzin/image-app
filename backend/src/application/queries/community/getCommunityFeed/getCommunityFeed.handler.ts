@@ -1,12 +1,12 @@
 import { inject, injectable } from "tsyringe";
-import { IQueryHandler } from "../../../common/interfaces/query-handler.interface";
+import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetCommunityFeedQuery } from "./getCommunityFeed.query";
-import { IPostReadRepository } from "../../../../repositories/interfaces/IPostReadRepository";
-import { CommunityRepository } from "../../../../repositories/community.repository";
-import { CommunityMemberRepository } from "../../../../repositories/communityMember.repository";
-import { DTOService } from "../../../../services/dto.service";
-import { PostDTO } from "../../../../types";
-import { createError } from "../../../../utils/errors";
+import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
+import { DTOService } from "@/services/dto.service";
+import { PostDTO } from "@/types";
+import { createError } from "@/utils/errors";
 
 interface PaginatedPosts {
 	data: PostDTO[];

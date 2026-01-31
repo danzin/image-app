@@ -1,5 +1,5 @@
 import { ClientSession } from "mongoose";
-import { IUser, PaginationOptions, PaginationResult } from "../../types";
+import { IUser, PaginationOptions, PaginationResult } from "@/types";
 
 /**
  * Read-only repository interface for user queries
