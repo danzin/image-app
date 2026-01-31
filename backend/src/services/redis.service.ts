@@ -377,10 +377,10 @@ export class RedisService {
 				await pipeline.exec();
 				const durationMs = performance.now() - start;
 				redisLogger.info(
-					`[Redis] setWithTags key=${key} tags=${uniqueTags.length} duration=${durationMs.toFixed(2)}ms`
+					`[Redis] setWithTags key=${key} tags=${uniqueTags.length} duration=${durationMs.toFixed(2)}ms`,
 				);
 			},
-			{ maxAttempts: 3, fallbackValue: undefined }
+			{ maxAttempts: 3, fallbackValue: undefined },
 		);
 	}
 
@@ -434,10 +434,10 @@ export class RedisService {
 
 				const durationMs = performance.now() - start;
 				redisLogger.info(
-					`[Redis] invalidateByTags tags=${uniqueTags.length} keys=${keysToDelete.size} deletedKeys=${deleteTargets.length} duration=${durationMs.toFixed(2)}ms`
+					`[Redis] invalidateByTags tags=${uniqueTags.length} keys=${keysToDelete.size} deletedKeys=${deleteTargets.length} duration=${durationMs.toFixed(2)}ms`,
 				);
 			},
-			{ maxAttempts: 3, fallbackValue: undefined }
+			{ maxAttempts: 3, fallbackValue: undefined },
 		);
 	}
 
@@ -486,7 +486,7 @@ export class RedisService {
 		await pipeline.exec();
 		const durationMs = performance.now() - start;
 		redisLogger.info(
-			`[Redis] pushNotification userId=${userId} notification=${notificationId}  duration=${durationMs.toFixed(2)}ms`
+			`[Redis] pushNotification userId=${userId} notification=${notificationId}  duration=${durationMs.toFixed(2)}ms`,
 		);
 	}
 
@@ -965,5 +965,48 @@ export class RedisService {
 	 */
 	async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]): Promise<unknown> {
 		return await this.client.xClaim(stream, group, consumer, minIdleMs, ids);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────────────
+	// Sorted Set Operations for Activity Tracking
+	// ─────────────────────────────────────────────────────────────────────────────
+
+	/**
+	 * Add a member with a score to a sorted set
+	 * @param key sorted set key
+	 * @param score numeric score for ordering
+	 * @param member member value
+	 */
+	async zadd(key: string, score: number, member: string): Promise<number> {
+		return await this.client.zAdd(key, { score, value: member });
+	}
+
+	/**
+	 * Get members from a sorted set within a score range
+	 * @param key sorted set key
+	 * @param min minimum score (can be '-inf')
+	 * @param max maximum score (can be '+inf')
+	 */
+	async zrangeByScore(key: string, min: string, max: string): Promise<string[]> {
+		return await this.client.zRangeByScore(key, min, max);
+	}
+
+	/**
+	 * Remove members from a sorted set by score range
+	 * @param key sorted set key
+	 * @param min minimum score (can be '-inf')
+	 * @param max maximum score
+	 */
+	async zremRangeByScore(key: string, min: string, max: string): Promise<number> {
+		return await this.client.zRemRangeByScore(key, min, max);
+	}
+
+	/**
+	 * Set TTL on a key
+	 * @param key redis key
+	 * @param seconds TTL in seconds
+	 */
+	async expire(key: string, seconds: number): Promise<boolean> {
+		return await this.client.expire(key, seconds);
 	}
 }

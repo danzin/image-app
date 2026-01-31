@@ -4,6 +4,7 @@ import { PostUploadedEvent } from "../../events/post/post.event";
 import { RedisService } from "../../../services/redis.service";
 import { IUserReadRepository } from "../../../repositories/interfaces/IUserReadRepository";
 import { UserPreferenceRepository } from "../../../repositories/userPreference.repository";
+import { UserActivityService } from "../../../services/user-activity.service";
 import { CacheKeyBuilder } from "../../../utils/cache/CacheKeyBuilder";
 import { logger } from "../../../utils/winston";
 
@@ -13,12 +14,24 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 		@inject("RedisService") private readonly redis: RedisService,
 		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
 		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
+		@inject("UserActivityService") private readonly userActivityService: UserActivityService,
 	) {}
 
 	async handle(event: PostUploadedEvent): Promise<void> {
 		logger.info(`[POST_UPLOAD_HANDLER] New post created by ${event.authorPublicId}, invalidating relevant feeds`);
 
 		try {
+			// track user activity for who-to-follow adaptive logic (fire and forget)
+			this.userActivityService.trackPostCreated(event.authorPublicId).catch((err) => {
+				logger.warn("[POST_UPLOAD_HANDLER] Failed to track user activity", err);
+			});
+
+			// invalidate who-to-follow cache since we have a new user posting
+			// this ensures the new user appears in suggestions
+			this.redis.invalidateByTags(["who_to_follow"]).catch((err) => {
+				logger.warn("[POST_UPLOAD_HANDLER] Failed to invalidate who-to-follow cache", err);
+			});
+
 			// use tag-based invalidation for efficient cache clearing
 			const tagsToInvalidate: string[] = [];
 
