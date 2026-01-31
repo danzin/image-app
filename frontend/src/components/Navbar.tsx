@@ -144,9 +144,9 @@ const Navbar = () => {
 									variant="contained"
 									size="small"
 									sx={{
-										background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+										background: "linear-gradient(45deg, #0ea5e9, #38bdf8)",
 										"&:hover": {
-											background: "linear-gradient(45deg, #4f46e5, #7c3aed)",
+											background: "linear-gradient(45deg, #0284c7, #0ea5e9)",
 										},
 									}}
 								>

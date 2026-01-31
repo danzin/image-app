@@ -369,7 +369,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								alignItems: "center",
 								gap: 0.5,
 								color: "text.secondary",
-								"&:hover": { color: "#8b5cf6" },
+								"&:hover": { color: "#0ea5e9" },
 							}}
 						>
 							<FavoriteIcon fontSize="small" sx={{ fontSize: 18 }} />
@@ -407,7 +407,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								alignItems: "center",
 								gap: 0.5,
 								color: "text.secondary",
-								"&:hover": { color: "#8b5cf6" },
+								"&:hover": { color: "#0ea5e9" },
 							}}
 						>
 							<VisibilityIcon fontSize="small" sx={{ fontSize: 18 }} />

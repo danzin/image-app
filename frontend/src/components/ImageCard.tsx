@@ -94,7 +94,7 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 							width: 32,
 							height: 32,
 							border: "2px solid rgba(99, 102, 241, 0.3)",
-							background: "linear-gradient(45deg, #6366f1, #8b5cf6)",
+							background: "linear-gradient(45deg, #0ea5e9, #38bdf8)",
 						}}
 					>
 						{image.user?.avatar ? (
