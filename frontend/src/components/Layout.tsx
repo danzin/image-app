@@ -9,6 +9,7 @@ import MobileTopBar from "./MobileTopBar";
 import UploadForm from "./UploadForm";
 import { useAuth } from "../hooks/context/useAuth";
 import VerifyEmail from "../screens/VerifyEmail";
+import { BottomNavProvider } from "../context/BottomNav/BottomNavContext";
 
 const Layout: React.FC = () => {
 	const theme = useTheme();
@@ -54,7 +55,7 @@ const Layout: React.FC = () => {
 		);
 	}
 
-	return (
+	const content = (
 		<Box
 			sx={{
 				minHeight: "100vh",
@@ -168,6 +169,9 @@ const Layout: React.FC = () => {
 			{isUploadModalOpen && <UploadForm onClose={handleCloseUploadModal} />}
 		</Box>
 	);
+
+	// wrap with BottomNavProvider on mobile to share visibility state
+	return isMobile ? <BottomNavProvider>{content}</BottomNavProvider> : content;
 };
 
 export default Layout;
