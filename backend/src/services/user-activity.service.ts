@@ -1,5 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "./redis.service";
+import { AdaptiveTTL, ActivityThresholds, PlatformSizeThresholds } from "../config/cacheConfig";
 import { logger } from "../utils/winston";
 
 export const USER_ACTIVITY_METRICS_KEY = "who_to_follow:activity_metrics";
@@ -11,30 +12,6 @@ export interface UserActivityMetrics {
 	recentWindowStart: number;
 	uniquePosters: number;
 }
-
-export const WHO_TO_FOLLOW_TTL_CONFIG = {
-	HIGH_ACTIVITY: 300,
-	MEDIUM_ACTIVITY: 900,
-	LOW_ACTIVITY: 1800,
-	VERY_LOW_ACTIVITY: 3600,
-	DORMANT: 7200,
-};
-
-export const USER_ACTIVITY_THRESHOLDS = {
-	HIGH: 20, // 20+ posts/hour = high activity
-	MEDIUM: 5, // 5-20 posts/hour = medium
-	LOW: 1, // 1-5 posts/hour = low
-	VERY_LOW: 0.25, // 0.25-1 posts/hour = very low (1 post every 4 hours)
-	// below 0.25 = dormant
-};
-
-// thresholds for determining platform size/activity for who to follow strategy
-export const PLATFORM_SIZE_THRESHOLDS = {
-	// minimum posts per hour to consider "high traffic"
-	HIGH_TRAFFIC_POSTS_PER_HOUR: 10,
-	// minimum unique posters to consider having "many users"
-	MANY_USERS_THRESHOLD: 25,
-};
 
 export type PlatformActivityLevel = "high" | "medium" | "low" | "dormant";
 
@@ -86,7 +63,7 @@ export class UserActivityService {
 						recentWindowStart,
 						uniquePosters: uniquePosters + (hoursSinceLastUpdate > 1 ? 1 : 0),
 					} as UserActivityMetrics,
-					604800, // keep metrics for 1 week
+					AdaptiveTTL.METRICS_STORAGE,
 				);
 			} else {
 				// first activity ever
@@ -99,7 +76,7 @@ export class UserActivityService {
 						recentWindowStart: now,
 						uniquePosters: 1,
 					} as UserActivityMetrics,
-					604800,
+					AdaptiveTTL.METRICS_STORAGE,
 				);
 			}
 
@@ -131,7 +108,7 @@ export class UserActivityService {
 			await this.redisService.zremRangeByScore(key, "-inf", cutoff.toString());
 
 			// set TTL on the key
-			await this.redisService.expire(key, 604800); // 7 days
+			await this.redisService.expire(key, AdaptiveTTL.METRICS_STORAGE);
 		} catch (error) {
 			logger.warn("[UserActivityService] Error tracking recently active user", error);
 		}
@@ -182,16 +159,16 @@ export class UserActivityService {
 			const postsPerHour = metrics.recentPostCount / hoursSinceWindowStart;
 			const hoursSinceLastActivity = (now - metrics.lastUpdated) / 3600000;
 
-			// if no activity in last 12 hours, consider dormant
-			if (hoursSinceLastActivity > 12) {
+			// if no activity in configured dormant hours, consider dormant
+			if (hoursSinceLastActivity > ActivityThresholds.DORMANT_HOURS.POSTS) {
 				return "dormant";
 			}
 
-			if (postsPerHour >= USER_ACTIVITY_THRESHOLDS.HIGH) {
+			if (postsPerHour >= ActivityThresholds.POSTS.HIGH) {
 				return "high";
-			} else if (postsPerHour >= USER_ACTIVITY_THRESHOLDS.MEDIUM) {
+			} else if (postsPerHour >= ActivityThresholds.POSTS.MEDIUM) {
 				return "medium";
-			} else if (postsPerHour >= USER_ACTIVITY_THRESHOLDS.LOW) {
+			} else if (postsPerHour >= ActivityThresholds.POSTS.LOW) {
 				return "low";
 			}
 
@@ -210,14 +187,21 @@ export class UserActivityService {
 
 		switch (level) {
 			case "high":
-				return WHO_TO_FOLLOW_TTL_CONFIG.HIGH_ACTIVITY;
+				return AdaptiveTTL.WHO_TO_FOLLOW.HIGH_ACTIVITY;
 			case "medium":
-				return WHO_TO_FOLLOW_TTL_CONFIG.MEDIUM_ACTIVITY;
+				return AdaptiveTTL.WHO_TO_FOLLOW.MEDIUM_ACTIVITY;
 			case "low":
-				return WHO_TO_FOLLOW_TTL_CONFIG.LOW_ACTIVITY;
+				return AdaptiveTTL.WHO_TO_FOLLOW.LOW_ACTIVITY;
 			default:
-				return WHO_TO_FOLLOW_TTL_CONFIG.DORMANT;
+				return AdaptiveTTL.WHO_TO_FOLLOW.DORMANT;
 		}
+	}
+
+	/**
+	 * Get platform size thresholds for external use
+	 */
+	getPlatformSizeThresholds() {
+		return PlatformSizeThresholds;
 	}
 
 	/**

@@ -4,34 +4,16 @@ import { inject, injectable } from "tsyringe";
 import { RedisService } from "../../../../services/redis.service";
 import { TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "../../../../services/tag.service";
 import { IPostReadRepository } from "../../../../repositories/interfaces";
+import { AdaptiveTTL, ActivityThresholds } from "../../../../config/cacheConfig";
 import { createError } from "../../../../utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "types/index";
 import { logger } from "../../../../utils/winston";
 import { CacheKeyBuilder } from "../../../../utils/cache/CacheKeyBuilder";
 
-// TTL ranges based on activity level
-const TTL_CONFIG = {
-	HIGH_ACTIVITY: 300, // 5 minutes - lots of new tags coming in
-	MEDIUM_ACTIVITY: 1800, // 30 minutes
-	LOW_ACTIVITY: 86400, // 1 day
-	VERY_LOW_ACTIVITY: 604800, // 1 week
-	DORMANT: 2592000, // 30 days - site basically inactive
-};
-
-// activity thresholds (tags per hour based on recent window)
-const ACTIVITY_THRESHOLDS = {
-	HIGH: 10, // 10+ tags/hour = high activity
-	MEDIUM: 2, // 2-10 tags/hour = medium
-	LOW: 0.5, // 0.5-2 tags/hour = low (1 tag every 2 hours)
-	VERY_LOW: 0.1, // 0.1-0.5 tags/hour = very low (1 tag every 10 hours)
-	// below 0.1 = dormant
-};
-
 @injectable()
 export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTagsQuery, GetTrendingTagsResult> {
 	private readonly CACHE_KEY_PREFIX = CacheKeyBuilder.getTrendingTagsPrefix();
 	private readonly HISTORICAL_KEY = "trending_tags:historical";
-	private readonly HISTORICAL_TTL = 3888000; // 45 days
 
 	constructor(
 		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
@@ -74,7 +56,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 				if (historical && historical.tags.length > 0) {
 					logger.info("[GetTrendingTagsQuery] Using historical trending tags fallback");
 					// cache the historical result with dormant TTL so we don't keep hitting DB
-					await this.redisService.set(cacheKey, historical, TTL_CONFIG.DORMANT);
+					await this.redisService.set(cacheKey, historical, AdaptiveTTL.TRENDING_TAGS.DORMANT);
 					return historical;
 				}
 			}
@@ -89,7 +71,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 
 			// update historical cache if we have fresh data (not from extended window)
 			if (tags.length > 0 && !usedExtendedWindow) {
-				await this.redisService.set(this.HISTORICAL_KEY, result, this.HISTORICAL_TTL);
+				await this.redisService.set(this.HISTORICAL_KEY, result, AdaptiveTTL.TRENDING_TAGS.HISTORICAL);
 				logger.info("[GetTrendingTagsQuery] Updated historical cache with fresh data");
 			}
 
@@ -115,7 +97,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	private async calculateDynamicTTL(usedExtendedWindow: boolean): Promise<number> {
 		// if we had to use extended window, site is definitely slow - use longer TTL
 		if (usedExtendedWindow) {
-			return TTL_CONFIG.LOW_ACTIVITY;
+			return AdaptiveTTL.TRENDING_TAGS.LOW_ACTIVITY;
 		}
 
 		try {
@@ -124,7 +106,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			if (!metrics) {
 				// no activity tracked yet, use medium TTL as safe default
 				logger.info("[GetTrendingTagsQuery] No activity metrics found, using medium TTL");
-				return TTL_CONFIG.MEDIUM_ACTIVITY;
+				return AdaptiveTTL.TRENDING_TAGS.MEDIUM_ACTIVITY;
 			}
 
 			// calculate tags per hour from recent window
@@ -135,24 +117,24 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			// also consider time since last activity
 			const hoursSinceLastActivity = (now - metrics.lastUpdated) / 3600000;
 
-			// if no activity in the last 24 hours, site is dormant regardless of historical rate
-			if (hoursSinceLastActivity > 24) {
+			// if no activity in the configured dormant hours, site is dormant regardless of historical rate
+			if (hoursSinceLastActivity > ActivityThresholds.DORMANT_HOURS.TAGS) {
 				logger.info(`[GetTrendingTagsQuery] No activity in ${hoursSinceLastActivity.toFixed(1)}h, using dormant TTL`);
-				return TTL_CONFIG.DORMANT;
+				return AdaptiveTTL.TRENDING_TAGS.DORMANT;
 			}
 
 			// determine TTL based on activity rate
 			let ttl: number;
-			if (tagsPerHour >= ACTIVITY_THRESHOLDS.HIGH) {
-				ttl = TTL_CONFIG.HIGH_ACTIVITY;
-			} else if (tagsPerHour >= ACTIVITY_THRESHOLDS.MEDIUM) {
-				ttl = TTL_CONFIG.MEDIUM_ACTIVITY;
-			} else if (tagsPerHour >= ACTIVITY_THRESHOLDS.LOW) {
-				ttl = TTL_CONFIG.LOW_ACTIVITY;
-			} else if (tagsPerHour >= ACTIVITY_THRESHOLDS.VERY_LOW) {
-				ttl = TTL_CONFIG.VERY_LOW_ACTIVITY;
+			if (tagsPerHour >= ActivityThresholds.TAGS.HIGH) {
+				ttl = AdaptiveTTL.TRENDING_TAGS.HIGH_ACTIVITY;
+			} else if (tagsPerHour >= ActivityThresholds.TAGS.MEDIUM) {
+				ttl = AdaptiveTTL.TRENDING_TAGS.MEDIUM_ACTIVITY;
+			} else if (tagsPerHour >= ActivityThresholds.TAGS.LOW) {
+				ttl = AdaptiveTTL.TRENDING_TAGS.LOW_ACTIVITY;
+			} else if (tagsPerHour >= ActivityThresholds.TAGS.VERY_LOW) {
+				ttl = AdaptiveTTL.TRENDING_TAGS.VERY_LOW_ACTIVITY;
 			} else {
-				ttl = TTL_CONFIG.DORMANT;
+				ttl = AdaptiveTTL.TRENDING_TAGS.DORMANT;
 			}
 
 			logger.info(
@@ -161,7 +143,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			return ttl;
 		} catch (error) {
 			logger.warn("[GetTrendingTagsQuery] Error calculating dynamic TTL, using medium", error);
-			return TTL_CONFIG.MEDIUM_ACTIVITY;
+			return AdaptiveTTL.TRENDING_TAGS.MEDIUM_ACTIVITY;
 		}
 	}
 
