@@ -244,15 +244,30 @@ const Messages = () => {
 				display: "flex",
 				// use dvh (dynamic viewport height) for mobile browsers with address bars
 				// fallback to vh for older browsers
-				height: { xs: "calc(100dvh - 56px)", md: "100dvh" },
-				maxHeight: { xs: "calc(100dvh - 56px)", md: "100dvh" },
+				// adjust height based on bottom nav visibility on mobile
+				height: {
+					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
+					md: "100dvh",
+				},
+				maxHeight: {
+					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
+					md: "100dvh",
+				},
 				// fallback for browsers that don't support dvh
 				"@supports not (height: 100dvh)": {
-					height: { xs: "calc(100vh - 56px)", md: "100vh" },
-					maxHeight: { xs: "calc(100vh - 56px)", md: "100vh" },
+					height: {
+						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
+						md: "100vh",
+					},
+					maxHeight: {
+						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
+						md: "100vh",
+					},
 				},
 				overflow: "hidden",
 				bgcolor: "background.default",
+				// smooth transition when bottom nav hides/shows
+				transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 			}}
 		>
 			{/* Conversation List */}
@@ -481,9 +496,6 @@ const Messages = () => {
 								p: 1.5,
 								borderTop: `1px solid ${theme.palette.divider}`,
 								bgcolor: "background.default",
-								// smooth transition when bottom nav hides/shows
-								pb: isMobile ? (isBottomNavVisible ? `${BOTTOM_NAV_HEIGHT + 12}px` : 1.5) : 1.5,
-								transition: "padding-bottom 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 							}}
 						>
 							<Paper
