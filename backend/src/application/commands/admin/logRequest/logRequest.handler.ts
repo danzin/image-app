@@ -12,7 +12,7 @@ export class LogRequestCommandHandler implements ICommandHandler<LogRequestComma
 	) {}
 
 	async execute(command: LogRequestCommand): Promise<void> {
-		const { method, route, ip, statusCode, responseTimeMs, userId, email, userAgent } = command.payload;
+		const { method, route, ip, statusCode, responseTimeMs, userId, userAgent } = command.payload;
 
 		await Promise.all([
 			this.requestLogRepository.create({
@@ -24,7 +24,6 @@ export class LogRequestCommandHandler implements ICommandHandler<LogRequestComma
 					statusCode,
 					responseTimeMs,
 					userId,
-					email,
 					userAgent,
 				},
 			} as any),

@@ -4,27 +4,21 @@ import { GetUserCommunitiesQuery } from "./getUserCommunities.query";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { ICommunity } from "@/types";
+import { PaginationResult } from "@/types";
+import { DTOService, CommunityDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { Types } from "mongoose";
 
-interface PaginatedCommunities {
-	data: ICommunity[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}
-
 @injectable()
-export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserCommunitiesQuery, PaginatedCommunities> {
+export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserCommunitiesQuery, PaginationResult<CommunityDTO>> {
 	constructor(
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject("UserReadRepository") private userRepository: IUserReadRepository,
+		@inject("DTOService") private dtoService: DTOService,
 	) {}
 
-	async execute(query: GetUserCommunitiesQuery): Promise<PaginatedCommunities> {
+	async execute(query: GetUserCommunitiesQuery): Promise<PaginationResult<CommunityDTO>> {
 		const { userId: userPublicId, page, limit } = query;
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
@@ -51,15 +45,11 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 
 		// user is querying their own communities so they are members of all of them
 		const data = communities.map((c, index) => {
-			const plain = c.toObject ? c.toObject() : c;
-			return {
-				...plain,
-				stats: {
-					...plain.stats,
-					memberCount: memberCounts[index],
-				},
+			return this.dtoService.toCommunityDTO(c, {
+				memberCount: memberCounts[index],
 				isMember: true,
-			} as ICommunity;
+				isCreator: c.creatorId?.toString() === userId.toString(),
+			});
 		});
 
 		return { data, total, page, limit, totalPages };

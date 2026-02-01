@@ -49,12 +49,9 @@ const getClientIp = (req: Request): string => {
 export const detailedRequestLogging = (req: Request, res: Response, next: NextFunction) => {
 	const logObject = {
 		method: req.method,
-		url: req.url,
-		params: req.params,
-		query: req.query,
-		body: req.body,
-		headers: req.headers,
-		decodedUser: req?.decodedUser || {},
+		url: req.url.split("?")[0],
+		params: Object.keys(req.params || {}).length > 0 ? req.params : undefined,
+		query: Object.keys(req.query || {}).length > 0 ? req.query : undefined,
 		ip: getClientIp(req),
 		timestamp: new Date().toISOString(),
 	};

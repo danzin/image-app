@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from "express";
 import { container } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
-import net from "net"; // Built-in Node module
 
 const getClientIp = (req: Request): string => {
 	// This header has now traveled: Cloudflare -> Caddy -> Gateway -> Backend
@@ -18,15 +17,14 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 
 	res.on("finish", async () => {
 		try {
-			const route = req.originalUrl || req.url;
+			const route = (req.originalUrl || req.url).split("?")[0];
 
-			if (route === "/health" || route === "/metrics") {
+			if (route === "/health" || route.startsWith("/metrics") || route.startsWith("/telemetry")) {
 				return;
 			}
 
 			const responseTimeMs = Date.now() - startTime;
 			const userId = (req as any).decodedUser?.publicId;
-			const email = (req as any).decodedUser?.email;
 			const userAgent = req.get("user-agent");
 
 			const commandBus = container.resolve<CommandBus>("CommandBus");
@@ -38,7 +36,6 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 				statusCode: res.statusCode,
 				responseTimeMs,
 				userId,
-				email,
 				userAgent,
 			});
 

@@ -65,6 +65,10 @@ export const sanitize = (text: string): string =>
 		allowedAttributes: {},
 	});
 
+export function escapeRegex(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Validates and sanitizes text input with length constraints
  */

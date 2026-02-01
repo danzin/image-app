@@ -41,7 +41,7 @@ export const useUpdateCommunity = () => {
 		mutationFn: ({ communityId, updates }: { communityId: string; updates: UpdateCommunityDTO }) =>
 			updateCommunity(communityId, updates),
 		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["community"] });
+			queryClient.invalidateQueries({ queryKey: ["community", data.slug] });
 			queryClient.invalidateQueries({ queryKey: ["communities"] });
 			toast.success("Community updated successfully!");
 		},
@@ -56,8 +56,10 @@ export const useJoinCommunity = () => {
 
 	return useMutation({
 		mutationFn: (communityId: string) => joinCommunity(communityId),
-		onSuccess: () => {
+		onSuccess: (_data, communityId) => {
 			queryClient.invalidateQueries({ queryKey: ["community"] });
+			queryClient.invalidateQueries({ queryKey: ["community-posts", communityId] });
+			queryClient.invalidateQueries({ queryKey: ["community-members"] });
 			queryClient.invalidateQueries({ queryKey: ["communities"] });
 			queryClient.invalidateQueries({ queryKey: ["user-communities"] });
 			toast.success("Joined community!");
@@ -73,8 +75,10 @@ export const useLeaveCommunity = () => {
 
 	return useMutation({
 		mutationFn: (communityId: string) => leaveCommunity(communityId),
-		onSuccess: () => {
+		onSuccess: (_data, communityId) => {
 			queryClient.invalidateQueries({ queryKey: ["community"] });
+			queryClient.invalidateQueries({ queryKey: ["community-posts", communityId] });
+			queryClient.invalidateQueries({ queryKey: ["community-members"] });
 			queryClient.invalidateQueries({ queryKey: ["communities"] });
 			queryClient.invalidateQueries({ queryKey: ["user-communities"] });
 			toast.success("Left community");
@@ -90,8 +94,9 @@ export const useKickMember = () => {
 
 	return useMutation({
 		mutationFn: ({ communityId, userId }: { communityId: string; userId: string }) => kickMember(communityId, userId),
-		onSuccess: () => {
+		onSuccess: (_data, variables) => {
 			queryClient.invalidateQueries({ queryKey: ["community-members"] });
+			queryClient.invalidateQueries({ queryKey: ["community", variables.communityId] });
 			toast.success("Member kicked successfully");
 		},
 		onError: (error: AxiosError<{ message?: string }>) => {

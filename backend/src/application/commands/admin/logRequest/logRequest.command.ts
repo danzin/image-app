@@ -7,7 +7,6 @@ export interface LogRequestPayload {
 	statusCode: number;
 	responseTimeMs: number;
 	userId?: string;
-	email?: string;
 	userAgent?: string;
 }
 

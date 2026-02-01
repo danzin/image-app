@@ -19,6 +19,7 @@ export const useSearch = (query: string) => {
 					// Map the raw posts to the IPost interface
 					posts: data.data.posts ? data.data.posts.map(mapPost) : [],
 					users: data.data.users || [],
+					communities: data.data.communities || [],
 				},
 			};
 		},
