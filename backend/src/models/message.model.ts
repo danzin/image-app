@@ -52,10 +52,10 @@ const messageSchema = new Schema<IMessage>(
 messageSchema.index({ conversation: 1, createdAt: -1 });
 
 messageSchema.set("toJSON", {
-	transform: (_doc, ret) => {
-		if ((ret as any)._id) {
-			ret.id = (ret as any)._id.toString();
-			delete (ret as any)._id;
+	transform: (_doc, ret: any) => {
+		if (ret._id) {
+			ret.id = ret._id.toString();
+			delete ret._id;
 		}
 
 		if (Array.isArray(ret.readBy)) {
@@ -64,7 +64,7 @@ messageSchema.set("toJSON", {
 			);
 		}
 
-		delete (ret as any).__v;
+		delete ret.__v;
 		return ret;
 	},
 });

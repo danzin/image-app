@@ -8,9 +8,9 @@ logger.info("MONGODB_URI in main:", process.env.MONGODB_URI);
 mongoose.plugin((schema) => {
 	schema.set("toJSON", {
 		transform: (doc, ret: Record<string, any>) => {
-			if ((ret as any)._id) {
-				ret.id = (ret as any)._id.toString();
-				delete (ret as any)._id;
+			if (ret._id) {
+				ret.id = ret._id.toString();
+				delete ret._id;
 			}
 			delete ret.__v;
 			return ret;

@@ -139,9 +139,9 @@ postSchema.index({ repostOf: 1, createdAt: -1 }); // fetch reposts of a given po
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;
-		if ((ret as any)._id) {
-			ret.id = (ret as any)._id.toString();
-			delete (ret as any)._id;
+		if (ret._id) {
+			ret.id = ret._id.toString();
+			delete ret._id;
 		}
 
 		if (ret.user && typeof ret.user === "object" && ret.user._id) {
