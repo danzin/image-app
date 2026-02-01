@@ -19,6 +19,7 @@ const favoriteSchema = new Schema<IFavorite>(
 
 favoriteSchema.index({ userId: 1, postId: 1 }, { unique: true }); // compound index to ensure a user can only favorite a post once
 favoriteSchema.index({ userId: 1, createdAt: -1 }); // compound index to efficiently query for a user's favorites, sorted by most recent
+favoriteSchema.index({ postId: 1 });
 
 const Favorite = mongoose.model<IFavorite>("Favorite", favoriteSchema);
 export default Favorite;

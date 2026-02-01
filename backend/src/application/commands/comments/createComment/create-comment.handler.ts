@@ -7,7 +7,8 @@ import { IPostReadRepository } from "@/repositories/interfaces/IPostReadReposito
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
@@ -25,8 +26,9 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
@@ -131,17 +133,19 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							? "[Image post]"
 							: "[Post]";
 
-					await this.notificationService.createNotification({
-						receiverId: postOwnerId,
-						actionType: "comment",
-						actorId: command.userPublicId,
-						actorUsername: user.username,
-						actorAvatar: user.avatar,
-						targetId: command.postPublicId,
-						targetType: "post",
-						targetPreview: postPreview,
-						session,
-					});
+					this.eventBus.queueTransactional(
+						new NotificationRequestedEvent({
+							receiverId: postOwnerId,
+							actionType: "comment",
+							actorId: command.userPublicId,
+							actorUsername: user.username,
+							actorAvatar: user.avatar,
+							targetId: command.postPublicId,
+							targetType: "post",
+							targetPreview: postPreview,
+						}),
+						this.notificationRequestedHandler,
+					);
 				}
 
 				// Send notification to parent comment owner (for replies), but avoid double notifying post owner
@@ -155,17 +159,19 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							parentOwnerPublicId !== command.userPublicId &&
 							parentOwnerPublicId !== postOwnerId
 						) {
-							await this.notificationService.createNotification({
-								receiverId: parentOwnerPublicId,
-								actionType: "comment_reply",
-								actorId: command.userPublicId,
-								actorUsername: user.username,
-								actorAvatar: user.avatar,
-								targetId: command.postPublicId,
-								targetType: "comment",
-								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
-								session,
-							});
+							this.eventBus.queueTransactional(
+								new NotificationRequestedEvent({
+									receiverId: parentOwnerPublicId,
+									actionType: "comment_reply",
+									actorId: command.userPublicId,
+									actorUsername: user.username,
+									actorAvatar: user.avatar,
+									targetId: command.postPublicId,
+									targetType: "comment",
+									targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+								}),
+								this.notificationRequestedHandler,
+							);
 						}
 					}
 				}
@@ -198,17 +204,19 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 						}
 
 						logger.info(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
-						await this.notificationService.createNotification({
-							receiverId: mentionedUser.publicId,
-							actionType: "mention",
-							actorId: command.userPublicId,
-							actorUsername: user.username,
-							actorAvatar: user.avatar,
-							targetId: command.postPublicId,
-							targetType: "post",
-							targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
-							session,
-						});
+						this.eventBus.queueTransactional(
+							new NotificationRequestedEvent({
+								receiverId: mentionedUser.publicId,
+								actionType: "mention",
+								actorId: command.userPublicId,
+								actorUsername: user.username,
+								actorAvatar: user.avatar,
+								targetId: command.postPublicId,
+								targetType: "post",
+								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+							}),
+							this.notificationRequestedHandler,
+						);
 					}
 				}
 

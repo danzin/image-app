@@ -66,9 +66,8 @@ describe("CreatePostCommandHandler", () => {
 	let mockDTOService: {
 		toPostDTO: SinonStub;
 	};
-	let mockNotificationService: {
-		notifyFollowers: SinonStub;
-		createNotification: SinonStub;
+	let mockNotificationRequestedHandler: {
+		handle: SinonStub;
 	};
 
 	beforeEach(() => {
@@ -133,9 +132,8 @@ describe("CreatePostCommandHandler", () => {
 			toPostDTO: sinon.stub(),
 		};
 
-		mockNotificationService = {
-			notifyFollowers: sinon.stub(),
-			createNotification: sinon.stub(),
+		mockNotificationRequestedHandler = {
+			handle: sinon.stub(),
 		};
 
 		mockSession = {} as ClientSession;
@@ -154,7 +152,7 @@ describe("CreatePostCommandHandler", () => {
 			mockDTOService as any,
 			mockEventBus as any,
 			mockPostUploadHandler as any,
-			mockNotificationService as any,
+			mockNotificationRequestedHandler as any,
 		);
 
 		command = new CreatePostCommand(

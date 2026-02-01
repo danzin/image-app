@@ -41,7 +41,7 @@ const conversationSchema = new Schema<IConversation>(
 			type: String,
 		},
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
 
 conversationSchema.index({ participants: 1 });
@@ -49,7 +49,7 @@ conversationSchema.index({ lastMessageAt: -1 });
 conversationSchema.index({ participantHash: 1 }, { unique: true });
 
 conversationSchema.set("toJSON", {
-	transform: (_doc, ret) => {
+	transform: (_doc, ret: any) => {
 		if (ret._id) {
 			ret.id = ret._id.toString();
 			delete ret._id;
@@ -59,7 +59,7 @@ conversationSchema.set("toJSON", {
 			ret.unreadCounts = Object.fromEntries((ret.unreadCounts as Map<string, number>).entries()) as any;
 		}
 
-		delete (ret as any).__v;
+		delete ret.__v;
 		return ret;
 	},
 });

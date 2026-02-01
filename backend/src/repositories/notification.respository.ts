@@ -23,7 +23,13 @@ export class NotificationRepository extends BaseRepository<INotification> {
 	 * @param skip - number of notifications to skip for pagination (default: 0)
 	 */
 	async getNotifications(userId: string, limit: number = 50, skip: number = 0): Promise<INotification[]> {
-		return this.model.find({ userId }).sort({ timestamp: -1 }).skip(skip).limit(limit).lean().exec();
+		return (await this.model
+			.find({ userId })
+			.sort({ timestamp: -1 })
+			.skip(skip)
+			.limit(limit)
+			.lean()
+			.exec()) as unknown as INotification[];
 	}
 
 	/**
@@ -36,9 +42,9 @@ export class NotificationRepository extends BaseRepository<INotification> {
 	async getNotificationsBeforeTimestamp(
 		userId: string,
 		beforeTimestamp: Date,
-		limit: number = 20
+		limit: number = 20,
 	): Promise<INotification[]> {
-		return this.model
+		return (await this.model
 			.find({
 				userId,
 				timestamp: { $lt: beforeTimestamp }, // older than cursor
@@ -46,7 +52,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			.sort({ timestamp: -1 }) // most recent first (within the older set)
 			.limit(limit)
 			.lean()
-			.exec();
+			.exec()) as unknown as INotification[];
 	}
 
 	/**
@@ -70,11 +76,11 @@ export class NotificationRepository extends BaseRepository<INotification> {
 				.exec();
 			if (!updated) {
 				console.warn(
-					`[NotificationRepository] markAsRead miss (not found or ownership mismatch) id=${notificationId} userId=${userId}`
+					`[NotificationRepository] markAsRead miss (not found or ownership mismatch) id=${notificationId} userId=${userId}`,
 				);
 			} else {
 				logger.info(
-					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${updated.isRead}`
+					`[NotificationRepository] markAsRead success id=${notificationId} userId=${userId} isRead=${updated.isRead}`,
 				);
 			}
 			return updated;

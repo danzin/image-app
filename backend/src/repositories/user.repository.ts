@@ -629,7 +629,7 @@ export class UserRepository extends BaseRepository<IUser> {
 					$lookup: {
 						from: "favorites",
 						let: { postIds: "$posts._id" },
-						pipeline: [{ $match: { $expr: { $in: ["$post", "$$postIds"] } } }],
+						pipeline: [{ $match: { $expr: { $in: ["$postId", "$$postIds"] } } }],
 						as: "favoriteLinks",
 					},
 				},

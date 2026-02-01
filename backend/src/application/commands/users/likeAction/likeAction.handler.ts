@@ -9,7 +9,8 @@ import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteReposi
 import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { FeedService } from "@/services/feed.service";
@@ -25,8 +26,9 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 		@inject("FeedService") private readonly feedService: FeedService
 	) {}
@@ -148,14 +150,16 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		}
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userId) {
-			logger.info(`[LikeAction] Creating notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
-			await this.notificationService.createNotification({
-				receiverId: postOwnerPublicId,
-				actionType: "like",
-				actorId: command.userId,
-				targetId: (post as any).publicId ?? command.postId,
-				session,
-			});
+			logger.info(`[LikeAction] Queuing notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
+			this.eventBus.queueTransactional(
+				new NotificationRequestedEvent({
+					receiverId: postOwnerPublicId,
+					actionType: "like",
+					actorId: command.userId,
+					targetId: (post as any).publicId ?? command.postId,
+				}),
+				this.notificationRequestedHandler,
+			);
 		} else {
 			logger.info(
 				`[LikeAction] Skipping notification. Owner: ${postOwnerPublicId}, Actor: ${command.userId}, Same? ${postOwnerPublicId === command.userId}`

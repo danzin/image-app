@@ -23,7 +23,7 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 			]);
 
 			return {
-				data: data as IRequestLog[],
+				data: data as unknown as IRequestLog[],
 				total,
 				page,
 				limit,
@@ -38,23 +38,33 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 	}
 
 	async findRecentLogs(limit = 100): Promise<IRequestLog[]> {
-		return this.model.find().sort({ timestamp: -1 }).limit(limit).lean().exec();
+		return (await this.model.find().sort({ timestamp: -1 }).limit(limit).lean().exec()) as unknown as IRequestLog[];
 	}
 
 	async findLogsByDateRange(startDate: Date, endDate: Date): Promise<IRequestLog[]> {
-		return this.model
+		return (await this.model
 			.find({ timestamp: { $gte: startDate, $lte: endDate } })
 			.sort({ timestamp: -1 })
 			.lean()
-			.exec();
+			.exec()) as unknown as IRequestLog[];
 	}
 
 	async findLogsByUserId(userId: string, limit = 50): Promise<IRequestLog[]> {
-		return this.model.find({ "metadata.userId": userId }).sort({ timestamp: -1 }).limit(limit).lean().exec();
+		return (await this.model
+			.find({ "metadata.userId": userId })
+			.sort({ timestamp: -1 })
+			.limit(limit)
+			.lean()
+			.exec()) as unknown as IRequestLog[];
 	}
 
 	async findLogsByStatusCode(statusCode: number, limit = 100): Promise<IRequestLog[]> {
-		return this.model.find({ "metadata.statusCode": statusCode }).sort({ timestamp: -1 }).limit(limit).lean().exec();
+		return (await this.model
+			.find({ "metadata.statusCode": statusCode })
+			.sort({ timestamp: -1 })
+			.limit(limit)
+			.lean()
+			.exec()) as unknown as IRequestLog[];
 	}
 
 	async getAverageResponseTime(startDate?: Date, endDate?: Date): Promise<number> {

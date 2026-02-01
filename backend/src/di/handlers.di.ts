@@ -35,6 +35,8 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
 import { LikeCommentCommandHandler } from "@/application/commands/comments/likeComment/like-comment.handler";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
 import { MessageSentEvent } from "@/application/events/message/message.event";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
 import { CreatePostCommandHandler } from "@/application/commands/post/createPost/createPost.handler";
 import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
@@ -230,6 +232,7 @@ export function registerCQRS(): void {
 
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
+	container.register("NotificationRequestedHandler", { useClass: NotificationRequestedHandler });
 }
 
 export function initCQRS(): void {
@@ -303,6 +306,10 @@ export function initCQRS(): void {
 	eventBus.subscribe(UserCoverChangedEvent, container.resolve<UserCoverChangedHandler>("UserCoverChangedHandler"));
 	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
 	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
+	eventBus.subscribe(
+		NotificationRequestedEvent,
+		container.resolve<NotificationRequestedHandler>("NotificationRequestedHandler"),
+	);
 
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
 	queryBus.register(
