@@ -188,7 +188,10 @@ export class CommentRepository extends BaseRepository<IComment> {
 	 * Hard delete a comment - removes it from the database entirely
 	 */
 	async deleteComment(commentId: string, session?: ClientSession): Promise<IComment | null> {
-		return await this.model.findByIdAndDelete(commentId, { session }).populate("userId", "username avatar").lean();
+		return (await this.model
+			.findByIdAndDelete(commentId, { session })
+			.populate("userId", "username avatar")
+			.lean()) as unknown as IComment | null;
 	}
 
 	/**
@@ -200,7 +203,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		deletedBy: "user" | "admin",
 		session?: ClientSession,
 	): Promise<IComment | null> {
-		return await this.model
+		return (await this.model
 			.findByIdAndUpdate(
 				commentId,
 				{
@@ -214,7 +217,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 				},
 				{ session, new: true },
 			)
-			.lean();
+			.lean()) as IComment | null;
 	}
 
 	/**

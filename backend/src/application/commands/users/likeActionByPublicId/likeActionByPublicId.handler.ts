@@ -9,7 +9,8 @@ import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteReposi
 import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
@@ -26,8 +27,9 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
@@ -152,23 +154,24 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		await this.userActionRepository.logAction(userMongoId, "like", (post as any)._id.toString(), session);
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
-			// get post preview (first 50 chars of body or image indicator)
 			const postPreview = post.body
 				? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
 				: post.image
 					? "[Image post]"
 					: "[Post]";
 
-			await this.notificationService.createNotification({
-				receiverId: postOwnerPublicId,
-				actionType: "like",
-				actorId: command.userPublicId,
-				actorUsername,
-				targetId: post.publicId,
-				targetType: "post",
-				targetPreview: postPreview,
-				session,
-			});
+			this.eventBus.queueTransactional(
+				new NotificationRequestedEvent({
+					receiverId: postOwnerPublicId,
+					actionType: "like",
+					actorId: command.userPublicId,
+					actorUsername,
+					targetId: post.publicId,
+					targetType: "post",
+					targetPreview: postPreview,
+				}),
+				this.notificationRequestedHandler,
+			);
 		}
 	}
 

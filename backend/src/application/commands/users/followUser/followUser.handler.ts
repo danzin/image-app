@@ -6,9 +6,11 @@ import { FollowRepository } from "@/repositories/follow.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { RedisService } from "@/services/redis.service";
 import { createError } from "@/utils/errors";
+import { EventBus } from "@/application/common/buses/event.bus";
 
 export interface FollowUserResult {
 	action: "followed" | "unfollowed";
@@ -22,8 +24,10 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
-		@inject("RedisService") private readonly redisService: RedisService
+		@inject("RedisService") private readonly redisService: RedisService,
+		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: FollowUserCommand): Promise<FollowUserResult> {
@@ -70,14 +74,15 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 
 					await this.userActionRepository.logAction(followerId, "follow", followeeId, session);
 
-					// for now I'll emit the websocket event inside the transaction
-					await this.notificationService.createNotification({
-						receiverId: followee.publicId,
-						actionType: "follow",
-						actorId: follower.publicId,
-						actorUsername: follower.username,
-						session,
-					});
+					this.eventBus.queueTransactional(
+						new NotificationRequestedEvent({
+							receiverId: followee.publicId,
+							actionType: "follow",
+							actorId: follower.publicId,
+							actorUsername: follower.username,
+						}),
+						this.notificationRequestedHandler,
+					);
 				}
 			});
 

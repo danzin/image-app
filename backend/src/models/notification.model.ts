@@ -20,9 +20,9 @@ notificationSchema.index({ userId: 1, isRead: 1 });
 
 notificationSchema.set("toJSON", {
 	transform: (_doc, ret) => {
-		if (ret._id) {
-			ret.id = ret._id.toString();
-			delete ret._id;
+		if ((ret as any)._id) {
+			ret.id = (ret as any)._id.toString();
+			delete (ret as any)._id;
 		}
 		delete (ret as any).__v;
 		return ret;

@@ -126,6 +126,8 @@ postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
 postSchema.index({ type: 1, createdAt: -1 }); // filter by post type (original vs repost)
 postSchema.index({ createdAt: -1 }, { background: true }); // recent posts
+postSchema.index({ createdAt: -1, _id: -1 }, { background: true }); // cursor-based feed sort
+postSchema.index({ createdAt: -1, tags: 1 }, { background: true }); // trending tags window with tag filter
 postSchema.index(
 	{ createdAt: -1, likesCount: -1 },
 	{
@@ -137,9 +139,9 @@ postSchema.index({ repostOf: 1, createdAt: -1 }); // fetch reposts of a given po
 postSchema.set("toJSON", {
 	transform: (_doc, raw) => {
 		const ret: any = raw;
-		if (ret._id) {
-			ret.id = ret._id.toString();
-			delete ret._id;
+		if ((ret as any)._id) {
+			ret.id = (ret as any)._id.toString();
+			delete (ret as any)._id;
 		}
 
 		if (ret.user && typeof ret.user === "object" && ret.user._id) {

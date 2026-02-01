@@ -21,7 +21,8 @@ import { PostUploadHandler } from "@/application/events/post/post-uploaded.handl
 import { createError } from "@/utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "@/utils/sanitizers";
 import { AttachmentSummary, IPost, PostDTO } from "@/types";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 import { logger } from "@/utils/winston";
 const MAX_BODY_LENGTH = 300;
@@ -42,7 +43,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: CreatePostCommand): Promise<PostDTO> {
@@ -84,7 +86,6 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			}
 		}
 
-		let mentionsToNotify: { publicId: string; username: string }[] = [];
 		try {
 			const result = await this.unitOfWork.executeInTransaction(async (session) => {
 				const internalUserId = user._id as mongoose.Types.ObjectId;
@@ -132,14 +133,9 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				const mentionRegex = /@(\w+)/g;
 				const mentions = [...normalizedBody.matchAll(mentionRegex)].map((match) => match[1]);
 
-				logger.info(`[CreatePost] Body: "${normalizedBody}"`);
-				logger.info(`[CreatePost] Extracted mentions: ${JSON.stringify(mentions)}`);
-
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
 					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
-
-					logger.info(`[CreatePost] Found users for mentions: ${mentionedUsers.length}`);
 
 					for (const mentionedUser of mentionedUsers) {
 						// Filter: Remove post author - no self mention
@@ -148,7 +144,21 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 							continue;
 						}
 
-						mentionsToNotify.push({ publicId: mentionedUser.publicId, username: mentionedUser.username });
+						this.eventBus.queueTransactional(
+							new NotificationRequestedEvent({
+								receiverId: mentionedUser.publicId,
+								actionType: "mention",
+								actorId: user.publicId,
+								actorUsername: user.username,
+								actorAvatar: user.avatar,
+								targetId: post.publicId,
+								targetType: "post",
+								targetPreview: command.body
+									? command.body.substring(0, 50) + (command.body.length > 50 ? "..." : "")
+									: "",
+							}),
+							this.notificationRequestedHandler,
+						);
 					}
 				}
 
@@ -164,30 +174,6 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 					tagNames,
 				};
 			});
-
-			// Process notifications outside the transaction to avoid locking and latency
-			if (mentionsToNotify.length > 0) {
-				Promise.all(
-					mentionsToNotify.map((mentionedUser) =>
-						this.notificationService
-							.createNotification({
-								receiverId: mentionedUser.publicId,
-								actionType: "mention",
-								actorId: user.publicId,
-								actorUsername: user.username,
-								actorAvatar: user.avatar,
-								targetId: result.post.publicId,
-								targetType: "post",
-								targetPreview: command.body
-									? command.body.substring(0, 50) + (command.body.length > 50 ? "..." : "")
-									: "",
-							})
-							.catch((err) =>
-								logger.error("Failed to send mention notification", { error: err, userId: mentionedUser.publicId }),
-							),
-					),
-				);
-			}
 
 			return await this.finalizePost(result);
 		} catch (error) {

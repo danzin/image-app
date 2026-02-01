@@ -16,6 +16,7 @@ export interface IPostReadRepository {
 
 	// batch lookups
 	findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]>;
+	findPostsByPublicIds(publicIds: string[]): Promise<IPost[]>;
 	findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>>;
 	findByCommunityId(communityId: string, page: number, limit: number): Promise<IPost[]>;
 	findByTags(

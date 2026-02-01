@@ -46,21 +46,21 @@ const messageSchema = new Schema<IMessage>(
 			},
 		],
 	},
-	{ timestamps: true }
+	{ timestamps: true },
 );
 
 messageSchema.index({ conversation: 1, createdAt: -1 });
 
 messageSchema.set("toJSON", {
 	transform: (_doc, ret) => {
-		if (ret._id) {
-			ret.id = ret._id.toString();
-			delete ret._id;
+		if ((ret as any)._id) {
+			ret.id = (ret as any)._id.toString();
+			delete (ret as any)._id;
 		}
 
 		if (Array.isArray(ret.readBy)) {
 			ret.readBy = ret.readBy.map((entry: mongoose.Types.ObjectId | any) =>
-				typeof entry === "object" && entry !== null && "toString" in entry ? entry.toString() : entry
+				typeof entry === "object" && entry !== null && "toString" in entry ? entry.toString() : entry,
 			);
 		}
 

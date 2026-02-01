@@ -138,7 +138,10 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 
 		if (post.communityId) {
-			const member = await this.communityMemberRepository.findByCommunityAndUser(post.communityId, user._id as string);
+			const member = await this.communityMemberRepository.findByCommunityAndUser(
+				post.communityId,
+				user._id as unknown as string,
+			);
 			if (member && (member.role === "admin" || member.role === "moderator")) {
 				return;
 			}

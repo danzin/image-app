@@ -204,9 +204,9 @@ userSchema.methods.canViewPost = function (post: IPost | { canBeViewedBy?: (user
 userSchema.set("toJSON", {
 	transform: (_doc, ret) => {
 		// Convert _id to id
-		if (ret._id) {
-			ret.id = ret._id.toString();
-			delete ret._id;
+		if ((ret as any)._id) {
+			ret.id = (ret as any)._id.toString();
+			delete (ret as any)._id;
 		}
 
 		// Remove fields using type assertion to handle TypeScript errors

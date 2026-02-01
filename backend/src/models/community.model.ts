@@ -26,7 +26,7 @@ const communitySchema = new Schema<ICommunity>(
 		timestamps: true,
 		toJSON: {
 			transform: function (doc, ret) {
-				ret.id = ret._id.toString();
+				ret.id = (ret as any)._id.toString();
 				delete (ret as any)._id;
 				delete (ret as any).__v;
 				return ret;
