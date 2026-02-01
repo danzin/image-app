@@ -55,10 +55,24 @@ const userSchema = new Schema<IUser>(
 		createdAt: {
 			type: Date,
 			default: Date.now,
+			index: true,
 		},
 		updatedAt: {
 			type: Date,
 			default: Date.now,
+		},
+		registrationIp: {
+			type: String,
+			required: false,
+		},
+		lastActive: {
+			type: Date,
+			required: false,
+			index: true,
+		},
+		lastIp: {
+			type: String,
+			required: false,
 		},
 		isAdmin: {
 			type: Boolean,
@@ -87,6 +101,7 @@ const userSchema = new Schema<IUser>(
 			type: Number,
 			default: 0,
 			required: true,
+			index: true,
 		},
 		followingCount: {
 			type: Number,
@@ -97,6 +112,7 @@ const userSchema = new Schema<IUser>(
 			type: Number,
 			default: 0,
 			required: true,
+			index: true,
 		},
 		resetToken: { type: String, select: false },
 		resetTokenExpires: { type: Date, select: false },
@@ -186,21 +202,20 @@ userSchema.methods.canViewPost = function (post: IPost | { canBeViewedBy?: (user
 
 // Transform the user object when serialized to JSON
 userSchema.set("toJSON", {
-	transform: (_doc, ret) => {
-		// Convert _id to id
+	transform: (_doc, ret: any) => {
+		// 1. Handle ID (Safe to assume _id exists on the object)
 		if (ret._id) {
 			ret.id = ret._id.toString();
 			delete ret._id;
 		}
 
-		// Remove fields using type assertion to handle TypeScript errors
-		delete (ret as any).__v;
-		delete (ret as any).password;
-		delete (ret as any).email; // Remove email from public responses unless specifically needed
+		// 2. Delete the junk
+		delete ret.__v;
+		delete ret.password;
+		delete ret.email;
 
 		return ret;
 	},
 });
-
 const User = model<IUser>("User", userSchema);
 export default User;

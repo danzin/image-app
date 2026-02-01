@@ -69,14 +69,14 @@ imageSchema.pre("save", function (next) {
  *
  */
 imageSchema.set("toJSON", {
-	transform: (_doc, ret) => {
+	transform: (_doc, ret: any) => {
 		// Convert _id fields to id
 		if (ret._id) {
 			ret.id = ret._id.toString(); // Rename _id to id
 			delete ret._id; // Delete the original _id
 		}
 		// Remove __v
-		delete (ret as any).__v;
+		delete ret.__v;
 		return ret;
 	},
 });

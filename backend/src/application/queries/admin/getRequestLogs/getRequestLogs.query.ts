@@ -7,6 +7,7 @@ export interface GetRequestLogsOptions {
 	statusCode?: number;
 	startDate?: Date;
 	endDate?: Date;
+	search?: string;
 }
 
 export class GetRequestLogsQuery implements IQuery {

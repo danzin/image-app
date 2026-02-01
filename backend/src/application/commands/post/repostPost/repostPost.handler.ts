@@ -6,7 +6,8 @@ import { RepostPostCommand } from "./repostPost.command";
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { NotificationService } from "@/services/notification.service";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { DTOService } from "@/services/dto.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
@@ -25,10 +26,11 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
 		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler
+		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: RepostPostCommand): Promise<PostDTO> {
@@ -84,17 +86,19 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
 			if (targetOwner && targetOwner !== command.userPublicId) {
-				await this.notificationService.createNotification({
-					receiverId: targetOwner,
-					actionType: "repost",
-					actorId: command.userPublicId,
-					actorUsername: user.username,
-					actorAvatar: user.avatar,
-					targetId: targetPost.publicId,
-					targetType: "post",
-					targetPreview: this.buildPostPreview(targetPost),
-					session,
-				});
+				this.eventBus.queueTransactional(
+					new NotificationRequestedEvent({
+						receiverId: targetOwner,
+						actionType: "repost",
+						actorId: command.userPublicId,
+						actorUsername: user.username,
+						actorAvatar: user.avatar,
+						targetId: targetPost.publicId,
+						targetType: "post",
+						targetPreview: this.buildPostPreview(targetPost),
+					}),
+					this.notificationRequestedHandler,
+				);
 			}
 
 			const tagNames = Array.isArray(targetPost.tags) ? targetPost.tags.map((t: any) => t.tag).filter(Boolean) : [];

@@ -75,6 +75,23 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
+	async updateByPublicId(publicId: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+		try {
+			const query = this.model.findOneAndUpdate({ publicId }, updateData, { new: true });
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error) {
+			if (isMongoDBDuplicateKeyError(error)) {
+				const field = Object.keys(error.keyValue)[0];
+				throw createError("DuplicateError", `${field} already exists`, {
+					function: "updateByPublicId",
+					context: "userRepository",
+				});
+			}
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
 	/**
 	 * Retrieves a paginated list of users with optional search functionality.
 	 * @param {Object} options - The filtering and pagination options.
@@ -198,14 +215,14 @@ export class UserRepository extends BaseRepository<IUser> {
 	 */
 	async findWithPagination(options: PaginationOptions): Promise<PaginationResult<IUser>> {
 		try {
-			const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
+			const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc", filter = {} } = options;
 
 			const skip = (page - 1) * limit;
 			const sort = { [sortBy]: sortOrder };
 
 			const [data, total] = await Promise.all([
-				this.model.find().sort(sort).skip(skip).limit(limit).exec(),
-				this.model.countDocuments(),
+				this.model.find(filter).sort(sort).skip(skip).limit(limit).exec(),
+				this.model.countDocuments(filter),
 			]);
 
 			return {
@@ -612,7 +629,7 @@ export class UserRepository extends BaseRepository<IUser> {
 					$lookup: {
 						from: "favorites",
 						let: { postIds: "$posts._id" },
-						pipeline: [{ $match: { $expr: { $in: ["$post", "$$postIds"] } } }],
+						pipeline: [{ $match: { $expr: { $in: ["$postId", "$$postIds"] } } }],
 						as: "favoriteLinks",
 					},
 				},

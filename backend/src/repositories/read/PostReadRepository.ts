@@ -41,6 +41,10 @@ export class PostReadRepository implements IPostReadRepository {
 		return this.postRepository.findPostsByIds(ids, viewerPublicId);
 	}
 
+	async findPostsByPublicIds(publicIds: string[]): Promise<IPost[]> {
+		return this.postRepository.findPostsByPublicIds(publicIds);
+	}
+
 	async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>> {
 		return this.postRepository.findByUserPublicId(userPublicId, options);
 	}

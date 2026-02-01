@@ -32,10 +32,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 
 			if (postIds.length > 0) {
 				redisLogger.info(`For You feed ZSET HIT`, { userId, postCount: postIds.length });
-				// fetch post details individually (TODO: add batch fetch to PostRepository)
-				const postPromises = postIds.map((id) => this.postReadRepository.findByPublicId(id));
-				const postsResults = await Promise.all(postPromises);
-				const posts = postsResults.filter((p) => p !== null);
+				const posts = await this.postReadRepository.findPostsByPublicIds(postIds);
 				const transformedPosts = this.transformPosts(posts);
 
 				const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);

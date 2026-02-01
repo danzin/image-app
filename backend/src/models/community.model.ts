@@ -15,6 +15,7 @@ const communitySchema = new Schema<ICommunity>(
 		slug: { type: String, required: true, unique: true, index: true },
 		description: { type: String, default: "" },
 		avatar: { type: String, default: "" },
+		coverPhoto: { type: String, default: "" },
 		creatorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
 		stats: {
 			memberCount: { type: Number, default: 1 },
@@ -24,14 +25,14 @@ const communitySchema = new Schema<ICommunity>(
 	{
 		timestamps: true,
 		toJSON: {
-			transform: function (doc, ret) {
+			transform: function (doc, ret: any) {
 				ret.id = ret._id.toString();
-				delete (ret as any)._id;
-				delete (ret as any).__v;
+				delete ret._id;
+				delete ret.__v;
 				return ret;
 			},
 		},
-	}
+	},
 );
 
 communitySchema.index({ name: "text", description: "text" });

@@ -6,7 +6,9 @@ import { CommentRepository } from "@/repositories/comment.repository";
 import { CommentLikeRepository } from "@/repositories/commentLike.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
-import { NotificationService } from "@/services/notification.service";
+import { EventBus } from "@/application/common/buses/event.bus";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { createError } from "@/utils/errors";
 import { CommentLikeResult, IComment } from "@/types";
 import { LikeCommentCommand } from "./likeComment.command";
@@ -19,7 +21,9 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 		@inject("CommentLikeRepository") private readonly commentLikeRepository: CommentLikeRepository,
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService
+		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("NotificationRequestedHandler")
+		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: LikeCommentCommand): Promise<CommentLikeResult> {
@@ -76,11 +80,13 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 					targetPreview: this.buildPreview(comment),
 				};
 			}
+			if (notifyPayload) {
+				this.eventBus.queueTransactional(
+					new NotificationRequestedEvent(notifyPayload),
+					this.notificationRequestedHandler,
+				);
+			}
 		});
-
-		if (notifyPayload) {
-			await this.notificationService.createNotification(notifyPayload);
-		}
 
 		const updatedComment = await this.commentRepository.findById(command.commentId);
 		if (!updatedComment) {

@@ -37,12 +37,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			if (postIds.length > 0) {
 				redisLogger.info(`Trending feed ZSET HIT`, { postCount: postIds.length });
 
-				// fetch post details individually
-				const postPromises = postIds.map((id) => this.postReadRepository.findByPublicId(id));
-				// parallelizing I/O
-				const postsResults = await Promise.all(postPromises);
-
-				posts = postsResults.filter((p): p is IPost => p !== null);
+				posts = await this.postReadRepository.findPostsByPublicIds(postIds);
 
 				// get total count from sorted set
 				total = await this.redisService.getTrendingCount();

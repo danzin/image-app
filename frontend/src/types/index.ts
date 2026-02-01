@@ -412,6 +412,7 @@ export interface ICommunity {
 	slug: string;
 	description: string;
 	avatar?: string;
+	coverPhoto?: string;
 	creatorId: string;
 	stats: {
 		memberCount: number;
@@ -421,10 +422,18 @@ export interface ICommunity {
 	updatedAt: string;
 	isMember?: boolean;
 	isCreator?: boolean;
+	isAdmin?: boolean;
 }
 
 export interface CreateCommunityDTO {
 	name: string;
 	description: string;
 	avatar?: File;
+}
+
+export interface UpdateCommunityDTO {
+	name?: string;
+	description?: string;
+	avatar?: File;
+	coverPhoto?: File;
 }

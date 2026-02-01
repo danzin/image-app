@@ -1,11 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { Types } from "mongoose";
+import * as fs from "fs";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { UpdateCommunityCommand } from "./updateCommunity.command";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { UserRepository } from "@/repositories/user.repository";
-import { ICommunity } from "@/types";
+import { ICommunity, IImageStorageService } from "@/types";
 import { createError } from "@/utils/errors";
 
 @injectable()
@@ -13,7 +14,8 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject(UserRepository) private userRepository: UserRepository
+		@inject(UserRepository) private userRepository: UserRepository,
+		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 	) {}
 
 	async execute(command: UpdateCommunityCommand): Promise<ICommunity> {
@@ -48,7 +50,7 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 				.replace(/[^a-z0-9]+/g, "-")
 				.replace(/(^-|-$)+/g, "");
 
-			// Check slug uniqueness if changed
+			// check slug uniqueness if changed
 			const existing = await this.communityRepository.findBySlug(newSlug);
 			if (existing && existing._id.toString() !== communityId.toString()) {
 				throw createError("BadRequest", "Community name is already taken");
@@ -56,7 +58,45 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 			updateData.slug = newSlug;
 		}
 
-		// 3. Update
+		// 3. Handle avatar upload
+		if (updates.avatarPath) {
+			try {
+				const uploadResult = await this.imageStorageService.uploadImage(
+					updates.avatarPath,
+					`community-${community.slug}-avatar`,
+				);
+				updateData.avatar = uploadResult.url;
+			} catch (error) {
+				console.error("Failed to upload community avatar:", error);
+			} finally {
+				if (fs.existsSync(updates.avatarPath)) {
+					fs.unlink(updates.avatarPath, (err) => {
+						if (err) console.error("Failed to delete temp avatar file:", err);
+					});
+				}
+			}
+		}
+
+		// 4. Handle cover photo upload
+		if (updates.coverPhotoPath) {
+			try {
+				const uploadResult = await this.imageStorageService.uploadImage(
+					updates.coverPhotoPath,
+					`community-${community.slug}-cover`,
+				);
+				updateData.coverPhoto = uploadResult.url;
+			} catch (error) {
+				console.error("Failed to upload community cover photo:", error);
+			} finally {
+				if (fs.existsSync(updates.coverPhotoPath)) {
+					fs.unlink(updates.coverPhotoPath, (err) => {
+						if (err) console.error("Failed to delete temp cover photo file:", err);
+					});
+				}
+			}
+		}
+
+		// 5. Update
 		const updatedCommunity = await this.communityRepository.update(communityId.toString(), updateData);
 		if (!updatedCommunity) {
 			throw createError("NotFound", "Community not found");

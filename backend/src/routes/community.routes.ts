@@ -29,7 +29,7 @@ export class CommunityRoutes {
 			"/",
 			this.optionalAuth,
 			new ValidationMiddleware({ query: communitySearchSchema }).validate(),
-			this.communityController.getAllCommunities
+			this.communityController.getAllCommunities,
 		);
 
 		// Create Community
@@ -38,7 +38,7 @@ export class CommunityRoutes {
 			this.auth,
 			upload.single("avatar"),
 			new ValidationMiddleware({ body: createCommunitySchema }).validate(),
-			this.communityController.createCommunity
+			this.communityController.createCommunity,
 		);
 
 		// Get User Communities (My Communities)
@@ -49,7 +49,7 @@ export class CommunityRoutes {
 			"/:id/join",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.joinCommunity
+			this.communityController.joinCommunity,
 		);
 
 		// Leave Community
@@ -57,7 +57,7 @@ export class CommunityRoutes {
 			"/:id/leave",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.leaveCommunity
+			this.communityController.leaveCommunity,
 		);
 
 		// Get Community Feed
@@ -65,7 +65,7 @@ export class CommunityRoutes {
 			"/:id/feed",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.getCommunityFeed
+			this.communityController.getCommunityFeed,
 		);
 
 		// Get Community Members
@@ -73,7 +73,7 @@ export class CommunityRoutes {
 			"/:slug/members",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communitySlugSchema }).validate(),
-			this.communityController.getCommunityMembers
+			this.communityController.getCommunityMembers,
 		);
 
 		// Get Community Details (by slug)
@@ -81,15 +81,19 @@ export class CommunityRoutes {
 			"/:slug",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communitySlugSchema }).validate(),
-			this.communityController.getCommunityDetails
+			this.communityController.getCommunityDetails,
 		);
 
 		// Update Community
 		this.router.patch(
 			"/:id",
 			this.auth,
+			upload.fields([
+				{ name: "avatar", maxCount: 1 },
+				{ name: "coverPhoto", maxCount: 1 },
+			]),
 			new ValidationMiddleware({ params: communityPublicIdSchema, body: updateCommunitySchema }).validate(),
-			this.communityController.updateCommunity
+			this.communityController.updateCommunity,
 		);
 
 		// Delete Community
@@ -97,7 +101,7 @@ export class CommunityRoutes {
 			"/:id",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.deleteCommunity
+			this.communityController.deleteCommunity,
 		);
 
 		// Kick Member
@@ -105,7 +109,7 @@ export class CommunityRoutes {
 			"/:id/members/:userId",
 			this.auth,
 			new ValidationMiddleware({ params: kickMemberSchema }).validate(),
-			this.communityController.kickMember
+			this.communityController.kickMember,
 		);
 	}
 

@@ -15,11 +15,13 @@ export interface DashboardStats {
 }
 
 export interface UserStats {
-	totalImages: number;
-	totalLikes: number;
-	totalFollowers: number;
-	totalFollowing: number;
-	accountAge: number;
+	imageCount: number;
+	followerCount: number;
+	followingCount: number;
+	likeCount: number;
+	joinDate: string;
+	lastActivity: string;
+	lastIp?: string;
 }
 
 export interface RecentActivity {
@@ -42,6 +44,9 @@ export const fetchAllUsersAdmin = async (params: {
 	limit?: number;
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";
+	search?: string;
+	startDate?: string;
+	endDate?: string;
 }): Promise<PaginatedResponse<AdminUserDTO>> => {
 	const { data } = await axiosClient.get("/api/admin", { params });
 	return data;
@@ -54,7 +59,7 @@ export const fetchUserAdmin = async (publicId: string): Promise<AdminUserDTO> =>
 
 export const fetchUserStats = async (publicId: string): Promise<UserStats> => {
 	const { data } = await axiosClient.get(`/api/admin/user/${publicId}/stats`);
-	return data;
+	return data.stats;
 };
 
 export const banUser = async (publicId: string, reason: string): Promise<void> => {
@@ -149,6 +154,7 @@ export interface RequestLog {
 	statusCode: number;
 	responseTimeMs: number;
 	userId?: string;
+	email?: string;
 	userAgent?: string;
 }
 
@@ -167,6 +173,7 @@ export const fetchRequestLogs = async (params: {
 	statusCode?: number;
 	startDate?: string;
 	endDate?: string;
+	search?: string;
 }): Promise<RequestLogsResponse> => {
 	const { data } = await axiosClient.get("/api/admin/dashboard/request-logs", { params });
 	return data;

@@ -5,10 +5,12 @@ export class UpdateCommunityCommand implements ICommand {
 
 	constructor(
 		public readonly communityId: string,
-		public readonly userId: string, // The user requesting the update (must be admin)
+		public readonly userId: string, // the user requesting the update (must be admin)
 		public readonly updates: {
 			name?: string;
 			description?: string;
-		}
+			avatarPath?: string;
+			coverPhotoPath?: string;
+		},
 	) {}
 }

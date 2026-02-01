@@ -19,12 +19,12 @@ notificationSchema.index({ userId: 1, timestamp: -1 });
 notificationSchema.index({ userId: 1, isRead: 1 });
 
 notificationSchema.set("toJSON", {
-	transform: (_doc, ret) => {
+	transform: (_doc, ret: any) => {
 		if (ret._id) {
 			ret.id = ret._id.toString();
 			delete ret._id;
 		}
-		delete (ret as any).__v;
+		delete ret.__v;
 		return ret;
 	},
 });

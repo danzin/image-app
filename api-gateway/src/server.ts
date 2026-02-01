@@ -1,5 +1,5 @@
 import { IncomingMessage } from "http";
-import net, { Socket } from "net";
+import { Socket } from "net";
 import http from "http";
 import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
@@ -118,6 +118,11 @@ const limiter = rateLimit({
 	message: "Too many requests, please try again after 15 minutes",
 	standardHeaders: true,
 	legacyHeaders: false,
+	keyGenerator: (req) => getClientIp(req),
+	skip: (req) => {
+		// Skip rate limiting for metrics and health endpoints
+		return req.path === "/metrics" || req.path === "/health";
+	},
 });
 
 const apiProxy = createProxyMiddleware({

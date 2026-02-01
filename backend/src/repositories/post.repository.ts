@@ -258,6 +258,26 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	async findPostsByPublicIds(publicIds: string[]): Promise<IPost[]> {
+		try {
+			const uniqueIds = Array.from(new Set(publicIds.filter((id) => typeof id === "string" && id.length > 0)));
+			if (uniqueIds.length === 0) {
+				return [];
+			}
+
+			const pipeline: PipelineStage[] = [
+				{ $match: { publicId: { $in: uniqueIds } } },
+				...this.getStandardLookups(),
+				this.getStandardProjection(),
+			];
+
+			const results = await this.model.aggregate(pipeline).exec();
+			return results;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to find posts by public ids");
+		}
+	}
+
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null> {
 		try {
 			const query = this.model
@@ -371,7 +391,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
 	async findByTags(
 		tagIds: string[],
-		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }
+		options?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string },
 	): Promise<PaginationResult<IPost>> {
 		try {
 			const page = options?.page || 1;
@@ -424,7 +444,7 @@ export class PostRepository extends BaseRepository<IPost> {
 		followingIds: string[],
 		favoriteTags: string[],
 		limit: number,
-		skip: number
+		skip: number,
 	): Promise<PaginationResult<any>> {
 		try {
 			const followingObjectIds = followingIds.map((id) => new mongoose.Types.ObjectId(id));
@@ -471,7 +491,7 @@ export class PostRepository extends BaseRepository<IPost> {
 						tagNames: { $map: { input: { $ifNull: ["$tagObjects", []] }, as: "tag", in: "$$tag.tag" } },
 					},
 				},
-				{ $project: feedProjection }
+				{ $project: feedProjection },
 			);
 			let results = await this.model.aggregate(pipeline).exec();
 
@@ -605,7 +625,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<PaginationResult<any>> {
 		try {
 			const timeWindowDays = options?.timeWindowDays ?? 14;
@@ -817,7 +837,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			avatarUrl?: string;
 			displayName?: string;
 			publicId?: string;
-		}
+		},
 	): Promise<number> {
 		try {
 			const setFields: Record<string, string> = {};
@@ -931,7 +951,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
 				nextCursor = Buffer.from(JSON.stringify({ createdAt: lastItem.createdAt, _id: lastItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -940,7 +960,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
 				prevCursor = Buffer.from(JSON.stringify({ createdAt: firstItem.createdAt, _id: firstItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -973,7 +993,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<CursorPaginationResult<any>> {
 		try {
 			const limit = options.limit ?? 20;
@@ -1074,7 +1094,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
 				nextCursor = Buffer.from(JSON.stringify({ trendScore: lastItem.trendScore, _id: lastItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -1083,7 +1103,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
 				prevCursor = Buffer.from(JSON.stringify({ trendScore: firstItem.trendScore, _id: firstItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -1114,7 +1134,7 @@ export class PostRepository extends BaseRepository<IPost> {
 		favoriteTags: string[],
 		options: CursorPaginationOptions & {
 			weights?: { recency?: number; popularity?: number; tagMatch?: number };
-		}
+		},
 	): Promise<CursorPaginationResult<any>> {
 		try {
 			const limit = options.limit ?? 20;
@@ -1211,7 +1231,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
 				nextCursor = Buffer.from(JSON.stringify({ rankScore: lastItem.rankScore, _id: lastItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -1220,7 +1240,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
 				prevCursor = Buffer.from(JSON.stringify({ rankScore: firstItem.rankScore, _id: firstItem._id })).toString(
-					"base64"
+					"base64",
 				);
 			}
 
@@ -1253,13 +1273,13 @@ export class PostRepository extends BaseRepository<IPost> {
 		try {
 			const lookups = this.getStandardLookups() as any[];
 			const pipeline: any[] = [
+				{ $sort: { createdAt: -1, _id: -1 } },
 				{
 					$facet: {
 						// metadata facet for count
 						metadata: [{ $count: "total" }],
 						// data facet for paginated results
 						data: [
-							{ $sort: { createdAt: -1 } },
 							{ $skip: skip },
 							{ $limit: limit },
 							...lookups,
@@ -1311,7 +1331,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			timeWindowDays?: number;
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
-		}
+		},
 	): Promise<PaginationResult<any>> {
 		try {
 			const timeWindowDays = options?.timeWindowDays ?? 14;

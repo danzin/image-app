@@ -9,5 +9,6 @@ export class RegisterUserCommand implements ICommand {
 		public readonly password: string,
 		public readonly avatar?: string,
 		public readonly cover?: string,
+		public readonly ip?: string,
 	) {}
 }

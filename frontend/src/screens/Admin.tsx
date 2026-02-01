@@ -28,6 +28,8 @@ import {
 	TablePagination,
 	CircularProgress,
 	useTheme,
+	Stack,
+	MenuItem,
 } from "@mui/material";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import {
@@ -39,10 +41,11 @@ import {
 	CheckCircle as CheckCircleIcon,
 	AdminPanelSettings as AdminPanelSettingsIcon,
 	RemoveCircle as RemoveCircleIcon,
-	// TrendingUp as TrendingUpIcon,
 	Person as PersonIcon,
 	Speed as SpeedIcon,
 	Storage as StorageIcon,
+	Search as SearchIcon,
+	FilterList as FilterListIcon,
 } from "@mui/icons-material";
 import {
 	useAdminUsers,
@@ -71,15 +74,6 @@ interface TabPanelProps {
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
 	<div hidden={value !== index}>{value === index && <Box sx={{ py: 3 }}>{children}</Box>}</div>
 );
-
-const chartData = [
-	{ name: "May", users: 4000 },
-	{ name: "Jun", users: 5000 },
-	{ name: "Jul", users: 6200 },
-	{ name: "Aug", users: 5800 },
-	{ name: "Sep", users: 7200 },
-	{ name: "Oct", users: 8000 },
-];
 
 interface StatCardProps {
 	title: string;
@@ -122,36 +116,58 @@ const StatCard: React.FC<StatCardProps> = ({ title, value, change, icon }) => {
 export const AdminDashboard: React.FC = () => {
 	const navigate = useNavigate();
 	const [currentTab, setCurrentTab] = useState(0);
+	
+	// User Tab State
 	const [userPage, setUserPage] = useState(0);
-	const [imagePage, setImagePage] = useState(0);
 	const [rowsPerPage, setRowsPerPage] = useState(10);
+	const [userSearch, setUserSearch] = useState("");
+	const [sortBy, setSortBy] = useState("createdAt");
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [banDialogOpen, setBanDialogOpen] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<AdminUserDTO | null>(null);
 	const [banReason, setBanReason] = useState("");
 
-	// request logs filters
+	// Image Tab State
+	const [imagePage, setImagePage] = useState(0);
+
+	// Logs Tab State
 	const [logsPage, setLogsPage] = useState(0);
 	const [logsRowsPerPage, setLogsRowsPerPage] = useState(50);
 	const [logsMethodFilter, setLogsMethodFilter] = useState<string>("");
 	const [logsStatusFilter, setLogsStatusFilter] = useState<string>("");
+	const [logsSearch, setLogsSearch] = useState("");
+	const [logsStartDate, setLogsStartDate] = useState("");
+	const [logsEndDate, setLogsEndDate] = useState("");
 
+	// Queries
 	const { data: stats, isLoading: statsLoading } = useDashboardStats();
+	
 	const { data: usersData, isLoading: usersLoading } = useAdminUsers({
 		page: userPage + 1,
 		limit: rowsPerPage,
+		search: userSearch,
+		sortBy,
+		sortOrder,
 	});
+
 	const { data: imagesData, isLoading: imagesLoading } = useAdminImages({
 		page: imagePage + 1,
 		limit: rowsPerPage,
 	});
+
 	const { data: activityData } = useRecentActivity({ page: 1, limit: 10 });
 	const { data: telemetryData, isLoading: telemetryLoading } = useTelemetryMetrics();
+	
 	const { data: requestLogsData, isLoading: logsLoading } = useRequestLogs({
 		page: logsPage + 1,
 		limit: logsRowsPerPage,
 		statusCode: logsStatusFilter ? parseInt(logsStatusFilter) : undefined,
+		search: logsSearch,
+		startDate: logsStartDate,
+		endDate: logsEndDate,
 	});
 
+	// Mutations
 	const banUserMutation = useBanUser();
 	const unbanUserMutation = useUnbanUser();
 	const promoteUserMutation = usePromoteToAdmin();
@@ -194,6 +210,7 @@ export const AdminDashboard: React.FC = () => {
 				<Tab icon={<PeopleIcon />} label="users" />
 				<Tab icon={<ImageIcon />} label="posts" />
 				<Tab icon={<SpeedIcon />} label="telemetry" />
+				<Tab icon={<StorageIcon />} label="logs" />
 			</Tabs>
 
 			{/* overview tab */}
@@ -238,34 +255,7 @@ export const AdminDashboard: React.FC = () => {
 							/>
 						</Grid>
 
-						<Grid item xs={12}>
-							<Card>
-								<CardContent>
-									<Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-										New Users (Last 6 Months)
-									</Typography>
-									<Box sx={{ width: "100%", height: 300 }}>
-										<ResponsiveContainer>
-											<BarChart data={chartData}>
-												<CartesianGrid strokeDasharray="3 3" stroke="#38444d" />
-												<XAxis dataKey="name" stroke="#8899A6" />
-												<YAxis stroke="#8899A6" />
-												<Tooltip
-													contentStyle={{
-														backgroundColor: "#192734",
-														border: "1px solid #38444d",
-														borderRadius: "8px",
-													}}
-													cursor={{ fill: "rgba(99, 102, 241, 0.1)" }}
-												/>
-												<Legend />
-												<Bar dataKey="users" fill="#0ea5e9" radius={[8, 8, 0, 0]} />
-											</BarChart>
-										</ResponsiveContainer>
-									</Box>
-								</CardContent>
-							</Card>
-						</Grid>
+						{/* Removed fake chart as per request */}
 
 						<Grid item xs={12}>
 							<Card>
@@ -322,156 +312,59 @@ export const AdminDashboard: React.FC = () => {
 								</CardContent>
 							</Card>
 						</Grid>
-
-						<Grid item xs={12}>
-							<Card>
-								<CardContent>
-									<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-										<Typography variant="h6" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-											<StorageIcon />
-											request logs
-										</Typography>
-										<Box sx={{ display: "flex", gap: 1 }}>
-											<TextField
-												select
-												size="small"
-												value={logsMethodFilter}
-												onChange={(e) => {
-													setLogsMethodFilter(e.target.value);
-													setLogsPage(0);
-												}}
-												SelectProps={{ native: true }}
-												sx={{ minWidth: 100 }}
-											>
-												<option value="">All</option>
-												<option value="GET">GET</option>
-												<option value="POST">POST</option>
-												<option value="PUT">PUT</option>
-												<option value="DELETE">DELETE</option>
-												<option value="PATCH">PATCH</option>
-											</TextField>
-											<TextField
-												select
-												size="small"
-												value={logsStatusFilter}
-												onChange={(e) => {
-													setLogsStatusFilter(e.target.value);
-													setLogsPage(0);
-												}}
-												SelectProps={{ native: true }}
-												sx={{ minWidth: 100 }}
-											>
-												<option value="">All</option>
-												<option value="200">200 OK</option>
-												<option value="201">201 Created</option>
-												<option value="400">400 Bad Request</option>
-												<option value="401">401 Unauthorized</option>
-												<option value="403">403 Forbidden</option>
-												<option value="404">404 Not Found</option>
-												<option value="500">500 Server Error</option>
-											</TextField>
-										</Box>
-									</Box>
-									{logsLoading ? (
-										<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-											<CircularProgress />
-										</Box>
-									) : (
-										<>
-											<TableContainer>
-												<Table size="small">
-													<TableHead>
-														<TableRow>
-															<TableCell>timestamp</TableCell>
-															<TableCell>method</TableCell>
-															<TableCell>route</TableCell>
-															<TableCell>status</TableCell>
-															<TableCell>time (ms)</TableCell>
-															<TableCell>ip</TableCell>
-															<TableCell>user</TableCell>
-														</TableRow>
-													</TableHead>
-													<TableBody>
-														{requestLogsData?.data
-															.filter((log) => !logsMethodFilter || log.method === logsMethodFilter)
-															.map((log, idx) => {
-																const statusColor =
-																	log.statusCode >= 500
-																		? "error"
-																		: log.statusCode >= 400
-																			? "warning"
-																			: log.statusCode >= 300
-																				? "info"
-																				: "success";
-																return (
-																	<TableRow key={idx}>
-																		<TableCell sx={{ fontSize: "0.75rem" }}>
-																			{new Date(log.timestamp).toLocaleString()}
-																		</TableCell>
-																		<TableCell>
-																			<Chip label={log.method} size="small" sx={{ fontWeight: 600, minWidth: 65 }} />
-																		</TableCell>
-																		<TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-																			{log.route}
-																		</TableCell>
-																		<TableCell>
-																			<Chip label={log.statusCode} size="small" color={statusColor} />
-																		</TableCell>
-																		<TableCell>
-																			<Typography
-																				variant="body2"
-																				sx={{
-																					color:
-																						log.responseTimeMs > 1000
-																							? "error.main"
-																							: log.responseTimeMs > 500
-																								? "warning.main"
-																								: "success.main",
-																					fontWeight: 600,
-																				}}
-																			>
-																				{log.responseTimeMs}
-																			</Typography>
-																		</TableCell>
-																		<TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
-																			{log.ip}
-																		</TableCell>
-																		<TableCell>
-																			{log.userId ? (
-																				<Chip label="auth" size="small" color="primary" />
-																			) : (
-																				<Chip label="anon" size="small" variant="outlined" />
-																			)}
-																		</TableCell>
-																	</TableRow>
-																);
-															})}
-													</TableBody>
-												</Table>
-											</TableContainer>
-											<TablePagination
-												component="div"
-												count={requestLogsData?.total || 0}
-												page={logsPage}
-												onPageChange={(_, newPage) => setLogsPage(newPage)}
-												rowsPerPage={logsRowsPerPage}
-												onRowsPerPageChange={(e) => {
-													setLogsRowsPerPage(parseInt(e.target.value, 10));
-													setLogsPage(0);
-												}}
-												rowsPerPageOptions={[25, 50, 100]}
-											/>
-										</>
-									)}
-								</CardContent>
-							</Card>
-						</Grid>
 					</Grid>
 				)}
 			</TabPanel>
 
 			{/* users tab */}
 			<TabPanel value={currentTab} index={1}>
+				<Card sx={{ mb: 3 }}>
+					<CardContent>
+						<Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center">
+							<TextField
+								size="small"
+								label="Search Users"
+								placeholder="Username or Email"
+								value={userSearch}
+								onChange={(e) => setUserSearch(e.target.value)}
+								InputProps={{
+									startAdornment: <SearchIcon color="action" fontSize="small" sx={{ mr: 1 }} />,
+								}}
+								sx={{ width: 300 }}
+							/>
+							<TextField
+								select
+								size="small"
+								label="Sort By"
+								value={sortBy}
+								onChange={(e) => setSortBy(e.target.value)}
+								sx={{ width: 150 }}
+								SelectProps={{ native: true }}
+							>
+								<option value="createdAt">Joined Date</option>
+								<option value="postCount">Post Count</option>
+								<option value="lastActive">Last Active</option>
+								<option value="followerCount">Followers</option>
+							</TextField>
+							<TextField
+								select
+								size="small"
+								label="Order"
+								value={sortOrder}
+								onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+								sx={{ width: 120 }}
+								SelectProps={{ native: true }}
+							>
+								<option value="desc">Descending</option>
+								<option value="asc">Ascending</option>
+							</TextField>
+							<Button variant="outlined" onClick={() => { setUserSearch(""); setSortBy("createdAt"); setSortOrder("desc"); }}>
+								Reset
+							</Button>
+						</Stack>
+					</CardContent>
+				</Card>
+
 				{usersLoading ? (
 					<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 						<CircularProgress />
@@ -484,6 +377,7 @@ export const AdminDashboard: React.FC = () => {
 									<TableRow>
 										<TableCell>user</TableCell>
 										<TableCell>email</TableCell>
+										<TableCell>posts</TableCell>
 										<TableCell>status</TableCell>
 										<TableCell>joined</TableCell>
 										<TableCell>actions</TableCell>
@@ -491,19 +385,25 @@ export const AdminDashboard: React.FC = () => {
 								</TableHead>
 								<TableBody>
 									{usersData?.data.map((user) => (
-										<TableRow key={user.publicId}>
+										<TableRow 
+											key={user.publicId} 
+											hover 
+											sx={{ cursor: 'pointer' }}
+											onClick={() => navigate(`/admin/users/${user.publicId}`)}
+										>
 											<TableCell>
 												<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 													<Avatar src={user.avatar} sx={{ width: 32, height: 32 }}>
 														{user.username.charAt(0).toUpperCase()}
 													</Avatar>
 													<Box>
-														<Typography variant="body2">{user.username}</Typography>
-														{user.isAdmin && <Chip label="admin" size="small" color="warning" />}
+														<Typography variant="body2" fontWeight="bold">{user.username}</Typography>
+														{user.isAdmin && <Chip label="admin" size="small" color="warning" sx={{ height: 20, fontSize: '0.625rem' }} />}
 													</Box>
 												</Box>
 											</TableCell>
 											<TableCell>{user.email}</TableCell>
+											<TableCell>{user.postCount}</TableCell>
 											<TableCell>
 												{user.isBanned ? (
 													<Chip label="banned" size="small" color="error" />
@@ -512,7 +412,7 @@ export const AdminDashboard: React.FC = () => {
 												)}
 											</TableCell>
 											<TableCell>{formatDistanceToNow(new Date(user.createdAt), { addSuffix: true })}</TableCell>
-											<TableCell>
+											<TableCell onClick={(e) => e.stopPropagation()}>
 												<Box sx={{ display: "flex", gap: 1 }}>
 													{user.isBanned ? (
 														<IconButton
@@ -886,6 +786,195 @@ export const AdminDashboard: React.FC = () => {
 						</Grid>
 					</Grid>
 				)}
+			</TabPanel>
+
+			{/* logs tab */}
+			<TabPanel value={currentTab} index={4}>
+				<Card>
+					<CardContent>
+						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+							<Typography variant="h6" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+								<StorageIcon />
+								request logs
+							</Typography>
+							<Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
+								<TextField
+									size="small"
+									label="Search"
+									value={logsSearch}
+									onChange={(e) => {
+										setLogsSearch(e.target.value);
+										setLogsPage(0);
+									}}
+									InputProps={{
+										startAdornment: <SearchIcon color="action" fontSize="small" sx={{ mr: 1 }} />,
+									}}
+									sx={{ width: 200 }}
+								/>
+								<TextField
+									type="date"
+									size="small"
+									label="Start Date"
+									value={logsStartDate}
+									onChange={(e) => {
+										setLogsStartDate(e.target.value);
+										setLogsPage(0);
+									}}
+									InputLabelProps={{ shrink: true }}
+									sx={{ width: 150 }}
+								/>
+								<TextField
+									type="date"
+									size="small"
+									label="End Date"
+									value={logsEndDate}
+									onChange={(e) => {
+										setLogsEndDate(e.target.value);
+										setLogsPage(0);
+									}}
+									InputLabelProps={{ shrink: true }}
+									sx={{ width: 150 }}
+								/>
+								<TextField
+									select
+									size="small"
+									value={logsMethodFilter}
+									onChange={(e) => {
+										setLogsMethodFilter(e.target.value);
+										setLogsPage(0);
+									}}
+									SelectProps={{ native: true }}
+									sx={{ minWidth: 100 }}
+								>
+									<option value="">Method: All</option>
+									<option value="GET">GET</option>
+									<option value="POST">POST</option>
+									<option value="PUT">PUT</option>
+									<option value="DELETE">DELETE</option>
+									<option value="PATCH">PATCH</option>
+								</TextField>
+								<TextField
+									select
+									size="small"
+									value={logsStatusFilter}
+									onChange={(e) => {
+										setLogsStatusFilter(e.target.value);
+										setLogsPage(0);
+									}}
+									SelectProps={{ native: true }}
+									sx={{ minWidth: 100 }}
+								>
+									<option value="">Status: All</option>
+									<option value="200">200 OK</option>
+									<option value="201">201 Created</option>
+									<option value="400">400 Bad Request</option>
+									<option value="401">401 Unauthorized</option>
+									<option value="403">403 Forbidden</option>
+									<option value="404">404 Not Found</option>
+									<option value="500">500 Server Error</option>
+								</TextField>
+							</Box>
+						</Box>
+						{logsLoading ? (
+							<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+								<CircularProgress />
+							</Box>
+						) : (
+							<>
+								<TableContainer>
+									<Table size="small">
+										<TableHead>
+											<TableRow>
+												<TableCell>timestamp</TableCell>
+												<TableCell>method</TableCell>
+												<TableCell>route</TableCell>
+												<TableCell>status</TableCell>
+												<TableCell>time (ms)</TableCell>
+												<TableCell>ip</TableCell>
+												<TableCell>user / email</TableCell>
+											</TableRow>
+										</TableHead>
+										<TableBody>
+											{requestLogsData?.data
+												.filter((log) => !logsMethodFilter || log.method === logsMethodFilter)
+												.map((log, idx) => {
+													const statusColor =
+														log.statusCode >= 500
+															? "error"
+															: log.statusCode >= 400
+																? "warning"
+																: log.statusCode >= 300
+																	? "info"
+																	: "success";
+													return (
+														<TableRow key={idx}>
+															<TableCell sx={{ fontSize: "0.75rem" }}>
+																{new Date(log.timestamp).toLocaleString()}
+															</TableCell>
+															<TableCell>
+																<Chip label={log.method} size="small" sx={{ fontWeight: 600, minWidth: 65 }} />
+															</TableCell>
+															<TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
+																{log.route}
+															</TableCell>
+															<TableCell>
+																<Chip label={log.statusCode} size="small" color={statusColor} />
+															</TableCell>
+															<TableCell>
+																<Typography
+																	variant="body2"
+																	sx={{
+																		color:
+																			log.responseTimeMs > 1000
+																				? "error.main"
+																				: log.responseTimeMs > 500
+																					? "warning.main"
+																					: "success.main",
+																		fontWeight: 600,
+																	}}
+																>
+																	{log.responseTimeMs}
+																</Typography>
+															</TableCell>
+															<TableCell sx={{ fontSize: "0.75rem", fontFamily: "monospace" }}>
+																{log.ip}
+															</TableCell>
+															<TableCell>
+																{log.userId ? (
+																	<Box sx={{ display: "flex", flexDirection: "column" }}>
+																		<Chip label="auth" size="small" color="primary" sx={{ width: "fit-content", mb: 0.5 }} />
+																		{log.email && (
+																			<Typography variant="caption" color="text.secondary">
+																				{log.email}
+																			</Typography>
+																		)}
+																	</Box>
+																) : (
+																	<Chip label="anon" size="small" variant="outlined" />
+																)}
+															</TableCell>
+														</TableRow>
+													);
+												})}
+										</TableBody>
+									</Table>
+								</TableContainer>
+								<TablePagination
+									component="div"
+									count={requestLogsData?.total || 0}
+									page={logsPage}
+									onPageChange={(_, newPage) => setLogsPage(newPage)}
+									rowsPerPage={logsRowsPerPage}
+									onRowsPerPageChange={(e) => {
+										setLogsRowsPerPage(parseInt(e.target.value, 10));
+										setLogsPage(0);
+									}}
+									rowsPerPageOptions={[25, 50, 100]}
+								/>
+							</>
+						)}
+					</CardContent>
+				</Card>
 			</TabPanel>
 
 			{/* ban user dialog */}

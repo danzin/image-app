@@ -26,6 +26,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 
 			const responseTimeMs = Date.now() - startTime;
 			const userId = (req as any).decodedUser?.publicId;
+			const email = (req as any).decodedUser?.email;
 			const userAgent = req.get("user-agent");
 
 			const commandBus = container.resolve<CommandBus>("CommandBus");
@@ -37,6 +38,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 				statusCode: res.statusCode,
 				responseTimeMs,
 				userId,
+				email,
 				userAgent,
 			});
 
