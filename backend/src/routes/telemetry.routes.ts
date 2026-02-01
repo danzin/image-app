@@ -1,6 +1,7 @@
 import { Router, Request, Response, text } from "express";
 import { injectable, inject } from "tsyringe";
 import { TelemetryService } from "@/services/telemetry.service";
+import { AuthFactory, adminRateLimit, enhancedAdminOnly } from "../middleware/authentication.middleware";
 
 @injectable()
 export class TelemetryRoutes {
@@ -12,9 +13,11 @@ export class TelemetryRoutes {
 	}
 
 	private initializeRoutes(): void {
+		const optionalAuth = AuthFactory.optionalBearerToken().handleOptional();
+
 		// receive telemetry events from frontend
 		// use text() middleware to handle sendBeacon which sends as text/plain
-		this.router.post("/", text({ type: "*/*" }), async (req: Request, res: Response) => {
+		this.router.post("/", optionalAuth, text({ type: "*/*" }), async (req: Request, res: Response) => {
 			try {
 				// handle sendBeacon which might send as text/plain
 				let body = req.body;
@@ -44,21 +47,21 @@ export class TelemetryRoutes {
 				await this.telemetryService.processEvents(events, clientInfo);
 
 				res.status(204).send();
-			} catch (error) {
+			} catch {
 				// telemetry should fail silently from client perspective
-				console.error("Telemetry error:", error);
 				res.status(204).send();
 			}
 		});
 
-		// get aggregated metrics (admin only in production)
-		this.router.get("/summary", async (_req: Request, res: Response) => {
+		// get aggregated metrics
+		const auth = AuthFactory.bearerToken().handle();
+		this.router.get("/summary", auth, adminRateLimit, enhancedAdminOnly, async (_req: Request, res: Response) => {
 			try {
 				const summary = await this.telemetryService.getSummary();
 				res.json(summary);
 			} catch (error) {
-				console.error("Telemetry summary error:", error);
-				res.status(500).json({ error: "Failed to get summary" });
+				const message = error instanceof Error ? error.message : "Failed to get summary";
+				res.status(500).json({ error: message });
 			}
 		});
 	}

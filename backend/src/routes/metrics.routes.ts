@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { injectable, inject } from "tsyringe";
 import { MetricsService } from "../metrics/metrics.service";
+import { AuthFactory, adminRateLimit, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
 
@@ -18,6 +19,11 @@ export class MetricsRoutes {
 	}
 
 	private initializeRoutes(): void {
+		const auth = AuthFactory.bearerToken().handle();
+		this.router.use(auth);
+		this.router.use(adminRateLimit);
+		this.router.use(enhancedAdminOnly);
+
 		this.router.get("/", async (_req, res) => {
 			const metrics = await this.metricsService.getMetrics();
 			res.setHeader("Content-Type", this.metricsService.getContentType());

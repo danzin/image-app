@@ -4,24 +4,18 @@ import { GetCommunityMembersQuery } from "./getCommunityMembers.query";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { createError } from "@/utils/errors";
-import { ICommunityMember } from "@/types";
-
-interface PaginatedMembers {
-	data: ICommunityMember[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}
+import { PaginationResult } from "@/types";
+import { DTOService, CommunityMemberDTO } from "@/services/dto.service";
 
 @injectable()
-export class GetCommunityMembersQueryHandler implements IQueryHandler<GetCommunityMembersQuery, PaginatedMembers> {
+export class GetCommunityMembersQueryHandler implements IQueryHandler<GetCommunityMembersQuery, PaginationResult<CommunityMemberDTO>> {
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
-		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository
+		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
+		@inject("DTOService") private dtoService: DTOService,
 	) {}
 
-	async execute(query: GetCommunityMembersQuery): Promise<PaginatedMembers> {
+	async execute(query: GetCommunityMembersQuery): Promise<PaginationResult<CommunityMemberDTO>> {
 		const { communitySlug, page, limit } = query;
 
 		const community = await this.communityRepository.findBySlug(communitySlug);
@@ -30,9 +24,11 @@ export class GetCommunityMembersQueryHandler implements IQueryHandler<GetCommuni
 		}
 
 		const skip = (page - 1) * limit;
-		const data = await this.communityMemberRepository.findByCommunityId(community._id, limit, skip);
+		const members = await this.communityMemberRepository.findByCommunityId(community._id, limit, skip);
 		const total = await this.communityMemberRepository.countByCommunityId(community._id);
 		const totalPages = Math.ceil(total / limit);
+
+		const data = members.map((member) => this.dtoService.toCommunityMemberDTO(member));
 
 		return { data, total, page, limit, totalPages };
 	}

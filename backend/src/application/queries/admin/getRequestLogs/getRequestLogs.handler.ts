@@ -3,6 +3,7 @@ import { IQueryHandler } from "@/application/common/interfaces/query-handler.int
 import { GetRequestLogsQuery } from "./getRequestLogs.query";
 import { RequestLogRepository } from "@/repositories/requestLog.repository";
 import { PaginationResult, IRequestLog } from "@/types";
+import { escapeRegex } from "@/utils/sanitizers";
 
 export interface RequestLogDTO {
 	timestamp: Date;
@@ -12,7 +13,6 @@ export interface RequestLogDTO {
 	statusCode: number;
 	responseTimeMs: number;
 	userId?: string;
-	email?: string;
 	userAgent?: string;
 }
 
@@ -40,7 +40,7 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 		}
 
 		if (search) {
-			const regex = { $regex: search, $options: "i" };
+			const regex = { $regex: escapeRegex(search), $options: "i" };
 			// If filter.$or already exists (unlikely given previous logic, but safe to check), merge or push
 			// For now, assume exclusive usage of simple filters + search
 			filter.$or = [
@@ -48,7 +48,6 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 				{ "metadata.method": regex },
 				{ "metadata.route": regex },
 				{ "metadata.userId": regex },
-				{ "metadata.email": regex },
 			];
 		}
 
@@ -68,7 +67,6 @@ export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQ
 			statusCode: log.metadata.statusCode,
 			responseTimeMs: log.metadata.responseTimeMs,
 			userId: log.metadata.userId,
-			email: log.metadata.email,
 			userAgent: log.metadata.userAgent,
 		}));
 

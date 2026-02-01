@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated } from "@/types";
+import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated, ICommunity, ICommunityMember } from "@/types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -28,6 +28,34 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 	registrationIp?: string;
 	lastActive?: Date;
 	lastIp?: string;
+}
+
+export interface CommunityDTO {
+	publicId: string;
+	name: string;
+	slug: string;
+	description: string;
+	avatar?: string;
+	coverPhoto?: string;
+	stats: {
+		memberCount: number;
+		postCount: number;
+	};
+	createdAt: Date;
+	updatedAt: Date;
+	isMember?: boolean;
+	isCreator?: boolean;
+	isAdmin?: boolean;
+}
+
+export interface CommunityMemberDTO {
+	userId: {
+		publicId: string;
+		username: string;
+		avatar?: string;
+	};
+	role: "admin" | "moderator" | "member";
+	joinedAt: Date;
 }
 
 @injectable()
@@ -174,6 +202,58 @@ export class DTOService {
 			return value;
 		}
 		return "";
+	}
+
+	toCommunityDTO(
+		community: ICommunity,
+		options?: {
+			memberCount?: number;
+			isMember?: boolean;
+			isCreator?: boolean;
+			isAdmin?: boolean;
+		},
+	): CommunityDTO {
+		const source = community?.toObject ? community.toObject() : community;
+		const avatar = this.pickString(source?.avatar);
+		const coverPhoto = this.pickString(source?.coverPhoto);
+		const stats = source?.stats ?? {};
+
+		return {
+			publicId: this.pickString(source?.publicId),
+			name: this.pickString(source?.name),
+			slug: this.pickString(source?.slug),
+			description: this.pickString(source?.description),
+			avatar: avatar || undefined,
+			coverPhoto: coverPhoto || undefined,
+			stats: {
+				memberCount: options?.memberCount ?? stats.memberCount ?? 0,
+				postCount: stats.postCount ?? 0,
+			},
+			createdAt: source?.createdAt ?? new Date(0),
+			updatedAt: source?.updatedAt ?? new Date(0),
+			isMember: options?.isMember,
+			isCreator: options?.isCreator,
+			isAdmin: options?.isAdmin,
+		};
+	}
+
+	toCommunityMemberDTO(member: ICommunityMember): CommunityMemberDTO {
+		const userCandidate = (member as any)?.userId;
+		const userSnapshot = this.normalizeUserLike(userCandidate) ?? {
+			publicId: "",
+			username: "",
+			avatar: "",
+		};
+
+		return {
+			userId: {
+				publicId: userSnapshot.publicId,
+				username: userSnapshot.username,
+				avatar: userSnapshot.avatar || undefined,
+			},
+			role: member.role,
+			joinedAt: member.joinedAt,
+		};
 	}
 	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {
 		return {
