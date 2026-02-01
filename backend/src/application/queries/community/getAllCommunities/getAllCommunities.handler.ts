@@ -4,30 +4,38 @@ import { GetAllCommunitiesQuery } from "./getAllCommunities.query";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { ICommunity } from "@/types";
+import { PaginationResult } from "@/types";
+import { DTOService, CommunityDTO } from "@/services/dto.service";
 
 @injectable()
 export class GetAllCommunitiesQueryHandler
 	implements
 		IQueryHandler<
 			GetAllCommunitiesQuery,
-			{ data: ICommunity[]; total: number; page: number; limit: number; totalPages: number }
+			PaginationResult<CommunityDTO>
 		>
 {
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject("UserReadRepository") private userReadRepository: IUserReadRepository,
+		@inject("DTOService") private dtoService: DTOService,
 	) {}
 
 	async execute(
 		query: GetAllCommunitiesQuery,
-	): Promise<{ data: ICommunity[]; total: number; page: number; limit: number; totalPages: number }> {
+	): Promise<PaginationResult<CommunityDTO>> {
 		const { page, limit, search, viewerPublicId } = query;
 		const result = await this.communityRepository.findAll(page, limit, search);
 
 		if (result.data.length === 0) {
-			return result;
+			return {
+				data: [],
+				total: result.total,
+				page: result.page,
+				limit: result.limit,
+				totalPages: result.totalPages,
+			};
 		}
 
 		// fetch actual member counts for all communities
@@ -52,18 +60,13 @@ export class GetAllCommunitiesQueryHandler
 		}
 
 		const data = result.data.map((community) => {
-			const plain = community.toObject ? community.toObject() : community;
 			const communityId = community._id.toString();
-			const actualMemberCount = memberCountMap.get(communityId) ?? plain.stats?.memberCount ?? 0;
-			return {
-				...plain,
-				stats: {
-					...plain.stats,
-					memberCount: actualMemberCount,
-				},
+			const actualMemberCount = memberCountMap.get(communityId) ?? 0;
+			return this.dtoService.toCommunityDTO(community, {
+				memberCount: actualMemberCount,
 				isMember: membershipSet.has(communityId),
 				isCreator: community.creatorId?.toString() === viewerId,
-			} as ICommunity;
+			});
 		});
 
 		return { ...result, data };

@@ -15,12 +15,14 @@ import { DeleteCommunityCommand } from "@/application/commands/community/deleteC
 import { KickMemberCommand } from "@/application/commands/community/kickMember/kickMember.command";
 import { createError } from "@/utils/errors";
 import { ICommunity } from "@/types";
+import { DTOService } from "@/services/dto.service";
 
 @injectable()
 export class CommunityController {
 	constructor(
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus,
+		@inject("DTOService") private readonly dtoService: DTOService,
 	) {}
 
 	getAllCommunities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -50,7 +52,13 @@ export class CommunityController {
 
 			const command = new CreateCommunityCommand(name, description, decodedUser.publicId, avatarPath);
 			const community = (await this.commandBus.dispatch(command)) as ICommunity;
-			res.status(201).json(community);
+			res.status(201).json(
+				this.dtoService.toCommunityDTO(community, {
+					isMember: true,
+					isCreator: true,
+					isAdmin: true,
+				}),
+			);
 		} catch (error) {
 			next(error);
 		}
@@ -95,7 +103,7 @@ export class CommunityController {
 			const { slug } = req.params;
 			const viewerPublicId = req.decodedUser?.publicId;
 			const query = new GetCommunityDetailsQuery(slug, viewerPublicId);
-			const community = (await this.queryBus.execute(query)) as ICommunity;
+			const community = await this.queryBus.execute(query);
 			res.status(200).json(community);
 		} catch (error) {
 			next(error);
@@ -158,7 +166,7 @@ export class CommunityController {
 
 			const command = new UpdateCommunityCommand(id, decodedUser.publicId, updates);
 			const community = (await this.commandBus.dispatch(command)) as ICommunity;
-			res.status(200).json(community);
+			res.status(200).json(this.dtoService.toCommunityDTO(community));
 		} catch (error) {
 			next(error);
 		}

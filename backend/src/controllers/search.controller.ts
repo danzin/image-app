@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { SearchService } from "@/services/search.service";
 import { createError } from "@/utils/errors";
+import { sanitizeTextInput } from "@/utils/sanitizers";
 import { inject, injectable } from "tsyringe";
 
 @injectable()
@@ -11,11 +12,29 @@ export class SearchController {
 		try {
 			const { q } = req.query;
 
-			if (!q) {
+			const queryValue = String(q || "");
+			if (!queryValue.trim()) {
 				throw createError("ValidationError", 'Query parameter "q" is required');
 			}
 
-			const searchTerms = (q as string).split(",").map((term) => term.trim());
+			const searchTerms = queryValue.split(",").reduce<string[]>((acc, term) => {
+				const trimmed = term.trim();
+				if (!trimmed) {
+					return acc;
+				}
+
+				try {
+					acc.push(sanitizeTextInput(trimmed, 100));
+				} catch (error) {
+					const message = error instanceof Error ? error.message : "Invalid search term";
+					throw createError("ValidationError", message);
+				}
+				return acc;
+			}, []);
+
+			if (searchTerms.length === 0) {
+				throw createError("ValidationError", 'Query parameter "q" is required');
+			}
 
 			const result = await this.searchService.searchAll(searchTerms);
 

@@ -5,6 +5,7 @@ import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
 import { logger } from "@/utils/winston";
+import { escapeRegex } from "@/utils/sanitizers";
 
 /**
  * UserRepository provides database access for user-related operations.
@@ -107,7 +108,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
 			if (options.search && options.search.length > 0) {
 				query.$or = options.search.map((term: string) => {
-					return { username: { $regex: term, $options: "i" } };
+					return { username: { $regex: escapeRegex(term), $options: "i" } };
 				});
 			}
 

@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { ICommunity } from "@/types";
+import { escapeRegex } from "@/utils/sanitizers";
 import { Community } from "@/models/community.model";
 
 @injectable()
@@ -19,7 +20,10 @@ export class CommunityRepository extends BaseRepository<ICommunity> {
 
 	async search(terms: string[]): Promise<ICommunity[]> {
 		const regexQueries = terms.map((term) => ({
-			$or: [{ name: { $regex: term, $options: "i" } }, { description: { $regex: term, $options: "i" } }],
+			$or: [
+				{ name: { $regex: escapeRegex(term), $options: "i" } },
+				{ description: { $regex: escapeRegex(term), $options: "i" } },
+			],
 		}));
 
 		return this.model.find({ $or: regexQueries }).limit(20).exec();
@@ -32,7 +36,10 @@ export class CommunityRepository extends BaseRepository<ICommunity> {
 	): Promise<{ data: ICommunity[]; total: number; page: number; limit: number; totalPages: number }> {
 		const query: any = {};
 		if (search) {
-			query.$or = [{ name: { $regex: search, $options: "i" } }, { description: { $regex: search, $options: "i" } }];
+			query.$or = [
+				{ name: { $regex: escapeRegex(search), $options: "i" } },
+				{ description: { $regex: escapeRegex(search), $options: "i" } },
+			];
 		}
 
 		const total = await this.model.countDocuments(query);

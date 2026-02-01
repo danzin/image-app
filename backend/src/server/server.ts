@@ -72,7 +72,7 @@ export class Server {
 		this.app.use(helmet());
 		this.app.use(this.metricsService.httpMetricsMiddleware());
 		this.app.use((req, res, next) => {
-			logger.info(`[Backend] ${req.method} ${req.originalUrl}`);
+			logger.info(`[Backend] ${req.method} ${(req.originalUrl || req.url).split("?")[0]}`);
 			next();
 		});
 
@@ -104,12 +104,6 @@ export class Server {
 				timestamp: new Date().toISOString(),
 				service: "backend",
 			});
-		});
-
-		// Debug middleware to log all incoming requests
-		this.app.use((req, res, next) => {
-			logger.info(`[Backend] ${req.method} ${req.path} - Headers:`, req.headers);
-			next();
 		});
 
 		this.app.use("/users", this.userRoutes.getRouter());

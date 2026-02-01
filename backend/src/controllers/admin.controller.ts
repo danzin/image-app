@@ -19,6 +19,7 @@ import { UnbanUserCommand } from "@/application/commands/admin/unbanUser/unbanUs
 import { PromoteToAdminCommand } from "@/application/commands/admin/promoteToAdmin/promoteToAdmin.command";
 import { DemoteFromAdminCommand } from "@/application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
 import { AdminUserDTO } from "@/services/dto.service";
+import { escapeRegex } from "@/utils/sanitizers";
 import { RedisService } from "@/services/redis.service";
 
 @injectable()
@@ -36,7 +37,7 @@ export class AdminUserController {
 			const filter: any = {};
 
 			if (search) {
-				const searchRegex = { $regex: search, $options: "i" };
+				const searchRegex = { $regex: escapeRegex(String(search)), $options: "i" };
 				filter.$or = [{ username: searchRegex }, { email: searchRegex }];
 			}
 

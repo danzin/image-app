@@ -60,7 +60,12 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 		limit: number = 20,
 		skip: number = 0,
 	): Promise<ICommunityMember[]> {
-		return this.model.find({ communityId }).populate("userId").limit(limit).skip(skip).exec();
+		return this.model
+			.find({ communityId })
+			.populate("userId", "publicId username avatar")
+			.limit(limit)
+			.skip(skip)
+			.exec();
 	}
 
 	async countByCommunityId(communityId: string | Types.ObjectId): Promise<number> {

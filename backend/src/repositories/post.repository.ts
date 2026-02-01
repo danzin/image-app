@@ -53,7 +53,6 @@ export class PostRepository extends BaseRepository<IPost> {
 			.sort({ createdAt: -1 })
 			.skip(skip)
 			.limit(limit)
-			.populate("author")
 			.populate("image")
 			.exec();
 	}

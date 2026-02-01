@@ -943,11 +943,6 @@ export const AdminDashboard: React.FC = () => {
 																{log.userId ? (
 																	<Box sx={{ display: "flex", flexDirection: "column" }}>
 																		<Chip label="auth" size="small" color="primary" sx={{ width: "fit-content", mb: 0.5 }} />
-																		{log.email && (
-																			<Typography variant="caption" color="text.secondary">
-																				{log.email}
-																			</Typography>
-																		)}
 																	</Box>
 																) : (
 																	<Chip label="anon" size="small" variant="outlined" />

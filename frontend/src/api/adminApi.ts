@@ -154,7 +154,6 @@ export interface RequestLog {
 	statusCode: number;
 	responseTimeMs: number;
 	userId?: string;
-	email?: string;
 	userAgent?: string;
 }
 

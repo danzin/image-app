@@ -32,6 +32,9 @@ export interface AdminUserDTO extends AuthenticatedUserDTO {
 	bannedReason?: string;
 	bannedBy?: string;
 	updatedAt: Date;
+	registrationIp?: string;
+	lastActive?: Date;
+	lastIp?: string;
 }
 
 // Main user type for the frontend - can be any of the DTO types
@@ -398,28 +401,28 @@ export interface WhoToFollowResponse {
 }
 
 export interface ICommunityMember {
-	_id: string;
-	communityId: string;
-	userId: IUser;
+	userId: {
+		publicId: string;
+		username: string;
+		avatar?: string;
+	};
 	role: "admin" | "moderator" | "member";
 	joinedAt: Date;
 }
 
 export interface ICommunity {
 	publicId: string;
-	id?: string;
 	name: string;
 	slug: string;
 	description: string;
 	avatar?: string;
 	coverPhoto?: string;
-	creatorId: string;
 	stats: {
 		memberCount: number;
 		postCount: number;
 	};
-	createdAt: string;
-	updatedAt: string;
+	createdAt: Date;
+	updatedAt: Date;
 	isMember?: boolean;
 	isCreator?: boolean;
 	isAdmin?: boolean;

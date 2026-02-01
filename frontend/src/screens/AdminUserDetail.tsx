@@ -13,10 +13,13 @@ import {
 	Button,
 	Divider,
 	CircularProgress,
-	IconButton,
 	Link,
 } from "@mui/material";
-import { ArrowBack as ArrowBackIcon, Email as EmailIcon, CalendarToday as CalendarTodayIcon } from "@mui/icons-material";
+import {
+	ArrowBack as ArrowBackIcon,
+	Email as EmailIcon,
+	CalendarToday as CalendarTodayIcon,
+} from "@mui/icons-material";
 import { useAdminUser, useUserStats } from "../hooks/admin/useAdmin";
 import { formatDistanceToNow } from "date-fns";
 
@@ -60,12 +63,7 @@ const AdminUserDetail: React.FC = () => {
 							<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
 								<Avatar src={user.avatar} sx={{ width: 100, height: 100 }} />
 								<Box>
-									<Link
-										component={RouterLink}
-										to={`/profile/${user.publicId}`}
-										underline="hover"
-										color="inherit"
-									>
+									<Link component={RouterLink} to={`/profile/${user.publicId}`} underline="hover" color="inherit">
 										<Typography variant="h4" gutterBottom>
 											{user.username}
 										</Typography>
@@ -95,8 +93,11 @@ const AdminUserDetail: React.FC = () => {
 										</Typography>
 									</Box>
 									<Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "text.secondary", mt: 0.5 }}>
-										<Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-											Last Active: {stats?.lastActivity ? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true }) : "N/A"}
+										<Typography variant="body2" sx={{ fontSize: "0.875rem" }}>
+											Last Active:{" "}
+											{stats?.lastActivity
+												? formatDistanceToNow(new Date(stats.lastActivity), { addSuffix: true })
+												: "N/A"}
 										</Typography>
 									</Box>
 									<Box sx={{ mt: 1 }}>
@@ -176,7 +177,7 @@ const AdminUserDetail: React.FC = () => {
 										{stats?.lastActivity
 											? `${new Date(stats.lastActivity).toLocaleString()} (${formatDistanceToNow(
 													new Date(stats.lastActivity),
-													{ addSuffix: true }
+													{ addSuffix: true },
 												)})`
 											: "N/A"}
 									</Typography>
