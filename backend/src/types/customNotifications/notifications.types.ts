@@ -5,6 +5,7 @@ export interface INotification extends Document {
 	actionType: string; // like | comment | follow | message | mention
 	actorId: string; // actor publicId
 	actorUsername?: string; // optional, provided by frontend or resolved from actorId
+	actorHandle?: string;
 	actorAvatar?: string; // actor avatar URL for quick display
 	targetId?: string; // optional target publicId (e.g., post publicId, image publicId)
 	targetType?: string; // 'post' | 'image' | 'user'
@@ -23,6 +24,7 @@ export interface NotificationPlain {
 	actionType?: string;
 	actorId?: string;
 	actorUsername?: string;
+	actorHandle?: string;
 	actorAvatar?: string;
 	targetId?: string;
 	targetType?: string;

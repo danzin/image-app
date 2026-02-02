@@ -28,7 +28,10 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 			const emailVerificationToken = this.generateVerificationToken();
 			const emailVerificationExpires = this.getVerificationExpiry();
 
+			const handleTrimmed = command.handle.trim();
 			const user = await this.userWriteRepository.create({
+				handle: handleTrimmed,
+				handleNormalized: handleTrimmed.toLowerCase(),
 				username: command.username,
 				email: command.email,
 				password: command.password,
@@ -74,6 +77,7 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 		const payload = {
 			publicId: user.publicId,
 			email: user.email,
+			handle: user.handle,
 			username: user.username,
 			isAdmin: user.isAdmin,
 		};

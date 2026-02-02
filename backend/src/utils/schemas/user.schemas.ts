@@ -17,10 +17,25 @@ export const usernameSchema = z
 	})
 	.strict();
 
+export const handleSchema = z
+	.object({
+		handle: z
+			.string()
+			.regex(/^[a-zA-Z0-9._]+$/, "Handle must be alphanumeric and may include dots or underscores.")
+			.min(4)
+			.max(16),
+	})
+	.strict();
+
 export const registrationSchema = z
 	.object({
 		email: z.string().email(),
 		password: z.string().min(3),
+		handle: z
+			.string()
+			.regex(/^[a-zA-Z0-9._]+$/, "Handle must be alphanumeric and may include dots or underscores.")
+			.min(4)
+			.max(16),
 		username: z
 			.string()
 			.regex(/^[a-zA-Z0-9]+$/, "Username must be alphanumeric.")

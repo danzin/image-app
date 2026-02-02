@@ -538,7 +538,7 @@ export const AdminDashboard: React.FC = () => {
 													onClick={(e) => {
 														e.stopPropagation();
 														if (post.user?.publicId) {
-															navigate(`/profile/${post.user.publicId}`);
+															navigate(`/profile/${post.user.handle || post.user.publicId}`);
 														}
 													}}
 													sx={{

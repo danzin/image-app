@@ -10,6 +10,7 @@ export interface FeedPost {
 	tags: { tag: string; publicId?: string }[];
 	user: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};

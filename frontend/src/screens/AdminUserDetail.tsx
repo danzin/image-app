@@ -63,7 +63,12 @@ const AdminUserDetail: React.FC = () => {
 							<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
 								<Avatar src={user.avatar} sx={{ width: 100, height: 100 }} />
 								<Box>
-									<Link component={RouterLink} to={`/profile/${user.publicId}`} underline="hover" color="inherit">
+									<Link
+										component={RouterLink}
+										to={`/profile/${user.handle || user.publicId}`}
+										underline="hover"
+										color="inherit"
+									>
 										<Typography variant="h4" gutterBottom>
 											{user.username}
 										</Typography>

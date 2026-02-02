@@ -4,6 +4,7 @@ export class RegisterUserCommand implements ICommand {
 	readonly type = "RegisterUserCommand";
 
 	constructor(
+		public readonly handle: string,
 		public readonly username: string,
 		public readonly email: string,
 		public readonly password: string,

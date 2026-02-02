@@ -44,9 +44,7 @@ export const updateCommunitySchema = z
 	})
 	.strict()
 	.transform(sanitizeForMongo)
-	.refine((data) => data.name || data.description, {
-		message: "At least one field must be provided for update",
-	});
+	.optional();
 
 export const communityPublicIdSchema = z
 	.object({

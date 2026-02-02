@@ -34,7 +34,8 @@ import { DeleteCommentCommandHandler } from "@/application/commands/comments/cre
 import { LikeCommentCommand } from "@/application/commands/comments/likeComment/likeComment.command";
 import { LikeCommentCommandHandler } from "@/application/commands/comments/likeComment/like-comment.handler";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
-import { MessageSentEvent } from "@/application/events/message/message.event";
+import { MessageStatusUpdatedHandler as MessageStatusUpdatedEventHandler } from "@/application/events/message/message-status-updated.handler";
+import { MessageSentEvent, MessageStatusUpdatedEvent } from "@/application/events/message/message.event";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
@@ -70,6 +71,7 @@ import { InteractionMessageHandler } from "@/application/handlers/realtime/Inter
 import { LikeUpdateMessageHandler } from "@/application/handlers/realtime/LikeUpdateMessageHandler";
 import { AvatarUpdateMessageHandler } from "@/application/handlers/realtime/AvatarUpdateMessageHandler";
 import { MessageSentHandler as RealtimeMessageSentHandler } from "@/application/handlers/realtime/MessageSentHandler";
+import { MessageStatusUpdatedHandler as RealtimeMessageStatusUpdatedHandler } from "@/application/handlers/realtime/MessageStatusUpdatedHandler";
 import { GetForYouFeedQueryHandler } from "@/application/queries/feed/getForYouFeed/getForYouFeed.handler";
 import { GetForYouFeedQuery } from "@/application/queries/feed/getForYouFeed/getForYouFeed.query";
 import { GetTrendingFeedQueryHandler } from "@/application/queries/feed/getTrendingFeed/getTrendingFeed.handler";
@@ -85,8 +87,8 @@ import { UserCoverChangedHandler } from "@/application/events/user/user-cover-ch
 import { UserDeletedHandler } from "@/application/events/user/user-deleted.handler";
 import { GetUserByPublicIdQuery } from "@/application/queries/users/getUserByPublicId/getUserByPublicId.query";
 import { GetUserByPublicIdQueryHandler } from "@/application/queries/users/getUserByPublicId/getUserByPublicId.handler";
-import { GetUserByUsernameQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
-import { GetUserByUsernameQueryHandler } from "@/application/queries/users/getUserByUsername/getUserByUsername.handler";
+import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByHandleQueryHandler } from "@/application/queries/users/getUserByUsername/getUserByUsername.handler";
 import { GetUsersQuery } from "@/application/queries/users/getUsers/getUsers.query";
 import { GetUsersQueryHandler } from "@/application/queries/users/getUsers/getUsers.handler";
 import { CheckFollowStatusQuery } from "@/application/queries/users/checkFollowStatus/checkFollowStatus.query";
@@ -204,7 +206,7 @@ export function registerCQRS(): void {
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
-	container.register("GetUserByUsernameQueryHandler", { useClass: GetUserByUsernameQueryHandler });
+	container.register("GetUserByHandleQueryHandler", { useClass: GetUserByHandleQueryHandler });
 	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
 	container.register("CheckFollowStatusQueryHandler", { useClass: CheckFollowStatusQueryHandler });
 	container.register("GetFollowersQueryHandler", { useClass: GetFollowersQueryHandler });
@@ -232,6 +234,7 @@ export function registerCQRS(): void {
 
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
+	container.register("MessageStatusUpdatedEventHandler", { useClass: MessageStatusUpdatedEventHandler });
 	container.register("NotificationRequestedHandler", { useClass: NotificationRequestedHandler });
 }
 
@@ -307,6 +310,10 @@ export function initCQRS(): void {
 	eventBus.subscribe(UserDeletedEvent, container.resolve<UserDeletedHandler>("UserDeletedHandler"));
 	eventBus.subscribe(MessageSentEvent, container.resolve<MessageSentHandler>("MessageSentHandler"));
 	eventBus.subscribe(
+		MessageStatusUpdatedEvent,
+		container.resolve<MessageStatusUpdatedEventHandler>("MessageStatusUpdatedEventHandler"),
+	);
+	eventBus.subscribe(
 		NotificationRequestedEvent,
 		container.resolve<NotificationRequestedHandler>("NotificationRequestedHandler"),
 	);
@@ -351,8 +358,8 @@ export function initCQRS(): void {
 		container.resolve<GetUserByPublicIdQueryHandler>("GetUserByPublicIdQueryHandler"),
 	);
 	queryBus.register(
-		GetUserByUsernameQuery,
-		container.resolve<GetUserByUsernameQueryHandler>("GetUserByUsernameQueryHandler"),
+		GetUserByHandleQuery,
+		container.resolve<GetUserByHandleQueryHandler>("GetUserByHandleQueryHandler"),
 	);
 	queryBus.register(GetUsersQuery, container.resolve<GetUsersQueryHandler>("GetUsersQueryHandler"));
 	queryBus.register(
@@ -430,6 +437,7 @@ export function initCQRS(): void {
 		container.resolve(LikeUpdateMessageHandler),
 		container.resolve(AvatarUpdateMessageHandler),
 		container.resolve(RealtimeMessageSentHandler),
+		container.resolve(RealtimeMessageStatusUpdatedHandler),
 	];
 	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
 

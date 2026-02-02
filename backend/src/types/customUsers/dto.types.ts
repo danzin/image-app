@@ -1,5 +1,6 @@
 interface BaseUserDTO {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar?: string;
 	cover?: string;

@@ -14,7 +14,7 @@ const Register: React.FC = () => {
 	const pendingVerification = data?.user?.isEmailVerified === false;
 	const verificationEmail = data?.user?.email || "";
 
-	const handleRegister = async (formData: { username: string; email: string; password: string }) => {
+	const handleRegister = async (formData: { handle: string; username: string; email: string; password: string }) => {
 		registerMutation(formData);
 	};
 
@@ -74,6 +74,7 @@ const Register: React.FC = () => {
 					<AuthForm<RegisterForm> // add RegisterForm type in order to give TS a concrete `T` type and use confirmPassword field
 						title="Create Account"
 						fields={[
+							{ name: "handle", label: "Handle", type: "text", autoComplete: "username", required: true },
 							{ name: "username", label: "Username", type: "text", autoComplete: "username", required: true },
 							{ name: "email", label: "Email Address", type: "email", autoComplete: "email", required: true },
 							{ name: "password", label: "Password", type: "password", autoComplete: "new-password", required: true },

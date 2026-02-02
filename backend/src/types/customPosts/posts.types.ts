@@ -8,6 +8,7 @@ export interface IPost extends Document {
 	author: {
 		_id: mongoose.Types.ObjectId;
 		publicId: string;
+		handle: string;
 		username: string;
 		avatarUrl?: string;
 		displayName?: string;

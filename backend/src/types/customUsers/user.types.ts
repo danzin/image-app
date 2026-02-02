@@ -4,6 +4,8 @@ import { ICommunityCacheItem } from "../customCommunities/communityCacheItem.typ
 
 export interface IUser extends Document {
 	publicId: string;
+	handle: string;
+	handleNormalized: string;
 	username: string;
 	email: string;
 	joinedCommunities: ICommunityCacheItem[];
@@ -37,6 +39,7 @@ export interface IUser extends Document {
 // Create a user lookup map using publicId
 export interface UserLookupData {
 	publicId: string;
+	handle?: string;
 	username: string;
 	avatar?: string;
 }

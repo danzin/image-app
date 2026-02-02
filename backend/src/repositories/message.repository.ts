@@ -11,7 +11,7 @@ export class MessageRepository extends BaseRepository<IMessage> {
 	}
 
 	async findByPublicId(publicId: string, session?: ClientSession): Promise<IMessage | null> {
-		const query = this.model.findOne({ publicId }).populate("sender", "publicId username avatar");
+		const query = this.model.findOne({ publicId }).populate("sender", "publicId handle username avatar");
 		if (session) query.session(session);
 		return query.exec();
 	}
@@ -31,7 +31,7 @@ export class MessageRepository extends BaseRepository<IMessage> {
 					.sort({ createdAt: -1 })
 					.skip(skip)
 					.limit(limit)
-					.populate("sender", "publicId username avatar")
+					.populate("sender", "publicId handle username avatar")
 					.lean()
 					.exec(),
 				this.model.countDocuments({ conversation: objectId }),
@@ -71,10 +71,31 @@ export class MessageRepository extends BaseRepository<IMessage> {
 		await update.exec();
 	}
 
+	async markConversationMessagesAsDelivered(
+		conversationId: string,
+		recipientId: string,
+		session?: ClientSession,
+	): Promise<boolean> {
+		const update = this.model.updateMany(
+			{
+				conversation: new mongoose.Types.ObjectId(conversationId),
+				sender: { $ne: new mongoose.Types.ObjectId(recipientId) },
+				status: "sent",
+			},
+			{
+				$set: { status: "delivered" },
+			},
+		);
+
+		if (session) update.session(session);
+		const result = await update.exec();
+		return (result.modifiedCount ?? 0) > 0;
+	}
+
 	async findMessageById(messageId: string, session?: ClientSession): Promise<IMessage | null> {
 		const query = this.model
 			.findById(new mongoose.Types.ObjectId(messageId))
-			.populate("sender", "publicId username avatar");
+			.populate("sender", "publicId handle username avatar");
 		if (session) query.session(session);
 		return query.exec();
 	}

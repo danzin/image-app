@@ -85,6 +85,7 @@ export class NotificationService {
 		targetType?: string; // 'post' | 'image' | 'user'
 		targetPreview?: string; // preview text/snippet
 		actorUsername?: string; // optional actor username provided by frontend
+		actorHandle?: string; // optional actor handle provided by frontend
 		actorAvatar?: string; // optional actor avatar URL
 		session?: ClientSession;
 	}): Promise<INotification> {
@@ -98,6 +99,7 @@ export class NotificationService {
 			const actorPublicId = data.actorId.trim();
 			const targetPublicId = data.targetId?.trim();
 			const actorUsername = data.actorUsername?.trim();
+			const actorHandle = data.actorHandle?.trim();
 			const actorAvatar = data.actorAvatar?.trim();
 			const targetType = data.targetType?.trim();
 			const targetPreview = data.targetPreview?.trim();
@@ -110,6 +112,7 @@ export class NotificationService {
 					actionType: data.actionType,
 					actorId: actorPublicId,
 					actorUsername,
+					actorHandle,
 					actorAvatar,
 					targetId: targetPublicId,
 					targetType,

@@ -105,7 +105,7 @@ const CommunityMembers: React.FC = () => {
 								borderBottom: "1px solid",
 								borderColor: "divider",
 							}}
-							onClick={() => navigate(`/profile/${member.userId.publicId}`)}
+							onClick={() => navigate(`/profile/${member.userId.handle || member.userId.publicId}`)}
 						>
 							<Box sx={{ display: "flex", alignItems: "center" }}>
 								<Avatar
@@ -132,7 +132,7 @@ const CommunityMembers: React.FC = () => {
 										)}
 									</Box>
 									<Typography variant="body2" color="text.secondary">
-										@{member.userId.username}
+										@{member.userId.handle || member.userId.username}
 									</Typography>
 								</Box>
 							</Box>

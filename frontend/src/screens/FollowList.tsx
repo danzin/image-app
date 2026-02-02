@@ -109,8 +109,9 @@ const FollowList: React.FC = () => {
 		return `/api/${avatar}`;
 	};
 
-	const handleUserClick = (publicId: string) => {
-		navigate(`/profile/${publicId}`);
+	const handleUserClick = (handle: string | undefined, publicId: string) => {
+		const identifier = handle || publicId;
+		navigate(`/profile/${identifier}`);
 	};
 
 	const renderUserList = (users: FollowUserItem[], isLoading: boolean, isFetchingNext: boolean) => {
@@ -153,7 +154,7 @@ const FollowList: React.FC = () => {
 									bgcolor: alpha(theme.palette.text.primary, 0.03),
 								},
 							}}
-							onClick={() => handleUserClick(user.publicId)}
+							onClick={() => handleUserClick(user.handle, user.publicId)}
 						>
 							<Avatar src={getFullAvatarUrl(user.avatar)} alt={user.username} sx={{ width: 48, height: 48 }}>
 								{user.username?.charAt(0).toUpperCase()}
@@ -180,7 +181,7 @@ const FollowList: React.FC = () => {
 										whiteSpace: "nowrap",
 									}}
 								>
-									@{user.username}
+									@{user.handle}
 								</Typography>
 								{user.bio && (
 									<Typography
@@ -283,7 +284,7 @@ const FollowList: React.FC = () => {
 							{profileUser?.username || "User"}
 						</Typography>
 						<Typography variant="body2" color="text.secondary">
-							@{profileUser?.username}
+							@{profileUser?.handle}
 						</Typography>
 					</Box>
 				</Box>

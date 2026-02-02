@@ -145,7 +145,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 			) : (
 				<PersonIcon sx={{ fontSize: 28 }} />
 			),
-			path: user?.publicId ? `/profile/${user.publicId}` : "/profile",
+			path: user?.handle ? `/profile/${user.handle}` : "/profile",
 		},
 		{
 			label: t("nav.favorites"),
@@ -312,7 +312,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 				<Box sx={{ py: 3 }}>
 					<ListItemButton
 						component={RouterLink}
-						to={`/profile/${user.publicId}`}
+						to={`/profile/${user.handle}`}
 						sx={{
 							borderRadius: 9999,
 							p: 1.5,
@@ -340,7 +340,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 									{user.username}
 								</Typography>
 								<Typography variant="body2" color="text.secondary" noWrap>
-									@{user.username}
+									@{user.handle}
 								</Typography>
 							</Box>
 						</Box>

@@ -47,7 +47,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 		try {
 			const payload = jwt.verify(token, this.secret) as DecodedUser;
 
-			if (!payload.publicId || !payload.email || !payload.username) {
+			if (!payload.publicId || !payload.email || !payload.username || !payload.handle) {
 				throw createError("AuthenticationError", "Invalid token payload");
 			}
 

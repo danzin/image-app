@@ -44,8 +44,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			} else {
 				// fallback: worker hasn't populated sorted set yet, use MongoDB sort
 				redisLogger.warn("trending:posts empty, falling back to MongoDB sort");
-				const result = await this.postReadRepository.getTrendingFeed(limit, start, {
-					timeWindowDays: 14,
+				const result = await this.postReadRepository.getTrendingFeedWithFacet(limit, start, {
+					timeWindowDays: 30,
 					minLikes: 1,
 				});
 				posts = result.data;
@@ -104,6 +104,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 				tags: normalizedTags,
 				user: {
 					publicId: userDoc?.publicId as string,
+					handle: userDoc?.handle ?? "",
 					username: userDoc?.username as string,
 					avatar: userDoc?.avatar ?? userDoc?.avatarUrl ?? "",
 				},
@@ -154,6 +155,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 			tags: normalizedOriginalTags,
 			user: {
 				publicId: originalUserDoc?.publicId as string,
+				handle: originalUserDoc?.handle ?? "",
 				username: originalUserDoc?.username as string,
 				avatar: originalUserDoc?.avatar ?? originalUserDoc?.avatarUrl ?? "",
 			},
@@ -165,6 +167,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
 	private getUserSnapshot(post: IPost | Record<string, unknown>): {
 		publicId?: string;
+		handle?: string;
 		username?: string;
 		avatar?: string;
 		avatarUrl?: string;
@@ -173,6 +176,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 		if (rawUser && typeof rawUser === "object" && ("publicId" in rawUser || "username" in rawUser)) {
 			return rawUser as {
 				publicId?: string;
+				handle?: string;
 				username?: string;
 				avatar?: string;
 				avatarUrl?: string;

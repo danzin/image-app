@@ -61,6 +61,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			logger.info("[LIKEACTIONHANDLER] user.username:", (user as any).username);
 
 			const actorUsername = (user as any).username || (user as any).name || "Unknown";
+			const actorHandle = (user as any).handle;
 
 			existingPost = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!existingPost) {
@@ -103,7 +104,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					await this.handleUnlike(command, userMongoId, postInternalId, session);
 					isLikeAction = false;
 				} else {
-					await this.handleLike(command, userMongoId, existingPost!, actorUsername, postOwnerPublicId, session);
+					await this.handleLike(command, userMongoId, existingPost!, actorUsername, actorHandle, postOwnerPublicId, session);
 				}
 				this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(
@@ -140,6 +141,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		userMongoId: string,
 		post: IPost,
 		actorUsername: string,
+		actorHandle: string | undefined,
 		postOwnerPublicId: string,
 		session: ClientSession
 	) {
@@ -166,6 +168,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					actionType: "like",
 					actorId: command.userPublicId,
 					actorUsername,
+					actorHandle,
 					targetId: post.publicId,
 					targetType: "post",
 					targetPreview: postPreview,

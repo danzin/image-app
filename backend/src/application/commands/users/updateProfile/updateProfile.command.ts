@@ -8,6 +8,7 @@ export class UpdateProfileCommand implements ICommand {
 		public readonly updates: {
 			username?: string;
 			bio?: string;
+			handle?: string;
 		}
 	) {}
 }

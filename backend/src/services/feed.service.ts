@@ -494,13 +494,17 @@ export class FeedService {
 		try {
 			// prewarm first 3 pages (most commonly accessed)
 			const limit = 20;
+			let cursor: string | undefined;
 			for (let page = 1; page <= 3; page++) {
 				const key = `new_feed:${page}:${limit}`;
-				const skip = (page - 1) * limit;
-				const core = await this.postRepository.getNewFeed(limit, skip);
+				const core = await this.postRepository.getNewFeedWithCursor({ limit, cursor });
+				cursor = core.nextCursor;
 				// 1 hour TTL to match worker schedule
 				await this.redisService.setWithTags(key, core, ["new_feed", `page:${page}`, `limit:${limit}`], 3600);
 				logger.info(`Pre-warmed New feed page ${page}`);
+				if (!core.nextCursor || !core.hasMore) {
+					break;
+				}
 			}
 			logger.info("New feed cache pre-warming complete");
 		} catch (error) {

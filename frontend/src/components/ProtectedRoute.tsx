@@ -12,7 +12,7 @@ export const ProtectedRoute = ({ element }: { element: JSX.Element }) => {
 		const emailParam = typeof user.email === "string" ? `?email=${encodeURIComponent(user.email)}` : "";
 		return <Navigate to={`/verify-email${emailParam}`} replace />;
 	}
-	if (user && location.pathname === "/profile") return <Navigate to={`/profile/${user.publicId}`} replace />;
+	if (user && location.pathname === "/profile") return <Navigate to={`/profile/${user.handle}`} replace />;
 
 	return element;
 };

@@ -48,6 +48,10 @@ export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfil
 			allowedUpdates.bio = command.updates.bio.trim();
 		}
 
+		if (typeof command.updates.handle === "string") {
+			throw createError("ValidationError", "Handle cannot be changed");
+		}
+
 		if (Object.keys(allowedUpdates).length === 0) {
 			throw createError("ValidationError", "No valid fields provided for update");
 		}

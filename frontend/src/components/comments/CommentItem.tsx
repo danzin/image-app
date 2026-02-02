@@ -222,8 +222,8 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				sx={{ width: 32, height: 32, cursor: "pointer" }}
 				onClick={(e) => {
 					e.stopPropagation();
-					if (comment.user?.publicId) {
-						navigate(`/profile/${comment.user.publicId}`);
+					if (comment.user?.handle || comment.user?.publicId) {
+						navigate(`/profile/${comment.user?.handle || comment.user?.publicId}`);
 					}
 				}}
 			>
@@ -250,13 +250,18 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 						}}
 						onClick={(e) => {
 							e.stopPropagation();
-							if (comment.user?.publicId) {
-								navigate(`/profile/${comment.user.publicId}`);
-							}
-						}}
-					>
+						if (comment.user?.handle || comment.user?.publicId) {
+							navigate(`/profile/${comment.user?.handle || comment.user?.publicId}`);
+						}
+					}}
+				>
 						{comment.user?.username || "[unknown]"}
 					</Typography>
+					{comment.user?.handle && (
+						<Typography variant="caption" color="text.secondary">
+							@{comment.user.handle}
+						</Typography>
+					)}
 					<Typography variant="caption" color="text.secondary">
 						{formatDate(comment.createdAt)}
 						{comment.isEdited && " (edited)"}

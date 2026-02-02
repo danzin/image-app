@@ -134,15 +134,16 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							: "[Post]";
 
 					this.eventBus.queueTransactional(
-						new NotificationRequestedEvent({
-							receiverId: postOwnerId,
-							actionType: "comment",
-							actorId: command.userPublicId,
-							actorUsername: user.username,
-							actorAvatar: user.avatar,
-							targetId: command.postPublicId,
-							targetType: "post",
-							targetPreview: postPreview,
+							new NotificationRequestedEvent({
+								receiverId: postOwnerId,
+								actionType: "comment",
+								actorId: command.userPublicId,
+								actorUsername: user.username,
+								actorHandle: user.handle,
+								actorAvatar: user.avatar,
+								targetId: command.postPublicId,
+								targetType: "post",
+								targetPreview: postPreview,
 						}),
 						this.notificationRequestedHandler,
 					);
@@ -160,15 +161,16 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							parentOwnerPublicId !== postOwnerId
 						) {
 							this.eventBus.queueTransactional(
-								new NotificationRequestedEvent({
-									receiverId: parentOwnerPublicId,
-									actionType: "comment_reply",
-									actorId: command.userPublicId,
-									actorUsername: user.username,
-									actorAvatar: user.avatar,
-									targetId: command.postPublicId,
-									targetType: "comment",
-									targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
+							new NotificationRequestedEvent({
+								receiverId: parentOwnerPublicId,
+								actionType: "comment_reply",
+								actorId: command.userPublicId,
+								actorUsername: user.username,
+								actorHandle: user.handle,
+								actorAvatar: user.avatar,
+								targetId: command.postPublicId,
+								targetType: "comment",
+								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
 								}),
 								this.notificationRequestedHandler,
 							);
@@ -177,7 +179,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				}
 
 				// Handle mentions
-				const mentionRegex = /@(\w+)/g;
+				const mentionRegex = /@([a-zA-Z0-9._]+)/g;
 				logger.info(`[CreateComment] Content for mention parsing: "${safeContent}"`);
 				const mentions = [...safeContent.matchAll(mentionRegex)].map((match) => match[1]);
 				logger.info(`[CreateComment] Raw mentions found: ${JSON.stringify(mentions)}`);
@@ -185,7 +187,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
 					logger.info(`[CreateComment] Looking up users for: ${uniqueMentions.join(", ")}`);
-					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
+					const mentionedUsers = await this.userReadRepository.findUsersByHandles(uniqueMentions);
 					logger.info(`[CreateComment] Found ${mentionedUsers.length} users`);
 
 					for (const mentionedUser of mentionedUsers) {
@@ -210,6 +212,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 								actionType: "mention",
 								actorId: command.userPublicId,
 								actorUsername: user.username,
+								actorHandle: user.handle,
 								actorAvatar: user.avatar,
 								targetId: command.postPublicId,
 								targetType: "post",

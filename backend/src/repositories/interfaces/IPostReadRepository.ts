@@ -1,5 +1,12 @@
 import { ClientSession } from "mongoose";
-import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "@/types";
+import {
+	CursorPaginationOptions,
+	CursorPaginationResult,
+	IPost,
+	PaginationOptions,
+	PaginationResult,
+	TrendingTag,
+} from "@/types";
 
 /**
  * Read-only repository interface for post queries
@@ -13,7 +20,20 @@ export interface IPostReadRepository {
 	findByIdWithPopulates(id: string, session?: ClientSession): Promise<IPost | null>;
 	findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null>;
 	findBySlug(slug: string, session?: ClientSession): Promise<IPost | null>;
-
+	getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<IPost>>;
+	getTrendingFeedWithCursor(
+		options: CursorPaginationOptions & {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
+	): Promise<CursorPaginationResult<IPost>>;
+	getRankedFeedWithCursor(
+		favoriteTags: string[],
+		options: CursorPaginationOptions & {
+			weights?: { recency?: number; popularity?: number; tagMatch?: number };
+		}
+	): Promise<CursorPaginationResult<IPost>>;
 	// batch lookups
 	findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]>;
 	findPostsByPublicIds(publicIds: string[]): Promise<IPost[]>;
@@ -43,6 +63,15 @@ export interface IPostReadRepository {
 			minLikes?: number;
 			weights?: { recency?: number; popularity?: number; comments?: number };
 		},
+	): Promise<PaginationResult<any>>;
+	getTrendingFeedWithFacet(
+		limit: number,
+		skip: number,
+		options?: {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
 	): Promise<PaginationResult<any>>;
 	getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>>;
 

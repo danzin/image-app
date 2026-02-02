@@ -101,7 +101,7 @@ const MobileTopBar: React.FC = () => {
 		>
 			<Avatar
 				component={RouterLink}
-				to={user ? `/profile/${user.publicId}` : "/login"}
+				to={user ? `/profile/${user.handle}` : "/login"}
 				src={fullAvatarUrl}
 				sx={{ width: 32, height: 32, cursor: "pointer", flexShrink: 0 }}
 			>

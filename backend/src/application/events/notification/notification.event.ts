@@ -5,6 +5,7 @@ export interface NotificationPayload {
 	actionType: string;
 	actorId: string;
 	actorUsername?: string;
+	actorHandle?: string;
 	actorAvatar?: string;
 	targetId?: string;
 	targetType?: string;

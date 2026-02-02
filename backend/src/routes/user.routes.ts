@@ -11,7 +11,7 @@ import upload from "@/config/multer";
 import {
 	registrationSchema,
 	loginSchema,
-	usernameSchema,
+	handleSchema,
 	publicIdSchema,
 	updateProfileSchema,
 	changePasswordSchema,
@@ -76,9 +76,9 @@ export class UserRoutes {
 		this.router.get("/users", this.userController.getUsers);
 
 		this.router.get(
-			"/profile/:username",
-			new ValidationMiddleware({ params: usernameSchema }).validate(),
-			this.userController.getUserByUsername,
+			"/profile/:handle",
+			new ValidationMiddleware({ params: handleSchema }).validate(),
+			this.userController.getUserByHandle,
 		);
 
 		this.router.get(

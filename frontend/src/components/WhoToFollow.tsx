@@ -110,7 +110,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 			{data.suggestions.map((user: SuggestedUser) => (
 				<ListItemButton
 					component={Link}
-					to={`/profile/${user.username}`}
+					to={`/profile/${user.handle}`}
 					key={user.publicId}
 					sx={{
 						px: 2,
@@ -157,7 +157,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 								whiteSpace: "nowrap",
 							}}
 						>
-							@{user.username}
+							@{user.handle}
 						</Typography>
 					</Box>
 
