@@ -8,7 +8,7 @@ import { EventBus } from "@/application/common/buses/event.bus";
 import { createError } from "@/utils/errors";
 import { errorLogger, redisLogger } from "@/utils/winston";
 import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
-import { FeedPost, PaginatedFeedResult, UserLookupData, IPost } from "@/types";
+import { FeedPost, PaginatedFeedResult, UserLookupData, IPost, IImage, ITag } from "@/types";
 
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQuery, PaginatedFeedResult> {
@@ -81,26 +81,32 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 
 	private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
 		return posts.map((post) => {
-			const plainPost = post as any;
+			const plainPost =
+				typeof (post as any).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
 			const userDoc = this.getUserSnapshot(plainPost);
-			const imageDoc = plainPost.image;
-			const tagsArray = (Array.isArray(plainPost.tags) ? plainPost.tags : []) as any[];
+			const imageDoc = plainPost.image as IImage | Record<string, unknown> | undefined;
+			const repostOfDoc = plainPost.repostOf as IPost | Record<string, unknown> | undefined;
+			const tagsArray = (Array.isArray(plainPost.tags) ? plainPost.tags : []) as unknown[];
 
 			const normalizedTags = tagsArray.reduce<{ tag: string; publicId?: string }[]>((acc, tag) => {
 				if (tag && typeof tag === "object") {
-					acc.push({
-						tag: tag.tag,
-						publicId: tag.publicId,
-					});
+					if ("tag" in tag) {
+						acc.push({
+							tag: (tag as { tag: string }).tag,
+							publicId: (tag as { publicId?: string }).publicId,
+						});
+					} else {
+						acc.push({ tag: (tag as ITag).tag });
+					}
 				}
 				return acc;
 			}, []);
 
 			return {
-				publicId: plainPost.publicId,
+				publicId: plainPost.publicId as string,
 				body: plainPost.body ?? "",
 				slug: plainPost.slug ?? "",
-				createdAt: plainPost.createdAt,
+				createdAt: plainPost.createdAt as Date,
 				likes: plainPost.likesCount ?? plainPost.likes ?? 0,
 				commentsCount: plainPost.commentsCount ?? 0,
 				viewsCount: plainPost.viewsCount ?? 0,
@@ -114,25 +120,67 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				},
 				image: imageDoc
 					? {
-							publicId: imageDoc.publicId,
-							url: imageDoc.url,
-							slug: imageDoc.slug,
+							publicId: (imageDoc as any).publicId,
+							url: (imageDoc as any).url,
+							slug: (imageDoc as any).slug,
 						}
 					: undefined,
-				rankScore: plainPost.rankScore,
-				trendScore: plainPost.trendScore,
+				repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
+				rankScore: plainPost.rankScore as number | undefined,
+				trendScore: plainPost.trendScore as number | undefined,
 			};
 		});
 	}
 
-	private getUserSnapshot(post: IPost): Partial<UserLookupData> {
-		const user = post.user;
-		// Check if user is an object and has publicId/username (not an ObjectId)
-		if (user && typeof user === "object" && ("publicId" in user || "username" in user)) {
-			return user as Partial<UserLookupData>;
+	private transformRepostOf(repostOf: IPost | Record<string, unknown>): Partial<FeedPost> | undefined {
+		if (!repostOf) return undefined;
+
+		const originalUserDoc = this.getUserSnapshot(repostOf);
+		const originalImageDoc = (repostOf as IPost).image as IImage | Record<string, unknown> | undefined;
+		const originalTagsArray = (Array.isArray((repostOf as IPost).tags) ? (repostOf as IPost).tags : []) as unknown[];
+		const normalizedOriginalTags = originalTagsArray.reduce<{ tag: string; publicId?: string }[]>(
+			(acc, tag: unknown) => {
+				if (tag && typeof tag === "object") {
+					if ("tag" in tag) {
+						acc.push({
+							tag: (tag as { tag: string }).tag,
+							publicId: (tag as { publicId?: string }).publicId,
+						});
+					} else {
+						acc.push({ tag: (tag as ITag).tag });
+					}
+				}
+				return acc;
+			},
+			[],
+		);
+
+		return {
+			publicId: (repostOf as any).publicId as string,
+			body: (repostOf as any).body ?? "",
+			slug: (repostOf as any).slug ?? "",
+			createdAt: (repostOf as any).createdAt as Date,
+			likes: ((repostOf as any).likesCount as number) ?? 0,
+			commentsCount: ((repostOf as any).commentsCount as number) ?? 0,
+			tags: normalizedOriginalTags,
+			user: {
+				publicId: originalUserDoc?.publicId as string,
+				handle: originalUserDoc?.handle ?? "",
+				username: originalUserDoc?.username as string,
+				avatar: originalUserDoc?.avatar ?? "",
+			},
+			image: originalImageDoc
+				? ({ publicId: (originalImageDoc as any).publicId, url: (originalImageDoc as any).url, slug: (originalImageDoc as any).slug } as IImage)
+				: undefined,
+		};
+	}
+
+	private getUserSnapshot(post: IPost | Record<string, unknown>): Partial<UserLookupData> {
+		const rawUser = "user" in post ? (post as Record<string, unknown>).user : undefined;
+		if (rawUser && typeof rawUser === "object" && ("publicId" in rawUser || "username" in rawUser)) {
+			return rawUser as Partial<UserLookupData>;
 		}
-		// Fallback to author (common in Mongoose IPost)
-		const author = post.author;
+		const author = "author" in post ? (post as Record<string, unknown>).author : undefined;
 		if (author && typeof author === "object") {
 			return author as Partial<UserLookupData>;
 		}

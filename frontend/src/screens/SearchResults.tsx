@@ -14,18 +14,47 @@ const SearchResults = () => {
 	const tagsParam = searchParams.get("tags") || "";
 	const displayQuery = tagsParam || queryParam;
 
+	const searchMode = useMemo(() => {
+		if (tagsParam.trim()) {
+			return "tags" as const;
+		}
+		const trimmed = queryParam.trim();
+		if (trimmed.startsWith("#")) {
+			return "tags" as const;
+		}
+		if (trimmed.startsWith("@")) {
+			return "handles" as const;
+		}
+		return "default" as const;
+	}, [queryParam, tagsParam]);
+
+	const normalizedQuery = useMemo(() => {
+		if (searchMode === "tags") {
+			const rawTags = tagsParam || queryParam;
+			return rawTags.replace(/^#+/, "");
+		}
+		if (searchMode === "handles") {
+			return queryParam.replace(/^@+/, "");
+		}
+		return queryParam;
+	}, [queryParam, tagsParam, searchMode]);
+
 	// prevent unnecessary re-renders
 	const searchTerms = useMemo(() => {
-		const baseQuery = tagsParam || queryParam;
+		const baseQuery = tagsParam || normalizedQuery;
 		return baseQuery
 			.split(",")
-			.map((t) => t.trim())
+			.map((t) => t.replace(/^#+/, "").trim())
 			.filter((t) => t.length > 0);
-	}, [queryParam, tagsParam]);
+	}, [normalizedQuery, tagsParam]);
 
 	const [activeTab, setActiveTab] = useState<"posts" | "users" | "communities">("posts");
 
-	const { data: searchData, isFetching: isSearchingUsers } = useSearch(queryParam);
+	useEffect(() => {
+		setActiveTab("posts");
+	}, [displayQuery]);
+
+	const { data: searchData, isFetching: isSearchingUsers } = useSearch(normalizedQuery);
 
 	// Fetch Posts with infinite scroll
 	const {
@@ -35,17 +64,13 @@ const SearchResults = () => {
 		isFetchingNextPage,
 		isLoading: isLoadingPosts,
 	} = usePostsByTag(searchTerms, {
-		enabled: searchTerms.length > 0,
+		enabled: searchMode !== "handles" && searchTerms.length > 0,
 	});
 
 	// Flatten pages
 	const allPosts = useMemo(() => {
 		return postsData?.pages.flatMap((page) => page.data) || [];
 	}, [postsData]);
-
-	useEffect(() => {
-		setActiveTab("posts");
-	}, [displayQuery]);
 
 	useEffect(() => {
 		if (!isLoadingPosts && !isSearchingUsers && activeTab === "posts") {
@@ -58,7 +83,9 @@ const SearchResults = () => {
 		}
 	}, [isLoadingPosts, isSearchingUsers, allPosts.length, searchData, activeTab]);
 
-	const isLoading = isLoadingPosts || isSearchingUsers;
+	const users = searchData?.data.users ?? [];
+	const communities = searchData?.data.communities ?? [];
+	const isLoading = (searchMode !== "handles" && isLoadingPosts) || isSearchingUsers;
 
 	const getFullAvatarUrl = (avatar?: string) => {
 		if (!avatar) return undefined;
@@ -75,13 +102,13 @@ const SearchResults = () => {
 					Posts ({allPosts.length})
 				</Button>
 				<Button variant={activeTab === "users" ? "contained" : "outlined"} onClick={() => setActiveTab("users")}>
-					Users ({searchData?.data.users?.length || 0})
+					Users ({users.length})
 				</Button>
 				<Button
 					variant={activeTab === "communities" ? "contained" : "outlined"}
 					onClick={() => setActiveTab("communities")}
 				>
-					Communities ({searchData?.data.communities?.length || 0})
+					Communities ({communities.length})
 				</Button>
 			</Box>
 
@@ -112,8 +139,8 @@ const SearchResults = () => {
 					{/* Users tab */}
 					{activeTab === "users" && (
 						<Box>
-							{searchData?.data.users && searchData.data.users.length > 0 ? (
-								searchData.data.users.map((user) => (
+							{users.length > 0 ? (
+								users.map((user) => (
 									<Box
 										key={user.publicId}
 										sx={{
@@ -147,8 +174,8 @@ const SearchResults = () => {
 					{/* Communities tab */}
 					{activeTab === "communities" && (
 						<Box>
-							{searchData?.data.communities && searchData.data.communities.length > 0 ? (
-								searchData.data.communities.map((community) => (
+							{communities.length > 0 ? (
+								communities.map((community) => (
 									<Box
 										key={community.publicId}
 										sx={{

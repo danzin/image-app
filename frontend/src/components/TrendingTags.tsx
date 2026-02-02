@@ -20,7 +20,7 @@ const TrendingTags: React.FC = () => {
 	});
 
 	const handleTagClick = (tag: string) => {
-		navigate(`/results?q=${encodeURIComponent(tag)}`);
+		navigate(`/results?q=${encodeURIComponent(`#${tag}`)}`);
 	};
 
 	if (isLoading) {

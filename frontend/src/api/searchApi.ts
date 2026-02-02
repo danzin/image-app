@@ -11,6 +11,6 @@ export const searchQuery = async (
 		communities: ICommunity[] | null;
 	};
 }> => {
-	const { data } = await axiosClient.get(`/api/search?q=${query}`);
+	const { data } = await axiosClient.get(`/api/search?q=${encodeURIComponent(query)}`);
 	return data;
 };
