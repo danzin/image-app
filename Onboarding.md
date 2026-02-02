@@ -208,11 +208,102 @@ npm run test:e2e      # Cypress (requires running services)
 - **Add real-time feature**: Publish event in handler → Subscribe in `RealTimeFeedService` → Handle in frontend socket integration
 - **Add a feed type**: Update `FeedService`, Redis keys, and frontend feed hooks
 
+### Cursor-based feed pagination (new feed, trending, ranked)
+
+The skip-based feed methods are deprecated for deep pagination. The new cursor methods avoid `skip()` scans by using a stable cursor (compound sort key) so page N fetches do not grow linearly with dataset size.
+
+- `backend/src/repositories/post.repository.ts`
+  - `getNewFeedWithCursor`: Uses `(createdAt, _id)` ordering and a cursor filter to paginate in O(1) relative to page depth. This avoids large skip scans and keeps ordering deterministic even when posts share the same timestamp.
+  - `getTrendingFeedWithCursor`: Computes `trendScore` once, then applies a `(trendScore, _id)` cursor filter. This keeps deep trending pagination fast while preserving strict score ordering.
+  - `getRankedFeedWithCursor`: Computes `rankScore` once with tag-match weighting, then pages by `(rankScore, _id)` cursor. This prevents deep pages from re-scanning large ranked sets.
+
+- `backend/src/repositories/interfaces/IPostReadRepository.ts` + `backend/src/repositories/read/PostReadRepository.ts`
+  - Cursor methods are now part of the read repository contract with typed `CursorPaginationResult`. This keeps CQRS handlers and workers on a single, efficient API and removes the need for ad-hoc casts to the base repository.
+
+- `backend/src/workers/_impl/trending.worker.impl.ts`
+  - The full-refresh path now calls `getTrendingFeedWithCursor` directly. That pulls the top N candidates without a skip scan, making scheduled refreshes cheaper and more predictable under large post counts.
+
+- `backend/src/services/feed.service.ts`
+  - New-feed prewarm uses cursor chaining to populate page 1 → page N sequentially. This avoids repeated `skip` queries and stops early when the cursor reports no more data, reducing unnecessary DB work.
+
+- `backend/src/application/queries/feed/getTrendingFeed/getTrendingFeed.handler.ts`
+  - The Redis-miss fallback now uses `getTrendingFeedWithFacet`, which returns data + total in a single aggregation. This reduces round-trips versus separate count queries while still delivering pagination metadata.
+
+**Usage guidance**
+
+- Use cursor methods for infinite scroll and deep pagination.
+- Keep skip-based methods only where a strict `page/limit` UX is required and the depth is shallow.
+
+### Request flow (edge to core)
+
+```
+Browser/Client
+    |
+    v
+Nginx (frontend/nginx.conf)
+    |  /api -> API Gateway
+    |  /socket.io -> Backend (WebSocket)
+    v
+API Gateway (api-gateway/src/server.ts)
+    |  CORS + rate limit + metrics
+    |  /api/* -> backend:3000/*
+    v
+Backend (Express + CQRS)
+    |  Controllers -> CommandBus/QueryBus
+    |  Redis cache + MongoDB
+    v
+Response -> Gateway -> Nginx -> Client
+```
+
+### CQRS + caching flow (reads)
+
+```
+GET /api/feed/new
+    |
+    v
+FeedController -> QueryBus
+    |
+    v
+GetNewFeedQueryHandler
+    |
+    +--> Redis cache hit? -> return cached core feed
+    |
+    +--> cache miss -> PostRepository aggregation -> cache core feed
+    |
+    v
+FeedEnrichmentService -> DTOService -> response
+```
+
+### CQRS + caching flow (writes + fan-out)
+
+```
+POST /api/posts
+    |
+    v
+PostController -> CommandBus
+    |
+    v
+CreatePostCommandHandler
+    |
+    +--> UnitOfWork (Mongo transaction)
+    |      - persist post
+    |      - queue domain events
+    |
+    v
+EventBus (post-commit)
+    |
+    +--> Redis stream / sorted sets
+    +--> workers update trending scores
+    |
+    v
+Redis-backed feeds updated, clients read cached feeds
+```
+
 ## Important IDs and Conventions
 
 - **MongoDB `_id`**: Internal database identifier
 - **`publicId`**: UUID-like external identifier (used in DTOs and events)
-- Always use `publicId` in API responses; strip file extensions when accepting user input
+- **`handler`**: external, non-mutable unique user identifier.
 
 ## Known Gotchas
 
@@ -235,7 +326,7 @@ Backend won't start without Redis and MongoDB replica set. Use Docker to avoid c
 ## Debugging Tips
 
 - **Logs**: Backend creates log files in `backend/*.log` (Pino + Winston). Tail these for troubleshooting
-- **Ad-hoc scripts**: `backend/src/debug-redis.ts`, `test-feed-invalidation.ts` are available for manual testing (run with `ts-node`)
+
 - **Socket debugging**: Check `backend/src/server/socketServer.ts` for authentication flow
 - **Feed caching**: See `backend/src/services/redis.service.ts` and `feed.service.ts` for cache invalidation logic
 

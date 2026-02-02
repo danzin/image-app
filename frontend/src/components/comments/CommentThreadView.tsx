@@ -286,8 +286,8 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 					}}
 					onClick={(e) => {
 						e.stopPropagation();
-						if (comment.user?.publicId) {
-							navigate(`/profile/${comment.user.publicId}`);
+						if (comment.user?.handle || comment.user?.publicId) {
+							navigate(`/profile/${comment.user?.handle || comment.user?.publicId}`);
 						}
 					}}
 				>
@@ -332,11 +332,11 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 						}}
 						onClick={(e) => {
 							e.stopPropagation();
-							if (comment.user?.publicId) {
-								navigate(`/profile/${comment.user.publicId}`);
-							}
-						}}
-					>
+						if (comment.user?.handle || comment.user?.publicId) {
+							navigate(`/profile/${comment.user?.handle || comment.user?.publicId}`);
+						}
+					}}
+				>
 						{comment.user?.username || "[unknown]"}
 					</Typography>
 					<Typography variant="caption" color="text.secondary" sx={{ fontSize: isMobile ? "0.7rem" : undefined }}>

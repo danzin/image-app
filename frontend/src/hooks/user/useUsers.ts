@@ -9,7 +9,7 @@ import {
 import {
 	fetchCurrentUser,
 	fetchUserByPublicId,
-	fetchUserByUsername,
+	fetchUserByHandle,
 	fetchUserPosts,
 	fetchUserLikedPosts,
 	fetchUserComments,
@@ -71,11 +71,11 @@ export const useGetUserByPublicId = (publicId: string | undefined) => {
 	});
 };
 
-export const useGetUserByUsername = (username: string | undefined) => {
+export const useGetUserByHandle = (handle: string | undefined) => {
 	return useQuery<PublicUserDTO>({
-		queryKey: ["user", "username", username],
-		queryFn: ({ queryKey }) => fetchUserByUsername({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
-		enabled: !!username,
+		queryKey: ["user", "handle", handle],
+		queryFn: ({ queryKey }) => fetchUserByHandle({ queryKey: [queryKey[0] as string, queryKey[2] as string] }),
+		enabled: !!handle,
 		staleTime: 60000,
 	});
 };
@@ -84,14 +84,18 @@ export const useGetUser = (identifier: string | undefined) => {
 	const queryClient = useQueryClient();
 
 	const currentUser = queryClient.getQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"]);
-	const isViewingSelf = currentUser?.publicId === identifier || currentUser?.username === identifier;
+	const isViewingSelf =
+		currentUser?.publicId === identifier || currentUser?.handle === identifier || currentUser?.username === identifier;
 	const isPublicId = identifier && /^[0-9a-f]{8}-[0-9a-f]{4}-.../.test(identifier);
 
 	return useQuery<PublicUserDTO>({
 		queryKey: ["user", identifier],
 		queryFn: () => {
 			const freshCurrentUser = queryClient.getQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"]);
-			const isSelf = freshCurrentUser?.publicId === identifier || freshCurrentUser?.username === identifier;
+			const isSelf =
+				freshCurrentUser?.publicId === identifier ||
+				freshCurrentUser?.handle === identifier ||
+				freshCurrentUser?.username === identifier;
 
 			if (isSelf && freshCurrentUser) {
 				return Promise.resolve(freshCurrentUser as PublicUserDTO);
@@ -99,7 +103,7 @@ export const useGetUser = (identifier: string | undefined) => {
 
 			return isPublicId
 				? fetchUserByPublicId({ queryKey: ["user", identifier!] })
-				: fetchUserByUsername({ queryKey: ["user", identifier!] });
+				: fetchUserByHandle({ queryKey: ["user", identifier!] });
 		},
 		enabled: !!identifier,
 		staleTime: isViewingSelf ? 0 : 60000,
@@ -144,7 +148,7 @@ export const useUpdateUserAvatar = () => {
 			queryClient.setQueryData(["currentUser"], data);
 			queryClient.setQueryData(["user", data.publicId], data);
 			queryClient.setQueryData(["user", "publicId", data.publicId], data);
-			queryClient.setQueryData(["user", "username", data.username], data);
+			queryClient.setQueryData(["user", "handle", data.handle], data);
 
 			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},
@@ -162,7 +166,7 @@ export const useUpdateUserCover = () => {
 			queryClient.setQueryData(["currentUser"], data);
 			queryClient.setQueryData(["user", data.publicId], data);
 			queryClient.setQueryData(["user", "publicId", data.publicId], data);
-			queryClient.setQueryData(["user", "username", data.username], data);
+			queryClient.setQueryData(["user", "handle", data.handle], data);
 
 			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},

@@ -13,6 +13,28 @@ const userSchema = new Schema<IUser>(
 			default: uuidv4,
 			index: true, // explicit index for frequent publicId queries (follows, feeds, lookups)
 		},
+		handle: {
+			type: String,
+			required: [true, "Handle is required"],
+			immutable: true,
+			trim: true,
+			index: true,
+			validate: {
+				validator: function (v) {
+					return /^[a-zA-Z0-9._-]+$/.test(v);
+				},
+				message: "Handle can only contain letters, numbers, dots, hyphens and underscores.",
+			},
+		},
+		handleNormalized: {
+			type: String,
+			required: [true, "Handle is required"],
+			unique: true,
+			immutable: true,
+			trim: true,
+			index: true,
+			sparse: true,
+		},
 		username: {
 			type: String,
 			required: [true, "Username is required"],
@@ -129,6 +151,24 @@ const userSchema = new Schema<IUser>(
 	},
 );
 
+const RESERVED_HANDLES = [
+	"admin",
+	"login",
+	"register",
+	"api",
+	"dashboard",
+	"settings",
+	"help",
+	"moderator",
+	"user",
+	"support",
+	"about",
+	"contact",
+	"privacy",
+	"terms",
+	"profile",
+];
+
 // Hash pasword when a new user is registered
 userSchema.pre("save", async function (next) {
 	if (!this.isModified("password")) return next();
@@ -140,6 +180,20 @@ userSchema.pre("save", async function (next) {
 	} catch (error) {
 		next(error as CallbackError);
 	}
+});
+
+userSchema.pre("validate", function (next) {
+	if (this.isModified("handle") || this.isNew) {
+		const rawHandle = typeof this.handle === "string" ? this.handle.trim() : "";
+		if (rawHandle) {
+			this.handle = rawHandle;
+			this.handleNormalized = rawHandle.toLowerCase();
+		}
+		if (RESERVED_HANDLES.includes(this.handleNormalized)) {
+			this.invalidate("handle", "Can't use that handle.");
+		}
+	}
+	next();
 });
 
 // Hash password when user changes it.

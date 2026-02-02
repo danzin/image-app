@@ -13,7 +13,7 @@ import { GetPostsByUserQuery } from "@/application/queries/post/getPostsByUser/g
 import { GetLikedPostsByUserQuery } from "@/application/queries/post/getLikedPostsByUser/getLikedPostsByUser.query";
 import { SearchPostsByTagsQuery } from "@/application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTags.query";
-import { GetUserByUsernameQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
 import { createError } from "@/utils/errors";
 import { errorLogger } from "@/utils/winston";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
@@ -121,13 +121,13 @@ export class PostController {
 		}
 	};
 
-	getPostsByUsername = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+	getPostsByHandle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const { username } = req.params;
+			const { handle } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 20;
 
-			const userQuery = new GetUserByUsernameQuery(username);
+			const userQuery = new GetUserByHandleQuery(handle);
 			const user = await this.queryBus.execute<PublicUserDTO>(userQuery);
 
 			const query = new GetPostsByUserQuery(user.publicId, page, limit);

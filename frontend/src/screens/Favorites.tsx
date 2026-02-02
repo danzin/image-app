@@ -59,7 +59,7 @@ const Favorites = () => {
 						Favorites
 					</Typography>
 					<Typography variant="caption" color="text.secondary">
-						@{user?.username}
+						@{user?.handle}
 					</Typography>
 				</Box>
 			</Box>

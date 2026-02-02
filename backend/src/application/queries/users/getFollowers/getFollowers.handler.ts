@@ -7,6 +7,7 @@ import { createError } from "@/utils/errors";
 
 export interface FollowUserItem {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	bio?: string;
@@ -49,6 +50,7 @@ export class GetFollowersQueryHandler implements IQueryHandler<GetFollowersQuery
 				if (followerUser) {
 					users.push({
 						publicId: followerUser.publicId,
+						handle: followerUser.handle,
 						username: followerUser.username,
 						avatar: followerUser.avatar || "",
 						bio: followerUser.bio,

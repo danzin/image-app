@@ -6,6 +6,7 @@ export interface IImage extends Document {
 	publicId: string;
 	user: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};
@@ -22,6 +23,7 @@ export interface ImageDocWithId extends IImage {
 
 export interface PopulatedUserField {
 	publicId: string;
+	handle?: string;
 	username?: string;
 	avatar?: string;
 }

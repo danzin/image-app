@@ -3,6 +3,7 @@ import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopul
 
 export interface PublicUserDTO {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	cover: string;
@@ -51,6 +52,7 @@ export interface CommunityDTO {
 export interface CommunityMemberDTO {
 	userId: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar?: string;
 	};
@@ -112,6 +114,7 @@ export class DTOService {
 			isFavoritedByViewer: post.isFavoritedByViewer,
 			user: {
 				publicId: userSnapshot.publicId,
+				handle: userSnapshot.handle,
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
@@ -150,6 +153,7 @@ export class DTOService {
 			publicId: source.publicId,
 			user: {
 				publicId: userSnapshot.publicId,
+				handle: userSnapshot.handle,
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
@@ -183,6 +187,7 @@ export class DTOService {
 
 		return {
 			publicId,
+			handle: this.pickString(candidate.handle) || "",
 			username: this.pickString(candidate.username ?? candidate.displayName) || "",
 			avatar: this.pickString(candidate.avatar ?? candidate.avatarUrl ?? candidate.profile?.avatarUrl) || "",
 		};
@@ -192,6 +197,7 @@ export class DTOService {
 		const source = author && typeof author === "object" ? author : {};
 		return {
 			publicId: this.pickString(source.publicId) || "",
+			handle: this.pickString(source.handle) || "",
 			username: this.pickString(source.username ?? source.displayName) || "",
 			avatar: this.pickString(source.avatarUrl) || "",
 		};
@@ -241,6 +247,7 @@ export class DTOService {
 		const userCandidate = (member as any)?.userId;
 		const userSnapshot = this.normalizeUserLike(userCandidate) ?? {
 			publicId: "",
+			handle: "",
 			username: "",
 			avatar: "",
 		};
@@ -248,6 +255,7 @@ export class DTOService {
 		return {
 			userId: {
 				publicId: userSnapshot.publicId,
+				handle: userSnapshot.handle,
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar || undefined,
 			},
@@ -258,6 +266,7 @@ export class DTOService {
 	toPublicUserDTO(user: IUser, _viewerUserId?: string): PublicUserDTO {
 		return {
 			publicId: user.publicId,
+			handle: user.handle,
 			username: user.username,
 			avatar: user.avatar,
 			cover: user.cover,
@@ -351,6 +360,7 @@ export class DTOService {
 			body: message.body,
 			sender: {
 				publicId: sender?.publicId ?? "",
+				handle: sender?.handle ?? "",
 				username: sender?.username ?? "",
 				avatar: sender?.avatar ?? "",
 			},

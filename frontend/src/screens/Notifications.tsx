@@ -84,6 +84,8 @@ const Notifications: React.FC = () => {
 				return "commented on your post";
 			case "comment_reply":
 				return "replied to your comment";
+			case "comment_like":
+				return "liked your comment";
 			case "follow":
 				return "started following you";
 			case "mention":
@@ -113,7 +115,8 @@ const Notifications: React.FC = () => {
 		} else if (notification.targetId && notification.targetType === "conversation") {
 			navigate(`/messages?conversation=${notification.targetId}`);
 		} else if (notification.actionType === "follow") {
-			navigate(`/profile/${notification.actorId}`);
+			const profileIdentifier = notification.actorHandle || notification.actorId;
+			navigate(`/profile/${profileIdentifier}`);
 		}
 	};
 
@@ -243,7 +246,7 @@ const Notifications: React.FC = () => {
 											background: "linear-gradient(45deg, #0ea5e9, #38bdf8)",
 										}}
 									>
-										{notification.actorUsername?.charAt(0).toUpperCase()}
+										{(notification.actorUsername || notification.actorHandle || "U").charAt(0).toUpperCase()}
 									</Avatar>
 								</ListItemAvatar>
 
@@ -263,7 +266,7 @@ const Notifications: React.FC = () => {
 													wordBreak: "break-word",
 												}}
 											>
-												{notification.actorUsername || "Someone"}
+												{notification.actorUsername || notification.actorHandle || "Someone"}
 											</Typography>
 											<Typography component="span" variant="body2" color="text.secondary">
 												{getActionText(notification)}

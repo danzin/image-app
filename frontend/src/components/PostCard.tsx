@@ -145,7 +145,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					}}
 					onClick={(e) => {
 						e.stopPropagation();
-						navigate(`/profile/${post.user?.publicId}`);
+						navigate(`/profile/${post.user?.handle || post.user?.publicId}`);
 					}}
 				>
 					{post.user?.avatar ? (
@@ -175,7 +175,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							}}
 							onClick={(e) => {
 								e.stopPropagation();
-								navigate(`/profile/${post.user?.publicId}`);
+								navigate(`/profile/${post.user?.handle || post.user?.publicId}`);
 							}}
 						>
 							{post.user?.username || t("post.unknown_user")}

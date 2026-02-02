@@ -66,6 +66,7 @@ export class FeedEnrichmentService {
 				user: user
 					? {
 							publicId: user.publicId,
+							handle: user.handle ?? "",
 							username: user.username,
 							avatar: user.avatar ?? "",
 						}

@@ -9,6 +9,7 @@ import { logger } from "@/utils/winston";
 
 export interface SuggestedUser {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	bio?: string;

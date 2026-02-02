@@ -1,6 +1,13 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IPost, PaginationOptions, PaginationResult, TrendingTag } from "@/types";
+import {
+	CursorPaginationOptions,
+	CursorPaginationResult,
+	IPost,
+	PaginationOptions,
+	PaginationResult,
+	TrendingTag,
+} from "@/types";
 import { IPostReadRepository } from "../interfaces/IPostReadRepository";
 import { PostRepository } from "../post.repository";
 
@@ -87,6 +94,41 @@ export class PostReadRepository implements IPostReadRepository {
 		},
 	): Promise<PaginationResult<any>> {
 		return this.postRepository.getTrendingFeed(limit, skip, options);
+	}
+
+	async getTrendingFeedWithFacet(
+		limit: number,
+		skip: number,
+		options?: {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
+	): Promise<PaginationResult<any>> {
+		return this.postRepository.getTrendingFeedWithFacet(limit, skip, options);
+	}
+
+	async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<IPost>> {
+		return this.postRepository.getNewFeedWithCursor(options);
+	}
+
+	async getTrendingFeedWithCursor(
+		options: CursorPaginationOptions & {
+			timeWindowDays?: number;
+			minLikes?: number;
+			weights?: { recency?: number; popularity?: number; comments?: number };
+		}
+	): Promise<CursorPaginationResult<IPost>> {
+		return this.postRepository.getTrendingFeedWithCursor(options);
+	}
+
+	async getRankedFeedWithCursor(
+		favoriteTags: string[],
+		options: CursorPaginationOptions & {
+			weights?: { recency?: number; popularity?: number; tagMatch?: number };
+		}
+	): Promise<CursorPaginationResult<IPost>> {
+		return this.postRepository.getRankedFeedWithCursor(favoriteTags, options);
 	}
 
 	async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {

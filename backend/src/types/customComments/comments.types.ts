@@ -63,6 +63,7 @@ export interface TransformedComment {
 	likesCount: number;
 	user: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar?: string;
 	} | null;
@@ -82,7 +83,7 @@ export interface PopulatedCommentLean {
 	replyCount: number;
 	depth: number;
 	likesCount: number;
-	userId: { publicId: string; username: string; avatar?: string } | null;
+	userId: { publicId: string; handle?: string; username: string; avatar?: string } | null;
 	createdAt: Date;
 	updatedAt: Date;
 	isEdited: boolean;

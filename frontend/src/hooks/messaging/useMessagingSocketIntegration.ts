@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "../context/useSocket";
-import { MessagingUpdatePayload } from "../../types";
+import { MessagingUpdatePayload, MessageDTO, ConversationMessagesResponse } from "../../types";
+import type { InfiniteData } from "@tanstack/react-query";
 
 function isMessagingUpdatePayload(value: unknown): value is MessagingUpdatePayload {
 	if (typeof value !== "object" || value === null) {
@@ -10,9 +11,8 @@ function isMessagingUpdatePayload(value: unknown): value is MessagingUpdatePaylo
 
 	const candidate = value as Partial<MessagingUpdatePayload>;
 	return (
-		candidate.type === "message_sent" &&
+		(candidate.type === "message_sent" || candidate.type === "message_status_updated") &&
 		typeof candidate.conversationId === "string" &&
-		typeof candidate.senderId === "string" &&
 		typeof candidate.timestamp === "string"
 	);
 }
@@ -27,10 +27,35 @@ export const useMessagingSocketIntegration = (): void => {
 		const handleMessagingUpdate = (payload: unknown) => {
 			if (!isMessagingUpdatePayload(payload)) return;
 
-			const { conversationId } = payload;
+			const { conversationId, status } = payload;
 
 			queryClient.invalidateQueries({ queryKey: ["messaging", "conversations"], exact: false });
 			if (conversationId) {
+				if (payload.type === "message_status_updated" && status) {
+					queryClient.setQueriesData<InfiniteData<ConversationMessagesResponse>>(
+						{ queryKey: ["messaging", "conversation", conversationId], exact: false },
+						(existing) => {
+							if (!existing) return existing;
+
+							const updatedPages = existing.pages.map((page) => ({
+								...page,
+								messages: page.messages.map((message: MessageDTO) => {
+									if (message.status === "read") return message;
+									if (status === "read") {
+										return { ...message, status: "read" as const };
+									}
+									if (status === "delivered" && message.status === "sent") {
+										return { ...message, status: "delivered" as const };
+									}
+									return message;
+								}),
+							}));
+
+							return { ...existing, pages: updatedPages };
+						},
+					);
+				}
+
 				queryClient.invalidateQueries({
 					predicate: (query) => {
 						const key = query.queryKey;

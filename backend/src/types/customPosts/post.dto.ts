@@ -11,6 +11,7 @@ export interface PostDTO {
 		publicId: string;
 		user: {
 			publicId: string;
+			handle: string;
 			username: string;
 			avatar: string;
 		};
@@ -43,6 +44,7 @@ export interface PostDTO {
 
 	user: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};

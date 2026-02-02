@@ -6,6 +6,7 @@ const authorSchema = new Schema(
 	{
 		_id: { type: Schema.Types.ObjectId, ref: "User", required: true },
 		publicId: { type: String, required: true },
+		handle: { type: String, required: true },
 		username: { type: String, required: true },
 		avatarUrl: { type: String, default: "" },
 		displayName: { type: String, default: "" },
@@ -147,6 +148,7 @@ postSchema.set("toJSON", {
 		if (ret.user && typeof ret.user === "object" && ret.user._id) {
 			ret.user = {
 				id: ret.user._id.toString(),
+				handle: ret.user.handle,
 				username: ret.user.username,
 				publicId: ret.user.publicId,
 			};
@@ -155,6 +157,7 @@ postSchema.set("toJSON", {
 		if (!ret.user && ret.author) {
 			ret.user = {
 				publicId: ret.author.publicId,
+				handle: ret.author.handle,
 				username: ret.author.username,
 				avatarUrl: ret.author.avatarUrl,
 			};

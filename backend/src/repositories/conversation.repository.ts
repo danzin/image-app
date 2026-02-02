@@ -39,12 +39,12 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 	): Promise<IConversation | null> {
 		const query = this.model.findOne({ publicId });
 		if (options?.populateParticipants) {
-			query.populate("participants", "publicId username avatar");
+			query.populate("participants", "publicId handle username avatar");
 		}
 		if (options?.includeLastMessage) {
 			query.populate({
 				path: "lastMessage",
-				populate: { path: "sender", select: "publicId username avatar" },
+				populate: { path: "sender", select: "publicId handle username avatar" },
 			});
 		}
 		if (session) query.session(session);
@@ -84,7 +84,7 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 						let: { senderId: "$lastMessage.sender" },
 						pipeline: [
 							{ $match: { $expr: { $eq: ["$_id", "$$senderId"] } } },
-							{ $project: { publicId: 1, username: 1, avatar: 1 } },
+							{ $project: { publicId: 1, handle: 1, username: 1, avatar: 1 } },
 						],
 						as: "lastMessageSender",
 					},
@@ -121,6 +121,7 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 								in: {
 									_id: "$$participant._id",
 									publicId: "$$participant.publicId",
+									handle: "$$participant.handle",
 									username: "$$participant.username",
 									avatar: "$$participant.avatar",
 								},

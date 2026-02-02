@@ -51,7 +51,7 @@ const Profile: React.FC = () => {
 	const queryClient = useQueryClient();
 	const [activeTab, setActiveTab] = useState(0);
 
-	const profileUserId = id || user?.publicId;
+	const profileUserId = id || user?.handle || user?.publicId;
 
 	// Data for profile being viewed - use the identifier to get user data
 	// If no id is provided in URL and user is logged in, use their data
@@ -59,7 +59,7 @@ const Profile: React.FC = () => {
 		data: profileData,
 		isLoading: isLoadingProfile,
 		error: getUserError,
-	} = useGetUser(id ? id : isLoggedIn ? user?.username : undefined);
+	} = useGetUser(id ? id : isLoggedIn ? user?.handle : undefined);
 
 	const {
 		data: imagesData,
@@ -206,17 +206,44 @@ const Profile: React.FC = () => {
 	if (getUserError) {
 		return (
 			<Box sx={{ p: 3, textAlign: "center" }}>
-				<Typography color="error">
-					Error loading profile: {(getUserError as Error)?.message || "Unknown error"}
-				</Typography>
+				<Typography color="error">We couldn't load this profile right now.</Typography>
 			</Box>
 		);
 	}
 
 	if (!profileData) {
 		return (
-			<Box sx={{ p: 3, textAlign: "center" }}>
-				<Typography>User not found.</Typography>
+			<Box
+				sx={{
+					p: { xs: 3, md: 6 },
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					minHeight: "60vh",
+					textAlign: "center",
+				}}
+			>
+				<Box
+					sx={{
+						maxWidth: 420,
+						px: 3,
+						py: 4,
+						borderRadius: 4,
+						border: `1px solid ${theme.palette.divider}`,
+						bgcolor: alpha(theme.palette.background.default, 0.9),
+						boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
+					}}
+				>
+					<Typography variant="h5" fontWeight={800} gutterBottom>
+						This profile doesn't exist
+					</Typography>
+					<Typography variant="body2" color="text.secondary">
+						The handle might be wrong or the user has left
+					</Typography>
+					<Button variant="contained" sx={{ mt: 3, borderRadius: 9999, px: 3 }} onClick={() => navigate("/")}>
+						Go home
+					</Button>
+				</Box>
 			</Box>
 		);
 	}
@@ -411,7 +438,7 @@ const Profile: React.FC = () => {
 						{profileData.username}
 					</Typography>
 					<Typography variant="body2" color="text.secondary">
-						@{profileData.username}
+						@{profileData.handle}
 					</Typography>
 				</Box>
 
@@ -438,7 +465,7 @@ const Profile: React.FC = () => {
 				<Box sx={{ display: "flex", gap: 2.5, mt: 1.5 }}>
 					<Box
 						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=following`)}
+						onClick={() => navigate(`/profile/${profileData.handle}/follow?tab=following`)}
 					>
 						<Typography variant="body2" fontWeight={700} color="text.primary">
 							{profileData.followingCount || 0}
@@ -449,7 +476,7 @@ const Profile: React.FC = () => {
 					</Box>
 					<Box
 						sx={{ display: "flex", gap: 0.5, cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
-						onClick={() => navigate(`/profile/${profileData.publicId}/follow?tab=followers`)}
+						onClick={() => navigate(`/profile/${profileData.handle}/follow?tab=followers`)}
 					>
 						<Typography variant="body2" fontWeight={700} color="text.primary">
 							{profileData.followerCount || 0}
@@ -503,7 +530,7 @@ const Profile: React.FC = () => {
 						{flattenedImages.length === 0 && !isLoadingImages ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									{t("profile.no_posts_user", { username: profileData.username })}
+									{t("profile.no_posts_user", { username: profileData.handle })}
 								</Typography>
 								<Typography variant="body2" color="text.secondary">
 									{t("profile.no_posts_desc")}
@@ -525,7 +552,7 @@ const Profile: React.FC = () => {
 						{flattenedComments.length === 0 && !isLoadingComments ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									{t("profile.no_replies_user", { username: profileData.username })}
+									{t("profile.no_replies_user", { username: profileData.handle })}
 								</Typography>
 							</Box>
 						) : (
@@ -585,7 +612,7 @@ const Profile: React.FC = () => {
 						{flattenedImages.length === 0 && !isLoadingImages ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									{t("profile.no_media_user", { username: profileData.username })}
+									{t("profile.no_media_user", { username: profileData.handle })}
 								</Typography>
 							</Box>
 						) : (
@@ -605,7 +632,7 @@ const Profile: React.FC = () => {
 						{flattenedLikedPosts.length === 0 && !isLoadingLikedPosts ? (
 							<Box sx={{ p: 4, textAlign: "center" }}>
 								<Typography variant="h6" fontWeight={700} gutterBottom>
-									{t("profile.no_likes_user", { username: profileData.username })}
+									{t("profile.no_likes_user", { username: profileData.handle })}
 								</Typography>
 							</Box>
 						) : (

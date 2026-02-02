@@ -14,7 +14,8 @@ export interface FeedUpdateMessage {
 		| "interaction"
 		| "like_update"
 		| "avatar_changed"
-		| "message_sent";
+		| "message_sent"
+		| "message_status_updated";
 	userId?: string;
 	uploaderId?: string;
 	imageId?: string;
@@ -32,6 +33,7 @@ export interface FeedUpdateMessage {
 	senderId?: string;
 	recipients?: string[];
 	messageId?: string;
+	status?: "delivered" | "read";
 }
 
 @injectable()

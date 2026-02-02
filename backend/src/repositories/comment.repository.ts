@@ -43,6 +43,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 			user: comment.userId
 				? {
 						publicId: comment.userId.publicId,
+						handle: (comment.userId as any).handle ?? "",
 						username: comment.userId.username,
 						avatar: comment.userId.avatar,
 					}
@@ -77,7 +78,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const [comments, total] = await Promise.all([
 			this.model
 				.find(filter)
-				.populate("userId", "publicId username avatar")
+				.populate("userId", "publicId handle username avatar")
 				.populate("postId", "publicId")
 				.sort({ createdAt: -1 }) // Newest first
 				.skip(skip)
@@ -117,7 +118,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 			this.model
 				.find(filter)
 				.populate("postId", "slug publicId")
-				.populate("userId", "publicId username avatar")
+				.populate("userId", "publicId handle username avatar")
 				.sort({ createdAt: -1 })
 				.skip(skip)
 				.limit(limit)
@@ -151,7 +152,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 				},
 				{ new: true, session },
 			)
-			.populate("userId", "publicId username avatar")
+			.populate("userId", "publicId handle username avatar")
 			.populate("postId", "publicId")
 			.lean<PopulatedCommentLean>();
 
@@ -167,7 +168,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async findByIdTransformed(commentId: string): Promise<TransformedComment | null> {
 		const comment = await this.model
 			.findById(commentId)
-			.populate("userId", "publicId username avatar")
+			.populate("userId", "publicId handle username avatar")
 			.populate("postId", "publicId")
 			.lean<PopulatedCommentLean>();
 
@@ -190,7 +191,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 	async deleteComment(commentId: string, session?: ClientSession): Promise<IComment | null> {
 		return (await this.model
 			.findByIdAndDelete(commentId, { session })
-			.populate("userId", "username avatar")
+			.populate("userId", "handle username avatar")
 			.lean()) as unknown as IComment | null;
 	}
 
@@ -293,7 +294,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		const [comments, total] = await Promise.all([
 			this.model
 				.find({ parentId: commentId })
-				.populate("userId", "publicId username avatar")
+				.populate("userId", "publicId handle username avatar")
 				.populate("postId", "publicId")
 				.sort({ createdAt: -1 })
 				.skip(skip)

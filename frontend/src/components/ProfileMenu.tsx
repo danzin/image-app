@@ -76,7 +76,7 @@ const ProfileMenu = () => {
 				transformOrigin={{ vertical: "top", horizontal: "right" }}
 			>
 				<MenuItem onClick={handleMenuClose}>
-					<Link to={`/profile/${user.publicId}`} style={{ textDecoration: "none", color: "inherit" }}>
+					<Link to={`/profile/${user.handle}`} style={{ textDecoration: "none", color: "inherit" }}>
 						{t("nav.profile")}
 					</Link>
 				</MenuItem>

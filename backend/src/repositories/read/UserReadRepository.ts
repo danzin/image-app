@@ -29,6 +29,10 @@ export class UserReadRepository implements IUserReadRepository {
 		return this.userRepository.findByUsername(username, session);
 	}
 
+	async findByHandle(handle: string, session?: ClientSession): Promise<IUser | null> {
+		return this.userRepository.findByHandle(handle, session);
+	}
+
 	async findByEmail(email: string, session?: ClientSession): Promise<IUser | null> {
 		return this.userRepository.findByEmail(email, session);
 	}
@@ -47,6 +51,10 @@ export class UserReadRepository implements IUserReadRepository {
 
 	async findUsersByUsernames(usernames: string[]): Promise<IUser[]> {
 		return this.userRepository.findUsersByUsernames(usernames);
+	}
+
+	async findUsersByHandles(handles: string[]): Promise<IUser[]> {
+		return this.userRepository.findUsersByHandles(handles);
 	}
 
 	async findUsersFollowing(userPublicId: string): Promise<IUser[]> {

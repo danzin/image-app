@@ -31,7 +31,7 @@ function normalizeUserSnapshot(raw: RawRecord): IPost["user"] {
 	if (fromAuthor) {
 		return fromAuthor;
 	}
-	return { publicId: "", username: "", avatar: "" };
+	return { publicId: "", handle: "", username: "", avatar: "" };
 }
 
 function resolveSnapshot(source?: RawRecord): IPost["user"] | null {
@@ -42,6 +42,7 @@ function resolveSnapshot(source?: RawRecord): IPost["user"] | null {
 	}
 	return {
 		publicId,
+		handle: extractSafeString(source.handle) || "",
 		username: extractSafeString(source.username ?? source.displayName) || "",
 		avatar: extractSafeString(source.avatar ?? source.avatarUrl) || "",
 	};
@@ -201,6 +202,7 @@ export function mapNotification(rawInput: unknown): Notification {
 		actionType: String(raw.actionType || ""),
 		actorId: String(raw.actorId || ""),
 		actorUsername: typeof raw.actorUsername === "string" ? raw.actorUsername : undefined,
+		actorHandle: typeof raw.actorHandle === "string" ? raw.actorHandle : undefined,
 		actorAvatar: typeof raw.actorAvatar === "string" ? raw.actorAvatar : undefined,
 		targetId: typeof raw.targetId === "string" ? raw.targetId : undefined,
 		targetType: typeof raw.targetType === "string" ? raw.targetType : undefined,

@@ -20,7 +20,7 @@ import { FollowUserCommand } from "@/application/commands/users/followUser/follo
 import { FollowUserResult } from "@/application/commands/users/followUser/followUser.handler";
 import { UpdateProfileCommand } from "@/application/commands/users/updateProfile/updateProfile.command";
 import { ChangePasswordCommand } from "@/application/commands/users/changePassword/changePassword.command";
-import { GetUserByUsernameQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
+import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
 import { GetUserByPublicIdQuery } from "@/application/queries/users/getUserByPublicId/getUserByPublicId.query";
 import { GetUsersQuery } from "@/application/queries/users/getUsers/getUsers.query";
 import { CheckFollowStatusQuery } from "@/application/queries/users/checkFollowStatus/checkFollowStatus.query";
@@ -58,9 +58,9 @@ export class UserController {
 
 	register = async (req: Request, res: Response, next: NextFunction) => {
 		try {
-			const { username, email, password } = req.body;
+			const { handle, username, email, password } = req.body;
 			const ip = (req.headers["cf-connecting-ip"] as string) || req.ip || "unknown";
-			const command = new RegisterUserCommand(username, email, password, undefined, undefined, ip);
+			const command = new RegisterUserCommand(handle, username, email, password, undefined, undefined, ip);
 			const { user, token } = await this.commandBus.dispatch<RegisterUserResult>(command);
 			res.cookie("token", token, cookieOptions);
 			res.status(201).json({ user, token }); // Return both user and token
@@ -184,10 +184,10 @@ export class UserController {
 		}
 	};
 
-	getUserByUsername = async (req: Request, res: Response): Promise<void> => {
+	getUserByHandle = async (req: Request, res: Response): Promise<void> => {
 		try {
-			const { username } = req.params;
-			const query = new GetUserByUsernameQuery(username);
+			const { handle } = req.params;
+			const query = new GetUserByHandleQuery(handle);
 			const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
 			res.status(200).json(userDTO);

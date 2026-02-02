@@ -24,6 +24,7 @@ import { InteractionMessageHandler } from "@/application/handlers/realtime/Inter
 import { LikeUpdateMessageHandler } from "@/application/handlers/realtime/LikeUpdateMessageHandler";
 import { AvatarUpdateMessageHandler } from "@/application/handlers/realtime/AvatarUpdateMessageHandler";
 import { MessageSentHandler as RealtimeMessageSentHandler } from "@/application/handlers/realtime/MessageSentHandler";
+import { MessageStatusUpdatedHandler as RealtimeMessageStatusUpdatedHandler } from "@/application/handlers/realtime/MessageStatusUpdatedHandler";
 import { SearchService } from "@/services/search.service";
 import { logger } from "@/utils/winston";
 import { MetricsService } from "../metrics/metrics.service";
@@ -69,6 +70,7 @@ export function registerServices(): void {
 		container.resolve(LikeUpdateMessageHandler),
 		container.resolve(AvatarUpdateMessageHandler),
 		container.resolve(RealtimeMessageSentHandler),
+		container.resolve(RealtimeMessageStatusUpdatedHandler),
 	];
 	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
 

@@ -16,8 +16,9 @@ import {
 } from "@/types";
 import { DTOService } from "./dto.service";
 import { EventBus } from "@/application/common/buses/event.bus";
-import { MessageSentEvent } from "@/application/events/message/message.event";
+import { MessageSentEvent, MessageStatusUpdatedEvent } from "@/application/events/message/message.event";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
+import { MessageStatusUpdatedHandler } from "@/application/events/message/message-status-updated.handler";
 import { NotificationService } from "./notification.service";
 import { sanitizeTextInput } from "@/utils/sanitizers";
 import { isUserViewingConversation } from "../server/socketServer";
@@ -55,6 +56,8 @@ export class MessagingService {
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EventBus") private readonly eventBus: EventBus,
 		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler,
+		@inject("MessageStatusUpdatedEventHandler")
+		private readonly messageStatusUpdatedHandler: MessageStatusUpdatedHandler,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
 	) {}
 
@@ -153,6 +156,39 @@ export class MessagingService {
 	}> {
 		const conversation = await this.ensureConversationAccess(userPublicId, conversationPublicId);
 		const conversationId = (conversation._id as unknown as mongoose.Types.ObjectId).toString();
+		const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+		if (!userInternalId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		if (page === 1) {
+			await this.unitOfWork.executeInTransaction(async (session) => {
+				const updated = await this.messageRepository.markConversationMessagesAsDelivered(
+					conversationId,
+					userInternalId,
+					session,
+				);
+				if (!updated) {
+					return;
+				}
+
+				const participantIds = this.getParticipantIds(conversation.participants);
+				const participantObjectIds = participantIds.map((participantId) => new mongoose.Types.ObjectId(participantId));
+				const participantDocs = await this.userRepository
+					.find({ _id: { $in: participantObjectIds } })
+					.select("publicId")
+					.session(session)
+					.lean<UserPublicIdLean[]>()
+					.exec();
+				const participantPublicIds = participantDocs.map((doc) => doc.publicId).filter(Boolean);
+
+				this.eventBus.queueTransactional(
+					new MessageStatusUpdatedEvent(conversation.publicId, participantPublicIds, "delivered"),
+					this.messageStatusUpdatedHandler,
+				);
+			});
+		}
+
 		const result = await this.messageRepository.findMessagesByConversation(conversationId, page, limit);
 		const messages = result.data
 			.slice()
@@ -179,6 +215,21 @@ export class MessagingService {
 			const conversationId = (conversation._id as unknown as mongoose.Types.ObjectId).toString();
 			await this.messageRepository.markConversationMessagesAsRead(conversationId, userInternalId, session);
 			await this.conversationRepository.resetUnreadCount(conversationId, userInternalId, session);
+
+			const participantIds = this.getParticipantIds(conversation.participants);
+			const participantObjectIds = participantIds.map((participantId) => new mongoose.Types.ObjectId(participantId));
+			const participantDocs = await this.userRepository
+				.find({ _id: { $in: participantObjectIds } })
+				.select("publicId")
+				.session(session)
+				.lean<UserPublicIdLean[]>()
+				.exec();
+			const participantPublicIds = participantDocs.map((doc) => doc.publicId).filter(Boolean);
+
+			this.eventBus.queueTransactional(
+				new MessageStatusUpdatedEvent(conversation.publicId, participantPublicIds, "read"),
+				this.messageStatusUpdatedHandler,
+			);
 		});
 	}
 
@@ -290,7 +341,7 @@ export class MessagingService {
 				session,
 			);
 
-			await message.populate("sender", "publicId username avatar");
+			await message.populate("sender", "publicId handle username avatar");
 			const populatedMessage = message as unknown as IMessageWithPopulatedSender;
 
 			const participantObjectIds = participantIds.map(
@@ -315,16 +366,17 @@ export class MessagingService {
 			if (recipientsNeedingNotification.length > 0) {
 				await Promise.all(
 					recipientsNeedingNotification.map((recipientId) =>
-						this.notificationService.createNotification({
-							receiverId: recipientId,
-							actionType: "message",
-							actorId: senderPublicId,
-							actorUsername: populatedMessage.sender?.username,
-							actorAvatar: populatedMessage.sender?.avatar,
-							targetId: conversationDoc!.publicId,
-							targetType: "conversation",
-							targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
-							session,
+												this.notificationService.createNotification({
+													receiverId: recipientId,
+													actionType: "message",
+													actorId: senderPublicId,
+													actorUsername: populatedMessage.sender?.username,
+													actorHandle: populatedMessage.sender?.handle,
+													actorAvatar: populatedMessage.sender?.avatar,
+													targetId: conversationDoc!.publicId,
+													targetType: "conversation",
+													targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
+													session,
 						}),
 					),
 				);
@@ -360,16 +412,18 @@ export class MessagingService {
 					.map((participant) => {
 						// handle ObjectId case
 						if (participant instanceof mongoose.Types.ObjectId) {
-							return {
-								publicId: "",
-								username: "",
-								avatar: "",
-							};
+						return {
+							publicId: "",
+							handle: "",
+							username: "",
+							avatar: "",
+						};
 						}
 						// handle populated participant case
 						const populatedParticipant = participant as MaybePopulatedParticipant;
 						return {
 							publicId: populatedParticipant?.publicId ?? this.extractParticipantId(participant) ?? "",
+							handle: populatedParticipant?.handle ?? "",
 							username: populatedParticipant?.username ?? "",
 							avatar: populatedParticipant?.avatar ?? "",
 						};

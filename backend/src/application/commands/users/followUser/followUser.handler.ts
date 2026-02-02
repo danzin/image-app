@@ -80,6 +80,7 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 							actionType: "follow",
 							actorId: follower.publicId,
 							actorUsername: follower.username,
+							actorHandle: follower.handle,
 						}),
 						this.notificationRequestedHandler,
 					);

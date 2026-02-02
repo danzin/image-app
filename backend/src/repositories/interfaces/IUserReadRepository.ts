@@ -11,6 +11,7 @@ export interface IUserReadRepository {
 	findByPublicId(publicId: string, session?: ClientSession): Promise<IUser | null>;
 	findInternalIdByPublicId(publicId: string): Promise<string | null>;
 	findByUsername(username: string, session?: ClientSession): Promise<IUser | null>;
+	findByHandle(handle: string, session?: ClientSession): Promise<IUser | null>;
 	findByEmail(email: string, session?: ClientSession): Promise<IUser | null>;
 	findByResetToken(token: string, session?: ClientSession): Promise<IUser | null>;
 	findByEmailVerificationToken(email: string, token: string, session?: ClientSession): Promise<IUser | null>;
@@ -18,6 +19,7 @@ export interface IUserReadRepository {
 	// batch lookups
 	findUsersByPublicIds(userPublicIds: string[]): Promise<IUser[]>;
 	findUsersByUsernames(usernames: string[]): Promise<IUser[]>;
+	findUsersByHandles(handles: string[]): Promise<IUser[]>;
 	findUsersFollowing(userPublicId: string): Promise<IUser[]>;
 
 	// paginated queries

@@ -130,12 +130,12 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				}
 
 				// Handle mentions
-				const mentionRegex = /@(\w+)/g;
+				const mentionRegex = /@([a-zA-Z0-9._]+)/g;
 				const mentions = [...normalizedBody.matchAll(mentionRegex)].map((match) => match[1]);
 
 				if (mentions.length > 0) {
 					const uniqueMentions = [...new Set(mentions)];
-					const mentionedUsers = await this.userReadRepository.findUsersByUsernames(uniqueMentions);
+					const mentionedUsers = await this.userReadRepository.findUsersByHandles(uniqueMentions);
 
 					for (const mentionedUser of mentionedUsers) {
 						// Filter: Remove post author - no self mention
@@ -150,6 +150,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 								actionType: "mention",
 								actorId: user.publicId,
 								actorUsername: user.username,
+								actorHandle: user.handle,
 								actorAvatar: user.avatar,
 								targetId: post.publicId,
 								targetType: "post",
@@ -280,16 +281,17 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		const postSlug = imageSummary.slug ?? this.generatePostSlug(normalizedBody);
 		const postPublicId = uuidv4();
 
-		const payload: Partial<IPost> = {
-			publicId: postPublicId,
-			user: internalUserId,
-			author: {
-				_id: internalUserId,
-				publicId: user.publicId,
-				username: user.username,
-				avatarUrl: user.avatar ?? user.profile?.avatarUrl ?? "",
-				displayName: user.profile?.displayName ?? user.username,
-			},
+				const payload: Partial<IPost> = {
+					publicId: postPublicId,
+					user: internalUserId,
+					author: {
+						_id: internalUserId,
+						publicId: user.publicId,
+						handle: user.handle,
+						username: user.username,
+						avatarUrl: user.avatar ?? user.profile?.avatarUrl ?? "",
+						displayName: user.profile?.displayName ?? user.username,
+					},
 			body: normalizedBody,
 			slug: postSlug,
 			image: imageSummary.docId,

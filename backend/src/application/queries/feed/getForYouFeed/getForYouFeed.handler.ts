@@ -108,6 +108,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				tags: normalizedTags,
 				user: {
 					publicId: userDoc?.publicId as string,
+					handle: userDoc?.handle ?? "",
 					username: userDoc?.username as string,
 					avatar: userDoc?.avatar ?? "",
 				},
