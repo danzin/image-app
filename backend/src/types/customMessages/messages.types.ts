@@ -54,6 +54,7 @@ export interface MessageDTO {
 	body: string;
 	sender: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};
@@ -65,6 +66,7 @@ export interface MessageDTO {
 
 export interface ConversationParticipantDTO {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 }
@@ -81,6 +83,7 @@ export interface ConversationSummaryDTO {
 
 export interface PopulatedSender {
 	publicId?: string;
+	handle?: string;
 	username?: string;
 	avatar?: string;
 }
@@ -99,6 +102,7 @@ export interface MaybePopulatedParticipant {
 	_id?: mongoose.Types.ObjectId | string;
 	id?: string;
 	publicId?: string;
+	handle?: string;
 	username?: string;
 	avatar?: string;
 	toString?: () => string;

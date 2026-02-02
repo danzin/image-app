@@ -20,6 +20,7 @@ export const loginRequest = async (credentials: {
 
 // Register returns the full response with user and token
 export const registerRequest = async (credentials: {
+	handle: string;
 	username: string;
 	email: string;
 	password: string;
@@ -65,9 +66,9 @@ export const fetchUserByPublicId = async ({ queryKey }: { queryKey: [string, str
 	return response.data;
 };
 
-export const fetchUserByUsername = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
-	const [, username] = queryKey;
-	const response = await axiosClient.get(`/api/users/profile/${username}`);
+export const fetchUserByHandle = async ({ queryKey }: { queryKey: [string, string] }): Promise<PublicUserDTO> => {
+	const [, handle] = queryKey;
+	const response = await axiosClient.get(`/api/users/profile/${handle}`);
 	return response.data;
 };
 
@@ -156,6 +157,7 @@ export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowRe
 
 export interface FollowUserItem {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	bio?: string;

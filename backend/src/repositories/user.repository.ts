@@ -107,9 +107,11 @@ export class UserRepository extends BaseRepository<IUser> {
 			const query: any = {};
 
 			if (options.search && options.search.length > 0) {
-				query.$or = options.search.map((term: string) => {
-					return { username: { $regex: escapeRegex(term), $options: "i" } };
-				});
+				const patterns = options.search.map((term: string) => ({
+					$regex: escapeRegex(term),
+					$options: "i",
+				}));
+				query.$or = patterns.flatMap((pattern) => [{ username: pattern }, { handle: pattern }]);
 			}
 
 			const page = options?.page || 1;
@@ -158,6 +160,17 @@ export class UserRepository extends BaseRepository<IUser> {
 	async findByUsername(username: string, session?: ClientSession): Promise<IUser | null> {
 		try {
 			const query = this.model.findOne({ username }).select("+password");
+			if (session) query.session(session);
+			return await query.exec();
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	async findByHandle(handle: string, session?: ClientSession): Promise<IUser | null> {
+		try {
+			const handleNormalized = handle.trim().toLowerCase();
+			const query = this.model.findOne({ handleNormalized }).select("+password");
 			if (session) query.session(session);
 			return await query.exec();
 		} catch (error) {
@@ -306,7 +319,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				.find({
 					_id: { $in: followerObjectIds },
 				})
-				.select("publicId username avatar")
+				.select("publicId handle username avatar")
 				.exec();
 		} catch (error) {
 			console.error(`Error finding followers for user ${userPublicId}:`, error);
@@ -320,7 +333,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				.find({
 					publicId: { $in: userPublicIds },
 				})
-				.select("publicId username avatar")
+				.select("publicId handle username avatar")
 				.exec();
 		} catch (error) {
 			console.error("Error in findUsersByPublicIds:", error);
@@ -335,10 +348,28 @@ export class UserRepository extends BaseRepository<IUser> {
 				.find({
 					username: { $in: regexes },
 				})
-				.select("publicId username avatar")
+				.select("publicId handle username avatar")
 				.exec();
 		} catch (error) {
 			console.error("Error in findUsersByUsernames:", error);
+			return [];
+		}
+	}
+
+	async findUsersByHandles(handles: string[]): Promise<IUser[]> {
+		try {
+			const normalizedHandles = handles.map((handle) => handle.trim().toLowerCase()).filter(Boolean);
+			if (normalizedHandles.length === 0) {
+				return [];
+			}
+			return await this.model
+				.find({
+					handleNormalized: { $in: normalizedHandles },
+				})
+				.select("publicId handle username avatar")
+				.exec();
+		} catch (error) {
+			console.error("Error in findUsersByHandles:", error);
 			return [];
 		}
 	}
@@ -450,6 +481,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				{
 					$project: {
 						publicId: 1,
+						handle: 1,
 						username: 1,
 						avatar: 1,
 						bio: 1,
@@ -557,6 +589,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				{
 					$project: {
 						publicId: 1,
+						handle: 1,
 						username: 1,
 						avatar: 1,
 						bio: 1,
@@ -727,6 +760,7 @@ export class UserRepository extends BaseRepository<IUser> {
 				{
 					$project: {
 						publicId: 1,
+						handle: 1,
 						username: 1,
 						avatar: 1,
 						bio: 1,

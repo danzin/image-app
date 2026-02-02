@@ -10,7 +10,7 @@ import {
 	searchByTagsSchema,
 	repostSchema,
 } from "@/utils/schemas/post.schemas";
-import { usernameSchema } from "@/utils/schemas/user.schemas";
+import { handleSchema } from "@/utils/schemas/user.schemas";
 import upload from "@/config/multer";
 
 @injectable()
@@ -41,9 +41,9 @@ export class PostRoutes {
 		);
 
 		this.router.get(
-			"/user/username/:username",
-			new ValidationMiddleware({ params: usernameSchema }).validate(),
-			this.postController.getPostsByUsername
+			"/user/handle/:handle",
+			new ValidationMiddleware({ params: handleSchema }).validate(),
+			this.postController.getPostsByHandle
 		);
 
 		this.router.get(

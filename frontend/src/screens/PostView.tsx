@@ -82,8 +82,8 @@ const PostView = () => {
 
 	const avatarUrl = buildMediaUrl(post.user?.avatar);
 	const displayName = post.user?.username || post.user?.publicId || "Unknown user";
-	const profileHref = post.user?.username
-		? `/profile/${post.user.username}`
+	const profileHref = post.user?.handle
+		? `/profile/${post.user.handle}`
 		: post.user?.publicId
 			? `/profile/${post.user.publicId}`
 			: "/profile";
@@ -236,7 +236,7 @@ const PostView = () => {
 								/>
 							)}
 							<Typography variant="body2" color="text.secondary">
-								@{post.user?.username}
+							@{post.user?.handle}
 							</Typography>
 						</Box>
 					</Box>

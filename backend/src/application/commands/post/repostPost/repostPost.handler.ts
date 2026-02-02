@@ -67,6 +67,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				author: {
 					_id: user._id,
 					publicId: user.publicId,
+					handle: user.handle,
 					username: user.username,
 					avatarUrl: user.avatar ?? "",
 					displayName: user.username,
@@ -92,6 +93,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 						actionType: "repost",
 						actorId: command.userPublicId,
 						actorUsername: user.username,
+						actorHandle: user.handle,
 						actorAvatar: user.avatar,
 						targetId: targetPost.publicId,
 						targetType: "post",

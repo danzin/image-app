@@ -48,13 +48,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
 	async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
 		const skip = (page - 1) * limit;
-		return this.model
-			.find({ communityId })
-			.sort({ createdAt: -1 })
-			.skip(skip)
-			.limit(limit)
-			.populate("image")
-			.exec();
+		return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("image").exec();
 	}
 
 	async countByCommunityId(communityId: string): Promise<number> {
@@ -148,6 +142,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			// Construct the User object from the Snapshot
 			user: {
 				publicId: "$author.publicId",
+				handle: "$author.handle",
 				username: "$author.username",
 				avatar: "$author.avatarUrl",
 				displayName: "$author.displayName",
@@ -178,6 +173,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
 						user: {
 							publicId: "$repostDoc.author.publicId",
+							handle: "$repostDoc.author.handle",
 							username: "$repostDoc.author.username",
 							avatar: "$repostDoc.author.avatarUrl",
 						},
@@ -290,7 +286,7 @@ export class PostRepository extends BaseRepository<IPost> {
 					populate: [
 						{ path: "image", select: "_id url publicId slug createdAt" },
 						{ path: "tags", select: "tag" },
-						{ path: "user", select: "publicId username avatar profile displayName" },
+						{ path: "user", select: "publicId handle username avatar profile displayName" },
 					],
 				})
 				.lean();
@@ -836,12 +832,16 @@ export class PostRepository extends BaseRepository<IPost> {
 			avatarUrl?: string;
 			displayName?: string;
 			publicId?: string;
+			handle?: string;
 		},
 	): Promise<number> {
 		try {
 			const setFields: Record<string, string> = {};
 			if (updates.username !== undefined) {
 				setFields["author.username"] = updates.username;
+			}
+			if (updates.handle !== undefined) {
+				setFields["author.handle"] = updates.handle;
 			}
 			if (updates.avatarUrl !== undefined) {
 				setFields["author.avatarUrl"] = updates.avatarUrl;

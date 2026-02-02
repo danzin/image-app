@@ -11,6 +11,7 @@ interface ProfileSnapshotMessage {
 	userPublicId: string;
 	avatarUrl?: string;
 	username?: string;
+	handle?: string;
 	timestamp: string;
 }
 
@@ -32,7 +33,7 @@ export class ProfileSyncWorker {
 	private running = false;
 
 	// debounce multiple rapid changes from same user
-	private pendingUpdates = new Map<string, { avatarUrl?: string; username?: string; lastSeen: number }>();
+	private pendingUpdates = new Map<string, { avatarUrl?: string; username?: string; handle?: string; lastSeen: number }>();
 	private flushTimer?: NodeJS.Timeout;
 	private FLUSH_INTERVAL_MS = 2000; // batch updates every 2 seconds
 
@@ -89,7 +90,7 @@ export class ProfileSyncWorker {
 	 * @returns {Promise<void>}
 	 */
 	private async handleMessage(message: ProfileSnapshotMessage): Promise<void> {
-		const { type, userPublicId, avatarUrl, username } = message;
+		const { type, userPublicId, avatarUrl, username, handle } = message;
 
 		logger.info(`[profile-sync] received ${type} for user ${userPublicId}`);
 
@@ -101,6 +102,9 @@ export class ProfileSyncWorker {
 		}
 		if (type === "username_changed" && username !== undefined) {
 			existing.username = username;
+		}
+		if (handle !== undefined) {
+			existing.handle = handle;
 		}
 		existing.lastSeen = Date.now();
 
@@ -135,17 +139,21 @@ export class ProfileSyncWorker {
 
 				const userObjectId = new mongoose.Types.ObjectId(user.id);
 
-				const snapshotUpdates: {
-					username?: string;
-					avatarUrl?: string;
-				} = {};
+		const snapshotUpdates: {
+			username?: string;
+			avatarUrl?: string;
+			handle?: string;
+		} = {};
 
 				if (updates.avatarUrl !== undefined) {
 					snapshotUpdates.avatarUrl = updates.avatarUrl;
 				}
-				if (updates.username !== undefined) {
-					snapshotUpdates.username = updates.username;
-				}
+		if (updates.username !== undefined) {
+			snapshotUpdates.username = updates.username;
+		}
+		if (updates.handle !== undefined) {
+			snapshotUpdates.handle = updates.handle;
+		}
 
 				if (Object.keys(snapshotUpdates).length === 0) {
 					continue;

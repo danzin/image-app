@@ -6,6 +6,7 @@ const notificationSchema = new Schema<INotification>({
 	actionType: { type: String, required: true }, // like | comment | follow
 	actorId: { type: String, required: true }, // actor publicId
 	actorUsername: { type: String }, // denormalized for quick display
+	actorHandle: { type: String }, // denormalized handle for routing
 	actorAvatar: { type: String }, // actor avatar URL for quick display
 	targetId: { type: String }, // optional target publicId (post/image)
 	targetType: { type: String }, // 'post' | 'image' | 'user'

@@ -129,10 +129,10 @@ const SearchResults = () => {
 											{user.username}
 										</Avatar>
 										<Link
-											to={`/profile/${user.publicId}`}
+											to={`/profile/${user.handle}`}
 											style={{ textDecoration: "none", fontWeight: "bold", color: "inherit" }}
 										>
-											@{user.username}
+											@{user.handle}
 										</Link>
 									</Box>
 								))

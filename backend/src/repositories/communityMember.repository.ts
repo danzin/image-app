@@ -62,7 +62,7 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 	): Promise<ICommunityMember[]> {
 		return this.model
 			.find({ communityId })
-			.populate("userId", "publicId username avatar")
+			.populate("userId", "publicId handle username avatar")
 			.limit(limit)
 			.skip(skip)
 			.exec();

@@ -46,7 +46,7 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 			const sort = { [sortBy]: sortOrder };
 
 			const [data, total] = await Promise.all([
-				this.model.find().sort(sort).skip(skip).limit(limit).populate("userId", "username").exec(),
+				this.model.find().sort(sort).skip(skip).limit(limit).populate("userId", "handle username").exec(),
 				this.model.countDocuments(),
 			]);
 

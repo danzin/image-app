@@ -2,7 +2,7 @@ import express from "express";
 import { ImageController } from "../controllers/image.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import { slugSchema, publicIdSchema, searchByTagsSchema } from "@/utils/schemas/post.schemas";
-import { usernameSchema } from "@/utils/schemas/user.schemas";
+import { handleSchema } from "@/utils/schemas/user.schemas";
 import upload from "@/config/multer";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -37,11 +37,11 @@ export class ImageRoutes {
 			this.controller.getPostByPublicId
 		);
 
-		// Use username for profile image galleries (public endpoint)
+		// Use handle for profile image galleries (public endpoint)
 		this.router.get(
-			"/user/username/:username",
-			new ValidationMiddleware({ params: usernameSchema }).validate(),
-			this.controller.getPostsByUsername
+			"/user/handle/:handle",
+			new ValidationMiddleware({ params: handleSchema }).validate(),
+			this.controller.getPostsByHandle
 		);
 		this.router.get(
 			"/user/id/:publicId",

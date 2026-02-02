@@ -10,6 +10,7 @@ import { Id } from "react-toastify";
 // Base user interface matching backend DTOs
 export interface PublicUserDTO {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	cover: string;
@@ -58,6 +59,7 @@ export interface IPost {
 		publicId: string;
 		user: {
 			publicId: string;
+			handle: string;
 			username: string;
 			avatar: string;
 		};
@@ -86,6 +88,7 @@ export interface IPost {
 
 	user: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};
@@ -142,6 +145,7 @@ export interface IComment {
 	isLikedByViewer?: boolean;
 	user: {
 		publicId: string;
+		handle?: string;
 		username: string;
 		avatar?: string;
 	} | null;
@@ -218,6 +222,7 @@ export interface Notification {
 	actionType: string; // 'like' | 'comment' | 'follow' | 'message'
 	actorId: string; // actor's publicId
 	actorUsername?: string; // denormalized username
+	actorHandle?: string;
 	actorAvatar?: string; // actor avatar URL
 	targetId?: string; // post/image/conversation publicId
 	targetType?: string; // 'post' | 'image' | 'user' | 'conversation'
@@ -239,6 +244,7 @@ export interface MessageDTO {
 	body: string;
 	sender: {
 		publicId: string;
+		handle: string;
 		username: string;
 		avatar: string;
 	};
@@ -250,6 +256,7 @@ export interface MessageDTO {
 
 export interface ConversationParticipantDTO {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 }
@@ -265,11 +272,12 @@ export interface ConversationSummaryDTO {
 }
 
 export interface MessagingUpdatePayload {
-	type: "message_sent";
+	type: "message_sent" | "message_status_updated";
 	conversationId: string;
 	messageId?: string;
 	senderId: string;
 	timestamp: string;
+	status?: "delivered" | "read";
 }
 
 export interface UserUserResult {
@@ -329,6 +337,7 @@ export interface ChangePasswordProps {
 }
 
 export type RegisterForm = {
+	handle: string;
 	username: string;
 	email: string;
 	password: string;
@@ -385,6 +394,7 @@ export interface InitiateConversationResponse {
 // Who to follow suggestions
 export interface SuggestedUser {
 	publicId: string;
+	handle: string;
 	username: string;
 	avatar: string;
 	bio?: string;
@@ -403,6 +413,7 @@ export interface WhoToFollowResponse {
 export interface ICommunityMember {
 	userId: {
 		publicId: string;
+		handle?: string;
 		username: string;
 		avatar?: string;
 	};

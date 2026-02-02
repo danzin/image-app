@@ -52,6 +52,7 @@ export class PostWriteRepository implements IPostWriteRepository {
 			avatarUrl?: string;
 			displayName?: string;
 			publicId?: string;
+			handle?: string;
 		}
 	): Promise<number> {
 		return this.postRepository.updateAuthorSnapshot(userObjectId, updates);

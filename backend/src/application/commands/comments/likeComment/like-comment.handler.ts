@@ -34,6 +34,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 			actionType: string;
 			actorId: string;
 			actorUsername?: string;
+			actorHandle?: string;
 			actorAvatar?: string;
 			targetId?: string;
 			targetType?: string;
@@ -74,6 +75,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 					actionType: "comment_like",
 					actorId: command.userPublicId,
 					actorUsername: (user as any).username,
+					actorHandle: (user as any).handle,
 					actorAvatar: (user as any).avatar,
 					targetId: command.commentId,
 					targetType: "comment",

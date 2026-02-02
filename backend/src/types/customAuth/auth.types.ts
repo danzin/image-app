@@ -5,6 +5,7 @@
 export interface DecodedUser {
 	publicId: string;
 	email: string;
+	handle: string;
 	username: string;
 	isAdmin: boolean;
 	iat?: number; // issued at (added by JWT)

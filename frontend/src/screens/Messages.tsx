@@ -24,6 +24,8 @@ import {
 	Image as ImageIcon,
 	Gif as GifIcon,
 	EmojiEmotions as EmojiEmotionsIcon,
+	CheckCircle as CheckCircleIcon,
+	Done as DoneIcon,
 } from "@mui/icons-material";
 import { useConversations } from "../hooks/messaging/useConversations";
 import { useConversationMessages } from "../hooks/messaging/useConversationMessages";
@@ -51,19 +53,19 @@ const formatTimestamp = (timestamp: string) => {
 	}
 };
 
-const getConversationTitle = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
-	if (conversation.title) {
-		return conversation.title;
-	}
+	const getConversationTitle = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
+		if (conversation.title) {
+			return conversation.title;
+		}
 
-	const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
-	if (others.length === 0 && conversation.participants.length > 0) {
-		return conversation.participants[0].username;
-	}
+		const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
+		if (others.length === 0 && conversation.participants.length > 0) {
+			return conversation.participants[0].username;
+		}
 
-	const label = others.map((participant) => participant.username).join(", ");
-	return label || "Direct Message";
-};
+		const label = others.map((participant) => participant.username).join(", ");
+		return label || "Direct Message";
+	};
 
 const getOtherParticipant = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
 	const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
@@ -148,7 +150,9 @@ const Messages = () => {
 	const messages = useMemo(() => {
 		const pages = messagesQuery.data?.pages ?? [];
 		const flattened = pages.flatMap((page) => page.messages);
-		return [...flattened].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		const sorted = [...flattened].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+		const startIndex = Math.max(sorted.length - 50, 0);
+		return sorted.slice(startIndex);
 	}, [messagesQuery.data?.pages]);
 
 	useEffect(() => {
@@ -163,6 +167,21 @@ const Messages = () => {
 			messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: "smooth" });
 		}
 	}, [messages, selectedConversationId]);
+
+	useEffect(() => {
+		if (!messagesContainerRef.current) return;
+		requestAnimationFrame(() => {
+			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
+		});
+	}, [messages]);
+
+	useEffect(() => {
+		if (!messagesContainerRef.current) return;
+		if (!selectedConversationId) return;
+		requestAnimationFrame(() => {
+			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
+		});
+	}, [selectedConversationId]);
 
 	const sendMessage = useSendMessage();
 
@@ -195,6 +214,13 @@ const Messages = () => {
 
 	const renderMessageBubble = (message: MessageDTO) => {
 		const isOwnMessage = message.sender.publicId === user?.publicId;
+		const statusLabel = message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "";
+		const statusIcon =
+			message.status === "read" ? (
+				<CheckCircleIcon sx={{ fontSize: 12, color: "primary.main" }} />
+			) : message.status === "delivered" ? (
+				<DoneIcon sx={{ fontSize: 12, color: "primary.main" }} />
+			) : null;
 		return (
 			<Box
 				key={message.publicId}
@@ -223,17 +249,25 @@ const Messages = () => {
 						{message.body}
 					</Typography>
 				</Box>
-				<Typography
-					variant="caption"
-					sx={{
-						mt: 0.5,
-						color: "text.secondary",
-						fontSize: "0.75rem",
-						px: 1,
-					}}
-				>
-					{formatTimestamp(message.createdAt)}
-				</Typography>
+				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, px: 1 }}>
+					<Typography
+						variant="caption"
+						sx={{
+							color: "text.secondary",
+							fontSize: "0.75rem",
+						}}
+					>
+						{formatTimestamp(message.createdAt)}
+					</Typography>
+					{isOwnMessage && statusLabel && (
+						<Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
+							{statusIcon}
+							<Typography variant="caption" sx={{ fontSize: "0.7rem", color: "primary.main" }}>
+								{statusLabel}
+							</Typography>
+						</Box>
+					)}
+				</Box>
 			</Box>
 		);
 	};
@@ -339,9 +373,11 @@ const Messages = () => {
 														<Typography variant="subtitle1" fontWeight={700} noWrap>
 															{title}
 														</Typography>
-														<Typography variant="body2" color="text.secondary" noWrap>
-															@{title.replace(/\s+/g, "").toLowerCase()}
-														</Typography>
+												{otherParticipant?.handle && (
+													<Typography variant="body2" color="text.secondary" noWrap>
+														@{otherParticipant.handle}
+													</Typography>
+												)}
 													</Box>
 													<Typography variant="caption" color="text.secondary" sx={{ ml: 1, whiteSpace: "nowrap" }}>
 														{conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
@@ -434,8 +470,8 @@ const Messages = () => {
 										}}
 										onClick={() => {
 											const otherUser = getOtherParticipant(selectedConversation, user?.publicId);
-											if (otherUser?.publicId) {
-												navigate(`/profile/${otherUser.publicId}`);
+											if (otherUser?.handle || otherUser?.publicId) {
+												navigate(`/profile/${otherUser?.handle || otherUser?.publicId}`);
 											}
 										}}
 									>

@@ -48,6 +48,7 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 		const payload = {
 			publicId: user.publicId,
 			email: user.email,
+			handle: user.handle,
 			username: user.username,
 			isAdmin: user.isAdmin,
 		};

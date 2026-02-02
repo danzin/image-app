@@ -28,6 +28,7 @@ export interface IPostWriteRepository {
 			avatarUrl?: string;
 			displayName?: string;
 			publicId?: string;
+			handle?: string;
 		}
 	): Promise<number>;
 }

@@ -47,6 +47,7 @@ export class FollowService {
 					actionType: "follow",
 					actorId: follower.publicId,
 					actorUsername: follower.username,
+					actorHandle: follower.handle,
 				});
 			}
 

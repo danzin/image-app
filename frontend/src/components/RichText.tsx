@@ -11,7 +11,7 @@ interface RichTextProps {
 /**
  * This component detects hashtags and mentions in text and makes them clickable
  * Hashtags - #word - /search/tags?tags=word
- * Mentions - @username - /profile/username
+ * Mentions - @handle - /profile/handle
  */
 const RichText: React.FC<RichTextProps> = ({
 	text,
@@ -23,7 +23,7 @@ const RichText: React.FC<RichTextProps> = ({
 
 	// Regex to match hashtags for words and mentions with '#' or '@'
 	// Matches alphanumeric and underscores, including unicode characters for hashtags
-	const tokenRegex = /((?:#[\p{L}\p{N}_]+)|(?:@[a-zA-Z0-9_]+))/gu;
+	const tokenRegex = /((?:#[\p{L}\p{N}_]+)|(?:@[a-zA-Z0-9._]+))/gu;
 
 	const handleHashtagClick = (tag: string, e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -38,11 +38,11 @@ const RichText: React.FC<RichTextProps> = ({
 	const handleMentionClick = (mention: string, e: React.MouseEvent) => {
 		e.stopPropagation();
 		// Strip '@'
-		const username = mention.substring(1);
+		const handle = mention.substring(1);
 
-		if (!username) return;
+		if (!handle) return;
 
-		navigate(`/profile/${encodeURIComponent(username)}`);
+		navigate(`/profile/${encodeURIComponent(handle)}`);
 	};
 
 	const renderContent = () => {

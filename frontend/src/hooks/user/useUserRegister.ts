@@ -9,7 +9,7 @@ type RegisterResponse = { user: AuthenticatedUserDTO; token: string };
 export const useRegister = () => {
 	const { login: setAuthUser } = useAuth();
 
-	return useMutation<RegisterResponse, Error, { username: string; email: string; password: string }>({
+	return useMutation<RegisterResponse, Error, { handle: string; username: string; email: string; password: string }>({
 		mutationFn: registerRequest,
 
 		onSuccess: (data) => {

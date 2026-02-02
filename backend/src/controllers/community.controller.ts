@@ -158,8 +158,8 @@ export class CommunityController {
 			const coverPhotoPath = files?.coverPhoto?.[0]?.path;
 
 			const updates = {
-				name,
-				description,
+				name: name ?? undefined,
+				description: description ?? undefined,
 				avatarPath,
 				coverPhotoPath,
 			};
