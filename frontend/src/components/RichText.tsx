@@ -32,7 +32,7 @@ const RichText: React.FC<RichTextProps> = ({
 
 		if (!cleanTag) return;
 
-		navigate(`/results/?q=${encodeURIComponent(cleanTag)}`);
+		navigate(`/results/?q=${encodeURIComponent(`#${cleanTag}`)}`);
 	};
 
 	const handleMentionClick = (mention: string, e: React.MouseEvent) => {
