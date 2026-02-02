@@ -214,13 +214,15 @@ const Messages = () => {
 
 	const renderMessageBubble = (message: MessageDTO) => {
 		const isOwnMessage = message.sender.publicId === user?.publicId;
-		const statusLabel = message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "";
+		const statusLabel =
+			message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "Sent";
+		const statusColor = message.status === "read" ? "primary.main" : "text.secondary";
 		const statusIcon =
 			message.status === "read" ? (
-				<CheckCircleIcon sx={{ fontSize: 12, color: "primary.main" }} />
-			) : message.status === "delivered" ? (
-				<DoneIcon sx={{ fontSize: 12, color: "primary.main" }} />
-			) : null;
+				<CheckCircleIcon sx={{ fontSize: 12, color: statusColor }} />
+			) : (
+				<DoneIcon sx={{ fontSize: 12, color: statusColor }} />
+			);
 		return (
 			<Box
 				key={message.publicId}
@@ -262,7 +264,7 @@ const Messages = () => {
 					{isOwnMessage && statusLabel && (
 						<Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
 							{statusIcon}
-							<Typography variant="caption" sx={{ fontSize: "0.7rem", color: "primary.main" }}>
+							<Typography variant="caption" sx={{ fontSize: "0.7rem", color: statusColor }}>
 								{statusLabel}
 							</Typography>
 						</Box>
