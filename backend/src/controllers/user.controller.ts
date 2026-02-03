@@ -12,6 +12,11 @@ import { GetMeResult } from "@/application/queries/users/getMe/getMe.handler";
 import { LikeActionByPublicIdCommand } from "@/application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 import { GetWhoToFollowQuery } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.query";
 import { GetWhoToFollowResult } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.handler";
+import {
+	GetHandleSuggestionsQuery,
+	HandleSuggestionContext,
+} from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.query";
+import { HandleSuggestionDTO } from "@/services/dto.service";
 import { UpdateAvatarCommand } from "@/application/commands/users/updateAvatar/updateAvatar.command";
 import { UpdateCoverCommand } from "@/application/commands/users/updateCover/updateCover.command";
 import { PublicUserDTO } from "@/services/dto.service";
@@ -444,6 +449,22 @@ export class UserController {
 			const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
 
 			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	getHandleSuggestions = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const queryValue = typeof req.query.q === "string" ? req.query.q : "";
+			const context = req.query.context as HandleSuggestionContext;
+			const limit = parseInt(req.query.limit as string) || 8;
+			const viewerPublicId = req.decodedUser?.publicId;
+
+			const query = new GetHandleSuggestionsQuery(queryValue, context, limit, viewerPublicId);
+			const result = await this.queryBus.execute<HandleSuggestionDTO[]>(query);
+
+			res.status(200).json({ users: result });
 		} catch (error) {
 			next(error);
 		}

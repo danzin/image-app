@@ -404,6 +404,19 @@ export interface SuggestedUser {
 	score: number;
 }
 
+export interface HandleSuggestion {
+	publicId: string;
+	handle: string;
+	username: string;
+	avatar: string;
+}
+
+export interface HandleSuggestionResponse {
+	users: HandleSuggestion[];
+}
+
+export type HandleSuggestionContext = "mention" | "search";
+
 export interface WhoToFollowResponse {
 	suggestions: SuggestedUser[];
 	cached: boolean;

@@ -18,6 +18,7 @@ import {
 	requestPasswordResetSchema,
 	resetPasswordSchema,
 	verifyEmailSchema,
+	handleSuggestionsSchema,
 } from "@/utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
 
@@ -25,6 +26,7 @@ import { inject, injectable } from "tsyringe";
 export class UserRoutes {
 	private router: express.Router;
 	private auth = AuthFactory.bearerToken().handle();
+	private optionalAuth = AuthFactory.optionalBearerToken().handleOptional();
 
 	constructor(@inject("UserController") private readonly userController: UserController) {
 		this.router = express.Router();
@@ -74,6 +76,13 @@ export class UserRoutes {
 
 		// Public user data endpoints
 		this.router.get("/users", this.userController.getUsers);
+
+		this.router.get(
+			"/suggestions/handles",
+			this.optionalAuth,
+			new ValidationMiddleware({ query: handleSuggestionsSchema }).validate(),
+			this.userController.getHandleSuggestions,
+		);
 
 		this.router.get(
 			"/profile/:handle",

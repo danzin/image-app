@@ -6,6 +6,8 @@ import {
 	AdminUserDTO,
 	WhoToFollowResponse,
 	IComment,
+	HandleSuggestionResponse,
+	HandleSuggestionContext,
 } from "../types";
 import axios, { AxiosError } from "axios";
 
@@ -152,6 +154,17 @@ export const changePasswordRequest = async (passwords: {
 
 export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowResponse> => {
 	const { data } = await axiosClient.get(`/api/users/suggestions/who-to-follow?limit=${limit}`);
+	return data;
+};
+
+export const fetchHandleSuggestions = async (
+	query: string,
+	context: HandleSuggestionContext,
+	limit: number = 8,
+): Promise<HandleSuggestionResponse> => {
+	const { data } = await axiosClient.get("/api/users/suggestions/handles", {
+		params: { q: query, context, limit },
+	});
 	return data;
 };
 

@@ -150,11 +150,6 @@ export class FeedService {
 	 * @returns {Promise<PaginationResult<PostDTO>>}
 	 */
 	public async getTrendingFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
-		const key = CacheKeyBuilder.getCoreFeedKey("trending", page, limit).replace("core_feed", "trending_feed"); // Or keep as is, but consistency check
-		// The key prefix was manually trending_feed. Let's stick to consistent CacheKeyBuilder if possible, or adapt.
-		// CacheKeyBuilder has CORE_FEED. I should probably add specific method or use generic helper.
-		// For now, I will use `CacheKeyBuilder.PREFIXES.TRENDING_FEED` if I added it... I didn't.
-		// I'll stick to string construction using CacheKeyBuilder if possible or just use string template for now but use CacheConfig.
 		const cacheKey = `trending_feed:${page}:${limit}`;
 
 		let cached = await this.redisService.getWithTags<CoreFeed>(cacheKey);
