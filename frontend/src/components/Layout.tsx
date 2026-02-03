@@ -56,10 +56,12 @@ const Layout: React.FC = () => {
 	return (
 		<Box
 			sx={{
+				height: isMessagesPage ? "100vh" : "auto",
 				minHeight: "100vh",
 				display: "flex",
 				bgcolor: "background.default",
 				justifyContent: "center",
+				overflow: isMessagesPage ? "hidden" : "visible",
 			}}
 		>
 			<Box
@@ -67,6 +69,7 @@ const Layout: React.FC = () => {
 					display: "flex",
 					width: "100%",
 					maxWidth: "1280px",
+					height: isMessagesPage ? "100%" : "auto",
 				}}
 			>
 				{/* --- Left Sidebar --- */}
@@ -102,9 +105,12 @@ const Layout: React.FC = () => {
 						display: "flex",
 						flexDirection: "column",
 						minWidth: 0,
+						minHeight: 0,
 						borderRight: !isMessagesPage && !isAdminPage && !isSettingsPage ? `1px solid ${theme.palette.divider}` : "none",
 						maxWidth: isMessagesPage || isAdminPage ? "100%" : isSettingsPage ? 900 : 600,
 						width: "100%",
+						height: isMessagesPage ? "100%" : "auto",
+						overflow: isMessagesPage ? "hidden" : "visible",
 					}}
 				>
 					<Outlet />
