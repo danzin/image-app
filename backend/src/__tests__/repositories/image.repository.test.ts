@@ -7,7 +7,7 @@ import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ImageRepository } from "@/repositories/image.repository";
 import { ClientSession, Model, Types } from "mongoose";
-import { IImage, PaginationOptions } from "@/types";
+import { IImage } from "@/types";
 
 chai.use(chaiAsPromised);
 
@@ -23,9 +23,6 @@ interface MockImageModel {
 
 	save: SinonStub;
 }
-
-const TAGS = ["art", "photo", "nature", "digita", "cats"];
-const randomTag = () => TAGS[Math.floor(Math.random() * TAGS.length)];
 
 function generateRandomObjectId() {
 	return new Types.ObjectId();
@@ -53,13 +50,6 @@ function createMockImage(partial: Partial<IImage>): Partial<IImage> {
 		},
 		createdAt: partial.createdAt || new Date(),
 	} as unknown as Partial<IImage>;
-}
-
-function generateMockImages(howMany: number, overrides?: Partial<IImage>): Partial<IImage>[] {
-	return Array.from({ length: howMany }, (_, index) => {
-		const data = generateMockData(index, overrides);
-		return createMockImage(data);
-	});
 }
 
 describe("ImageRepository", () => {
@@ -134,7 +124,7 @@ describe("ImageRepository", () => {
 
 			expect(result).to.deep.equal(mockImage);
 			expect(mockModel.findById.calledOnceWith(mockId)).to.be.true;
-			expect(mockQuery.populate.calledWith("user", "username avatar publicId")).to.be.true;
+			expect(mockQuery.populate.calledWith("user", "publicId handle username avatar")).to.be.true;
 			expect(mockQuery.exec.calledOnce).to.be.true;
 
 			expect(mockQuery.session.called).to.be.false;

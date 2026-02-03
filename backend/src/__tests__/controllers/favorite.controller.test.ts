@@ -4,13 +4,15 @@ import sinon, { SinonStub } from "sinon";
 import { Request, Response } from "express";
 import { FavoriteController } from "@/controllers/favorite.controller";
 import { FavoriteService } from "@/services/favorite.service";
-import { PaginationResult, PostDTO } from "@/types";
+import { DecodedUser, PaginationResult, PostDTO } from "@/types";
 
-interface TestRequest extends Request {
-	decodedUser?: {
-		publicId: string;
-	};
-}
+const createDecodedUser = (publicId: string): DecodedUser => ({
+	publicId,
+	email: "test@example.com",
+	handle: "test-handle",
+	username: "test-user",
+	isAdmin: false,
+});
 
 describe("FavoriteController", () => {
 	let controller: FavoriteController;
@@ -39,13 +41,13 @@ describe("FavoriteController", () => {
 
 	describe("addFavorite", () => {
 		it("calls service with sanitized ids", async () => {
-			const req: Partial<TestRequest> = {
+			const req: Partial<Request> = {
 				params: { publicId: "post-123.jpg" },
-				decodedUser: { publicId: "user-1" },
+				decodedUser: createDecodedUser("user-1"),
 			};
 			favoriteService.addFavoriteByPublicIds.resolves();
 
-			await controller.addFavorite(req as TestRequest, res as Response, next);
+			await controller.addFavorite(req as Request, res as Response, next);
 
 			expect(favoriteService.addFavoriteByPublicIds.calledWith("user-1", "post-123")).to.be.true;
 			expect((res.status as SinonStub).calledWith(204)).to.be.true;
@@ -54,9 +56,9 @@ describe("FavoriteController", () => {
 		});
 
 		it("bubbles authentication error", async () => {
-			const req: Partial<TestRequest> = { params: { publicId: "post-123" } };
+			const req: Partial<Request> = { params: { publicId: "post-123" } };
 
-			await controller.addFavorite(req as TestRequest, res as Response, next);
+			await controller.addFavorite(req as Request, res as Response, next);
 
 			expect(next.calledOnce).to.be.true;
 			const error = next.getCall(0).args[0];
@@ -67,13 +69,13 @@ describe("FavoriteController", () => {
 
 	describe("removeFavorite", () => {
 		it("calls service with sanitized ids", async () => {
-			const req: Partial<TestRequest> = {
+			const req: Partial<Request> = {
 				params: { publicId: "post-999.png" },
-				decodedUser: { publicId: "user-5" },
+				decodedUser: createDecodedUser("user-5"),
 			};
 			favoriteService.removeFavoriteByPublicIds.resolves();
 
-			await controller.removeFavorite(req as TestRequest, res as Response, next);
+			await controller.removeFavorite(req as Request, res as Response, next);
 
 			expect(favoriteService.removeFavoriteByPublicIds.calledWith("user-5", "post-999")).to.be.true;
 			expect((res.status as SinonStub).calledWith(204)).to.be.true;
@@ -82,9 +84,9 @@ describe("FavoriteController", () => {
 		});
 
 		it("bubbles authentication error", async () => {
-			const req: Partial<TestRequest> = { params: { publicId: "post-999" } };
+			const req: Partial<Request> = { params: { publicId: "post-999" } };
 
-			await controller.removeFavorite(req as TestRequest, res as Response, next);
+			await controller.removeFavorite(req as Request, res as Response, next);
 
 			expect(next.calledOnce).to.be.true;
 			const error = next.getCall(0).args[0];
@@ -104,12 +106,12 @@ describe("FavoriteController", () => {
 			};
 			favoriteService.getFavoritesForViewer.resolves(result);
 
-			const req: Partial<TestRequest> = {
-				decodedUser: { publicId: "user-1" },
+			const req: Partial<Request> = {
+				decodedUser: createDecodedUser("user-1"),
 				query: {},
 			};
 
-			await controller.getFavorites(req as TestRequest, res as Response, next);
+			await controller.getFavorites(req as Request, res as Response, next);
 
 			expect(favoriteService.getFavoritesForViewer.calledWith("user-1", 1, 20)).to.be.true;
 			expect((res.status as SinonStub).calledWith(200)).to.be.true;
@@ -126,20 +128,20 @@ describe("FavoriteController", () => {
 				totalPages: 0,
 			});
 
-			const req: Partial<TestRequest> = {
-				decodedUser: { publicId: "user-1" },
+			const req: Partial<Request> = {
+				decodedUser: createDecodedUser("user-1"),
 				query: { page: "2", limit: "10" },
 			};
 
-			await controller.getFavorites(req as TestRequest, res as Response, next);
+			await controller.getFavorites(req as Request, res as Response, next);
 
 			expect(favoriteService.getFavoritesForViewer.calledWith("user-1", 2, 10)).to.be.true;
 		});
 
 		it("bubbles authentication error", async () => {
-			const req: Partial<TestRequest> = { query: {} };
+			const req: Partial<Request> = { query: {} };
 
-			await controller.getFavorites(req as TestRequest, res as Response, next);
+			await controller.getFavorites(req as Request, res as Response, next);
 
 			expect(next.calledOnce).to.be.true;
 			const error = next.getCall(0).args[0];

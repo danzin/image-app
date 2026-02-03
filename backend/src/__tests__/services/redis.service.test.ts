@@ -12,20 +12,18 @@ describe("RedisService", () => {
 	beforeEach(() => {
 		metricsServiceStub = sinon.createStubInstance(MetricsService);
 
-		redisService = new RedisService(metricsServiceStub as unknown as MetricsService);
-
-		// Mock the client
+		// Mock the client before instantiating RedisService so the constructor doesn't open real sockets
 		mockClient = {
+			on: sinon.stub().returnsThis(),
 			connect: sinon.stub().resolves(),
 			quit: sinon.stub().resolves(),
 			get: sinon.stub(),
 			set: sinon.stub(),
 			del: sinon.stub(),
 			multi: sinon.stub(),
-			// Add other methods as needed
 		};
 
-		// Inject mock client
+		redisService = new RedisService(metricsServiceStub as unknown as MetricsService);
 		(redisService as any).client = mockClient;
 	});
 

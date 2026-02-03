@@ -5,9 +5,9 @@ import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types } from "mongoose";
 import { UserRepository } from "@/repositories/user.repository";
-import { IUser, PaginationOptions, PaginationResult } from "@/types";
+import { IUser } from "@/types";
 
-// chai.use(chaiAsPromised);
+chai.use(chaiAsPromised);
 
 interface MockUserDoc extends IUser {
 	save: SinonStub;
@@ -267,7 +267,12 @@ describe("UserRepository", () => {
 		it("should apply search terms and custom pagination to getAll", async () => {
 			const options = { search: ["test", "user"], page: 2, limit: 5 };
 			const expectedMongoQuery = {
-				$or: [{ username: { $regex: "test", $options: "i" } }, { username: { $regex: "user", $options: "i" } }],
+				$or: [
+					{ username: { $regex: "test", $options: "i" } },
+					{ handle: { $regex: "test", $options: "i" } },
+					{ username: { $regex: "user", $options: "i" } },
+					{ handle: { $regex: "user", $options: "i" } },
+				],
 			};
 			const expectedSkip = (options.page - 1) * options.limit; // 5
 

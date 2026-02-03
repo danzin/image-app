@@ -65,7 +65,10 @@ export class RedisService {
 			this.metricsService.setRedisConnectionState(false);
 		});
 
-		this.connect();
+		// avoid opening sockets during unit tests (causes Mocha to hang)
+		if (process.env.NODE_ENV !== "test" || process.env.REDIS_AUTOCONNECT === "true") {
+			void this.connect();
+		}
 	}
 
 	get clientInstance(): RedisClientType {

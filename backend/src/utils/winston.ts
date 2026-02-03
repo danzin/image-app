@@ -1,13 +1,16 @@
 import winston from "winston";
 
-const combinedTransport = new winston.transports.File({ filename: "app.log" });
+const isTest = process.env.NODE_ENV === "test";
+const testTransport = isTest ? new winston.transports.Console({ silent: true }) : null;
+const combinedTransport = isTest ? null : new winston.transports.File({ filename: "app.log" });
 
 export const logger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
 	transports: [
-		combinedTransport,
-		...(process.env.NODE_ENV !== "production"
+		...(combinedTransport ? [combinedTransport] : []),
+		...(testTransport ? [testTransport] : []),
+		...(process.env.NODE_ENV !== "production" && !isTest
 			? [
 					new winston.transports.Console({
 						format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
@@ -20,23 +23,31 @@ export const logger = winston.createLogger({
 export const httpLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "http-requests.log" }), combinedTransport],
+	transports: isTest
+		? [...(testTransport ? [testTransport] : [])]
+		: [new winston.transports.File({ filename: "http-requests.log" }), ...(combinedTransport ? [combinedTransport] : [])],
 });
 
 export const behaviourLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "app-behaviour.log" }), combinedTransport],
+	transports: isTest
+		? [...(testTransport ? [testTransport] : [])]
+		: [
+				new winston.transports.File({ filename: "app-behaviour.log" }),
+				...(combinedTransport ? [combinedTransport] : []),
+			],
 });
 
 export const errorLogger = winston.createLogger({
 	level: "error",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
 	transports: [
-		new winston.transports.File({ filename: "errors.log" }),
-		combinedTransport,
+		...(isTest ? [] : [new winston.transports.File({ filename: "errors.log" })]),
+		...(combinedTransport ? [combinedTransport] : []),
+		...(testTransport ? [testTransport] : []),
 		// Also log to console in development
-		...(process.env.NODE_ENV !== "production"
+		...(process.env.NODE_ENV !== "production" && !isTest
 			? [
 					new winston.transports.Console({
 						format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
@@ -49,7 +60,12 @@ export const errorLogger = winston.createLogger({
 export const detailedRequestLogger = winston.createLogger({
 	level: "info",
 	format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
-	transports: [new winston.transports.File({ filename: "detailed-requests.log" }), combinedTransport],
+	transports: isTest
+		? [...(testTransport ? [testTransport] : [])]
+		: [
+				new winston.transports.File({ filename: "detailed-requests.log" }),
+				...(combinedTransport ? [combinedTransport] : []),
+			],
 });
 
 export const redisLogger = winston.createLogger({
@@ -62,5 +78,7 @@ export const redisLogger = winston.createLogger({
 			return `[${timestamp}] [REDIS] ${level}: ${message} ${metaStr}`;
 		})
 	),
-	transports: [new winston.transports.File({ filename: "redis.log" }), combinedTransport],
+	transports: isTest
+		? [...(testTransport ? [testTransport] : [])]
+		: [new winston.transports.File({ filename: "redis.log" }), ...(combinedTransport ? [combinedTransport] : [])],
 });
