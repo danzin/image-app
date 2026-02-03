@@ -4,6 +4,7 @@ import {
 	PublicUserDTO,
 	AuthenticatedUserDTO,
 	AdminUserDTO,
+	AccountInfoDTO,
 	WhoToFollowResponse,
 	IComment,
 	HandleSuggestionResponse,
@@ -150,6 +151,15 @@ export const changePasswordRequest = async (passwords: {
 	newPassword: string;
 }): Promise<void> => {
 	await axiosClient.put("/api/users/me/change-password", passwords);
+};
+
+export const fetchAccountInfo = async (): Promise<AccountInfoDTO> => {
+	const { data } = await axiosClient.get<AccountInfoDTO>("/api/users/me/account-info");
+	return data;
+};
+
+export const deleteAccountRequest = async (password: string): Promise<void> => {
+	await axiosClient.delete("/api/users/me", { data: { password } });
 };
 
 export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowResponse> => {

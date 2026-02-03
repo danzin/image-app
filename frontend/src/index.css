@@ -4,6 +4,21 @@
 
 :root {
 	color-scheme: dark;
+	/* safe area fallbacks for older browsers */
+	--safe-area-inset-top: 0px;
+	--safe-area-inset-right: 0px;
+	--safe-area-inset-bottom: 0px;
+	--safe-area-inset-left: 0px;
+}
+
+/* use env() for devices that support it */
+@supports (padding-top: env(safe-area-inset-top)) {
+	:root {
+		--safe-area-inset-top: env(safe-area-inset-top);
+		--safe-area-inset-right: env(safe-area-inset-right);
+		--safe-area-inset-bottom: env(safe-area-inset-bottom);
+		--safe-area-inset-left: env(safe-area-inset-left);
+	}
 }
 
 /* mobile viewport fix for dynamic browser chrome (address bar) */
@@ -17,6 +32,8 @@ body {
 	overflow-y: scroll;
 	min-height: 100%;
 	min-height: -webkit-fill-available;
+	/* prevent pull-to-refresh on mobile */
+	overscroll-behavior-y: contain;
 }
 
 /* prevent overscroll/bounce on iOS */
@@ -25,6 +42,11 @@ body {
 		/* iOS specific fixes */
 		-webkit-overflow-scrolling: touch;
 	}
+}
+
+/* ensure viewport-fit=cover is respected */
+@viewport {
+	viewport-fit: cover;
 }
 
 /* Custom Scrollbar for the dark theme */

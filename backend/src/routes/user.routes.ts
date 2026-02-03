@@ -15,6 +15,7 @@ import {
 	publicIdSchema,
 	updateProfileSchema,
 	changePasswordSchema,
+	deleteAccountSchema,
 	requestPasswordResetSchema,
 	resetPasswordSchema,
 	verifyEmailSchema,
@@ -114,6 +115,7 @@ export class UserRoutes {
 
 		// Current user operations
 		this.router.get("/me", this.userController.getMe);
+		this.router.get("/me/account-info", this.userController.getAccountInfo);
 		this.router.get("/suggestions/who-to-follow", this.userController.getWhoToFollow);
 		this.router.put(
 			"/me/edit",
@@ -154,8 +156,12 @@ export class UserRoutes {
 			this.userController.likeActionByPublicId,
 		);
 
-		// Account deletion
-		this.router.delete("/me", this.userController.deleteMyAccount);
+		// Account deletion (requires password confirmation)
+		this.router.delete(
+			"/me",
+			new ValidationMiddleware({ body: deleteAccountSchema }).validate(),
+			this.userController.deleteMyAccount,
+		);
 	}
 
 	public getRouter(): express.Router {

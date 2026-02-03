@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Box, Typography, Tabs, Tab, useTheme, alpha, IconButton, Tooltip } from "@mui/material";
+import { Box, Typography, Tabs, Tab, useTheme, alpha, IconButton, Tooltip, useMediaQuery } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
 import Gallery from "../components/Gallery";
@@ -27,13 +28,36 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
 	);
 };
 
+// map feed names to tab indices
+const feedToIndex: Record<string, number> = {
+	latest: 0,
+	new: 0,
+	trending: 1,
+	foryou: 2,
+	following: 0, // fallback to new/latest for now
+};
+
 const Discovery: React.FC = () => {
 	const theme = useTheme();
+	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+	const [searchParams] = useSearchParams();
 	const { isLoggedIn, loading: authLoading } = useAuth();
 
-	// Start with "new" for new users, "for-you" for existing users
-	const [activeTab, setActiveTab] = useState<number>(0);
+	// check if we have a specific feed requested via URL param
+	const requestedFeed = searchParams.get("feed");
+	const isSingleFeedMode = isMobile && !!requestedFeed;
+	const initialTab = requestedFeed ? (feedToIndex[requestedFeed] ?? 0) : 0;
+
+	const [activeTab, setActiveTab] = useState<number>(initialTab);
 	const [isRefreshing, setIsRefreshing] = useState(false);
+
+	// sync tab with URL param when it changes
+	useEffect(() => {
+		if (requestedFeed) {
+			const tabIndex = feedToIndex[requestedFeed] ?? 0;
+			setActiveTab(tabIndex);
+		}
+	}, [requestedFeed]);
 
 	const trendingFeedQuery = useTrendingFeed({ enabled: activeTab === 1 });
 	const newFeedQuery = useNewFeed({ enabled: activeTab === 0 });
@@ -51,6 +75,18 @@ const Discovery: React.FC = () => {
 			await newFeedQuery.refetch();
 		} finally {
 			setIsRefreshing(false);
+		}
+	};
+
+	// get feed title for single feed mode
+	const getFeedTitle = () => {
+		switch (requestedFeed) {
+			case "trending": return "Trending";
+			case "latest":
+			case "new": return "Latest";
+			case "foryou": return "For You";
+			case "following": return "Following";
+			default: return "Explore";
 		}
 	};
 
@@ -85,45 +121,85 @@ const Discovery: React.FC = () => {
 					alignItems: "center",
 				}}
 			>
-				{/* Tabs */}
-				<Box sx={{ width: "100%", borderBottom: 1, borderColor: "divider" }}>
-					<Tabs
-						value={activeTab}
-						onChange={handleTabChange}
-						aria-label="discovery feed tabs"
-						variant="fullWidth"
+				{/* Single feed mode header (mobile only) */}
+				{isSingleFeedMode && (
+					<Box
 						sx={{
-							"& .MuiTabs-indicator": {
-								height: 4,
-								borderRadius: 2,
-								bgcolor: "primary.main",
-							},
-							"& .MuiTab-root": {
-								textTransform: "none",
-								fontSize: "1rem",
-								fontWeight: 700,
-								minHeight: 53,
-								color: "text.secondary",
-								"&.Mui-selected": {
-									color: "text.primary",
-								},
-								"&:hover": {
-									backgroundColor: alpha(theme.palette.text.primary, 0.1),
-								},
-							},
+							width: "100%",
+							py: 1.5,
+							px: 2,
+							borderBottom: 1,
+							borderColor: "divider",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
 						}}
 					>
-						<Tab label="New" id="discovery-tab-0" aria-controls="discovery-tabpanel-0" />
-						<Tab label="Trending" id="discovery-tab-1" aria-controls="discovery-tabpanel-1" />
-						{isLoggedIn && <Tab label="For You" id="discovery-tab-2" aria-controls="discovery-tabpanel-2" />}
-					</Tabs>
-				</Box>
+						<Typography variant="h6" fontWeight={700}>
+							{getFeedTitle()}
+						</Typography>
+						{activeTab === 0 && isLoggedIn && (
+							<Tooltip title="Refresh for latest posts">
+								<IconButton
+									onClick={handleRefreshNewFeed}
+									disabled={isRefreshing}
+									size="small"
+									sx={{
+										animation: isRefreshing ? "spin 1s linear infinite" : "none",
+										"@keyframes spin": {
+											"0%": { transform: "rotate(0deg)" },
+											"100%": { transform: "rotate(360deg)" },
+										},
+									}}
+								>
+									<RefreshIcon />
+								</IconButton>
+							</Tooltip>
+						)}
+					</Box>
+				)}
+
+				{/* Tabs - hidden in single feed mode on mobile */}
+				{!isSingleFeedMode && (
+					<Box sx={{ width: "100%", borderBottom: 1, borderColor: "divider" }}>
+						<Tabs
+							value={activeTab}
+							onChange={handleTabChange}
+							aria-label="discovery feed tabs"
+							variant="fullWidth"
+							sx={{
+								"& .MuiTabs-indicator": {
+									height: 4,
+									borderRadius: 2,
+									bgcolor: "primary.main",
+								},
+								"& .MuiTab-root": {
+									textTransform: "none",
+									fontSize: "1rem",
+									fontWeight: 700,
+									minHeight: 53,
+									color: "text.secondary",
+									"&.Mui-selected": {
+										color: "text.primary",
+									},
+									"&:hover": {
+										backgroundColor: alpha(theme.palette.text.primary, 0.1),
+									},
+								},
+							}}
+						>
+							<Tab label="Latest" id="discovery-tab-0" aria-controls="discovery-tabpanel-0" />
+							<Tab label="Trending" id="discovery-tab-1" aria-controls="discovery-tabpanel-1" />
+							{isLoggedIn && <Tab label="For You" id="discovery-tab-2" aria-controls="discovery-tabpanel-2" />}
+						</Tabs>
+					</Box>
+				)}
 
 				<Box sx={{ width: "100%" }}>
 					{/* Tab Panels */}
 					<TabPanel value={activeTab} index={0}>
 						<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-							{isLoggedIn && (
+							{!isSingleFeedMode && isLoggedIn && (
 								<Box sx={{ display: "flex", justifyContent: "flex-end", px: 2, py: 1 }}>
 									<Tooltip title="Refresh for latest posts">
 										<IconButton

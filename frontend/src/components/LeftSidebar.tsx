@@ -30,6 +30,7 @@ import {
 	MoreHoriz as MoreHorizIcon,
 	Language as LanguageIcon,
 	Groups as GroupsIcon,
+	Settings as SettingsIcon,
 } from "@mui/icons-material";
 import { useAuth } from "../hooks/context/useAuth";
 import { useNotifications } from "../hooks/notifications/useNotification";
@@ -156,6 +157,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 			label: t("nav.messages"),
 			icon: <ChatBubbleOutlineIcon sx={{ fontSize: 28 }} />,
 			path: "/messages",
+		},
+		{
+			label: t("nav.settings") || "Settings",
+			icon: <SettingsIcon sx={{ fontSize: 28 }} />,
+			path: "/settings",
 		},
 	];
 
