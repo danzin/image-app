@@ -72,13 +72,17 @@ export function escapeRegex(value: string): string {
 /**
  * Validates and sanitizes text input with length constraints
  */
-export function sanitizeTextInput(input: unknown, maxLength: number = 5000): string {
+export function sanitizeTextInput(input: unknown, options: { maxLength?: number; allowEmpty?: boolean } | number = 5000): string {
+	const maxLength = typeof options === 'number' ? options : (options.maxLength ?? 5000);
+	const allowEmpty = typeof options === 'object' ? !!options.allowEmpty : false;
+
 	if (typeof input !== "string") {
 		throw new Error("Input must be a string");
 	}
 
 	const trimmed = input.trim();
 	if (trimmed.length === 0) {
+		if (allowEmpty) return "";
 		throw new Error("Input cannot be empty");
 	}
 
@@ -88,8 +92,18 @@ export function sanitizeTextInput(input: unknown, maxLength: number = 5000): str
 
 	const sanitized = sanitize(trimmed);
 	if (sanitized.length === 0) {
+		if (allowEmpty) return "";
 		throw new Error("Input is empty after sanitization");
 	}
 
-	return sanitized;
+	return decodeHtmlEntities(sanitized);
+}
+
+function decodeHtmlEntities(text: string): string {
+	return text
+		.replace(/&amp;/g, "&")
+		.replace(/&lt;/g, "<")
+		.replace(/&gt;/g, ">")
+		.replace(/&quot;/g, '"')
+		.replace(/&#39;/g, "'");
 }
