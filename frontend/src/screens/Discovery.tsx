@@ -104,8 +104,8 @@ const Discovery: React.FC = () => {
 			sx={{
 				display: "flex",
 				flexGrow: 1,
-				height: "100%",
-				overflow: "hidden",
+				height: isMobile ? "auto" : "100%",
+				overflow: isMobile ? "visible" : "hidden",
 			}}
 		>
 			{/* Main Content */}
@@ -114,8 +114,8 @@ const Discovery: React.FC = () => {
 				sx={{
 					flexGrow: 1,
 					p: 0,
-					overflowY: "auto",
-					height: "100%",
+					overflowY: isMobile ? "visible" : "auto",
+					height: isMobile ? "auto" : "100%",
 					display: "flex",
 					flexDirection: "column",
 					alignItems: "center",
