@@ -9,7 +9,7 @@ import { RedisService } from "./redis.service";
 import { DTOService } from "./dto.service";
 import { FeedEnrichmentService } from "./feed-enrichment.service";
 import { EventBus } from "@/application/common/buses/event.bus";
-import { PaginationResult, PostDTO, UserLookupData, FeedPost, PostMeta, CoreFeed } from "@/types";
+import { PaginationResult, PostDTO, FeedPost, CoreFeed } from "@/types";
 import { ColdStartFeedGeneratedEvent } from "@/application/events/ColdStartFeedGenerated.event";
 import { logger } from "@/utils/winston";
 import { CacheConfig } from "@/config/cacheConfig";
