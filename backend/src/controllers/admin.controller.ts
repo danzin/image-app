@@ -87,7 +87,8 @@ export class AdminUserController {
 	deleteUser = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { publicId } = req.params;
-			const command = new DeleteUserCommand(publicId);
+			// admin deletion bypasses password verification
+			const command = new DeleteUserCommand(publicId, undefined, true);
 			await this.commandBus.dispatch(command);
 			res.status(204).send();
 		} catch (error) {

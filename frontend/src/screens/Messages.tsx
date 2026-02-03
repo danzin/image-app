@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
 	Avatar,
 	Box,
 	Button,
 	CircularProgress,
+	Fab,
 	IconButton,
 	List,
 	ListItemAvatar,
@@ -24,6 +25,7 @@ import {
 	DialogContentText,
 	DialogActions,
 	Input,
+	Badge,
 } from "@mui/material";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
@@ -38,6 +40,7 @@ import {
 	Edit as EditIcon,
 	Cancel as CancelIcon,
 	Close as CloseIcon,
+	KeyboardArrowDown as KeyboardArrowDownIcon,
 } from "@mui/icons-material";
 import { useConversations } from "../hooks/messaging/useConversations";
 import { useConversationMessages } from "../hooks/messaging/useConversationMessages";
@@ -47,11 +50,9 @@ import { useEditMessage } from "../hooks/messaging/useEditMessage";
 import { useDeleteMessage } from "../hooks/messaging/useDeleteMessage";
 import { useAuth } from "../hooks/context/useAuth";
 import { useSocket } from "../hooks/context/useSocket";
-import { useBottomNav } from "../context/BottomNav/BottomNavContext";
 import { ConversationSummaryDTO, MessageDTO } from "../types";
 
 const CONVERSATION_PANEL_WIDTH = 380;
-const BOTTOM_NAV_HEIGHT = 56;
 
 const formatTimestamp = (timestamp: string) => {
 	try {
@@ -101,9 +102,7 @@ const Messages = () => {
 	const [draftBody, setDraftBody] = useState("");
 	const { user } = useAuth();
 	const socket = useSocket();
-	const { isVisible: isBottomNavVisible } = useBottomNav();
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-	const lastMessageCountRef = useRef<number>(0);
 	const markedAsReadRef = useRef<Set<string>>(new Set());
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,6 +111,11 @@ const Messages = () => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
 	const [imageFile, setImageFile] = useState<File | null>(null);
+
+	// scroll position tracking for "new messages" indicator
+	const [isAtBottom, setIsAtBottom] = useState(true);
+	const [newMessageCount, setNewMessageCount] = useState(0);
+	const lastSeenMessageIdRef = useRef<string | null>(null);
 
 	const conversationsQuery = useConversations();
 
@@ -176,33 +180,84 @@ const Messages = () => {
 		return sorted;
 	}, [messagesQuery.data?.pages]);
 
-	useEffect(() => {
-		if (!messagesContainerRef.current) return;
-		if (!selectedConversationId) return;
+	// get the last message id to track new messages
+	const lastMessageId = messages.length > 0 ? messages[messages.length - 1]?.publicId : null;
 
-		const currentCount = messages.length;
-		const shouldScroll = currentCount > lastMessageCountRef.current;
-		lastMessageCountRef.current = currentCount;
-
-		if (shouldScroll) {
-			messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: "smooth" });
+	// helper to scroll to bottom
+	const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+		if (messagesContainerRef.current) {
+			messagesContainerRef.current.scrollTo({
+				top: messagesContainerRef.current.scrollHeight,
+				behavior,
+			});
 		}
-	}, [messages, selectedConversationId]);
+	}, []);
 
-	useEffect(() => {
-		if (!messagesContainerRef.current) return;
-		requestAnimationFrame(() => {
-			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
-		});
-	}, [messages]);
+	// check if scroll is at bottom (within threshold)
+	const checkIfAtBottom = useCallback(() => {
+		if (!messagesContainerRef.current) return true;
+		const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+		const threshold = 100; // px from bottom to consider "at bottom"
+		return scrollHeight - scrollTop - clientHeight < threshold;
+	}, []);
 
+	// handle scroll events to track position
+	const handleScroll = useCallback(() => {
+		const atBottom = checkIfAtBottom();
+		setIsAtBottom(atBottom);
+		if (atBottom) {
+			setNewMessageCount(0);
+			lastSeenMessageIdRef.current = lastMessageId;
+		}
+	}, [checkIfAtBottom, lastMessageId]);
+
+	// scroll to bottom when conversation changes
 	useEffect(() => {
-		if (!messagesContainerRef.current) return;
 		if (!selectedConversationId) return;
-		requestAnimationFrame(() => {
-			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
-		});
-	}, [selectedConversationId]);
+		setNewMessageCount(0);
+		setIsAtBottom(true);
+		lastSeenMessageIdRef.current = null;
+		
+		const timeoutId = setTimeout(() => {
+			scrollToBottom();
+		}, 100);
+		
+		return () => clearTimeout(timeoutId);
+	}, [selectedConversationId, scrollToBottom]);
+
+	// handle new messages - only auto-scroll if already at bottom
+	useEffect(() => {
+		if (!lastMessageId || messages.length === 0) return;
+
+		// initial load - scroll to bottom
+		if (lastSeenMessageIdRef.current === null) {
+			lastSeenMessageIdRef.current = lastMessageId;
+			setTimeout(() => scrollToBottom(), 50);
+			return;
+		}
+
+		// new message arrived
+		if (lastSeenMessageIdRef.current !== lastMessageId) {
+			const lastMessage = messages[messages.length - 1];
+			const isOwnMessage = lastMessage?.sender?.publicId === user?.publicId;
+
+			if (isAtBottom || isOwnMessage) {
+				// at bottom or sent by user - scroll to bottom
+				lastSeenMessageIdRef.current = lastMessageId;
+				setTimeout(() => scrollToBottom("smooth"), 50);
+			} else {
+				// not at bottom - increment new message count
+				setNewMessageCount((prev) => prev + 1);
+			}
+		}
+	}, [lastMessageId, messages, isAtBottom, scrollToBottom, user?.publicId]);
+
+	// click handler for "new messages" button
+	const handleScrollToNewMessages = useCallback(() => {
+		scrollToBottom("smooth");
+		setNewMessageCount(0);
+		lastSeenMessageIdRef.current = lastMessageId;
+	}, [scrollToBottom, lastMessageId]);
 
 	const sendMessage = useSendMessage();
 	const editMessage = useEditMessage();
@@ -227,22 +282,13 @@ const Messages = () => {
 			if (imageFile) {
 				payload.append("image", imageFile);
 			}
-			
-			await sendMessage.mutateAsync(payload as any);
+
+			await sendMessage.mutateAsync(payload);
 		}
 
 		setDraftBody("");
 		setImageFile(null);
 		if (fileInputRef.current) fileInputRef.current.value = "";
-
-		requestAnimationFrame(() => {
-			if (messagesContainerRef.current) {
-				messagesContainerRef.current.scrollTo({
-					top: messagesContainerRef.current.scrollHeight,
-					behavior: "smooth",
-				});
-			}
-		});
 	};
 
 	const handleBackToList = () => {
@@ -276,9 +322,9 @@ const Messages = () => {
 
 	const handleDeleteConfirm = async () => {
 		if (selectedMessage && selectedConversationId) {
-			await deleteMessage.mutateAsync({ 
-				messageId: selectedMessage.publicId, 
-				conversationId: selectedConversationId 
+			await deleteMessage.mutateAsync({
+				messageId: selectedMessage.publicId,
+				conversationId: selectedConversationId,
 			});
 		}
 		setDeleteConfirmationOpen(false);
@@ -304,8 +350,7 @@ const Messages = () => {
 
 	const renderMessageBubble = (message: MessageDTO) => {
 		const isOwnMessage = message.sender.publicId === user?.publicId;
-		const statusLabel =
-			message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "Sent";
+		const statusLabel = message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "Sent";
 		const statusColor = message.status === "read" ? "primary.main" : "text.secondary";
 		const statusIcon =
 			message.status === "read" ? (
@@ -313,7 +358,7 @@ const Messages = () => {
 			) : (
 				<DoneIcon sx={{ fontSize: 12, color: statusColor }} />
 			);
-		
+
 		const hasImage = message.attachments && message.attachments.length > 0 && message.attachments[0].type === "image";
 		const hasText = message.body && message.body.trim().length > 0;
 
@@ -330,15 +375,15 @@ const Messages = () => {
 			>
 				{/* Image Only Message */}
 				{hasImage && !hasText ? (
-					<Box 
+					<Box
 						onContextMenu={(e) => handleMenuOpen(e, message)}
-						sx={{ 
-							position: "relative", 
+						sx={{
+							position: "relative",
 							maxWidth: "70%",
 							cursor: isOwnMessage ? "pointer" : "default",
 						}}
 					>
-						<Box 
+						<Box
 							component="img"
 							src={message.attachments![0].url}
 							alt="attachment"
@@ -399,7 +444,7 @@ const Messages = () => {
 							}}
 						>
 							{hasImage && (
-								<Box 
+								<Box
 									component="img"
 									src={message.attachments![0].url}
 									alt="attachment"
@@ -408,17 +453,22 @@ const Messages = () => {
 										maxHeight: 200,
 										borderRadius: 2,
 										mb: 1,
-										display: "block"
+										display: "block",
 									}}
 								/>
 							)}
-							<Typography 
-								variant="body1" 
-								sx={{ 
-									fontSize: "0.95rem", 
+							<Typography
+								variant="body1"
+								sx={{
+									fontSize: "0.95rem",
 									lineHeight: 1.5,
 									fontStyle: message.body === "message delete by user" ? "italic" : "normal",
-									color: message.body === "message delete by user" ? (isOwnMessage ? "rgba(255,255,255,0.7)" : "text.secondary") : "inherit"
+									color:
+										message.body === "message delete by user"
+											? isOwnMessage
+												? "rgba(255,255,255,0.7)"
+												: "text.secondary"
+											: "inherit",
 								}}
 							>
 								{message.body}
@@ -453,27 +503,10 @@ const Messages = () => {
 		<Box
 			sx={{
 				display: "flex",
-				height: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				maxHeight: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				"@supports not (height: 100dvh)": {
-					height: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-					maxHeight: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-				},
+				height: "100%",
+				maxHeight: "100%",
 				overflow: "hidden",
 				bgcolor: "background.default",
-				transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 			}}
 		>
 			{/* Conversation List */}
@@ -545,11 +578,11 @@ const Messages = () => {
 														<Typography variant="subtitle1" fontWeight={700} noWrap>
 															{title}
 														</Typography>
-												{otherParticipant?.handle && (
-													<Typography variant="body2" color="text.secondary" noWrap>
-														@{otherParticipant.handle}
-													</Typography>
-												)}
+														{otherParticipant?.handle && (
+															<Typography variant="body2" color="text.secondary" noWrap>
+																@{otherParticipant.handle}
+															</Typography>
+														)}
 													</Box>
 													<Typography variant="caption" color="text.secondary" sx={{ ml: 1, whiteSpace: "nowrap" }}>
 														{conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
@@ -584,6 +617,7 @@ const Messages = () => {
 					flexDirection: "column",
 					height: "100%",
 					bgcolor: "background.default",
+					position: "relative",
 				}}
 			>
 				{!selectedConversationId ? (
@@ -667,6 +701,7 @@ const Messages = () => {
 						{/* Messages Area */}
 						<Box
 							ref={messagesContainerRef}
+							onScroll={handleScroll}
 							sx={{
 								flex: 1,
 								overflowY: "auto",
@@ -696,6 +731,33 @@ const Messages = () => {
 							)}
 						</Box>
 
+						{/* New Messages Indicator */}
+						{newMessageCount > 0 && (
+							<Fab
+								size="small"
+								color="primary"
+								onClick={handleScrollToNewMessages}
+								sx={{
+									position: "absolute",
+									bottom: 100,
+									left: "50%",
+									transform: "translateX(-50%)",
+									zIndex: 10,
+									minWidth: "auto",
+									px: 2,
+									borderRadius: 4,
+								}}
+							>
+								<Badge
+									badgeContent={newMessageCount}
+									color="error"
+									sx={{ "& .MuiBadge-badge": { right: -8, top: -4 } }}
+								>
+									<KeyboardArrowDownIcon />
+								</Badge>
+							</Fab>
+						)}
+
 						{/* Input Area */}
 						<Box
 							component="form"
@@ -710,23 +772,23 @@ const Messages = () => {
 							{imageFile && (
 								<Box sx={{ display: "flex", alignItems: "center", mb: 1, gap: 1 }}>
 									<Box sx={{ position: "relative" }}>
-										<Box 
+										<Box
 											component="img"
 											src={URL.createObjectURL(imageFile)}
 											sx={{ width: 50, height: 50, borderRadius: 1, objectFit: "cover" }}
 										/>
-										<IconButton 
-											size="small" 
+										<IconButton
+											size="small"
 											onClick={handleRemoveImage}
-											sx={{ 
-												position: "absolute", 
-												top: -5, 
-												right: -5, 
+											sx={{
+												position: "absolute",
+												top: -5,
+												right: -5,
 												bgcolor: "background.paper",
 												boxShadow: 1,
 												width: 18,
 												height: 18,
-												"&:hover": { bgcolor: "error.light", color: "white" }
+												"&:hover": { bgcolor: "error.light", color: "white" },
 											}}
 										>
 											<CloseIcon sx={{ fontSize: 12 }} />
@@ -769,8 +831,8 @@ const Messages = () => {
 									sx={{ display: "none" }}
 									inputProps={{ accept: "image/*" }}
 								/>
-								<IconButton 
-									size="small" 
+								<IconButton
+									size="small"
 									color="primary"
 									onClick={() => fileInputRef.current?.click()}
 									disabled={isEditing}
@@ -804,7 +866,7 @@ const Messages = () => {
 									color="primary"
 									disabled={(!draftBody.trim() && !imageFile) || sendMessage.isPending || editMessage.isPending}
 									sx={{
-										opacity: (draftBody.trim() || imageFile) ? 1 : 0.5,
+										opacity: draftBody.trim() || imageFile ? 1 : 0.5,
 									}}
 								>
 									<SendRoundedIcon />

@@ -26,6 +26,17 @@ export interface AuthenticatedUserDTO extends PublicUserDTO {
 	isEmailVerified: boolean;
 }
 
+// sensitive account info for settings page (not exposed to other users)
+export interface AccountInfoDTO {
+	publicId: string;
+	handle: string;
+	username: string;
+	email: string;
+	isEmailVerified: boolean;
+	createdAt: Date;
+	registrationIp?: string;
+}
+
 export interface AdminUserDTO extends AuthenticatedUserDTO {
 	isAdmin: boolean;
 	isBanned: boolean;
@@ -300,6 +311,18 @@ export class DTOService {
 			...this.toPublicUserDTO(user),
 			email: user.email,
 			isEmailVerified: user.isEmailVerified ?? true,
+		};
+	}
+
+	toAccountInfoDTO(user: IUser): AccountInfoDTO {
+		return {
+			publicId: user.publicId,
+			handle: user.handle,
+			username: user.username,
+			email: user.email,
+			isEmailVerified: user.isEmailVerified ?? true,
+			createdAt: user.createdAt,
+			registrationIp: user.registrationIp,
 		};
 	}
 

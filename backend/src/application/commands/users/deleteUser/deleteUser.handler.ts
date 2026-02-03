@@ -1,4 +1,5 @@
 import { inject, injectable } from "tsyringe";
+import { Model } from "mongoose";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DeleteUserCommand } from "./deleteUser.command";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
@@ -15,7 +16,7 @@ import { ConversationRepository } from "@/repositories/conversation.repository";
 import { MessageRepository } from "@/repositories/message.repository";
 import { PostViewRepository } from "@/repositories/postView.repository";
 import { PostLikeRepository } from "@/repositories/postLike.repository";
-import { IImageStorageService } from "@/types";
+import { IImageStorageService, IUser } from "@/types";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
@@ -40,10 +41,32 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
 		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("EventBus") private readonly eventBus: EventBus
+		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("UserModel") private readonly userModel: Model<IUser>,
 	) {}
 
 	async execute(command: DeleteUserCommand): Promise<void> {
+		// verify password before proceeding with deletion (unless admin bypass)
+		if (!command.skipPasswordVerification) {
+			if (!command.password) {
+				throw createError("ValidationError", "Password is required for account deletion");
+			}
+
+			const userWithPassword = await this.userModel
+				.findOne({ publicId: command.userPublicId })
+				.select("+password")
+				.exec();
+
+			if (!userWithPassword) {
+				throw createError("NotFoundError", "User not found");
+			}
+
+			const isPasswordValid = await userWithPassword.comparePassword(command.password);
+			if (!isPasswordValid) {
+				throw createError("AuthenticationError", "Invalid password");
+			}
+		}
+
 		// capture follower public IDs before deletion for cache invalidation
 		let followerPublicIds: string[] = [];
 		let userPublicId: string = command.userPublicId;

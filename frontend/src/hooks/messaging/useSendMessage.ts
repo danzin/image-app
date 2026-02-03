@@ -6,7 +6,7 @@ export function useSendMessage() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: (payload: SendMessageRequest) => sendMessage(payload),
+		mutationFn: (payload: SendMessageRequest | FormData) => sendMessage(payload),
 		onSuccess: ({ message }) => {
 			const conversationId = message.conversationId;
 

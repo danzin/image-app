@@ -95,6 +95,13 @@ export const changePasswordSchema = z
 	.strict()
 	.transform(sanitizeForMongo);
 
+export const deleteAccountSchema = z
+	.object({
+		password: z.string().min(1, "Password is required"),
+	})
+	.strict()
+	.transform(sanitizeForMongo);
+
 export const requestPasswordResetSchema = z
 	.object({
 		email: z.string().email(),

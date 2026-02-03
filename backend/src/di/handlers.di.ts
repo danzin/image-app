@@ -11,6 +11,8 @@ import { GetDashboardStatsQuery } from "@/application/queries/admin/getDashboard
 import { GetDashboardStatsQueryHandler } from "@/application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { GetMeQueryHandler } from "@/application/queries/users/getMe/getMe.handler";
 import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
+import { GetAccountInfoQueryHandler } from "@/application/queries/users/getAccountInfo/getAccountInfo.handler";
+import { GetAccountInfoQuery } from "@/application/queries/users/getAccountInfo/getAccountInfo.query";
 import { GetWhoToFollowQueryHandler } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.handler";
 import { GetWhoToFollowQuery } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.query";
 import { GetHandleSuggestionsQueryHandler } from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.handler";
@@ -208,6 +210,7 @@ export function registerCQRS(): void {
 	container.register("GetCommunityMembersQueryHandler", { useClass: GetCommunityMembersQueryHandler });
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
+	container.register("GetAccountInfoQueryHandler", { useClass: GetAccountInfoQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
 	container.register("GetUserByHandleQueryHandler", { useClass: GetUserByHandleQueryHandler });
 	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
@@ -328,6 +331,10 @@ export function initCQRS(): void {
 	);
 
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
+	queryBus.register(
+		GetAccountInfoQuery,
+		container.resolve<GetAccountInfoQueryHandler>("GetAccountInfoQueryHandler"),
+	);
 	queryBus.register(
 		GetDashboardStatsQuery,
 		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler"),

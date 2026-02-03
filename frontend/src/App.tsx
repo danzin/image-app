@@ -9,7 +9,6 @@ import Discovery from "./screens/Discovery";
 import Layout from "./components/Layout";
 import { AdminDashboard } from "./screens/Admin";
 import FeedSocketManager from "./components/FeedSocketManager";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { theme } from "./theme/theme";
 import SearchResults from "./screens/SearchResults";
@@ -19,6 +18,7 @@ import PostView from "./screens/PostView";
 import Favorites from "./screens/Favorites";
 import Messages from "./screens/Messages";
 import Notifications from "./screens/Notifications";
+import Settings from "./screens/Settings";
 import FollowList from "./screens/FollowList";
 import ForgotPassword from "./screens/ForgotPassword";
 import ResetPassword from "./screens/ResetPassword";
@@ -66,11 +66,11 @@ function App() {
 									<Route path="favorites" element={<ProtectedRoute element={<Favorites />} />} />
 									<Route path="messages" element={<ProtectedRoute element={<Messages />} />} />
 									<Route path="notifications" element={<ProtectedRoute element={<Notifications />} />} />
+									<Route path="settings" element={<ProtectedRoute element={<Settings />} />} />
 									<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
 									<Route path="admin/users/:id" element={<AdminRoute element={<AdminUserDetail />} />} />
 								</Route>
 							</Routes>
-							<ReactQueryDevtools initialIsOpen={false} />
 						</SocketProvider>
 					</AuthProvider>
 				</QueryClientProvider>
