@@ -37,7 +37,8 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
 import { LikeCommentCommandHandler } from "@/application/commands/comments/likeComment/like-comment.handler";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
 import { MessageStatusUpdatedHandler as MessageStatusUpdatedEventHandler } from "@/application/events/message/message-status-updated.handler";
-import { MessageSentEvent, MessageStatusUpdatedEvent } from "@/application/events/message/message.event";
+import { MessageAttachmentsDeletedHandler } from "@/application/handlers/message/MessageAttachmentsDeletedHandler";
+import { MessageSentEvent, MessageStatusUpdatedEvent, MessageAttachmentsDeletedEvent } from "@/application/events/message/message.event";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
@@ -238,6 +239,7 @@ export function registerCQRS(): void {
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
 	container.register("MessageStatusUpdatedEventHandler", { useClass: MessageStatusUpdatedEventHandler });
+	container.register("MessageAttachmentsDeletedHandler", { useClass: MessageAttachmentsDeletedHandler });
 	container.register("NotificationRequestedHandler", { useClass: NotificationRequestedHandler });
 }
 
@@ -315,6 +317,10 @@ export function initCQRS(): void {
 	eventBus.subscribe(
 		MessageStatusUpdatedEvent,
 		container.resolve<MessageStatusUpdatedEventHandler>("MessageStatusUpdatedEventHandler"),
+	);
+	eventBus.subscribe(
+		MessageAttachmentsDeletedEvent,
+		container.resolve<MessageAttachmentsDeletedHandler>("MessageAttachmentsDeletedHandler"),
 	);
 	eventBus.subscribe(
 		NotificationRequestedEvent,

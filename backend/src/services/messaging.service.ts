@@ -16,12 +16,18 @@ import {
 } from "@/types";
 import { DTOService } from "./dto.service";
 import { EventBus } from "@/application/common/buses/event.bus";
-import { MessageSentEvent, MessageStatusUpdatedEvent } from "@/application/events/message/message.event";
+import {
+	MessageSentEvent,
+	MessageStatusUpdatedEvent,
+	MessageAttachmentsDeletedEvent,
+} from "@/application/events/message/message.event";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
 import { MessageStatusUpdatedHandler } from "@/application/events/message/message-status-updated.handler";
+import { MessageAttachmentsDeletedHandler } from "@/application/handlers/message/MessageAttachmentsDeletedHandler";
 import { NotificationService } from "./notification.service";
 import { sanitizeTextInput } from "@/utils/sanitizers";
 import { isUserViewingConversation } from "../server/socketServer";
+import { IImageStorageService } from "@/types";
 
 /*
 Notes on messaging system:
@@ -58,7 +64,10 @@ export class MessagingService {
 		@inject("MessageSentHandler") private readonly messageSentHandler: MessageSentHandler,
 		@inject("MessageStatusUpdatedEventHandler")
 		private readonly messageStatusUpdatedHandler: MessageStatusUpdatedHandler,
+		@inject("MessageAttachmentsDeletedHandler")
+		private readonly messageAttachmentsDeletedHandler: MessageAttachmentsDeletedHandler,
 		@inject("NotificationService") private readonly notificationService: NotificationService,
+		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 	) {}
 
 	async listConversations(
@@ -233,10 +242,47 @@ export class MessagingService {
 		});
 	}
 
-	async sendMessage(senderPublicId: string, payload: SendMessagePayload): Promise<MessageDTO> {
+	async sendMessage(
+		senderPublicId: string,
+		payload: SendMessagePayload,
+		file?: Express.Multer.File,
+	): Promise<MessageDTO> {
+		const hasContent =
+			(payload.body && payload.body.trim().length > 0) ||
+			(payload.attachments && payload.attachments.length > 0) ||
+			!!file;
+
+		if (!hasContent) {
+			throw createError("ValidationError", "Message must contain either text or an attachment");
+		}
+
+		// Validate file type
+		if (file) {
+			if (!file.mimetype.startsWith("image/")) {
+				throw createError("ValidationError", "Only image files are allowed");
+			}
+		}
+
+		// Validate total attachments count
+		const currentAttachmentsCount = payload.attachments ? payload.attachments.length : 0;
+		const newFileCount = file ? 1 : 0;
+		if (currentAttachmentsCount + newFileCount > 5) {
+			throw createError("ValidationError", "Maximum of 5 attachments allowed per message");
+		}
+
+		// Validate existing attachments are images (if any)
+		if (payload.attachments) {
+			for (const attachment of payload.attachments) {
+				if (attachment.type !== "image") {
+					// We could also check mimeType if available, but 'type' field is what we store
+					throw createError("ValidationError", "Only image attachments are allowed");
+				}
+			}
+		}
+
 		let sanitizedBody: string;
 		try {
-			sanitizedBody = sanitizeTextInput(payload.body, 5000);
+			sanitizedBody = sanitizeTextInput(payload.body, { maxLength: 5000, allowEmpty: true });
 		} catch (error) {
 			const message = error instanceof Error ? error.message : "Invalid message body";
 			throw createError("ValidationError", message);
@@ -256,20 +302,37 @@ export class MessagingService {
 			throw createError("ValidationError", "Recipient is required when no conversation is provided");
 		}
 
+		// Handle file upload
+		let attachments = payload.attachments || [];
+		if (file) {
+			const convIdForPath = targetConversation ? targetConversation.publicId : "initial";
+			const uploadPath = `${senderPublicId}/${convIdForPath}`;
+
+			const { url } = await this.imageStorageService.uploadImage(file.path, senderPublicId, uploadPath);
+			attachments.push({
+				url,
+				type: "image",
+				mimeType: file.mimetype,
+			});
+		}
+
 		const messageDoc = await this.unitOfWork.executeInTransaction(async (session) => {
 			let conversationDoc = targetConversation;
 
-			await this.messageRepository.markConversationMessagesAsRead(
-				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
-				senderInternalId,
-				session,
-			);
+			if (conversationDoc) {
+				await this.messageRepository.markConversationMessagesAsRead(
+					(conversationDoc._id as unknown as mongoose.Types.ObjectId).toString(),
+					senderInternalId,
+					session,
+				);
 
-			await this.conversationRepository.resetUnreadCount(
-				(conversationDoc!._id as unknown as mongoose.Types.ObjectId).toString(),
-				senderInternalId,
-				session,
-			);
+				await this.conversationRepository.resetUnreadCount(
+					(conversationDoc._id as unknown as mongoose.Types.ObjectId).toString(),
+					senderInternalId,
+					session,
+				);
+			}
+
 			if (!conversationDoc) {
 				const recipientInternalId = await this.userRepository.findInternalIdByPublicId(payload.recipientPublicId!);
 				if (!recipientInternalId) {
@@ -313,8 +376,8 @@ export class MessagingService {
 					sender: new mongoose.Types.ObjectId(senderInternalId),
 					body: sanitizedBody,
 					attachments:
-						Array.isArray(payload.attachments) && payload.attachments.length > 0
-							? payload.attachments.map((attachment) => ({ ...attachment }))
+						Array.isArray(attachments) && attachments.length > 0
+							? attachments.map((attachment) => ({ ...attachment }))
 							: undefined,
 					readBy: [new mongoose.Types.ObjectId(senderInternalId)],
 					status: "sent",
@@ -366,17 +429,17 @@ export class MessagingService {
 			if (recipientsNeedingNotification.length > 0) {
 				await Promise.all(
 					recipientsNeedingNotification.map((recipientId) =>
-												this.notificationService.createNotification({
-													receiverId: recipientId,
-													actionType: "message",
-													actorId: senderPublicId,
-													actorUsername: populatedMessage.sender?.username,
-													actorHandle: populatedMessage.sender?.handle,
-													actorAvatar: populatedMessage.sender?.avatar,
-													targetId: conversationDoc!.publicId,
-													targetType: "conversation",
-													targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
-													session,
+						this.notificationService.createNotification({
+							receiverId: recipientId,
+							actionType: "message",
+							actorId: senderPublicId,
+							actorUsername: populatedMessage.sender?.username,
+							actorHandle: populatedMessage.sender?.handle,
+							actorAvatar: populatedMessage.sender?.avatar,
+							targetId: conversationDoc!.publicId,
+							targetType: "conversation",
+							targetPreview: sanitizedBody.substring(0, 50) + (sanitizedBody.length > 50 ? "..." : ""),
+							session,
 						}),
 					),
 				);
@@ -398,6 +461,109 @@ export class MessagingService {
 		return this.dtoService.toPublicMessageDTO(messageDoc, targetConversation.publicId);
 	}
 
+	async editMessage(userPublicId: string, messageId: string, newBody: string): Promise<MessageDTO> {
+		const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+		if (!userInternalId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const message = await this.messageRepository.findByPublicId(messageId);
+		if (!message) {
+			throw createError("NotFoundError", "Message not found");
+		}
+
+		if (message.sender.toString() !== userInternalId && (message.sender as any).publicId !== userPublicId) {
+			// Check if sender is populated or not.
+			// If not populated, it's ObjectId. If populated, it has publicId.
+			const senderId = (message.sender as any)._id ? (message.sender as any)._id.toString() : message.sender.toString();
+			if (senderId !== userInternalId) {
+				throw createError("ForbiddenError", "You can only edit your own messages");
+			}
+		}
+
+		const hasAttachments = message.attachments && message.attachments.length > 0;
+		const allowEmpty = hasAttachments;
+
+		let sanitizedBody: string;
+		try {
+			sanitizedBody = sanitizeTextInput(newBody, { maxLength: 5000, allowEmpty });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Invalid message body";
+			throw createError("ValidationError", message);
+		}
+
+		const updatedMessage = await this.messageRepository.updateMessage(messageId, { body: sanitizedBody });
+		if (!updatedMessage) {
+			throw createError("InternalError", "Failed to update message");
+		}
+
+		const conversation = await this.conversationRepository.findById((updatedMessage.conversation as any).toString());
+		if (!conversation) {
+			throw createError("InternalError", "Conversation not found");
+		}
+
+		// Emit event for real-time update if needed (not implemented yet for edit, but good practice)
+		// For now, just return updated message.
+
+		return this.dtoService.toPublicMessageDTO(updatedMessage, conversation.publicId);
+	}
+
+	async deleteMessage(userPublicId: string, messageId: string): Promise<void> {
+		const userInternalId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+		if (!userInternalId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const message = await this.messageRepository.findByPublicId(messageId);
+		if (!message) {
+			throw createError("NotFoundError", "Message not found");
+		}
+
+		const senderId = (message.sender as any)._id ? (message.sender as any)._id.toString() : message.sender.toString();
+		if (senderId !== userInternalId) {
+			throw createError("ForbiddenError", "You can only delete your own messages");
+		}
+
+		await this.unitOfWork.executeInTransaction(async (session) => {
+			// Collect attachment publicIds to delete
+			const attachmentPublicIds =
+				message.attachments
+					?.map((att) => {
+						const url = att.url;
+						try {
+							// Attempt Cloudinary extraction
+							const cloudinaryMatch = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
+							if (cloudinaryMatch) return cloudinaryMatch[1];
+
+							// Attempt LocalStorage extraction
+							const localStorageMatch = url.match(/\/uploads\/(.+)$/);
+							if (localStorageMatch) return localStorageMatch[1];
+
+							return null;
+						} catch (e) {
+							return null;
+						}
+					})
+					.filter((id): id is string => !!id) || [];
+
+			await this.messageRepository.updateMessage(
+				messageId,
+				{
+					body: "message delete by user",
+					attachments: [], // clear attachments from DB
+				},
+				session,
+			);
+
+			if (attachmentPublicIds.length > 0) {
+				this.eventBus.queueTransactional(
+					new MessageAttachmentsDeletedEvent(attachmentPublicIds),
+					this.messageAttachmentsDeletedHandler,
+				);
+			}
+		});
+	}
+
 	private buildParticipantHash(participantIds: string[]): string {
 		return participantIds
 			.map((id) => id.toString())
@@ -412,12 +578,12 @@ export class MessagingService {
 					.map((participant) => {
 						// handle ObjectId case
 						if (participant instanceof mongoose.Types.ObjectId) {
-						return {
-							publicId: "",
-							handle: "",
-							username: "",
-							avatar: "",
-						};
+							return {
+								publicId: "",
+								handle: "",
+								username: "",
+								avatar: "",
+							};
 						}
 						// handle populated participant case
 						const populatedParticipant = participant as MaybePopulatedParticipant;

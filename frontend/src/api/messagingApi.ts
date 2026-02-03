@@ -32,9 +32,20 @@ export const markConversationRead = async (conversationPublicId: string): Promis
 	await axiosClient.post(`/api/messaging/conversations/${conversationPublicId}/read`);
 };
 
-export const sendMessage = async (payload: SendMessageRequest): Promise<{ message: MessageDTO }> => {
-	const { data } = await axiosClient.post("/api/messaging/messages", payload);
+export const sendMessage = async (payload: SendMessageRequest | FormData): Promise<{ message: MessageDTO }> => {
+	const isFormData = payload instanceof FormData;
+	const config = isFormData ? { headers: { "Content-Type": "multipart/form-data" } } : {};
+	const { data } = await axiosClient.post("/api/messaging/messages", payload, config);
 	return data;
+};
+
+export const editMessage = async (messageId: string, body: string): Promise<{ message: MessageDTO }> => {
+	const { data } = await axiosClient.patch(`/api/messaging/messages/${messageId}`, { body });
+	return data;
+};
+
+export const deleteMessage = async (messageId: string): Promise<void> => {
+	await axiosClient.delete(`/api/messaging/messages/${messageId}`);
 };
 
 export const initiateConversation = async (recipientPublicId: string): Promise<InitiateConversationResponse> => {

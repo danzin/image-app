@@ -17,3 +17,4 @@ __tests__
 .docs
 *.log
 npm-debug.log*
+migrate-atlas-to-local.ts

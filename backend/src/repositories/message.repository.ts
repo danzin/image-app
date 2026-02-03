@@ -118,4 +118,13 @@ export class MessageRepository extends BaseRepository<IMessage> {
 			.exec();
 		return result.modifiedCount || 0;
 	}
+
+	async updateMessage(publicId: string, updates: Partial<IMessage>, session?: ClientSession): Promise<IMessage | null> {
+		const query = this.model
+			.findOneAndUpdate({ publicId }, { $set: updates }, { new: true })
+			.populate("sender", "publicId handle username avatar");
+		
+		if (session) query.session(session);
+		return query.exec();
+	}
 }

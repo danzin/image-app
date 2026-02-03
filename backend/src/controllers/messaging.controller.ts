@@ -88,8 +88,41 @@ export class MessagingController {
 				attachments: req.body.attachments,
 			};
 
-			const message = await this.messagingService.sendMessage(senderPublicId, payload);
+			const message = await this.messagingService.sendMessage(senderPublicId, payload, req.file);
 			res.status(201).json({ message });
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	editMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const userPublicId = req.decodedUser?.publicId as string | undefined;
+			if (!userPublicId) {
+				throw createError("AuthenticationError", "User must be logged in to edit messages");
+			}
+
+			const { messageId } = req.params;
+			const { body } = req.body;
+
+			const message = await this.messagingService.editMessage(userPublicId, messageId, body);
+			res.status(200).json({ message });
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const userPublicId = req.decodedUser?.publicId as string | undefined;
+			if (!userPublicId) {
+				throw createError("AuthenticationError", "User must be logged in to delete messages");
+			}
+
+			const { messageId } = req.params;
+
+			await this.messagingService.deleteMessage(userPublicId, messageId);
+			res.status(204).send();
 		} catch (error) {
 			next(error);
 		}
