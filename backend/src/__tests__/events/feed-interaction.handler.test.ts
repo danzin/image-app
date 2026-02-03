@@ -31,9 +31,9 @@ describe("FeedInteractionHandler", () => {
 		// Register mocks in the DI container
 		container.register("FeedService", { useValue: feedServiceMock });
 		container.register("RedisService", { useValue: redisServiceMock });
-		container.register("UserRepository", { useValue: userRepositoryMock });
+		container.register("UserReadRepository", { useValue: userRepositoryMock });
 		container.register("UserPreferenceRepository", { useValue: userPreferenceRepositoryMock });
-		container.register("PostRepository", { useValue: postRepositoryMock });
+		container.register("PostReadRepository", { useValue: postRepositoryMock });
 
 		// Resolve the handler with mocked dependencies
 		handler = container.resolve(FeedInteractionHandler);
