@@ -62,6 +62,10 @@ const allowedOrigins = [
 	"http://localhost:5174", // Vite dev alternate port
 	"http://localhost:80", // Nginx in Docker
 	"http://localhost", // Browser default for localhost
+	"http://192.168.56.1:5173",
+	"http://192.168.1.10:5173",
+	"http://172.28.144.1:5173",
+	"http://172.18.128.1:5173",
 ];
 
 const corsOptions: cors.CorsOptions = {

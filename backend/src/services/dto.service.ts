@@ -14,9 +14,27 @@ export interface PublicUserDTO {
 	followingCount: number;
 }
 
+export interface HandleSuggestionDTO {
+	publicId: string;
+	handle: string;
+	username: string;
+	avatar: string;
+}
+
 export interface AuthenticatedUserDTO extends PublicUserDTO {
 	email: string;
 	isEmailVerified: boolean;
+}
+
+// sensitive account info for settings page (not exposed to other users)
+export interface AccountInfoDTO {
+	publicId: string;
+	handle: string;
+	username: string;
+	email: string;
+	isEmailVerified: boolean;
+	createdAt: Date;
+	registrationIp?: string;
 }
 
 export interface AdminUserDTO extends AuthenticatedUserDTO {
@@ -278,11 +296,33 @@ export class DTOService {
 		};
 	}
 
+	toHandleSuggestionDTO(user: IUser): HandleSuggestionDTO {
+		const source = user?.toObject ? user.toObject() : user;
+		return {
+			publicId: this.pickString(source?.publicId),
+			handle: this.pickString(source?.handle),
+			username: this.pickString(source?.username),
+			avatar: this.pickString(source?.avatar),
+		};
+	}
+
 	toAuthenticatedUserDTO(user: IUser): AuthenticatedUserDTO {
 		return {
 			...this.toPublicUserDTO(user),
 			email: user.email,
 			isEmailVerified: user.isEmailVerified ?? true,
+		};
+	}
+
+	toAccountInfoDTO(user: IUser): AccountInfoDTO {
+		return {
+			publicId: user.publicId,
+			handle: user.handle,
+			username: user.username,
+			email: user.email,
+			isEmailVerified: user.isEmailVerified ?? true,
+			createdAt: user.createdAt,
+			registrationIp: user.registrationIp,
 		};
 	}
 

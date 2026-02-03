@@ -9,9 +9,16 @@ import { RegisterUserCommand } from "@/application/commands/users/register/regis
 import { RegisterUserResult } from "@/application/commands/users/register/register.handler";
 import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
 import { GetMeResult } from "@/application/queries/users/getMe/getMe.handler";
+import { GetAccountInfoQuery } from "@/application/queries/users/getAccountInfo/getAccountInfo.query";
+import { GetAccountInfoResult } from "@/application/queries/users/getAccountInfo/getAccountInfo.handler";
 import { LikeActionByPublicIdCommand } from "@/application/commands/users/likeActionByPublicId/likeActionByPublicId.command";
 import { GetWhoToFollowQuery } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.query";
 import { GetWhoToFollowResult } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.handler";
+import {
+	GetHandleSuggestionsQuery,
+	HandleSuggestionContext,
+} from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.query";
+import { HandleSuggestionDTO } from "@/services/dto.service";
 import { UpdateAvatarCommand } from "@/application/commands/users/updateAvatar/updateAvatar.command";
 import { UpdateCoverCommand } from "@/application/commands/users/updateCover/updateCover.command";
 import { PublicUserDTO } from "@/services/dto.service";
@@ -340,7 +347,7 @@ export class UserController {
 		}
 	};
 
-	deleteMyAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+	getAccountInfo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const userPublicId = req.decodedUser?.publicId;
 
@@ -349,7 +356,25 @@ export class UserController {
 				return;
 			}
 
-			const command = new DeleteUserCommand(userPublicId);
+			const query = new GetAccountInfoQuery(userPublicId);
+			const result = await this.queryBus.execute<GetAccountInfoResult>(query);
+			res.status(200).json(result.accountInfo);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteMyAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const userPublicId = req.decodedUser?.publicId;
+			const { password } = req.body;
+
+			if (!userPublicId) {
+				res.status(401).json({ error: "Authentication required" });
+				return;
+			}
+
+			const command = new DeleteUserCommand(userPublicId, password);
 			await this.commandBus.dispatch(command);
 
 			res.clearCookie("token");
@@ -444,6 +469,22 @@ export class UserController {
 			const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
 
 			res.status(200).json(result);
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	getHandleSuggestions = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const queryValue = typeof req.query.q === "string" ? req.query.q : "";
+			const context = req.query.context as HandleSuggestionContext;
+			const limit = parseInt(req.query.limit as string) || 8;
+			const viewerPublicId = req.decodedUser?.publicId;
+
+			const query = new GetHandleSuggestionsQuery(queryValue, context, limit, viewerPublicId);
+			const result = await this.queryBus.execute<HandleSuggestionDTO[]>(query);
+
+			res.status(200).json({ users: result });
 		} catch (error) {
 			next(error);
 		}

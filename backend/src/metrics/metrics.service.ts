@@ -19,10 +19,14 @@ export class MetricsService {
 		this.registry = new client.Registry();
 		this.registry.setDefaultLabels({ service: "backend" });
 
-		client.collectDefaultMetrics({
-			register: this.registry,
-			eventLoopMonitoringPrecision: 10,
-		});
+		// prom-client starts an interval timer for default metrics collection
+		// which keeps the event loop alive and can make Mocha hang at the end of the suite
+		if (process.env.NODE_ENV !== "test") {
+			client.collectDefaultMetrics({
+				register: this.registry,
+				eventLoopMonitoringPrecision: 10,
+			});
+		}
 
 		this.httpDuration = new client.Histogram({
 			name: "http_request_duration_seconds",

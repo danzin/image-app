@@ -18,7 +18,7 @@ export const sendMessageSchema = z
 	.object({
 		conversationPublicId: z.string().uuid().optional(),
 		recipientPublicId: z.string().uuid().optional(),
-		body: z.string().trim().min(1).max(5000),
+		body: z.string().trim().max(5000).default(""),
 		attachments: z
 			.array(
 				z.object({
@@ -28,6 +28,7 @@ export const sendMessageSchema = z
 					thumbnailUrl: z.string().url().optional(),
 				})
 			)
+			.max(5, "Maximum of 5 attachments allowed")
 			.optional(),
 	})
 	.strict()
@@ -39,6 +40,19 @@ export const sendMessageSchema = z
 export const initiateConversationSchema = z
 	.object({
 		recipientPublicId: z.string().uuid("Invalid recipient public ID format."),
+	})
+	.strict()
+	.transform(sanitizeForMongo);
+
+export const messageParamsSchema = z
+	.object({
+		messageId: z.string().uuid("Invalid message ID format."),
+	})
+	.strict();
+
+export const editMessageSchema = z
+	.object({
+		body: z.string().trim().max(5000),
 	})
 	.strict()
 	.transform(sanitizeForMongo);

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from "react";
-import { Box, Avatar, TextField, Button, IconButton, Typography, Menu, MenuItem } from "@mui/material";
+import { Box, Avatar, Button, IconButton, Typography, Menu, MenuItem } from "@mui/material";
 import {
 	Image as ImageIcon,
 	Close as CloseIcon,
@@ -12,6 +12,7 @@ import { useUserCommunities } from "../hooks/communities/useCommunities";
 import { useTranslation } from "react-i18next";
 import { telemetry } from "../lib/telemetry";
 import { LoadingSpinner } from "./LoadingSpinner";
+import MentionInput from "./MentionInput";
 
 interface CreatePostProps {
 	onClose?: () => void; // optional callback when post is successfully created for usage in modal
@@ -34,7 +35,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 
 	// community selection state - null means personal post, string means community post
 	const [selectedCommunityPublicId, setSelectedCommunityPublicId] = useState<string | null>(
-		defaultCommunityPublicId || null
+		defaultCommunityPublicId || null,
 	);
 
 	// Audience selector menu state
@@ -170,7 +171,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 		}
 	};
 
-	const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.ctrlKey && e.key === "Enter" && !isDisabled) {
 			e.preventDefault();
 			handleUpload();
@@ -194,7 +195,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 						height: 40,
 					}}
 				/>
-				<Box sx={{ flex: 1 }}>
+				<Box sx={{ flex: 1, position: "relative" }}>
 					{/* Audience Selector Pill */}
 					<Button
 						onClick={handleAudienceClick}
@@ -269,31 +270,25 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 						)}
 					</Menu>
 
-					<TextField
+					<MentionInput
+						value={content}
+						onChange={setContent}
+						onKeyDown={handleKeyDown}
+						placeholder={t("post.placeholder")}
 						multiline
 						minRows={2}
-						placeholder={t("post.placeholder")}
-						value={content}
-						onChange={(e) => setContent(e.target.value)}
-						onKeyDown={handleKeyDown}
-						variant="standard"
-						fullWidth
-						InputProps={{
-							disableUnderline: true,
-							sx: {
-								fontSize: "1.25rem",
-								color: "text.primary",
-								"& textarea": {
-									"&::placeholder": {
-										color: "text.secondary",
-										opacity: 0.7,
-									},
-								},
-							},
-						}}
 						sx={{
-							"& .MuiInputBase-root": {
+							fontSize: "1.125rem",
+							lineHeight: 1.5,
+							border: "none",
+							backgroundColor: "transparent",
+							"&:hover": {
 								backgroundColor: "transparent",
+								borderColor: "transparent",
+							},
+							"&:focus-within": {
+								backgroundColor: "transparent",
+								borderColor: "transparent",
 							},
 						}}
 					/>

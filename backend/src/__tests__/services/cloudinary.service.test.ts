@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
 import { CloudinaryService } from "@/services/cloudinary.service";
-import { RetryService, RetryPresets } from "@/services/retry.service";
+import { RetryService } from "@/services/retry.service";
 
 describe("CloudinaryService", () => {
 	let cloudinaryService: CloudinaryService;

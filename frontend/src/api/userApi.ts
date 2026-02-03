@@ -4,8 +4,11 @@ import {
 	PublicUserDTO,
 	AuthenticatedUserDTO,
 	AdminUserDTO,
+	AccountInfoDTO,
 	WhoToFollowResponse,
 	IComment,
+	HandleSuggestionResponse,
+	HandleSuggestionContext,
 } from "../types";
 import axios, { AxiosError } from "axios";
 
@@ -150,8 +153,28 @@ export const changePasswordRequest = async (passwords: {
 	await axiosClient.put("/api/users/me/change-password", passwords);
 };
 
+export const fetchAccountInfo = async (): Promise<AccountInfoDTO> => {
+	const { data } = await axiosClient.get<AccountInfoDTO>("/api/users/me/account-info");
+	return data;
+};
+
+export const deleteAccountRequest = async (password: string): Promise<void> => {
+	await axiosClient.delete("/api/users/me", { data: { password } });
+};
+
 export const fetchWhoToFollow = async (limit: number = 5): Promise<WhoToFollowResponse> => {
 	const { data } = await axiosClient.get(`/api/users/suggestions/who-to-follow?limit=${limit}`);
+	return data;
+};
+
+export const fetchHandleSuggestions = async (
+	query: string,
+	context: HandleSuggestionContext,
+	limit: number = 8,
+): Promise<HandleSuggestionResponse> => {
+	const { data } = await axiosClient.get("/api/users/suggestions/handles", {
+		params: { q: query, context, limit },
+	});
 	return data;
 };
 

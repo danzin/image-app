@@ -34,6 +34,7 @@ describe("DTOService.toPostDTO", () => {
 
 		expect(dto.user).to.deep.equal({
 			publicId: "user-123",
+			handle: "",
 			username: "photoFan",
 			avatar: "avatar.png",
 		});
@@ -54,6 +55,7 @@ describe("DTOService.toPostDTO", () => {
 
 		expect(dto.user).to.deep.equal({
 			publicId: "author-456",
+			handle: "",
 			username: "snapName",
 			avatar: "snap.png",
 		});

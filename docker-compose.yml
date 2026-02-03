@@ -63,9 +63,9 @@ services:
     entrypoint: ["bash", "/rs-init/mongo-rs-init.sh"]
     restart: "no"
 
-  redis:
+  redis-service:
     image: redis:alpine
-    container_name: redis
+    container_name: redis-service
     ports:
       - "6379:6379"
     volumes:
@@ -91,9 +91,9 @@ services:
     environment: &backend-environment
       NODE_ENV: production
       MONGODB_URI: mongodb://root:secret@mongo:27017/PhotoAppOOP?authSource=admin&replicaSet=rs0
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://redis-service:6379
       JWT_SECRET: YourProductionJWTSecretGoesHere
-      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000,http://192.168.56.1:80
       COOKIE_SECURE: "false" # true in real production environment with HTTPS
       # Cloudinary credentials go here for production
       # CLOUDINARY_CLOUD_NAME: ...
@@ -104,7 +104,7 @@ services:
         condition: service_healthy
       mongo-rs-init:
         condition: service_completed_successfully
-      redis:
+      redis-service:
         condition: service_healthy
     networks:
       - app-network

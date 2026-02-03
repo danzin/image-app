@@ -26,6 +26,16 @@ export interface AuthenticatedUserDTO extends PublicUserDTO {
 	isEmailVerified: boolean;
 }
 
+export interface AccountInfoDTO {
+	publicId: string;
+	handle: string;
+	username: string;
+	email: string;
+	isEmailVerified: boolean;
+	createdAt: string;
+	registrationIp?: string;
+}
+
 export interface AdminUserDTO extends AuthenticatedUserDTO {
 	isAdmin: boolean;
 	isBanned: boolean;
@@ -403,6 +413,19 @@ export interface SuggestedUser {
 	totalLikes: number;
 	score: number;
 }
+
+export interface HandleSuggestion {
+	publicId: string;
+	handle: string;
+	username: string;
+	avatar: string;
+}
+
+export interface HandleSuggestionResponse {
+	users: HandleSuggestion[];
+}
+
+export type HandleSuggestionContext = "mention" | "search";
 
 export interface WhoToFollowResponse {
 	suggestions: SuggestedUser[];

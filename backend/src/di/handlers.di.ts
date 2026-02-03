@@ -11,8 +11,12 @@ import { GetDashboardStatsQuery } from "@/application/queries/admin/getDashboard
 import { GetDashboardStatsQueryHandler } from "@/application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { GetMeQueryHandler } from "@/application/queries/users/getMe/getMe.handler";
 import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
+import { GetAccountInfoQueryHandler } from "@/application/queries/users/getAccountInfo/getAccountInfo.handler";
+import { GetAccountInfoQuery } from "@/application/queries/users/getAccountInfo/getAccountInfo.query";
 import { GetWhoToFollowQueryHandler } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.handler";
 import { GetWhoToFollowQuery } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.query";
+import { GetHandleSuggestionsQueryHandler } from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.handler";
+import { GetHandleSuggestionsQuery } from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.query";
 import { GetTrendingTagsQueryHandler } from "@/application/queries/tags/getTrendingTags/getTrendingTags.handler";
 import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
@@ -35,7 +39,8 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
 import { LikeCommentCommandHandler } from "@/application/commands/comments/likeComment/like-comment.handler";
 import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
 import { MessageStatusUpdatedHandler as MessageStatusUpdatedEventHandler } from "@/application/events/message/message-status-updated.handler";
-import { MessageSentEvent, MessageStatusUpdatedEvent } from "@/application/events/message/message.event";
+import { MessageAttachmentsDeletedHandler } from "@/application/handlers/message/MessageAttachmentsDeletedHandler";
+import { MessageSentEvent, MessageStatusUpdatedEvent, MessageAttachmentsDeletedEvent } from "@/application/events/message/message.event";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { CreatePostCommand } from "@/application/commands/post/createPost/createPost.command";
@@ -205,6 +210,7 @@ export function registerCQRS(): void {
 	container.register("GetCommunityMembersQueryHandler", { useClass: GetCommunityMembersQueryHandler });
 
 	container.register("GetMeQueryHandler", { useClass: GetMeQueryHandler });
+	container.register("GetAccountInfoQueryHandler", { useClass: GetAccountInfoQueryHandler });
 	container.register("GetUserByPublicIdQueryHandler", { useClass: GetUserByPublicIdQueryHandler });
 	container.register("GetUserByHandleQueryHandler", { useClass: GetUserByHandleQueryHandler });
 	container.register("GetUsersQueryHandler", { useClass: GetUsersQueryHandler });
@@ -213,6 +219,7 @@ export function registerCQRS(): void {
 	container.register("GetFollowingQueryHandler", { useClass: GetFollowingQueryHandler });
 	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
+	container.register("GetHandleSuggestionsQueryHandler", { useClass: GetHandleSuggestionsQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 	container.register("GetPersonalizedFeedQueryHandler", { useClass: GetPersonalizedFeedQueryHandler });
 	container.register("GetForYouFeedQueryHandler", { useClass: GetForYouFeedQueryHandler });
@@ -235,6 +242,7 @@ export function registerCQRS(): void {
 	container.register("FeedInteractionHandler", { useClass: FeedInteractionHandler });
 	container.register("MessageSentHandler", { useClass: MessageSentHandler });
 	container.register("MessageStatusUpdatedEventHandler", { useClass: MessageStatusUpdatedEventHandler });
+	container.register("MessageAttachmentsDeletedHandler", { useClass: MessageAttachmentsDeletedHandler });
 	container.register("NotificationRequestedHandler", { useClass: NotificationRequestedHandler });
 }
 
@@ -314,16 +322,28 @@ export function initCQRS(): void {
 		container.resolve<MessageStatusUpdatedEventHandler>("MessageStatusUpdatedEventHandler"),
 	);
 	eventBus.subscribe(
+		MessageAttachmentsDeletedEvent,
+		container.resolve<MessageAttachmentsDeletedHandler>("MessageAttachmentsDeletedHandler"),
+	);
+	eventBus.subscribe(
 		NotificationRequestedEvent,
 		container.resolve<NotificationRequestedHandler>("NotificationRequestedHandler"),
 	);
 
 	queryBus.register(GetMeQuery, container.resolve<GetMeQueryHandler>("GetMeQueryHandler"));
 	queryBus.register(
+		GetAccountInfoQuery,
+		container.resolve<GetAccountInfoQueryHandler>("GetAccountInfoQueryHandler"),
+	);
+	queryBus.register(
 		GetDashboardStatsQuery,
 		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler"),
 	);
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
+	queryBus.register(
+		GetHandleSuggestionsQuery,
+		container.resolve<GetHandleSuggestionsQueryHandler>("GetHandleSuggestionsQueryHandler"),
+	);
 	queryBus.register(
 		GetTrendingTagsQuery,
 		container.resolve<GetTrendingTagsQueryHandler>("GetTrendingTagsQueryHandler"),

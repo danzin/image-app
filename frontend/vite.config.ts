@@ -27,6 +27,13 @@ export default defineConfig(({ mode }) => {
 					changeOrigin: true,
 					secure: false,
 				},
+				// forward socket.io
+				"/socket.io": {
+					target: "http://localhost:8000",
+					changeOrigin: true,
+					secure: false,
+					ws: true,
+				},
 			},
 		},
 	};

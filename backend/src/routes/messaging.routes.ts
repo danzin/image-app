@@ -3,11 +3,14 @@ import { inject, injectable } from "tsyringe";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { MessagingController } from "../controllers/messaging.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
+import upload from "../config/multer";
 import {
 	paginationSchema,
 	conversationParamsSchema,
 	initiateConversationSchema,
 	sendMessageSchema,
+	messageParamsSchema,
+	editMessageSchema,
 } from "@/utils/schemas/messaging.schemas";
 
 @injectable()
@@ -49,8 +52,23 @@ export class MessagingRoutes {
 
 		this.router.post(
 			"/messages",
+			upload.single("image"),
+			// Note: validation middleware for body might fail if multipart form data is used and body is not JSON. 
+			// Multer parses body. ValidationMiddleware should handle parsed body.
 			new ValidationMiddleware({ body: sendMessageSchema }).validate(),
 			this.messagingController.sendMessage
+		);
+
+		this.router.patch(
+			"/messages/:messageId",
+			new ValidationMiddleware({ params: messageParamsSchema, body: editMessageSchema }).validate(),
+			this.messagingController.editMessage
+		);
+
+		this.router.delete(
+			"/messages/:messageId",
+			new ValidationMiddleware({ params: messageParamsSchema }).validate(),
+			this.messagingController.deleteMessage
 		);
 	}
 

@@ -181,7 +181,7 @@ describe("CreatePostCommandHandler", () => {
 
 	describe("Execute Method", () => {
 		it("should throw error when userPublicId format is invalid", async () => {
-			const invalidCommand = new CreatePostCommand("invalid-user-id", "Test post", [], Buffer.from("test"), "test.jpg");
+			const invalidCommand = new CreatePostCommand("invalid-user-id", "Test post", [], "/uploads/test.jpg", "test.jpg");
 
 			await expect(handler.execute(invalidCommand)).to.be.rejectedWith("Invalid userPublicId format");
 		});

@@ -52,9 +52,6 @@ describe("TransactionQueueService", () => {
 		it("should respect priority", async () => {
 			const executionOrder: string[] = [];
 
-			// need to pause processing to queue up multiple items
-			transactionQueueService.stopProcessing();
-
 			const lowPriorityWork = async () => {
 				executionOrder.push("low");
 				return "low";
@@ -65,10 +62,13 @@ describe("TransactionQueueService", () => {
 				return "critical";
 			};
 
-			const p1 = transactionQueueService.enqueue(lowPriorityWork, { priority: "low" });
-			const p2 = transactionQueueService.enqueue(criticalPriorityWork, { priority: "critical" });
+			const [r1, r2] = await Promise.all([
+				transactionQueueService.enqueue(lowPriorityWork, { priority: "low" }),
+				transactionQueueService.enqueue(criticalPriorityWork, { priority: "critical" }),
+			]);
 
-			const clock = sinon.useFakeTimers();
+			expect([r1, r2].sort()).to.deep.equal(["critical", "low"]);
+			expect(executionOrder[0]).to.equal("critical");
 		});
 	});
 

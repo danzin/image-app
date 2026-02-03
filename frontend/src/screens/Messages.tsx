@@ -1,10 +1,11 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
 	Avatar,
 	Box,
 	Button,
 	CircularProgress,
+	Fab,
 	IconButton,
 	List,
 	ListItemAvatar,
@@ -16,6 +17,15 @@ import {
 	useMediaQuery,
 	useTheme,
 	alpha,
+	Menu,
+	MenuItem,
+	Dialog,
+	DialogTitle,
+	DialogContent,
+	DialogContentText,
+	DialogActions,
+	Input,
+	Badge,
 } from "@mui/material";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
@@ -26,18 +36,23 @@ import {
 	EmojiEmotions as EmojiEmotionsIcon,
 	CheckCircle as CheckCircleIcon,
 	Done as DoneIcon,
+	Delete as DeleteIcon,
+	Edit as EditIcon,
+	Cancel as CancelIcon,
+	Close as CloseIcon,
+	KeyboardArrowDown as KeyboardArrowDownIcon,
 } from "@mui/icons-material";
 import { useConversations } from "../hooks/messaging/useConversations";
 import { useConversationMessages } from "../hooks/messaging/useConversationMessages";
 import { useSendMessage } from "../hooks/messaging/useSendMessage";
 import { useMarkConversationRead } from "../hooks/messaging/useMarkConversationRead";
+import { useEditMessage } from "../hooks/messaging/useEditMessage";
+import { useDeleteMessage } from "../hooks/messaging/useDeleteMessage";
 import { useAuth } from "../hooks/context/useAuth";
 import { useSocket } from "../hooks/context/useSocket";
-import { useBottomNav } from "../context/BottomNav/BottomNavContext";
 import { ConversationSummaryDTO, MessageDTO } from "../types";
 
 const CONVERSATION_PANEL_WIDTH = 380;
-const BOTTOM_NAV_HEIGHT = 56;
 
 const formatTimestamp = (timestamp: string) => {
 	try {
@@ -53,19 +68,19 @@ const formatTimestamp = (timestamp: string) => {
 	}
 };
 
-	const getConversationTitle = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
-		if (conversation.title) {
-			return conversation.title;
-		}
+const getConversationTitle = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
+	if (conversation.title) {
+		return conversation.title;
+	}
 
-		const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
-		if (others.length === 0 && conversation.participants.length > 0) {
-			return conversation.participants[0].username;
-		}
+	const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
+	if (others.length === 0 && conversation.participants.length > 0) {
+		return conversation.participants[0].username;
+	}
 
-		const label = others.map((participant) => participant.username).join(", ");
-		return label || "Direct Message";
-	};
+	const label = others.map((participant) => participant.username).join(", ");
+	return label || "Direct Message";
+};
 
 const getOtherParticipant = (conversation: ConversationSummaryDTO, currentUserId?: string | null) => {
 	const others = conversation.participants.filter((participant) => participant.publicId !== currentUserId);
@@ -87,10 +102,21 @@ const Messages = () => {
 	const [draftBody, setDraftBody] = useState("");
 	const { user } = useAuth();
 	const socket = useSocket();
-	const { isVisible: isBottomNavVisible } = useBottomNav();
 	const messagesContainerRef = useRef<HTMLDivElement | null>(null);
-	const lastMessageCountRef = useRef<number>(0);
 	const markedAsReadRef = useRef<Set<string>>(new Set());
+	const fileInputRef = useRef<HTMLInputElement>(null);
+
+	const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+	const [selectedMessage, setSelectedMessage] = useState<MessageDTO | null>(null);
+	const [isEditing, setIsEditing] = useState(false);
+	const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
+	const [imageFile, setImageFile] = useState<File | null>(null);
+
+	// scroll position tracking for "new messages" indicator
+	const [isAtBottom, setIsAtBottom] = useState(true);
+	const [newMessageCount, setNewMessageCount] = useState(0);
+	const lastSeenMessageIdRef = useRef<string | null>(null);
+
 	const conversationsQuery = useConversations();
 
 	const conversations = useMemo(
@@ -151,71 +177,180 @@ const Messages = () => {
 		const pages = messagesQuery.data?.pages ?? [];
 		const flattened = pages.flatMap((page) => page.messages);
 		const sorted = [...flattened].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-		const startIndex = Math.max(sorted.length - 50, 0);
-		return sorted.slice(startIndex);
+		return sorted;
 	}, [messagesQuery.data?.pages]);
 
-	useEffect(() => {
-		if (!messagesContainerRef.current) return;
-		if (!selectedConversationId) return;
+	// get the last message id to track new messages
+	const lastMessageId = messages.length > 0 ? messages[messages.length - 1]?.publicId : null;
 
-		const currentCount = messages.length;
-		const shouldScroll = currentCount > lastMessageCountRef.current;
-		lastMessageCountRef.current = currentCount;
-
-		if (shouldScroll) {
-			messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: "smooth" });
+	// helper to scroll to bottom
+	const scrollToBottom = useCallback((behavior: ScrollBehavior = "auto") => {
+		if (messagesContainerRef.current) {
+			messagesContainerRef.current.scrollTo({
+				top: messagesContainerRef.current.scrollHeight,
+				behavior,
+			});
 		}
-	}, [messages, selectedConversationId]);
+	}, []);
 
-	useEffect(() => {
-		if (!messagesContainerRef.current) return;
-		requestAnimationFrame(() => {
-			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
-		});
-	}, [messages]);
+	// check if scroll is at bottom (within threshold)
+	const checkIfAtBottom = useCallback(() => {
+		if (!messagesContainerRef.current) return true;
+		const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+		const threshold = 100; // px from bottom to consider "at bottom"
+		return scrollHeight - scrollTop - clientHeight < threshold;
+	}, []);
 
+	// handle scroll events to track position
+	const handleScroll = useCallback(() => {
+		const atBottom = checkIfAtBottom();
+		setIsAtBottom(atBottom);
+		if (atBottom) {
+			setNewMessageCount(0);
+			lastSeenMessageIdRef.current = lastMessageId;
+		}
+	}, [checkIfAtBottom, lastMessageId]);
+
+	// scroll to bottom when conversation changes
 	useEffect(() => {
-		if (!messagesContainerRef.current) return;
 		if (!selectedConversationId) return;
-		requestAnimationFrame(() => {
-			messagesContainerRef.current?.scrollTo({ top: messagesContainerRef.current.scrollHeight });
-		});
-	}, [selectedConversationId]);
+		setNewMessageCount(0);
+		setIsAtBottom(true);
+		lastSeenMessageIdRef.current = null;
+		
+		const timeoutId = setTimeout(() => {
+			scrollToBottom();
+		}, 100);
+		
+		return () => clearTimeout(timeoutId);
+	}, [selectedConversationId, scrollToBottom]);
+
+	// handle new messages - only auto-scroll if already at bottom
+	useEffect(() => {
+		if (!lastMessageId || messages.length === 0) return;
+
+		// initial load - scroll to bottom
+		if (lastSeenMessageIdRef.current === null) {
+			lastSeenMessageIdRef.current = lastMessageId;
+			setTimeout(() => scrollToBottom(), 50);
+			return;
+		}
+
+		// new message arrived
+		if (lastSeenMessageIdRef.current !== lastMessageId) {
+			const lastMessage = messages[messages.length - 1];
+			const isOwnMessage = lastMessage?.sender?.publicId === user?.publicId;
+
+			if (isAtBottom || isOwnMessage) {
+				// at bottom or sent by user - scroll to bottom
+				lastSeenMessageIdRef.current = lastMessageId;
+				setTimeout(() => scrollToBottom("smooth"), 50);
+			} else {
+				// not at bottom - increment new message count
+				setNewMessageCount((prev) => prev + 1);
+			}
+		}
+	}, [lastMessageId, messages, isAtBottom, scrollToBottom, user?.publicId]);
+
+	// click handler for "new messages" button
+	const handleScrollToNewMessages = useCallback(() => {
+		scrollToBottom("smooth");
+		setNewMessageCount(0);
+		lastSeenMessageIdRef.current = lastMessageId;
+	}, [scrollToBottom, lastMessageId]);
 
 	const sendMessage = useSendMessage();
+	const editMessage = useEditMessage();
+	const deleteMessage = useDeleteMessage();
 
 	const handleSelectConversation = (conversationId: string) => {
 		navigate(`?conversation=${conversationId}`);
 	};
+
 	const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		if (!draftBody.trim() || !selectedConversationId) return;
+		if ((!draftBody.trim() && !imageFile) || !selectedConversationId) return;
 
-		await sendMessage.mutateAsync({
-			conversationPublicId: selectedConversationId,
-			body: draftBody.trim(),
-		});
+		if (isEditing && selectedMessage) {
+			await editMessage.mutateAsync({ messageId: selectedMessage.publicId, body: draftBody.trim() });
+			setIsEditing(false);
+			setSelectedMessage(null);
+		} else {
+			const payload = new FormData();
+			payload.append("conversationPublicId", selectedConversationId);
+			payload.append("body", draftBody.trim());
+			if (imageFile) {
+				payload.append("image", imageFile);
+			}
+
+			await sendMessage.mutateAsync(payload);
+		}
 
 		setDraftBody("");
-		requestAnimationFrame(() => {
-			if (messagesContainerRef.current) {
-				messagesContainerRef.current.scrollTo({
-					top: messagesContainerRef.current.scrollHeight,
-					behavior: "smooth",
-				});
-			}
-		});
+		setImageFile(null);
+		if (fileInputRef.current) fileInputRef.current.value = "";
 	};
 
 	const handleBackToList = () => {
 		navigate("/messages");
 	};
 
+	const handleMenuOpen = (event: React.MouseEvent<HTMLDivElement>, message: MessageDTO) => {
+		event.preventDefault();
+		if (message.sender.publicId !== user?.publicId) return;
+		setAnchorEl(event.currentTarget);
+		setSelectedMessage(message);
+	};
+
+	const handleMenuClose = () => {
+		setAnchorEl(null);
+		setSelectedMessage(null);
+	};
+
+	const handleEditStart = () => {
+		if (selectedMessage) {
+			setDraftBody(selectedMessage.body);
+			setIsEditing(true);
+		}
+		setAnchorEl(null);
+	};
+
+	const handleDeleteStart = () => {
+		setDeleteConfirmationOpen(true);
+		setAnchorEl(null);
+	};
+
+	const handleDeleteConfirm = async () => {
+		if (selectedMessage && selectedConversationId) {
+			await deleteMessage.mutateAsync({
+				messageId: selectedMessage.publicId,
+				conversationId: selectedConversationId,
+			});
+		}
+		setDeleteConfirmationOpen(false);
+		setSelectedMessage(null);
+	};
+
+	const handleCancelEdit = () => {
+		setIsEditing(false);
+		setDraftBody("");
+		setSelectedMessage(null);
+	};
+
+	const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+		if (event.target.files && event.target.files[0]) {
+			setImageFile(event.target.files[0]);
+		}
+	};
+
+	const handleRemoveImage = () => {
+		setImageFile(null);
+		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
 	const renderMessageBubble = (message: MessageDTO) => {
 		const isOwnMessage = message.sender.publicId === user?.publicId;
-		const statusLabel =
-			message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "Sent";
+		const statusLabel = message.status === "read" ? "Read" : message.status === "delivered" ? "Delivered" : "Sent";
 		const statusColor = message.status === "read" ? "primary.main" : "text.secondary";
 		const statusIcon =
 			message.status === "read" ? (
@@ -223,6 +358,10 @@ const Messages = () => {
 			) : (
 				<DoneIcon sx={{ fontSize: 12, color: statusColor }} />
 			);
+
+		const hasImage = message.attachments && message.attachments.length > 0 && message.attachments[0].type === "image";
+		const hasText = message.body && message.body.trim().length > 0;
+
 		return (
 			<Box
 				key={message.publicId}
@@ -234,42 +373,128 @@ const Messages = () => {
 					maxWidth: "100%",
 				}}
 			>
-				<Box
-					sx={{
-						maxWidth: "70%",
-						px: 2,
-						py: 1.5,
-						borderRadius: isOwnMessage ? "22px 22px 4px 22px" : "22px 22px 22px 4px",
-						bgcolor: isOwnMessage ? "primary.main" : alpha(theme.palette.text.primary, 0.05),
-						color: isOwnMessage ? "#fff" : "text.primary",
-						position: "relative",
-						wordBreak: "break-word",
-						boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-					}}
-				>
-					<Typography variant="body1" sx={{ fontSize: "0.95rem", lineHeight: 1.5 }}>
-						{message.body}
-					</Typography>
-				</Box>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, px: 1 }}>
-					<Typography
-						variant="caption"
+				{/* Image Only Message */}
+				{hasImage && !hasText ? (
+					<Box
+						onContextMenu={(e) => handleMenuOpen(e, message)}
 						sx={{
-							color: "text.secondary",
-							fontSize: "0.75rem",
+							position: "relative",
+							maxWidth: "70%",
+							cursor: isOwnMessage ? "pointer" : "default",
 						}}
 					>
-						{formatTimestamp(message.createdAt)}
-					</Typography>
-					{isOwnMessage && statusLabel && (
-						<Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
-							{statusIcon}
-							<Typography variant="caption" sx={{ fontSize: "0.7rem", color: statusColor }}>
-								{statusLabel}
+						<Box
+							component="img"
+							src={message.attachments![0].url}
+							alt="attachment"
+							sx={{
+								maxWidth: "100%",
+								maxHeight: 300,
+								borderRadius: 4,
+								display: "block",
+								boxShadow: 2,
+							}}
+						/>
+						{/* Timestamp overlay for image-only */}
+						<Box
+							sx={{
+								position: "absolute",
+								bottom: 8,
+								right: 8,
+								bgcolor: "rgba(0,0,0,0.5)",
+								borderRadius: 2,
+								px: 0.75,
+								py: 0.25,
+								display: "flex",
+								alignItems: "center",
+								gap: 0.5,
+								backdropFilter: "blur(2px)",
+							}}
+						>
+							<Typography variant="caption" sx={{ color: "white", fontSize: "0.7rem", fontWeight: 500 }}>
+								{formatTimestamp(message.createdAt)}
+							</Typography>
+							{isOwnMessage && statusLabel && (
+								<Box sx={{ display: "flex", alignItems: "center" }}>
+									{message.status === "read" ? (
+										<CheckCircleIcon sx={{ fontSize: 10, color: "white" }} />
+									) : (
+										<DoneIcon sx={{ fontSize: 10, color: "white" }} />
+									)}
+								</Box>
+							)}
+						</Box>
+					</Box>
+				) : (
+					/* Text (with optional Image) Message */
+					<>
+						<Box
+							onContextMenu={(e) => handleMenuOpen(e, message)}
+							sx={{
+								maxWidth: "70%",
+								px: 2,
+								py: 1.5,
+								borderRadius: isOwnMessage ? "22px 22px 4px 22px" : "22px 22px 22px 4px",
+								bgcolor: isOwnMessage ? "primary.main" : alpha(theme.palette.text.primary, 0.05),
+								color: isOwnMessage ? "#fff" : "text.primary",
+								position: "relative",
+								wordBreak: "break-word",
+								boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+								cursor: isOwnMessage ? "pointer" : "default",
+							}}
+						>
+							{hasImage && (
+								<Box
+									component="img"
+									src={message.attachments![0].url}
+									alt="attachment"
+									sx={{
+										maxWidth: "100%",
+										maxHeight: 200,
+										borderRadius: 2,
+										mb: 1,
+										display: "block",
+									}}
+								/>
+							)}
+							<Typography
+								variant="body1"
+								sx={{
+									fontSize: "0.95rem",
+									lineHeight: 1.5,
+									fontStyle: message.body === "message delete by user" ? "italic" : "normal",
+									color:
+										message.body === "message delete by user"
+											? isOwnMessage
+												? "rgba(255,255,255,0.7)"
+												: "text.secondary"
+											: "inherit",
+								}}
+							>
+								{message.body}
 							</Typography>
 						</Box>
-					)}
-				</Box>
+						<Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, px: 1 }}>
+							<Typography
+								variant="caption"
+								sx={{
+									color: "text.secondary",
+									fontSize: "0.75rem",
+								}}
+							>
+								{formatTimestamp(message.createdAt)}
+							</Typography>
+							{isOwnMessage && statusLabel && (
+								<Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
+									{statusIcon}
+									<Typography variant="caption" sx={{ fontSize: "0.7rem", color: statusColor }}>
+										{statusLabel}
+									</Typography>
+								</Box>
+							)}
+						</Box>
+					</>
+				)}
 			</Box>
 		);
 	};
@@ -278,32 +503,10 @@ const Messages = () => {
 		<Box
 			sx={{
 				display: "flex",
-				// use dvh (dynamic viewport height) for mobile browsers with address bars
-				// fallback to vh for older browsers
-				// adjust height based on bottom nav visibility on mobile
-				height: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				maxHeight: {
-					xs: isBottomNavVisible ? `calc(100dvh - ${BOTTOM_NAV_HEIGHT}px)` : "100dvh",
-					md: "100dvh",
-				},
-				// fallback for browsers that don't support dvh
-				"@supports not (height: 100dvh)": {
-					height: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-					maxHeight: {
-						xs: isBottomNavVisible ? `calc(100vh - ${BOTTOM_NAV_HEIGHT}px)` : "100vh",
-						md: "100vh",
-					},
-				},
+				height: "100%",
+				maxHeight: "100%",
 				overflow: "hidden",
 				bgcolor: "background.default",
-				// smooth transition when bottom nav hides/shows
-				transition: "height 0.25s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
 			}}
 		>
 			{/* Conversation List */}
@@ -375,11 +578,11 @@ const Messages = () => {
 														<Typography variant="subtitle1" fontWeight={700} noWrap>
 															{title}
 														</Typography>
-												{otherParticipant?.handle && (
-													<Typography variant="body2" color="text.secondary" noWrap>
-														@{otherParticipant.handle}
-													</Typography>
-												)}
+														{otherParticipant?.handle && (
+															<Typography variant="body2" color="text.secondary" noWrap>
+																@{otherParticipant.handle}
+															</Typography>
+														)}
 													</Box>
 													<Typography variant="caption" color="text.secondary" sx={{ ml: 1, whiteSpace: "nowrap" }}>
 														{conversation.lastMessageAt ? formatTimestamp(conversation.lastMessageAt) : ""}
@@ -414,6 +617,7 @@ const Messages = () => {
 					flexDirection: "column",
 					height: "100%",
 					bgcolor: "background.default",
+					position: "relative",
 				}}
 			>
 				{!selectedConversationId ? (
@@ -497,6 +701,7 @@ const Messages = () => {
 						{/* Messages Area */}
 						<Box
 							ref={messagesContainerRef}
+							onScroll={handleScroll}
 							sx={{
 								flex: 1,
 								overflowY: "auto",
@@ -526,6 +731,33 @@ const Messages = () => {
 							)}
 						</Box>
 
+						{/* New Messages Indicator */}
+						{newMessageCount > 0 && (
+							<Fab
+								size="small"
+								color="primary"
+								onClick={handleScrollToNewMessages}
+								sx={{
+									position: "absolute",
+									bottom: 100,
+									left: "50%",
+									transform: "translateX(-50%)",
+									zIndex: 10,
+									minWidth: "auto",
+									px: 2,
+									borderRadius: 4,
+								}}
+							>
+								<Badge
+									badgeContent={newMessageCount}
+									color="error"
+									sx={{ "& .MuiBadge-badge": { right: -8, top: -4 } }}
+								>
+									<KeyboardArrowDownIcon />
+								</Badge>
+							</Fab>
+						)}
+
 						{/* Input Area */}
 						<Box
 							component="form"
@@ -536,6 +768,51 @@ const Messages = () => {
 								bgcolor: "background.default",
 							}}
 						>
+							{/* Image Preview */}
+							{imageFile && (
+								<Box sx={{ display: "flex", alignItems: "center", mb: 1, gap: 1 }}>
+									<Box sx={{ position: "relative" }}>
+										<Box
+											component="img"
+											src={URL.createObjectURL(imageFile)}
+											sx={{ width: 50, height: 50, borderRadius: 1, objectFit: "cover" }}
+										/>
+										<IconButton
+											size="small"
+											onClick={handleRemoveImage}
+											sx={{
+												position: "absolute",
+												top: -5,
+												right: -5,
+												bgcolor: "background.paper",
+												boxShadow: 1,
+												width: 18,
+												height: 18,
+												"&:hover": { bgcolor: "error.light", color: "white" },
+											}}
+										>
+											<CloseIcon sx={{ fontSize: 12 }} />
+										</IconButton>
+									</Box>
+									<Typography variant="caption" noWrap sx={{ maxWidth: 200 }}>
+										{imageFile.name}
+									</Typography>
+								</Box>
+							)}
+
+							{/* Edit Mode Indicator */}
+							{isEditing && (
+								<Box sx={{ display: "flex", alignItems: "center", mb: 1, gap: 1, px: 1 }}>
+									<EditIcon color="primary" fontSize="small" />
+									<Typography variant="body2" color="primary" sx={{ flex: 1 }}>
+										Editing message
+									</Typography>
+									<IconButton size="small" onClick={handleCancelEdit}>
+										<CancelIcon fontSize="small" />
+									</IconButton>
+								</Box>
+							)}
+
 							<Paper
 								elevation={0}
 								sx={{
@@ -547,7 +824,19 @@ const Messages = () => {
 									bgcolor: alpha(theme.palette.text.primary, 0.05),
 								}}
 							>
-								<IconButton size="small" color="primary">
+								<Input
+									type="file"
+									inputRef={fileInputRef}
+									onChange={handleImageSelect}
+									sx={{ display: "none" }}
+									inputProps={{ accept: "image/*" }}
+								/>
+								<IconButton
+									size="small"
+									color="primary"
+									onClick={() => fileInputRef.current?.click()}
+									disabled={isEditing}
+								>
 									<ImageIcon />
 								</IconButton>
 								<IconButton size="small" color="primary">
@@ -575,9 +864,9 @@ const Messages = () => {
 								<IconButton
 									type="submit"
 									color="primary"
-									disabled={!draftBody.trim() || sendMessage.isPending}
+									disabled={(!draftBody.trim() && !imageFile) || sendMessage.isPending || editMessage.isPending}
 									sx={{
-										opacity: draftBody.trim() ? 1 : 0.5,
+										opacity: draftBody.trim() || imageFile ? 1 : 0.5,
 									}}
 								>
 									<SendRoundedIcon />
@@ -587,6 +876,46 @@ const Messages = () => {
 					</>
 				)}
 			</Box>
+
+			{/* Message Options Menu */}
+			<Menu
+				anchorEl={anchorEl}
+				open={Boolean(anchorEl)}
+				onClose={handleMenuClose}
+				anchorOrigin={{
+					vertical: "center",
+					horizontal: "center",
+				}}
+				transformOrigin={{
+					vertical: "center",
+					horizontal: "center",
+				}}
+			>
+				<MenuItem onClick={handleEditStart}>
+					<EditIcon fontSize="small" sx={{ mr: 1 }} />
+					Edit
+				</MenuItem>
+				<MenuItem onClick={handleDeleteStart} sx={{ color: "error.main" }}>
+					<DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+					Delete
+				</MenuItem>
+			</Menu>
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog open={deleteConfirmationOpen} onClose={() => setDeleteConfirmationOpen(false)}>
+				<DialogTitle>Delete Message?</DialogTitle>
+				<DialogContent>
+					<DialogContentText>
+						Are you sure you want to delete this message? This action cannot be undone.
+					</DialogContentText>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setDeleteConfirmationOpen(false)}>Cancel</Button>
+					<Button onClick={handleDeleteConfirm} color="error" autoFocus>
+						Delete
+					</Button>
+				</DialogActions>
+			</Dialog>
 		</Box>
 	);
 };

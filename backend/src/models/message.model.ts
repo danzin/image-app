@@ -23,7 +23,8 @@ const messageSchema = new Schema<IMessage>(
 		},
 		body: {
 			type: String,
-			required: true,
+			required: false,
+			default: "",
 			trim: true,
 		},
 		attachments: [

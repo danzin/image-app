@@ -18,15 +18,35 @@ export class LocalStorageService implements IImageStorageService {
 		logger.info("LocalStorageService: Uploads directory path inside container:", { uploadsDir: this.uploadsDir });
 	}
 
-	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
+	async uploadImage(filePath: string, userId: string, folder?: string): Promise<{ url: string; publicId: string }> {
 		try {
 			const safeUserId = this.validateUserId(userId);
 
 			const filename = `${uuidv4()}.png`;
 			logger.info("UserID in local storage service:", { safeUserId });
 
-			// Safely join paths with traversal protection
-			const userDir = this.safeJoin(this.uploadsDir, safeUserId);
+			let userDir = this.safeJoin(this.uploadsDir, safeUserId);
+			let urlPrefix = `/uploads/${safeUserId}`;
+			let publicIdPrefix = safeUserId;
+
+			if (folder) {
+				// Sanitize folder to avoid traversal
+				const safeFolder = folder
+					.split("/")
+					.filter(Boolean)
+					.map((s) => {
+						// only allow alphanumeric and hyphens for folder names
+						return s.replace(/[^a-z0-9-]/gi, "");
+					})
+					.join("/");
+
+				if (safeFolder) {
+					userDir = this.safeJoin(this.uploadsDir, safeFolder);
+					urlPrefix = `/uploads/${safeFolder}`;
+					publicIdPrefix = safeFolder;
+				}
+			}
+
 			const destFilepath = this.safeJoin(userDir, filename);
 
 			if (!fs.existsSync(userDir)) {
@@ -36,10 +56,10 @@ export class LocalStorageService implements IImageStorageService {
 			// Copy instead of rename so retries can re-read the temp file if a transaction retries
 			await fs.promises.copyFile(filePath, destFilepath);
 
-			const url = `/uploads/${safeUserId}/${filename}`;
+			const url = `${urlPrefix}/${filename}`;
 
-			// Return composite publicId (userId/filename) to enable O(1) deletion later
-			return { url, publicId: `${safeUserId}/${filename}` };
+			// Return composite publicId to enable O(1) deletion later
+			return { url, publicId: `${publicIdPrefix}/${filename}` };
 		} catch (error) {
 			logger.error("Failed to upload image", { error });
 			if (error instanceof Error) {

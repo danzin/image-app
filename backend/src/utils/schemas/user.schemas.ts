@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { sanitizeForMongo } from "@/utils/sanitizers";
+import { sanitizeForMongo, sanitizeTextInput } from "@/utils/sanitizers";
 
 export const publicIdSchema = z
 	.object({
@@ -26,6 +26,20 @@ export const handleSchema = z
 			.max(16),
 	})
 	.strict();
+
+export const handleSuggestionsSchema = z
+	.object({
+		q: z
+			.string()
+			.trim()
+			.min(3, "Query must be at least 3 characters.")
+			.max(30)
+			.transform((value) => sanitizeTextInput(value, 30)),
+		context: z.enum(["mention", "search"]),
+		limit: z.coerce.number().int().positive().max(20).optional().default(8),
+	})
+	.strict()
+	.transform(sanitizeForMongo);
 
 export const registrationSchema = z
 	.object({
@@ -77,6 +91,13 @@ export const changePasswordSchema = z
 	.object({
 		currentPassword: z.string(),
 		newPassword: z.string().min(8),
+	})
+	.strict()
+	.transform(sanitizeForMongo);
+
+export const deleteAccountSchema = z
+	.object({
+		password: z.string().min(1, "Password is required"),
 	})
 	.strict()
 	.transform(sanitizeForMongo);

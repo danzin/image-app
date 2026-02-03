@@ -61,12 +61,12 @@ export class CloudinaryService implements IImageStorageService {
 		return retryablePatterns.some((p) => message.includes(p));
 	}
 
-	async uploadImage(filePath: string, userId: string): Promise<{ url: string; publicId: string }> {
+	async uploadImage(filePath: string, userId: string, folder?: string): Promise<{ url: string; publicId: string }> {
 		try {
 			return await this.retryService.execute(
 				() =>
 					new Promise((resolve, reject) => {
-						const uploadStream = cloudinary.uploader.upload_stream({ folder: userId }, (error, result) => {
+						const uploadStream = cloudinary.uploader.upload_stream({ folder: folder || userId }, (error, result) => {
 							if (error) {
 								const errorName = error.name || "StorageError";
 								const errorMessage = error.message || "Error uploading image";
