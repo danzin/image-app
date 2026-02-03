@@ -14,6 +14,13 @@ export interface PublicUserDTO {
 	followingCount: number;
 }
 
+export interface HandleSuggestionDTO {
+	publicId: string;
+	handle: string;
+	username: string;
+	avatar: string;
+}
+
 export interface AuthenticatedUserDTO extends PublicUserDTO {
 	email: string;
 	isEmailVerified: boolean;
@@ -275,6 +282,16 @@ export class DTOService {
 			postCount: this.resolvePostCount(user),
 			followerCount: this.resolveFollowerCount(user),
 			followingCount: this.resolveFollowingCount(user),
+		};
+	}
+
+	toHandleSuggestionDTO(user: IUser): HandleSuggestionDTO {
+		const source = user?.toObject ? user.toObject() : user;
+		return {
+			publicId: this.pickString(source?.publicId),
+			handle: this.pickString(source?.handle),
+			username: this.pickString(source?.username),
+			avatar: this.pickString(source?.avatar),
 		};
 	}
 

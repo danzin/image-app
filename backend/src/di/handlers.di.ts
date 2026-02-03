@@ -13,6 +13,8 @@ import { GetMeQueryHandler } from "@/application/queries/users/getMe/getMe.handl
 import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
 import { GetWhoToFollowQueryHandler } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.handler";
 import { GetWhoToFollowQuery } from "@/application/queries/users/getWhoToFollow/getWhoToFollow.query";
+import { GetHandleSuggestionsQueryHandler } from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.handler";
+import { GetHandleSuggestionsQuery } from "@/application/queries/users/getHandleSuggestions/getHandleSuggestions.query";
 import { GetTrendingTagsQueryHandler } from "@/application/queries/tags/getTrendingTags/getTrendingTags.handler";
 import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
@@ -213,6 +215,7 @@ export function registerCQRS(): void {
 	container.register("GetFollowingQueryHandler", { useClass: GetFollowingQueryHandler });
 	container.register("GetDashboardStatsQueryHandler", { useClass: GetDashboardStatsQueryHandler });
 	container.register("GetWhoToFollowQueryHandler", { useClass: GetWhoToFollowQueryHandler });
+	container.register("GetHandleSuggestionsQueryHandler", { useClass: GetHandleSuggestionsQueryHandler });
 	container.register("GetTrendingTagsQueryHandler", { useClass: GetTrendingTagsQueryHandler });
 	container.register("GetPersonalizedFeedQueryHandler", { useClass: GetPersonalizedFeedQueryHandler });
 	container.register("GetForYouFeedQueryHandler", { useClass: GetForYouFeedQueryHandler });
@@ -324,6 +327,10 @@ export function initCQRS(): void {
 		container.resolve<GetDashboardStatsQueryHandler>("GetDashboardStatsQueryHandler"),
 	);
 	queryBus.register(GetWhoToFollowQuery, container.resolve<GetWhoToFollowQueryHandler>("GetWhoToFollowQueryHandler"));
+	queryBus.register(
+		GetHandleSuggestionsQuery,
+		container.resolve<GetHandleSuggestionsQueryHandler>("GetHandleSuggestionsQueryHandler"),
+	);
 	queryBus.register(
 		GetTrendingTagsQuery,
 		container.resolve<GetTrendingTagsQueryHandler>("GetTrendingTagsQueryHandler"),

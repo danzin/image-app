@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Box, TextField, Button, Avatar, Stack } from "@mui/material";
+import { Box, Button, Avatar, Stack } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import { useAuth } from "../../hooks/context/useAuth";
 import { useCreateComment } from "../../hooks/comments/useComments";
+import MentionInput from "../MentionInput";
 
 interface CommentFormProps {
 	postId: string;
@@ -49,18 +50,15 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
 				</Avatar>
 
 				<Box sx={{ flex: 1 }}>
-					<TextField
-						fullWidth
-						multiline
-						maxRows={4}
+					<MentionInput
 						value={content}
-						onChange={(e) => setContent(e.target.value)}
+						onChange={setContent}
 						onKeyDown={handleKeyDown}
 						placeholder="Write a comment..."
-						variant="outlined"
-						size="small"
-						inputProps={{ maxLength: 500 }}
+						multiline
+						maxRows={4}
 						disabled={createCommentMutation.isPending}
+						sx={{ width: "100%" }}
 					/>
 
 					<Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>

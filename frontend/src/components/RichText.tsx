@@ -17,7 +17,7 @@ const RichText: React.FC<RichTextProps> = ({
 	text,
 	className = "",
 	hashtagClassName = "text-accent hover:text-accent-hover cursor-pointer font-bold hover:underline",
-	mentionClassName = "text-accent hover:text-accent-hover cursor-pointer font-bold hover:underline",
+	mentionClassName = "text-accent cursor-pointer font-bold hover:underline",
 }) => {
 	const navigate = useNavigate();
 
@@ -97,7 +97,7 @@ const RichText: React.FC<RichTextProps> = ({
 		return parts;
 	};
 
-	return <p className={`whitespace-pre-wrap break-words ${className}`}>{renderContent()}</p>;
+	return <span className={`whitespace-pre-wrap break-words ${className}`}>{renderContent()}</span>;
 };
 
 export default RichText;

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Box, InputBase, alpha, useTheme } from "@mui/material";
+import { Box, alpha, useTheme } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTranslation } from "react-i18next";
+import MentionInput from "./MentionInput";
 
 const SearchBox: React.FC = () => {
 	const { t } = useTranslation();
@@ -33,13 +34,14 @@ const SearchBox: React.FC = () => {
 				},
 				width: "100%",
 				transition: "all 0.2s ease",
+				display: "flex",
+				alignItems: "center",
 			}}
 		>
 			<Box
 				sx={{
 					padding: theme.spacing(0, 2),
 					height: "100%",
-					position: "absolute",
 					pointerEvents: "none",
 					display: "flex",
 					alignItems: "center",
@@ -52,20 +54,23 @@ const SearchBox: React.FC = () => {
 					}}
 				/>
 			</Box>
-			<InputBase
-				placeholder={t("nav.search_placeholder")}
+			<MentionInput
 				value={searchTerm}
-				onChange={(e) => setSearchTerm(e.target.value)}
+				onChange={setSearchTerm}
+				context="search"
+				placeholder={t("nav.search_placeholder")}
 				onFocus={() => setIsFocused(true)}
 				onBlur={() => setIsFocused(false)}
-				inputProps={{ "aria-label": "search" }}
 				sx={{
-					color: "inherit",
-					width: "100%",
+					flex: 1,
+					fontSize: "0.95rem",
+					lineHeight: 1.5,
+					border: "none",
+					backgroundColor: "transparent",
+					"&:hover": { backgroundColor: "transparent" },
+					"&:focus-within": { backgroundColor: "transparent" },
 					"& .MuiInputBase-input": {
 						padding: theme.spacing(1.5, 1, 1.5, 0),
-						paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-						fontSize: "0.95rem",
 					},
 				}}
 			/>
