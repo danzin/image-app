@@ -122,8 +122,12 @@ export const useFeedSocketIntegration = () => {
 			if (currentUser?.publicId === data.userId) {
 				queryClient.invalidateQueries({ queryKey: ["currentUser"] });
 			}
+			
+			// Invalidate all user queries to ensure any view (by handle or ID) gets updated
+			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["user", data.userId] });
 			queryClient.invalidateQueries({ queryKey: ["user", "publicId", data.userId] });
+			
 			queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
 			queryClient.invalidateQueries({ queryKey: ["trendingFeed"] });

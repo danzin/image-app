@@ -92,13 +92,6 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				// get users that were following the deleted user (they need followingCount decremented)
 				const followerIds = await this.followRepository.getFollowerObjectIds(userId);
 
-				// delete all user-related cloud storage assets first (outside transaction)
-				// this includes images, avatars, covers, etc.
-				const cloudResult = await this.imageStorageService.deleteMany(user.publicId);
-				if (cloudResult.result !== "ok") {
-					console.warn("Failed to delete cloud assets:", cloudResult.message);
-				}
-
 				// delete all user relationships and content in proper order
 				await this.commentRepository.deleteCommentsByUserId(userId, session);
 
@@ -151,6 +144,17 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				// finally, delete the user
 				await this.userWriteRepository.delete(userId, session);
 			});
+
+			// delete all user-related cloud storage assets (after successful transaction commit)
+			// this includes images, avatars, covers, etc.
+			try {
+				const cloudResult = await this.imageStorageService.deleteMany(userPublicId);
+				if (cloudResult.result !== "ok") {
+					console.warn("Failed to delete cloud assets:", cloudResult.message);
+				}
+			} catch (cloudError) {
+				console.warn("Error during cloud assets deletion:", cloudError);
+			}
 
 			// emit event after successful deletion to trigger cache cleanup
 			await this.eventBus.publish(new UserDeletedEvent(userPublicId, userId, followerPublicIds));
