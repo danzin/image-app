@@ -149,7 +149,11 @@ export const useUpdateUserAvatar = () => {
 			queryClient.setQueryData(["user", data.publicId], data);
 			queryClient.setQueryData(["user", "publicId", data.publicId], data);
 			queryClient.setQueryData(["user", "handle", data.handle], data);
+			queryClient.setQueryData(["user", data.handle], data);
 
+			// Invalidate all user-related queries to ensure consistency across the app
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},
 		onError(error) {
@@ -167,7 +171,11 @@ export const useUpdateUserCover = () => {
 			queryClient.setQueryData(["user", data.publicId], data);
 			queryClient.setQueryData(["user", "publicId", data.publicId], data);
 			queryClient.setQueryData(["user", "handle", data.handle], data);
+			queryClient.setQueryData(["user", data.handle], data);
 
+			// Invalidate all user-related queries to ensure consistency across the app
+			queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+			queryClient.invalidateQueries({ queryKey: ["user"] });
 			queryClient.invalidateQueries({ queryKey: ["userPosts", data.publicId] });
 		},
 		onError: (error) => {
@@ -186,6 +194,10 @@ export const useEditUser = () => {
 			console.log("User updated successfully:", data);
 
 			queryClient.setQueryData(["currentUser"], data);
+			queryClient.setQueryData(["user", data.publicId], data);
+			queryClient.setQueryData(["user", "publicId", data.publicId], data);
+			queryClient.setQueryData(["user", "handle", data.handle], data);
+			queryClient.setQueryData(["user", data.handle], data);
 
 			// Invalidate all user  queries
 			queryClient.invalidateQueries({
