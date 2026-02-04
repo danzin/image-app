@@ -93,7 +93,7 @@ export class CloudinaryService implements IImageStorageService {
 				{
 					...RetryPresets.externalApi(),
 					shouldRetry: (err) => this.isCloudinaryRetryable(err),
-				}
+				},
 			);
 		} finally {
 			await fs.promises.unlink(filePath).catch((err) => {
@@ -124,7 +124,7 @@ export class CloudinaryService implements IImageStorageService {
 			{
 				...RetryPresets.externalApi(),
 				shouldRetry: (err) => this.isCloudinaryRetryable(err),
-			}
+			},
 		);
 	}
 
@@ -137,7 +137,7 @@ export class CloudinaryService implements IImageStorageService {
 			{
 				...RetryPresets.externalApi(),
 				shouldRetry: (err) => this.isCloudinaryRetryable(err),
-			}
+			},
 		);
 	}
 
@@ -146,18 +146,52 @@ export class CloudinaryService implements IImageStorageService {
 		return this.retryService
 			.execute(
 				async () => {
+					// Delete all resources in the folder first (handles all resources in subfolders too)
 					const result = await cloudinary.api.delete_resources_by_prefix(username);
+
+					// After resources are deleted, we need to delete subfolders and the main folder
+					await this.deleteFolderRecursive(username);
+
 					return this.processDeleteResponse(result);
 				},
 				{
 					...RetryPresets.externalApi(),
 					shouldRetry: (err) => this.isCloudinaryRetryable(err),
-				}
+				},
 			)
 			.catch((error) => ({
 				result: "error" as const,
 				message: error instanceof Error ? error.message : "Error deleting cloudinary resources",
 			}));
+	}
+
+	/**
+	 * Recursively deletes Cloudinary folders.
+	 * Folders must be empty of assets before they can be deleted.
+	 */
+	private async deleteFolderRecursive(folderPath: string): Promise<void> {
+		try {
+			// Get subfolders of the current folder
+			const { folders } = (await cloudinary.api.sub_folders(folderPath)) as { folders: { path: string }[] };
+
+			// Recursively delete subfolders first (bottom-up)
+			for (const folder of folders) {
+				await this.deleteFolderRecursive(folder.path);
+			}
+
+			// Delete the current folder
+			await cloudinary.api.delete_folder(folderPath);
+			logger.info("Successfully deleted Cloudinary folder", { folder: folderPath });
+		} catch (error: any) {
+			// If folder doesn't exist (404), that's fine.
+			// If it's not empty (e.g. more than 1000 resources or other resource types), it will fail here.
+			if (error?.http_code !== 404) {
+				logger.warn("Cloudinary folder deletion skipped or failed", {
+					folder: folderPath,
+					error: error?.message || String(error),
+				});
+			}
+		}
 	}
 
 	/**
