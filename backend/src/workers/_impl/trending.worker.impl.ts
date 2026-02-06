@@ -64,6 +64,9 @@ export class TrendingWorker {
 		// expose typed client instance for read operations (xReadGroup)
 		this.redisClient = this.redisService.clientInstance;
 
+		// ensure redis is connected before creating group or starting read loop
+		await this.redisService.waitForConnection();
+
 		// create group via helper (MKSTREAM)
 		await this.redisService.createStreamConsumerGroup(this.STREAM, this.GROUP);
 		logger.info(`[trending] ensured consumer group ${this.GROUP} on ${this.STREAM}`);
@@ -130,7 +133,9 @@ export class TrendingWorker {
 					}
 				}
 			} catch (err) {
-				logger.error("[trending] readLoop error", { error: err });
+				const errorMessage = err instanceof Error ? err.message : String(err);
+				const errorStack = err instanceof Error ? err.stack : undefined;
+				logger.error("[trending] readLoop error", { message: errorMessage, stack: errorStack });
 				await this.sleep(1000);
 			}
 		}
@@ -287,7 +292,9 @@ export class TrendingWorker {
 				}
 			}
 		} catch (err) {
-			logger.error("[trending] reclaimStalledMessages failed", { error: err });
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			const errorStack = err instanceof Error ? err.stack : undefined;
+			logger.error("[trending] reclaimStalledMessages failed", { message: errorMessage, stack: errorStack });
 		}
 	}
 

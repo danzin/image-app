@@ -88,6 +88,18 @@ export class RedisService {
 	}
 
 	/**
+	 * Ensures the Redis client is connected.
+	 * Useful for workers that need to wait for connection before starting processing loops.
+	 */
+	async waitForConnection(): Promise<void> {
+		if (this.client.isOpen) return;
+		return new Promise((resolve) => {
+			if (this.client.isOpen) return resolve();
+			this.client.once("connect", () => resolve());
+		});
+	}
+
+	/**
 	 * Execute a Redis operation with retry logic and optional fallback
 	 * Use for critical cache operations that should be resilient to transient failures
 	 */
