@@ -2,7 +2,7 @@ import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
 import { logger } from "@/utils/winston";
-
+import dns from 'node:dns';
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 import { container } from "tsyringe";
@@ -11,6 +11,7 @@ import { DatabaseConfig } from "@/config/dbConfig";
 import { ProfileSyncWorker } from "./_impl/profile-sync.worker.impl";
 
 const worker = new ProfileSyncWorker();
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 async function start() {
 	try {
