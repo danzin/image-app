@@ -16,6 +16,8 @@ import { ConversationRepository } from "@/repositories/conversation.repository";
 import { MessageRepository } from "@/repositories/message.repository";
 import { PostViewRepository } from "@/repositories/postView.repository";
 import { PostLikeRepository } from "@/repositories/postLike.repository";
+import { CommunityRepository } from "@/repositories/community.repository";
+import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { IImageStorageService, IUser } from "@/types";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
@@ -39,6 +41,8 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		@inject("ConversationRepository") private readonly conversationRepository: ConversationRepository,
 		@inject("MessageRepository") private readonly messageRepository: MessageRepository,
 		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
+		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
+		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
 		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("EventBus") private readonly eventBus: EventBus,
@@ -121,6 +125,20 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 				await this.notificationRepository.deleteManyByUserId(user.publicId, session);
 				await this.notificationRepository.deleteManyByActorId(user.publicId, session);
+
+				// remove user from communities and update member counts
+				if (user.joinedCommunities && user.joinedCommunities.length > 0) {
+					for (const community of user.joinedCommunities) {
+						if (community._id) {
+							await this.communityRepository.update(
+								community._id.toString(),
+								{ $inc: { "stats.memberCount": -1 } } as any,
+								session
+							);
+						}
+					}
+				}
+				await this.communityMemberRepository.deleteManyByUserId(userId, session);
 
 				const userConversations = await this.conversationRepository.findByParticipant(userId, session);
 

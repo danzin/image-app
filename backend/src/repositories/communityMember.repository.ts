@@ -51,6 +51,12 @@ export class CommunityMemberRepository extends BaseRepository<ICommunityMember> 
 		await query.exec();
 	}
 
+	async deleteManyByUserId(userId: string | Types.ObjectId, session?: ClientSession): Promise<void> {
+		const query = this.model.deleteMany({ userId });
+		if (session) query.session(session);
+		await query.exec();
+	}
+
 	async countByUser(userId: string | Types.ObjectId): Promise<number> {
 		return this.model.countDocuments({ userId }).exec();
 	}
