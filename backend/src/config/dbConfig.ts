@@ -5,7 +5,7 @@ import pino from "pino";
 
 // Validate & parse env early
 const envSchema = z.object({
-	MONGODB_URI: z.string().url().default("mongodb://127.0.0.1:27017/image-app"),
+	MONGODB_URI: z.string().default("mongodb://127.0.0.1:27017/image-app"),
 	DB_MAX_RETRIES: z.coerce.number().default(10),
 	DB_RETRY_INTERVAL_MS: z.coerce.number().default(5000),
 });

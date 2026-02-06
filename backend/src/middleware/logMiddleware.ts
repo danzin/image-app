@@ -8,6 +8,9 @@ declare module "express-serve-static-core" {
 
 // Middleware for logging behavior
 export const logBehaviour = (req: Request, res: Response, next: NextFunction) => {
+	if (process.env.DISABLE_LOGS === "true") {
+		return next();
+	}
 	const start = Date.now();
 	const { method, url } = req;
 
@@ -47,6 +50,9 @@ const getClientIp = (req: Request): string => {
 };
 
 export const detailedRequestLogging = (req: Request, res: Response, next: NextFunction) => {
+	if (process.env.DISABLE_LOGS === "true") {
+		return next();
+	}
 	const logObject = {
 		method: req.method,
 		url: req.url.split("?")[0],

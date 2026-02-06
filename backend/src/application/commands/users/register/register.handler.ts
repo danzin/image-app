@@ -25,8 +25,9 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 
 	async execute(command: RegisterUserCommand): Promise<RegisterUserResult> {
 		try {
-			const emailVerificationToken = this.generateVerificationToken();
-			const emailVerificationExpires = this.getVerificationExpiry();
+			const isStressTest = process.env.DISABLE_EMAIL_VERIFICATION === "true";
+			const emailVerificationToken = isStressTest ? undefined : this.generateVerificationToken();
+			const emailVerificationExpires = isStressTest ? undefined : this.getVerificationExpiry();
 
 			const handleTrimmed = command.handle.trim();
 			const user = await this.userWriteRepository.create({
@@ -40,12 +41,14 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 				registrationIp: command.ip,
 				lastIp: command.ip,
 				lastActive: new Date(),
-				isEmailVerified: false,
+				isEmailVerified: isStressTest,
 				emailVerificationToken,
 				emailVerificationExpires,
 			});
 
-			await this.emailService.sendEmailVerification(user.email, emailVerificationToken);
+			if (!isStressTest) {
+				await this.emailService.sendEmailVerification(user.email, emailVerificationToken as string);
+			}
 
 			const token = this.generateToken(user);
 			const userDTO = this.dtoService.toAuthenticatedUserDTO(user);

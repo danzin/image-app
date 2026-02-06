@@ -19,10 +19,12 @@ export class MetricsRoutes {
 	}
 
 	private initializeRoutes(): void {
-		const auth = AuthFactory.bearerToken().handle();
-		this.router.use(auth);
-		this.router.use(adminRateLimit);
-		this.router.use(enhancedAdminOnly);
+		if (process.env.DISABLE_METRICS_AUTH !== "true") {
+			const auth = AuthFactory.bearerToken().handle();
+			this.router.use(auth);
+			this.router.use(adminRateLimit);
+			this.router.use(enhancedAdminOnly);
+		}
 
 		this.router.get("/", async (_req, res) => {
 			const metrics = await this.metricsService.getMetrics();

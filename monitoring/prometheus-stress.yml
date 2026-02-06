@@ -1,0 +1,24 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 10s
+
+scrape_configs:
+  - job_name: backend
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names:
+        - backend
+        type: A
+        port: 3000
+
+  - job_name: api-gateway
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names:
+        - api-gateway
+        type: A
+        port: 8000
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ['node-exporter:9100']

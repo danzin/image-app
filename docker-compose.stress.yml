@@ -1,0 +1,323 @@
+services:
+  # --- MONGODB CLUSTER ---
+  mongo-setup:
+    image: mongo:8
+    container_name: mongo-setup
+    command: >
+      bash -c "
+        echo 'Creating keyfile for MongoDB replica set...' &&
+        openssl rand -base64 756 > /tmp/mongodb-keyfile &&
+        chmod 400 /tmp/mongodb-keyfile &&
+        cp /tmp/mongodb-keyfile /data/mongodb-keyfile &&
+        chown 999:999 /data/mongodb-keyfile &&
+        echo 'Keyfile created successfully!'
+      "
+    volumes:
+      - mongo_keyfile:/data
+    networks:
+      - stress-network
+
+  mongo-1:
+    image: mongo:8
+    container_name: mongo-1
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - stress-network
+    volumes:
+      - mongo_data_1:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    depends_on:
+      mongo-setup:
+        condition: service_completed_successfully
+
+  mongo-2:
+    image: mongo:8
+    container_name: mongo-2
+    restart: always
+    networks:
+      - stress-network
+    volumes:
+      - mongo_data_2:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    depends_on:
+      mongo-setup:
+        condition: service_completed_successfully
+
+  mongo-3:
+    image: mongo:8
+    container_name: mongo-3
+    restart: always
+    networks:
+      - stress-network
+    volumes:
+      - mongo_data_3:/data/db
+      - mongo_keyfile:/opt/keyfile:ro
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    depends_on:
+      mongo-setup:
+        condition: service_completed_successfully
+
+  mongo-rs-init:
+    image: mongo:8
+    container_name: mongo-rs-init
+    depends_on:
+      - mongo-1
+      - mongo-2
+      - mongo-3
+    networks:
+      - stress-network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: secret
+      MONGO_HOST1: mongo-1
+      MONGO_HOST2: mongo-2
+      MONGO_HOST3: mongo-3
+    volumes:
+      - ./mongo-rs-init-stress.sh:/rs-init/init.sh:ro
+    entrypoint: ["bash", "/rs-init/init.sh"]
+    restart: "no"
+
+  # --- REDIS CLUSTER ---
+  redis-primary:
+    image: redis:alpine
+    container_name: redis-primary
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_primary_data:/data
+    networks:
+      - stress-network
+
+  redis-replica-1:
+    image: redis:alpine
+    command: redis-server --replicaof redis-primary 6379
+    volumes:
+      - redis_replica1_data:/data
+    networks:
+      - stress-network
+    depends_on:
+      - redis-primary
+
+  redis-replica-2:
+    image: redis:alpine
+    command: redis-server --replicaof redis-primary 6379
+    volumes:
+      - redis_replica2_data:/data
+    networks:
+      - stress-network
+    depends_on:
+      - redis-primary
+
+  # --- APPLICATION BACKEND ---
+  backend:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    restart: always
+    deploy:
+      replicas: 3
+    environment: &backend-env
+      NODE_ENV: production
+      # Connect to all 3 nodes
+      MONGODB_URI: mongodb://root:secret@mongo-1:27017,mongo-2:27017,mongo-3:27017/PhotoAppOOP?authSource=admin&replicaSet=rs0
+      REDIS_URL: redis://redis-primary:6379
+      JWT_SECRET: StressTestSecretKey123
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80
+      ENABLE_WORKERS: "false"
+      # Dummy Cloudinary for stress test if needed, or real ones
+      CLOUDINARY_CLOUD_NAME: test
+      CLOUDINARY_API_KEY: test
+      CLOUDINARY_API_SECRET: test
+      DISABLE_METRICS_AUTH: "true"
+      DISABLE_EMAIL_VERIFICATION: "true"
+      BCRYPT_ROUNDS: "1"
+      DISABLE_LOGS: "true"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    depends_on:
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis-primary:
+        condition: service_started
+    networks:
+      - stress-network
+
+  # --- WORKERS ---
+  worker-trending:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    restart: always
+    deploy:
+      replicas: 2
+    working_dir: /app/backend
+    command: ["node", "dist/workers/trending.worker.js"]
+    environment:
+      <<: *backend-env
+      ENABLE_WORKERS: "true"
+    depends_on:
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis-primary:
+        condition: service_started
+    networks:
+      - stress-network
+
+  worker-profile:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    restart: always
+    deploy:
+      replicas: 2
+    working_dir: /app/backend
+    command: ["node", "dist/workers/profile-sync.worker.js"]
+    environment:
+      <<: *backend-env
+      ENABLE_WORKERS: "true"
+    depends_on:
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis-primary:
+        condition: service_started
+    networks:
+      - stress-network
+
+  worker-feed:
+    build:
+      context: .
+      dockerfile: backend/backend.Dockerfile
+    restart: always
+    deploy:
+      replicas: 2
+    working_dir: /app/backend
+    command: ["node", "dist/workers/newFeedWarmCache.worker.js"]
+    environment:
+      <<: *backend-env
+      ENABLE_WORKERS: "true"
+    depends_on:
+      mongo-rs-init:
+        condition: service_completed_successfully
+      redis-primary:
+        condition: service_started
+    networks:
+      - stress-network
+
+  # --- API GATEWAY ---
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/gateway.Dockerfile
+    restart: always
+    deploy:
+      replicas: 3
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      BACKEND_MONOLITH_URL: http://backend:3000
+      RATE_LIMIT_MAX: 100000
+      RATE_LIMIT_WINDOW_MS: 900000
+      DISABLE_LOGS: "true"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+    depends_on:
+      - backend
+    networks:
+      - stress-network
+
+  # --- FRONTEND ---
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/frontend.Dockerfile
+    restart: always
+    deploy:
+      replicas: 2
+    networks:
+      - stress-network
+
+  # --- LOAD BALANCER ---
+  nginx:
+    image: nginx:alpine
+    container_name: stress-lb
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./stress-nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - stress-network
+
+  # --- MONITORING ---
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=3d"
+    volumes:
+      - ./monitoring/prometheus-stress.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - stress-network
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    networks:
+      - stress-network
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    networks:
+      - stress-network
+
+  # --- STRESS TESTING ---
+  k6:
+    image: grafana/k6:latest
+    container_name: k6
+    volumes:
+      - ./k6:/scripts
+    command: run /scripts/script.js
+    networks:
+      - stress-network
+    depends_on:
+      - api-gateway
+    profiles:
+      - stress # Only run when explicitly asked (optional, or just run with docker-compose up)
+
+networks:
+  stress-network:
+    driver: bridge
+
+volumes:
+  mongo_keyfile:
+  mongo_data_1:
+  mongo_data_2:
+  mongo_data_3:
+  redis_primary_data:
+  redis_replica1_data:
+  redis_replica2_data:

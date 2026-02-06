@@ -100,6 +100,18 @@ const normalizeRoute = (req: Request): string => {
 	return route.replace(/[0-9a-fA-F]{8,}/g, ":id").replace(/\d+/g, ":id");
 };
 
+// Logger helper
+const safeLog = (message: string) => {
+	if (process.env.DISABLE_LOGS !== "true") {
+		console.log(message);
+	}
+};
+const safeWarn = (message: string) => {
+	if (process.env.DISABLE_LOGS !== "true") {
+		console.warn(message);
+	}
+};
+
 app.use((req, res, next) => {
 	const stopTimer = httpDuration.startTimer();
 	res.once("finish", () => {
@@ -118,8 +130,8 @@ app.get("/metrics", async (_req: Request, res: Response) => {
 
 // Rate Limiting
 const limiter = rateLimit({
-	windowMs: 15 * 60 * 10000,
-	max: 15000,
+	windowMs: config.rateLimitWindowMs,
+	max: config.rateLimitMax,
 	message: "Too many requests, please try again after 15 minutes",
 	standardHeaders: true,
 	legacyHeaders: false,
@@ -143,7 +155,7 @@ const apiProxy = createProxyMiddleware({
 				proxyReq.setHeader("X-Real-IP", cfIp);
 			}
 			const origin = (req as Request).headers.origin;
-			console.log(`[Gateway] Proxying ${(req as Request).method} ${(req as Request).originalUrl} | Origin: ${origin}`);
+			safeLog(`[Gateway] Proxying ${(req as Request).method} ${(req as Request).originalUrl} | Origin: ${origin}`);
 		},
 		proxyRes: (proxyRes, req, _res) => {
 			const origin = (req as Request).headers.origin;
@@ -155,16 +167,16 @@ const apiProxy = createProxyMiddleware({
 				proxyRes.headers["access-control-allow-headers"] = "Content-Type, Authorization, X-Requested-With";
 				proxyRes.headers["access-control-expose-headers"] = "Set-Cookie";
 
-				console.log(
+				safeLog(
 					`[Gateway] Added CORS headers for ${(req as Request).originalUrl} | Status: ${
 						proxyRes.statusCode
 					} | Origin: ${origin}`,
 				);
 			} else if (origin) {
-				console.warn(`[Gateway] Origin not in allowed list: ${origin}`);
+				safeWarn(`[Gateway] Origin not in allowed list: ${origin}`);
 			}
 
-			console.log(`[Gateway] Response ${proxyRes.statusCode} for ${(req as Request).originalUrl}`);
+			safeLog(`[Gateway] Response ${proxyRes.statusCode} for ${(req as Request).originalUrl}`);
 		},
 		error: (err, req, res) => {
 			console.error("[Gateway] Proxy Error:", err);
@@ -188,20 +200,20 @@ app.get("/health", (req, res) => {
 
 // Global incoming log
 app.use((req, res, next) => {
-	console.log(`[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from IP: ${getClientIp(req)}`);
+	safeLog(`[Gateway] Incoming Request: ${req.method} ${req.originalUrl} from IP: ${getClientIp(req)}`);
 	next();
 });
 
 app.use(limiter);
 
-console.log(`[Gateway] Proxy /uploads -> ${config.backendUrl}/uploads`);
+safeLog(`[Gateway] Proxy /uploads -> ${config.backendUrl}/uploads`);
 app.use("/uploads", (req, res, next) => {
 	req.url = "/uploads" + req.url;
 	apiProxy(req, res, next);
 });
 
 // Proxy /api
-console.log(`[Gateway] Proxy /api -> ${config.backendUrl}`);
+safeLog(`[Gateway] Proxy /api -> ${config.backendUrl}`);
 app.use("/api", (req, res, next) => {
 	const requestPath = req.path || "/";
 	const isAllowed = allowedApiPrefixes.some((prefix) => requestPath === prefix || requestPath.startsWith(`${prefix}/`));
@@ -219,7 +231,7 @@ app.use("/api", (req, res, next) => {
 });
 
 // Proxy socket.io (websocket + polling) traffic explicitly to backend so frontend can target gateway host
-console.log(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
+safeLog(`[Gateway] Proxy /socket.io -> ${config.backendUrl}`);
 app.use("/socket.io", apiProxy);
 
 app.use((req, res) => {

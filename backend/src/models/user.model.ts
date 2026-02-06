@@ -174,7 +174,8 @@ userSchema.pre("save", async function (next) {
 	if (!this.isModified("password")) return next();
 
 	try {
-		const salt = await bcryptjs.genSalt(10);
+		const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
+		const salt = await bcryptjs.genSalt(rounds);
 		this.password = await bcryptjs.hash(this.password, salt);
 		next();
 	} catch (error) {
@@ -207,7 +208,8 @@ userSchema.pre("findOneAndUpdate", async function (next) {
 		const password = update.password || update.$set?.password;
 		if (password) {
 			try {
-				const salt = await bcryptjs.genSalt(10);
+				const rounds = Number(process.env.BCRYPT_ROUNDS) || 10;
+				const salt = await bcryptjs.genSalt(rounds);
 				const hashedPassword = await bcryptjs.hash(password, salt);
 
 				if (update.password) {
