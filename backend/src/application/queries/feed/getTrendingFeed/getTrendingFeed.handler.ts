@@ -20,48 +20,64 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 	) {}
 
 	async execute(query: GetTrendingFeedQuery): Promise<PaginatedFeedResult> {
-		const { page, limit } = query;
-		redisLogger.info(`getTrendingFeed called`, { page, limit });
+		const { page, limit, cursor } = query;
+		redisLogger.info(`getTrendingFeed called`, { page, limit, hasCursor: !!cursor });
 
 		try {
-			// read post IDs from worker-computed sorted set (highest scores first)
-			const start = (page - 1) * limit;
-			const end = start + limit - 1;
-			const postIds = await this.redisService.getTrendingRange(start, end);
+			// Always try cursor-based pagination (Redis or DB)
+			// If cursor is undefined, it fetches the first page
+			redisLogger.debug("Using cursor-based trending feed strategy");
+			
+			// Try Redis ZSET first
+			try {
+				const redisResult = await this.redisService.getTrendingFeedWithCursor(limit, cursor);
+				if (redisResult.ids.length > 0) {
+					redisLogger.info(`Trending feed ZSET HIT`, { count: redisResult.ids.length });
+					const posts = await this.postReadRepository.findPostsByPublicIds(redisResult.ids);
+					
+					// Re-sort to match Redis order
+					const postMap = new Map(posts.map(p => [p.publicId, p]));
+					const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter(Boolean) as any[];
 
-			redisLogger.debug(`trending:posts zRange returned`, { postCount: postIds.length });
+					const transformedPosts = this.transformPosts(orderedPosts);
+					const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
 
-			let posts: (IPost | Record<string, unknown>)[];
-			let total: number;
-
-			if (postIds.length > 0) {
-				redisLogger.info(`Trending feed ZSET HIT`, { postCount: postIds.length });
-
-				posts = await this.postReadRepository.findPostsByPublicIds(postIds);
-
-				// get total count from sorted set
-				total = await this.redisService.getTrendingCount();
-			} else {
-				// fallback: worker hasn't populated sorted set yet, use MongoDB sort
-				redisLogger.warn("trending:posts empty, falling back to MongoDB sort");
-				const result = await this.postReadRepository.getTrendingFeedWithFacet(limit, start, {
-					timeWindowDays: 30,
-					minLikes: 1,
-				});
-				posts = result.data;
-				total = result.total;
+					return {
+						data: enriched,
+						page: page, // keep page for backward compat in response structure
+						limit,
+						total: 0, 
+						totalPages: 0, 
+						nextCursor: redisResult.nextCursor,
+						hasMore: redisResult.hasMore
+					} as any;
+				}
+			} catch (err) {
+				redisLogger.warn("Failed to get trending feed from Redis, falling back to DB", { error: err });
 			}
 
-			const transformedPosts = this.transformPosts(posts);
+			// Fallback to DB cursor pagination
+			redisLogger.info("Falling back to DB cursor pagination for trending feed");
+			const result = await this.postReadRepository.getTrendingFeedWithCursor({
+				limit,
+				cursor,
+				timeWindowDays: 30,
+				minLikes: 1,
+			});
+			
+			const transformedPosts = this.transformPosts(result.data);
 			const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
 
 			return {
 				data: enriched,
-				page,
+				page: page,
 				limit,
-				total,
-				totalPages: Math.ceil(total / limit),
-			};
+				total: 0,
+				totalPages: 0,
+				nextCursor: result.nextCursor,
+				hasMore: result.hasMore
+			} as any;
+
 		} catch (error) {
 			redisLogger.error("Trending feed error", {
 				error: error instanceof Error ? error.message : String(error),

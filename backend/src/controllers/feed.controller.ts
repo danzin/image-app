@@ -37,10 +37,11 @@ export class FeedController {
 	getForYouFeed = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { page, limit } = req.query;
+			const cursor = req.query.cursor as string | undefined;
 			if (!req.decodedUser || !req.decodedUser.publicId) {
 				throw createError("ValidationError", "User public ID is required");
 			}
-			const query = new GetForYouFeedQuery(req.decodedUser.publicId, Number(page) || 1, Number(limit) || 20);
+			const query = new GetForYouFeedQuery(req.decodedUser.publicId, Number(page) || 1, Number(limit) || 20, cursor);
 			const feed = await this.queryBus.execute(query);
 			res.json(feed);
 		} catch (error) {
@@ -57,8 +58,9 @@ export class FeedController {
 		try {
 			const page = Number(req.query.page) || 1;
 			const limit = Number(req.query.limit) || 20;
+			const cursor = req.query.cursor as string | undefined;
 
-			const query = new GetTrendingFeedQuery(page, limit);
+			const query = new GetTrendingFeedQuery(page, limit, cursor);
 			const feed = await this.queryBus.execute(query);
 
 			res.json(feed);
@@ -76,13 +78,14 @@ export class FeedController {
 		try {
 			const page = Number(req.query.page) || 1;
 			const limit = Number(req.query.limit) || 20;
+			const cursor = req.query.cursor as string | undefined;
 			const refresh = req.query.refresh === "true";
 			const isAuthenticated = !!(req as any).decodedUser;
 
 			// only allow cache bypass for authenticated users requesting a refresh
 			const forceRefresh = refresh && isAuthenticated;
 
-			const feed = await this.feedService.getNewFeed(page, limit, forceRefresh);
+			const feed = await this.feedService.getNewFeed(page, limit, forceRefresh, cursor);
 			res.json(feed);
 		} catch (error) {
 			console.error(error);

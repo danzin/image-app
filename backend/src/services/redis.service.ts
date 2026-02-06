@@ -737,6 +737,77 @@ export class RedisService {
 	}
 
 	/**
+	 * Retrieves feed items using a cursor (score, id) for efficient deep pagination on ZSETs
+	 * Generic version of getTrendingFeedWithCursor for user feeds (For You, Personalized)
+	 */
+	async getFeedWithCursor(userId: string, limit: number, cursor?: string, feedType = "for_you"): Promise<{
+		ids: string[];
+		hasMore: boolean;
+		nextCursor?: string;
+	}> {
+		const key = `feed:${feedType}:${userId}`;
+		let maxScore = "+inf";
+		let maxId = "";
+
+		if (cursor) {
+			try {
+				const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+				// Support both trendScore and simple 'score' or 'createdAt' depending on what was encoded
+				maxScore = String(decoded.score ?? decoded.rankScore ?? decoded.trendScore ?? decoded.createdAt);
+				maxId = decoded._id || decoded.id;
+			} catch (e) {
+				// invalid cursor, start from top
+			}
+		}
+
+		// Similar logic to getTrendingFeedWithCursor: fetch extra items and filter
+		const rangeOptions: any = {
+			BY: 'SCORE',
+			REV: true,
+			LIMIT: { offset: 0, count: limit + 10 } 
+		};
+
+		const rawResults = await this.client.zRangeWithScores(key, maxScore, "-inf", rangeOptions);
+		
+		let filtered = rawResults;
+		if (cursor && maxId) {
+			const cursorScoreNum = Number(maxScore);
+			filtered = rawResults.filter(item => {
+				if (item.score < cursorScoreNum) return true;
+				if (item.score === cursorScoreNum) {
+					// For ZSETs populated with timestamps (For You feed), 
+					// newer items have higher scores. 
+					// When traversing REV (Desc), we go from High Score -> Low Score.
+					// If Scores are equal, we need a tie breaker.
+					// Usually Redis sorts lexicographically for same score.
+					// If we want consistent iteration, we skip items that we've seen.
+					// If we assume ID is unique tie breaker.
+					// ZREVRANGE sorts by Score DESC, then Lexicographically DESC (Reverse).
+					// So "Next" item must be Lexicographically Smaller than Cursor ID.
+					return item.value < maxId; 
+				}
+				return false;
+			});
+		}
+
+		const hasMore = filtered.length > limit;
+		const sliced = filtered.slice(0, limit);
+		const ids = sliced.map(r => r.value);
+		
+		let nextCursor: string | undefined;
+		if (sliced.length > 0) {
+			const last = sliced[sliced.length - 1];
+			// Encode generic 'score' field to be compatible
+			nextCursor = Buffer.from(JSON.stringify({ 
+				score: last.score, 
+				_id: last.value 
+			})).toString("base64");
+		}
+		
+		return { ids, hasMore, nextCursor };
+	}
+
+	/**
 	 * Removes a post from a user's feed (e.g., on un-follow or post deletion).
 	 *
 	 * @complexity O(log(N)) where N is the size of the feed.
@@ -945,6 +1016,131 @@ export class RedisService {
 	 */
 	async getTrendingCount(key = "trending:posts"): Promise<number> {
 		return await this.client.zCard(key);
+	}
+
+	/**
+	 * Retrieves trending posts using a cursor (score, id) for efficient deep pagination
+	 * Uses ZREVRANGEBYSCORE to fetch items with scores <= cursorScore
+	 */
+	async getTrendingFeedWithCursor(limit: number, cursor?: string, key = "trending:posts"): Promise<{
+		ids: string[];
+		hasMore: boolean;
+		nextCursor?: string;
+	}> {
+		let maxScore = "+inf";
+		let maxId = "";
+
+		if (cursor) {
+			try {
+				const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
+				maxScore = String(decoded.trendScore); // Ensure string for redis command
+				// Redis ZRANGEBYSCORE with LIMIT doesn't natively support (score, id) tuple filtering
+				// strictly. However, we can fetch slightly more items and filter, or use
+				// lexicographical range if scores are identical.
+				// Since Redis doesn't support compound cursor pagination natively in one command easily
+				// without Lua, we will fetch by score range and filter client-side for this implementation.
+				// For high-scale, a Lua script is preferred.
+				maxId = decoded._id;
+			} catch (e) {
+				// invalid cursor, start from top
+			}
+		}
+
+		// Fetch items with score <= maxScore. 
+		// Note: ZREVRANGEBYSCORE max min [LIMIT offset count]
+		// We use `(` for exclusive bound if needed, but since we have ID tiebreaker, we include equal scores
+		// and filter manually.
+		
+		// Optimization: If no cursor, just get top N
+		if (!cursor) {
+			const results = await this.client.zRangeWithScores(key, 0, limit, { REV: true });
+			const ids = results.map(r => r.value);
+			let nextCursor: string | undefined;
+			
+			if (results.length > limit) {
+				// This branch (zRange) actually strictly respects index, so hasMore is implicit if we fetched limit+1
+				// but zRangeWithScores uses index. Let's fetch limit + 1 to check hasMore
+			}
+			
+			// Actually zRange is index based. ZRevRangeByScore is score based.
+			// Let's stick to zRange for the first page (no cursor) as it's cleaner?
+			// But we need to return a cursor for the NEXT page.
+			// The next page will use getTrendingFeedWithCursor WITH a cursor.
+			
+			// Re-implementation strategy: Always use score-based for consistency?
+			// Or Index for first page and Score for subsequent?
+			// Score-based is robust against insertions at the top.
+		}
+
+		// Fallback simple implementation:
+		// 1. Fetch range by score from maxScore down to -inf.
+		// 2. Limit is slightly higher to handle collisions
+		// NOTE: This simple version assumes unique scores or handles collisions crudely.
+		// For robustness with collisions:
+		
+		// ZREVRANGEBYSCORE key max min LIMIT offset count
+		// Since we can't easily offset into a block of same-scores efficiently without client-side filter:
+		// We will fetch `limit + 10` items starting from `maxScore`.
+		// Then we filter out items that we've already seen ( > cursorId if score == cursorScore).
+		
+		// This is effectively "Seek" pagination.
+		
+		const results = await this.client.zRangeByScoreWithScores(key, maxScore, "-inf", {
+			LIMIT: { offset: 0, count: limit + 10 } // fetch extra to handle some dupes/filtering
+		});
+		
+		// zRangeByScoreWithScores returns items in ASCENDING order of score by default?
+		// No, `zRangeByScore` does. We need REVERSE order (High to Low).
+		// Node-redis v4: `zRange` with `BY: 'SCORE', REV: true` is the modern replacement.
+		
+		const rangeOptions: any = {
+			BY: 'SCORE',
+			REV: true,
+			LIMIT: { offset: 0, count: limit + 5 } // fetch a few extra to handle tie-breaking
+		};
+
+		// If we have a cursor, we need to handle the specific (score, id) start point.
+		// Redis `min/max` arguments for range are inclusive by default.
+		// If we pass `maxScore`, we get all items with that score.
+		
+		const rawResults = await this.client.zRangeWithScores(key, maxScore, "-inf", rangeOptions);
+		
+		// Now filter:
+		// We want items where (score < maxScore) OR (score == maxScore AND id < maxId)
+		// Since we are sorting by Score DESC, then ID DESC (usually, or ASC? MongoDB uses ID DESC for ties in our previous code).
+		// Let's assume ID DESC for ties (newer items first).
+		
+		let filtered = rawResults;
+		if (cursor && maxId) {
+			const cursorScoreNum = Number(maxScore);
+			filtered = rawResults.filter(item => {
+				if (item.score < cursorScoreNum) return true;
+				if (item.score === cursorScoreNum) {
+					// Tie-breaker: We want IDs that are "smaller" (older) than maxId if we sort ID DESC?
+					// Wait, MongoDB ObjectId: newer = larger.
+					// If we sort by TrendScore DESC, then _id DESC.
+					// So "Next" page means smaller TrendScore, or Equal TrendScore and Smaller _id.
+					return item.value < maxId; 
+				}
+				return false;
+			});
+		}
+
+		// Slice to limit
+		const hasMore = filtered.length > limit;
+		const sliced = filtered.slice(0, limit);
+		const ids = sliced.map(r => r.value);
+		
+		let nextCursor: string | undefined;
+		if (sliced.length > 0) {
+			const last = sliced[sliced.length - 1];
+			nextCursor = Buffer.from(JSON.stringify({ 
+				trendScore: last.score, 
+				_id: last.value 
+			})).toString("base64");
+		}
+		
+		return { ids, hasMore, nextCursor };
 	}
 
 	/**

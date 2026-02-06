@@ -22,42 +22,73 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 	) {}
 
 	async execute(query: GetForYouFeedQuery): Promise<PaginatedFeedResult> {
-		const { userId, page, limit } = query;
-		redisLogger.info(`getForYouFeed called`, { userId, page, limit });
+		const { userId, page, limit, cursor } = query;
+		redisLogger.info(`getForYouFeed called`, { userId, page, limit, hasCursor: !!cursor });
 
 		try {
-			// try to get from sorted set first
-			const postIds = await this.redisService.getFeedPage(userId, page, limit, "for_you");
-			redisLogger.debug(`getFeedPage returned`, { userId, postCount: postIds.length });
+			// 1. Try Redis ZSET with cursor
+			try {
+				const redisResult = await this.redisService.getFeedWithCursor(userId, limit, cursor, "for_you");
+				
+				if (redisResult.ids.length > 0) {
+					redisLogger.info(`For You feed ZSET HIT`, { count: redisResult.ids.length });
+					const posts = await this.postReadRepository.findPostsByPublicIds(redisResult.ids);
+					
+					// Re-sort to match Redis order (crucial for feed consistency)
+					const postMap = new Map(posts.map(p => [p.publicId, p]));
+					const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter(Boolean) as any[];
 
-			if (postIds.length > 0) {
-				redisLogger.info(`For You feed ZSET HIT`, { userId, postCount: postIds.length });
-				const posts = await this.postReadRepository.findPostsByPublicIds(postIds);
-				const transformedPosts = this.transformPosts(posts);
+					const transformedPosts = this.transformPosts(orderedPosts);
+					const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
 
-				const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
-				const feedSize = await this.redisService.getFeedSize(userId, "for_you");
-
-				return {
-					data: enriched,
-					page,
-					limit,
-					total: feedSize,
-					totalPages: Math.ceil(feedSize / limit),
-				};
+					// If we are on the first page/cursor and have data, we assume the feed is populated.
+					// If we are deep paginating, we just return what we have.
+					
+					return {
+						data: enriched,
+						page, 
+						limit,
+						total: 0,
+						totalPages: 0,
+						nextCursor: redisResult.nextCursor,
+						hasMore: redisResult.hasMore
+					} as any;
+				}
+			} catch (err) {
+				redisLogger.warn("Failed to get feed from Redis cursor", { error: err });
 			}
 
-			// cache miss - generate feed and populate sorted set
+			// 2. Cache Miss - Generate from DB using Cursor Pagination
 			redisLogger.info(`For You feed ZSET MISS, generating from DB`, { userId });
-			const feed = await this.generateForYouFeed(userId, page, limit);
-			const transformedFeedData = this.transformPosts(feed.data);
+			
+			const user = await this.userReadRepository.findByPublicId(userId);
+			if (!user) {
+				throw createError("NotFoundError", "User not found");
+			}
+			const topTags = await this.userPreferenceRepository.getTopUserTags(String(user._id));
+			const favoriteTags = topTags.map((pref) => pref.tag);
 
-			// populate sorted set with all posts (fire-and-forget for page 1)
-			if (page === 1 && transformedFeedData.length > 0) {
+			// Use getRankedFeedWithCursor (O(1)) instead of getRankedFeed (O(N))
+			const result = await this.postReadRepository.getRankedFeedWithCursor(favoriteTags, { limit, cursor });
+			const transformedFeedData = this.transformPosts(result.data);
+
+			// 3. Populate Redis ZSET (Fire-and-forget)
+			// Only populate if we are on the first page (no cursor) to avoid fragmented cache
+			if (!cursor && transformedFeedData.length > 0) {
 				const timestamp = Date.now();
 				redisLogger.info(`Populating ZSET for user`, { userId, postCount: transformedFeedData.length });
+				
+				// We need to store them with scores that preserve order.
+				// Since getRankedFeedWithCursor returns ranked items, we can assign scores 
+				// based on their rank index or use the actual rankScore if available.
+				// However, `addToFeed` uses timestamp.
+				// For the "For You" feed, if it's rank-based, we should ideally use rankScore as the ZSET score.
+				// But our RedisService.addToFeed assumes "timestamp".
+				// Let's use a decreasing timestamp to maintain order in ZSET (Newest/Highest Score first).
+				
 				Promise.all(
 					transformedFeedData.map((post: FeedPost, idx: number) => {
+						// score = now - idx (so first item has highest score)
 						return this.redisService.addToFeed(userId, post.publicId, timestamp - idx, "for_you");
 					}),
 				).catch((err) => {
@@ -66,10 +97,17 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 			}
 
 			const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedFeedData);
+			
 			return {
-				...feed,
 				data: enriched,
-			};
+				page,
+				limit,
+				total: 0,
+				totalPages: 0,
+				nextCursor: result.nextCursor,
+				hasMore: result.hasMore
+			} as any;
+
 		} catch (error) {
 			errorLogger.error("For You feed error", {
 				userId,

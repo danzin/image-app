@@ -10,10 +10,14 @@ import {
 	CursorPaginationResult,
 } from "@/types";
 import { createError } from "@/utils/errors";
+import { TagRepository } from "./tag.repository";
 
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {
-	constructor(@inject("PostModel") model: Model<IPost>) {
+	constructor(
+		@inject("PostModel") model: Model<IPost>,
+		@inject("TagRepository") private readonly tagRepository: TagRepository
+	) {
 		super(model);
 	}
 
@@ -22,11 +26,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			return [];
 		}
 
-		const tagDocs = await this.model.db
-			.collection("tags")
-			.find({ tag: { $in: tagNames } })
-			.project({ _id: 1 })
-			.toArray();
+		const tagDocs = await this.tagRepository.findByTags(tagNames);
 
 		return tagDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id));
 	}
@@ -556,7 +556,7 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
-						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
+						popularityScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1] } },
 						tagMatchScore: hasTagPreferences ? { $size: { $setIntersection: ["$tags", favoriteTagIds] } } : 0,
 					},
 				},
@@ -645,8 +645,8 @@ export class PostRepository extends BaseRepository<IPost> {
 							],
 						},
 						// using natural logarithm to dampen the effect of very high like counts allowing newer posts to compete
-						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
-						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+						popularityScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1] } },
+						commentsScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$commentsCount", 0] }] }, 1] } },
 					},
 				},
 				{
@@ -1044,8 +1044,8 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
-						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
-						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+						popularityScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1] } },
+						commentsScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$commentsCount", 0] }] }, 1] } },
 					},
 				},
 				{
@@ -1181,7 +1181,7 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
-						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
+						popularityScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1] } },
 						tagMatchScore: hasTagPreferences ? { $size: { $setIntersection: ["$tags", favoriteTagIds] } } : 0,
 					},
 				},
@@ -1355,8 +1355,8 @@ export class PostRepository extends BaseRepository<IPost> {
 								{ $add: [1, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60 * 24] }] },
 							],
 						},
-						popularityScore: { $ln: { $add: ["$likesCount", 1] } },
-						commentsScore: { $ln: { $add: ["$commentsCount", 1] } },
+						popularityScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1] } },
+						commentsScore: { $ln: { $add: [{ $max: [0, { $ifNull: ["$commentsCount", 0] }] }, 1] } },
 					},
 				},
 				{
