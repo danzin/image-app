@@ -13,7 +13,7 @@ import {
 	fetchForYouFeed,
 	repostPost,
 } from "../../api/postApi";
-import { IPost, ITag } from "../../types";
+import { IPost, ITag, PaginatedResponse } from "../../types";
 import { useAuth } from "../context/useAuth";
 import { mapPost } from "../../lib/mappers";
 
@@ -24,19 +24,16 @@ export const usePosts = () => {
 	console.log("usePosts - Query Key:", queryKey, "User state:", { user: user?.publicId, loading });
 
 	return useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
+		PaginatedResponse<IPost>,
 		Error
 	>({
 		queryKey,
 		queryFn: async ({ pageParam = 1 }) => {
 			console.log("usePosts - Fetching with queryKey:", queryKey, "pageParam:", pageParam);
-			const response = !user ? await fetchNewFeed(pageParam as number, 10) : await fetchPosts(pageParam as number, 10);
+			// fetchPosts (user feed) still uses numeric page, fetchNewFeed can use cursor
+			const response = !user 
+				? await fetchNewFeed(pageParam as number | string, 10) 
+				: await fetchPosts(pageParam as number, 10);
 
 			console.log("usePosts - Raw response for query:", queryKey, response.data[0]);
 
@@ -52,6 +49,7 @@ export const usePosts = () => {
 			};
 		},
 		getNextPageParam: (lastPage) => {
+			if (lastPage.nextCursor) return lastPage.nextCursor;
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
 			}
@@ -272,24 +270,18 @@ export const usePersonalizedFeed = (options?: { enabled?: boolean; limit?: numbe
 	const limit = options?.limit ?? 5;
 
 	return useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
+		PaginatedResponse<IPost>,
 		Error
 	>({
 		queryKey: ["personalizedFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchPersonalizedFeed(pageParam as number, limit);
+			const response = await fetchPersonalizedFeed(pageParam as number | string, limit);
 			return {
 				...response,
 				data: response.data.map((rawPost: IPost) => mapPost(rawPost)),
 			};
 		},
-		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
+		getNextPageParam: (lastPage) => (lastPage.nextCursor ? lastPage.nextCursor : lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		initialPageParam: 1,
 		enabled,
 		staleTime: 0,
@@ -301,24 +293,19 @@ export const useTrendingFeed = (options?: { enabled?: boolean; limit?: number })
 	const limit = options?.limit ?? 10;
 
 	return useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
+		PaginatedResponse<IPost>,
 		Error
 	>({
 		queryKey: ["trendingFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchTrendingFeed(pageParam as number, limit);
+			const response = await fetchTrendingFeed(pageParam as number | string, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
 			};
 		},
 		getNextPageParam: (lastPage) => {
+			if (lastPage.nextCursor) return lastPage.nextCursor;
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
 			}
@@ -336,24 +323,19 @@ export const useNewFeed = (options?: { enabled?: boolean; limit?: number }) => {
 	const limit = options?.limit ?? 10;
 
 	const query = useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
+		PaginatedResponse<IPost>,
 		Error
 	>({
 		queryKey: ["newFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchNewFeed(pageParam as number, limit);
+			const response = await fetchNewFeed(pageParam as number | string, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
 			};
 		},
 		getNextPageParam: (lastPage) => {
+			if (lastPage.nextCursor) return lastPage.nextCursor;
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
 			}
@@ -382,24 +364,19 @@ export const useForYouFeed = (options?: { enabled?: boolean; limit?: number }) =
 	const limit = options?.limit ?? 10;
 
 	return useInfiniteQuery<
-		{
-			data: IPost[];
-			total: number;
-			page: number;
-			limit: number;
-			totalPages: number;
-		},
+		PaginatedResponse<IPost>,
 		Error
 	>({
 		queryKey: ["forYouFeed"],
 		queryFn: async ({ pageParam = 1 }) => {
-			const response = await fetchForYouFeed(pageParam as number, limit);
+			const response = await fetchForYouFeed(pageParam as number | string, limit);
 			return {
 				...response,
 				data: response.data.map(mapPost),
 			};
 		},
 		getNextPageParam: (lastPage) => {
+			if (lastPage.nextCursor) return lastPage.nextCursor;
 			if (lastPage.page < lastPage.totalPages) {
 				return lastPage.page + 1;
 			}

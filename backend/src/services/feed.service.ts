@@ -83,6 +83,9 @@ export class FeedService {
 			return {
 				...coreFeed,
 				data: this.mapToPostDTOArray(enrichedFeed),
+				total: coreFeed.total ?? 0,
+				page: coreFeed.page ?? 1,
+				totalPages: coreFeed.totalPages ?? 0,
 			};
 		} catch (error) {
 			console.error("Failed to generate personalized feed:", error);
@@ -168,7 +171,13 @@ export class FeedService {
 		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
 			refreshUserData: isCacheHit,
 		});
-		return { ...cached, data: this.mapToPostDTOArray(enriched) };
+		return { 
+			...cached, 
+			data: this.mapToPostDTOArray(enriched),
+			total: cached.total ?? 0,
+			page: cached.page ?? 1,
+			totalPages: cached.totalPages ?? 0
+		};
 	}
 
 	/**
@@ -184,8 +193,11 @@ export class FeedService {
 	 * @param forceRefresh - If true, bypasses cache and fetches fresh data (for authenticated users).
 	 * @returns {Promise<PaginationResult<PostDTO>>}
 	 */
-	public async getNewFeed(page: number, limit: number, forceRefresh = false): Promise<PaginationResult<PostDTO>> {
-		const key = CacheKeyBuilder.getCoreFeedKey("new_feed", page, limit);
+	public async getNewFeed(page: number, limit: number, forceRefresh = false, cursor?: string): Promise<PaginationResult<PostDTO> & { nextCursor?: string }> {
+		// Use cursor-based cache key if cursor is present, otherwise fallback to page-based key for backward compat
+		const key = cursor 
+			? `new_feed:cursor:${cursor}:${limit}` 
+			: CacheKeyBuilder.getCoreFeedKey("new_feed", page, limit);
 
 		let cached: CoreFeed | null = null;
 		if (!forceRefresh) {
@@ -194,20 +206,43 @@ export class FeedService {
 
 		const isCacheHit = !!cached;
 		if (!cached) {
-			const skip = (page - 1) * limit;
-			const core = await this.postRepository.getNewFeed(limit, skip);
+			// Prefer cursor pagination
+			const coreCursor = await this.postRepository.getNewFeedWithCursor({ limit, cursor });
+			
+			// Map cursor result to CoreFeed structure
+			const core: CoreFeed = {
+				data: coreCursor.data as FeedPost[], // Cast assuming compatibility or add mapper
+				limit,
+				hasMore: coreCursor.hasMore,
+				nextCursor: coreCursor.nextCursor,
+				prevCursor: coreCursor.prevCursor,
+				// Fallback values for backward compatibility with clients expecting total/pages
+				total: 0, 
+				page: page || 1,
+				totalPages: 0
+			};
+
 			await this.redisService.setWithTags(
 				key,
 				core,
-				["new_feed", `page:${page}`, `limit:${limit}`],
+				["new_feed", ...(cursor ? [] : [`page:${page}`])],
 				CacheConfig.FEED.NEW_FEED,
 			);
-			cached = core as CoreFeed;
+			cached = core;
 		}
+		
 		const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
 			refreshUserData: isCacheHit,
 		});
-		return { ...cached, data: this.mapToPostDTOArray(enriched) };
+
+		return { 
+			...cached, 
+			data: this.mapToPostDTOArray(enriched),
+			// Ensure these are present for the return type
+			total: cached.total ?? 0,
+			page: cached.page ?? (page || 1),
+			totalPages: cached.totalPages ?? 0
+		};
 	}
 
 	// === Misc ===

@@ -1,49 +1,51 @@
 import axiosClient from "./axiosClient";
-import { IPost, ITag } from "../types";
+import { IPost, ITag, PaginatedResponse } from "../types";
 
 export const fetchPersonalizedFeed = async (
-	pageParam: number,
+	pageParam: number | string,
 	limit: number,
-): Promise<{
-	data: IPost[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}> => {
-	const { data } = await axiosClient.get(`/api/feed?page=${pageParam}&limit=${limit}`);
+): Promise<PaginatedResponse<IPost>> => {
+	const params = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (typeof pageParam === 'string') {
+		params.set('cursor', pageParam);
+	} else {
+		params.set('page', String(pageParam));
+	}
+	const { data } = await axiosClient.get(`/api/feed?${params.toString()}`);
 	return data;
 };
 
 export const fetchTrendingFeed = async (
-	pageParam: number,
+	pageParam: number | string,
 	limit: number = 20,
-): Promise<{
-	data: IPost[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}> => {
-	const { data } = await axiosClient.get(`/api/feed/trending?page=${pageParam}&limit=${limit}`);
+): Promise<PaginatedResponse<IPost>> => {
+	const params = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (typeof pageParam === 'string') {
+		params.set('cursor', pageParam);
+	} else {
+		params.set('page', String(pageParam));
+	}
+	const { data } = await axiosClient.get(`/api/feed/trending?${params.toString()}`);
 	return data;
 };
 
 export const fetchNewFeed = async (
-	pageParam: number,
+	pageParam: number | string,
 	limit: number = 20,
 	refresh: boolean = false,
-): Promise<{
-	data: IPost[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}> => {
+): Promise<PaginatedResponse<IPost>> => {
 	const params = new URLSearchParams({
-		page: String(pageParam),
 		limit: String(limit),
 	});
+	if (typeof pageParam === 'string') {
+		params.set('cursor', pageParam);
+	} else {
+		params.set('page', String(pageParam));
+	}
 	if (refresh) {
 		params.set("refresh", "true");
 	}
@@ -52,16 +54,18 @@ export const fetchNewFeed = async (
 };
 
 export const fetchForYouFeed = async (
-	pageParam: number,
+	pageParam: number | string,
 	limit: number = 20,
-): Promise<{
-	data: IPost[];
-	total: number;
-	page: number;
-	limit: number;
-	totalPages: number;
-}> => {
-	const { data } = await axiosClient.get(`/api/feed/for-you?page=${pageParam}&limit=${limit}`);
+): Promise<PaginatedResponse<IPost>> => {
+	const params = new URLSearchParams({
+		limit: String(limit),
+	});
+	if (typeof pageParam === 'string') {
+		params.set('cursor', pageParam);
+	} else {
+		params.set('page', String(pageParam));
+	}
+	const { data } = await axiosClient.get(`/api/feed/for-you?${params.toString()}`);
 	return data;
 };
 

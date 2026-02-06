@@ -53,6 +53,9 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
 			return {
 				...coreFeed,
 				data: enrichedFeed,
+				page: coreFeed.page ?? safePage,
+				total: coreFeed.total ?? 0,
+				totalPages: coreFeed.totalPages ?? 0,
 			};
 		} catch (error) {
 			console.error("Failed to generate personalized feed:", error);

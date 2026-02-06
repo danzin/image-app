@@ -44,4 +44,13 @@ export interface PostMeta {
 	viewsCount?: number;
 }
 
-export type CoreFeed = PaginatedFeedResult;
+export interface CoreFeed {
+	data: FeedPost[];
+	page?: number;
+	limit: number;
+	total?: number;
+	totalPages?: number;
+	hasMore?: boolean;
+	nextCursor?: string;
+	prevCursor?: string;
+}

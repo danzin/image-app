@@ -201,6 +201,8 @@ export interface PaginatedResponse<T> {
 	page: number;
 	limit: number;
 	totalPages: number;
+	nextCursor?: string;
+	prevCursor?: string;
 }
 export interface UseImagesResult {
 	imagesQuery: UseInfiniteQueryResult<InfiniteData<PaginatedResponse<IImage>>, Error>;
