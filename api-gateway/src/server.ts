@@ -1,4 +1,5 @@
 import { IncomingMessage } from "http";
+import dns from 'node:dns';
 import { Socket } from "net";
 import http from "http";
 import express, { Request, Response, NextFunction } from "express";
@@ -7,7 +8,7 @@ import rateLimit from "express-rate-limit";
 import { createProxyMiddleware } from "http-proxy-middleware";
 import { config } from "./config.js";
 import client from "prom-client";
-
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 const app = express();
 const metricsRegistry = new client.Registry();
 metricsRegistry.setDefaultLabels({ service: "api-gateway" });

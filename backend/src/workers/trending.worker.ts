@@ -2,7 +2,7 @@ import "reflect-metadata";
 import path from "path";
 import dotenv from "dotenv";
 import { logger } from "@/utils/winston";
-
+import dns from 'node:dns';
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 logger.info("MONGODB_URI in worker:", { uri: process.env.MONGODB_URI });
@@ -13,7 +13,7 @@ import { DatabaseConfig } from "@/config/dbConfig";
 import { TrendingWorker } from "../workers/_impl/trending.worker.impl";
 
 const worker = new TrendingWorker();
-
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 async function start() {
 	try {
 		// register core DI entries (models, repos, services, controllers, routes)

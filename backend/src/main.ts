@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import dns from 'node:dns';
 import { errorLogger, logger } from "./utils/winston";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
@@ -30,6 +31,7 @@ import { TrendingWorker } from "./workers/_impl/trending.worker.impl";
 import { ProfileSyncWorker } from "./workers/_impl/profile-sync.worker.impl";
 import { NewFeedWarmCacheWorker } from "./workers/_impl/newFeedWarmCache.worker.impl";
 
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 // Global error handlers
 process.on("uncaughtException", (error: Error) => {
 	errorLogger.error({
