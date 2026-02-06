@@ -87,7 +87,7 @@ export class CommentService {
 		);
 	}
 
-	async updateComment(commentId: string, userId: string, content: string): Promise<TransformedComment> {
+	async updateComment(commentId: string, userId: string, content: string, isAdmin: boolean = false): Promise<TransformedComment> {
 		// Validate input
 		if (!content.trim()) {
 			throw createError("ValidationError", "Comment content cannot be empty");
@@ -99,7 +99,7 @@ export class CommentService {
 
 		// Check if comment exists and user owns it
 		const isOwner = await this.commentRepository.isCommentOwner(commentId, userId);
-		if (!isOwner) {
+		if (!isOwner && !isAdmin) {
 			throw createError("ForbiddenError", "You can only edit your own comments");
 		}
 
@@ -119,7 +119,7 @@ export class CommentService {
 	async updateCommentByPublicId(commentId: string, userPublicId: string, content: string) {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) throw createError("NotFoundError", "User not found");
-		return this.updateComment(commentId, user.id, content);
+		return this.updateComment(commentId, user.id, content, user.isAdmin);
 	}
 
 	async deleteComment(commentId: string, userId: string): Promise<void> {
@@ -157,16 +157,28 @@ export class CommentService {
 		return this.deleteComment(commentId, user.id);
 	}
 
-	async getCommentsByUserPublicId(userPublicId: string, page: number = 1, limit: number = 10) {
+	async getCommentsByUserPublicId(
+		userPublicId: string,
+		page: number = 1,
+		limit: number = 10,
+		sortBy: string = "createdAt",
+		sortOrder: "asc" | "desc" = "desc",
+	) {
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
-		return await this.commentRepository.getCommentsByUserId(user.id, page, limit);
+		return await this.commentRepository.getCommentsByUserId(user.id, page, limit, sortBy, sortOrder);
 	}
 
-	async getCommentsByUserId(userId: string, page: number = 1, limit: number = 10) {
-		return await this.commentRepository.getCommentsByUserId(userId, page, limit);
+	async getCommentsByUserId(
+		userId: string,
+		page: number = 1,
+		limit: number = 10,
+		sortBy: string = "createdAt",
+		sortOrder: "asc" | "desc" = "desc",
+	) {
+		return await this.commentRepository.getCommentsByUserId(userId, page, limit, sortBy, sortOrder);
 	}
 
 	async deleteCommentsByPostId(postId: string, session?: mongoose.ClientSession): Promise<number> {

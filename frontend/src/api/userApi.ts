@@ -75,9 +75,17 @@ export const fetchUserByHandle = async ({ queryKey }: { queryKey: [string, strin
 	return response.data;
 };
 
-export const fetchUserPosts = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
+export const fetchUserPosts = async (
+	page: number,
+	userPublicId: string,
+	limit: number = 10,
+	sortBy: string = "createdAt",
+	sortOrder: string = "desc"
+): Promise<ImagePageData> => {
 	try {
-		const { data } = await axiosClient.get(`/api/posts/user/${userPublicId}?page=${pageParam}`);
+		const { data } = await axiosClient.get(
+			`/api/posts/user/${userPublicId}?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`
+		);
 		return data;
 	} catch (error) {
 		console.error("Error fetching user posts:", error);
@@ -85,9 +93,17 @@ export const fetchUserPosts = async (pageParam: number, userPublicId: string): P
 	}
 };
 
-export const fetchUserLikedPosts = async (pageParam: number, userPublicId: string): Promise<ImagePageData> => {
+export const fetchUserLikedPosts = async (
+	page: number,
+	userPublicId: string,
+	limit: number = 10,
+	sortBy: string = "createdAt",
+	sortOrder: string = "desc"
+): Promise<ImagePageData> => {
 	try {
-		const { data } = await axiosClient.get(`/api/posts/user/${userPublicId}/likes?page=${pageParam}`);
+		const { data } = await axiosClient.get(
+			`/api/posts/user/${userPublicId}/likes?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`
+		);
 		return data;
 	} catch (error) {
 		console.error("Error fetching user liked posts:", error);
@@ -96,8 +112,11 @@ export const fetchUserLikedPosts = async (pageParam: number, userPublicId: strin
 };
 
 export const fetchUserComments = async (
-	pageParam: number,
+	page: number,
 	userPublicId: string,
+	limit: number = 10,
+	sortBy: string = "createdAt",
+	sortOrder: string = "desc"
 ): Promise<{
 	comments: IComment[];
 	total: number;
@@ -106,7 +125,9 @@ export const fetchUserComments = async (
 	totalPages: number;
 }> => {
 	try {
-		const { data } = await axiosClient.get(`/api/users/${userPublicId}/comments?page=${pageParam}`);
+		const { data } = await axiosClient.get(
+			`/api/users/${userPublicId}/comments?page=${page}&limit=${limit}&sortBy=${sortBy}&sortOrder=${sortOrder}`
+		);
 		return data;
 	} catch (error) {
 		console.error("Error fetching user comments:", error);

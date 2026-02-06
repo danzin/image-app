@@ -132,11 +132,13 @@ export class CommentController {
 			const { publicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
 			const limit = parseInt(req.query.limit as string) || 10;
+			const sortBy = (req.query.sortBy as string) || "createdAt";
+			const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
 			// Limit max comments per page
-			const maxLimit = Math.min(limit, 10);
+			const maxLimit = Math.min(limit, 100);
 
-			const result = await this.commentService.getCommentsByUserPublicId(publicId, page, maxLimit);
+			const result = await this.commentService.getCommentsByUserPublicId(publicId, page, maxLimit, sortBy, sortOrder);
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {

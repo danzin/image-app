@@ -7,6 +7,8 @@ export class GetLikedPostsByUserQuery implements IQuery {
 		public readonly userPublicId: string,
 		public readonly page: number,
 		public readonly limit: number,
-		public readonly viewerPublicId?: string
+		public readonly viewerPublicId?: string,
+		public readonly sortBy: string = "createdAt",
+		public readonly sortOrder: "asc" | "desc" = "desc"
 	) {}
 }

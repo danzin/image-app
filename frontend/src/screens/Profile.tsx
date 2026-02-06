@@ -18,6 +18,8 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import GavelIcon from "@mui/icons-material/Gavel";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
 import { useNavigate, useParams } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
@@ -33,6 +35,7 @@ import {
 	useUserLikedPosts,
 	useUserComments,
 } from "../hooks/user/useUsers";
+import { useBanUser, useDeleteUserAdmin } from "../hooks/admin/useAdmin";
 import { useFollowUser, useIsFollowing } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import ImageEditor from "../components/ImageEditor";
@@ -101,10 +104,36 @@ const Profile: React.FC = () => {
 	const avatarMutation = useUpdateUserAvatar();
 	const coverMutation = useUpdateUserCover();
 	const { mutate: followUserMutation, isPending: followPending } = useFollowUser();
+	const banUserMutation = useBanUser();
+	const deleteUserMutation = useDeleteUserAdmin();
 	const initiateConversationMutation = useInitiateConversation();
 
 	const notifySuccess = useCallback((message: string) => toast.success(message), []);
 	const notifyError = useCallback((message: string) => toast.error(message), []);
+
+	const handleBanUser = () => {
+		if (!profileData?.publicId) return;
+		const reason = window.prompt("Enter ban reason:");
+		if (reason) {
+			banUserMutation.mutate({ publicId: profileData.publicId, reason }, {
+				onSuccess: () => {
+					queryClient.invalidateQueries({ queryKey: ["user", profileData.publicId] });
+					queryClient.invalidateQueries({ queryKey: ["admin", "user", profileData.publicId] });
+				}
+			});
+		}
+	};
+
+	const handleDeleteUser = () => {
+		if (!profileData?.publicId) return;
+		if (window.confirm("Are you sure you want to PERMANENTLY delete this user? This cannot be undone.")) {
+			deleteUserMutation.mutate(profileData.publicId, {
+				onSuccess: () => {
+					navigate("/admin");
+				}
+			});
+		}
+	};
 
 	const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
 	const flattenedLikedPosts = likedPostsData?.pages?.flatMap((page) => page.data) || [];
@@ -413,6 +442,32 @@ const Profile: React.FC = () => {
 								>
 									{isFollowing ? t("profile.unfollow") : t("profile.follow")}
 								</Button>
+								{user?.isAdmin && !isProfileOwner && (
+									<>
+										<Tooltip title="Ban User (Admin)">
+											<IconButton
+												onClick={handleBanUser}
+												sx={{
+													border: `1px solid ${theme.palette.divider}`,
+													color: "warning.main",
+												}}
+											>
+												<GavelIcon />
+											</IconButton>
+										</Tooltip>
+										<Tooltip title="Delete User (Admin)">
+											<IconButton
+												onClick={handleDeleteUser}
+												sx={{
+													border: `1px solid ${theme.palette.divider}`,
+													color: "error.main",
+												}}
+											>
+												<DeleteForeverIcon />
+											</IconButton>
+										</Tooltip>
+									</>
+								)}
 							</Box>
 						) : (
 							<Button

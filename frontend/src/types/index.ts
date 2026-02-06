@@ -24,6 +24,7 @@ export interface PublicUserDTO {
 export interface AuthenticatedUserDTO extends PublicUserDTO {
 	email: string; // Only for the user themselves
 	isEmailVerified: boolean;
+	isAdmin?: boolean;
 }
 
 export interface AccountInfoDTO {

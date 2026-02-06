@@ -103,6 +103,8 @@ export class CommentRepository extends BaseRepository<IComment> {
 		userId: string,
 		page: number = 1,
 		limit: number = 10,
+		sortBy: string = "createdAt",
+		sortOrder: "asc" | "desc" = "desc",
 	): Promise<{
 		comments: TransformedComment[];
 		total: number;
@@ -119,7 +121,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 				.find(filter)
 				.populate("postId", "slug publicId")
 				.populate("userId", "publicId handle username avatar")
-				.sort({ createdAt: -1 })
+				.sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
 				.skip(skip)
 				.limit(limit)
 				.lean<PopulatedCommentLean[]>(),

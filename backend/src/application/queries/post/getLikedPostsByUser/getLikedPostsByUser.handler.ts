@@ -17,14 +17,14 @@ export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsBy
 	) {}
 
 	async execute(query: GetLikedPostsByUserQuery): Promise<PaginationResult<PostDTO>> {
-		const { userPublicId, page, limit, viewerPublicId } = query;
+		const { userPublicId, page, limit, viewerPublicId, sortBy, sortOrder } = query;
 
 		const user = await this.userReadRepository.findByPublicId(userPublicId);
 		if (!user) {
 			throw createError("NotFoundError", "User not found");
 		}
 
-		const { postIds, total } = await this.postLikeRepository.findLikedPostIdsByUser(user.id, page, limit);
+		const { postIds, total } = await this.postLikeRepository.findLikedPostIdsByUser(user.id, page, limit, sortBy, sortOrder);
 
 		if (postIds.length === 0) {
 			return {

@@ -6,6 +6,8 @@ export class GetPostsByUserQuery implements IQuery {
 	constructor(
 		public readonly userPublicId: string,
 		public readonly page: number,
-		public readonly limit: number
+		public readonly limit: number,
+		public readonly sortBy: string = "createdAt",
+		public readonly sortOrder: "asc" | "desc" = "desc"
 	) {}
 }

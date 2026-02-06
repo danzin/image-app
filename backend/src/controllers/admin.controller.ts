@@ -18,7 +18,9 @@ import { BanUserCommand } from "@/application/commands/admin/banUser/banUser.com
 import { UnbanUserCommand } from "@/application/commands/admin/unbanUser/unbanUser.command";
 import { PromoteToAdminCommand } from "@/application/commands/admin/promoteToAdmin/promoteToAdmin.command";
 import { DemoteFromAdminCommand } from "@/application/commands/admin/demoteFromAdmin/demoteFromAdmin.command";
+import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
 import { AdminUserDTO } from "@/services/dto.service";
+import { FavoriteService } from "@/services/favorite.service";
 import { escapeRegex } from "@/utils/sanitizers";
 import { RedisService } from "@/services/redis.service";
 
@@ -27,7 +29,8 @@ export class AdminUserController {
 	constructor(
 		@inject("CommandBus") private readonly commandBus: CommandBus,
 		@inject("QueryBus") private readonly queryBus: QueryBus,
-		@inject("RedisService") private readonly redisService: RedisService
+		@inject("RedisService") private readonly redisService: RedisService,
+		@inject("FavoriteService") private readonly favoriteService: FavoriteService
 	) {}
 
 	getAllUsersAdmin = async (req: Request, res: Response, next: NextFunction) => {
@@ -160,6 +163,32 @@ export class AdminUserController {
 			}
 
 			await this.commandBus.dispatch(new DeletePostCommand(publicId, (decodedUser as any).publicId));
+			res.status(204).send();
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	deleteComment = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { commentId } = req.params;
+			const { decodedUser } = req;
+
+			if (!decodedUser || !(decodedUser as any).publicId) {
+				throw createError("AuthenticationError", "Admin user not found");
+			}
+
+			await this.commandBus.dispatch(new DeleteCommentCommand(commentId, (decodedUser as any).publicId));
+			res.status(204).send();
+		} catch (error) {
+			next(error);
+		}
+	};
+
+	removeUserFavorite = async (req: Request, res: Response, next: NextFunction) => {
+		try {
+			const { publicId, postPublicId } = req.params;
+			await this.favoriteService.removeFavoriteAdmin(publicId, postPublicId);
 			res.status(204).send();
 		} catch (error) {
 			next(error);
