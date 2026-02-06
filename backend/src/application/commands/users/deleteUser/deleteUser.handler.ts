@@ -23,6 +23,7 @@ import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
+import { RedisService } from "@/services/redis.service";
 
 @injectable()
 export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserCommand, void> {
@@ -46,6 +47,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
 		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
 		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("RedisService") private readonly redisService: RedisService,
 		@inject("UserModel") private readonly userModel: Model<IUser>,
 	) {}
 
@@ -176,6 +178,18 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 			// emit event after successful deletion to trigger cache cleanup
 			await this.eventBus.publish(new UserDeletedEvent(userPublicId, userId, followerPublicIds));
+
+			// Explicitly invalidate "Who to follow" cache (global or user-specific if tagged)
+			await this.redisService.invalidateByTags([
+				"who_to_follow", 
+				`user:${userPublicId}`, 
+				`user_feed:${userPublicId}`,
+				"trending_feed",
+				"new_feed"
+			]);
+			
+			// Remove user from trending sets if they are there (though trending is usually post-based)
+			
 		} catch (error) {
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(

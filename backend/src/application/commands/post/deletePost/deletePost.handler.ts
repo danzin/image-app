@@ -86,7 +86,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 			});
 
 			await this.deleteImageAssetAfterCommit(imageAssetToDelete);
-			await this.invalidateCache(command.requesterPublicId);
+			await this.invalidateCache(command.requesterPublicId, command.postPublicId);
 			await this.publishDeleteEvent(command.postPublicId, postAuthorPublicId ?? command.requesterPublicId);
 
 			return { message: "Post deleted successfully" };
@@ -228,8 +228,18 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		await this.tagService.decrementUsage(tagIds, session);
 	}
 
-	private async invalidateCache(userPublicId: string): Promise<void> {
+	private async invalidateCache(userPublicId: string, postPublicId: string): Promise<void> {
+		// 1. Remove from user's own feed cache
 		await this.redisService.invalidateByTags([`user_feed:${userPublicId}`]);
+		
+		// 2. Remove from global feed caches
+		await this.redisService.invalidateByTags(["trending_feed", "new_feed"]);
+		
+		// 3. Remove from trending ZSET (leaderboard)
+		await this.redisService.removeFromFeed("global", postPublicId, "trending:posts"); // key is "trending:posts" from worker
+		
+		// 4. Remove from post metadata cache
+		await this.redisService.invalidateByTags([`post_meta:${postPublicId}`]);
 	}
 
 	private async publishDeleteEvent(postPublicId: string, authorPublicId: string): Promise<void> {
