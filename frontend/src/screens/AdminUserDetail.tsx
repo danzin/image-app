@@ -14,21 +14,91 @@ import {
 	Divider,
 	CircularProgress,
 	Link,
+	Tabs,
+	Tab,
+	Paper,
+	Pagination,
+	FormControl,
+	InputLabel,
+	Select,
+	MenuItem,
+	Stack,
 } from "@mui/material";
 import {
 	ArrowBack as ArrowBackIcon,
 	Email as EmailIcon,
 	CalendarToday as CalendarTodayIcon,
+	Delete as DeleteIcon,
+	Edit as EditIcon,
+	Sort as SortIcon,
 } from "@mui/icons-material";
-import { useAdminUser, useUserStats } from "../hooks/admin/useAdmin";
+import { useAdminUser, useUserStats, useRemoveUserFavoriteAdmin } from "../hooks/admin/useAdmin";
+import { useUserPosts, useUserComments, useUserLikedPosts } from "../hooks/user/useUsers";
+import { useDeletePost } from "../hooks/posts/usePosts";
+import { useDeleteComment, useUpdateComment } from "../hooks/comments/useComments";
 import { formatDistanceToNow } from "date-fns";
+import Gallery from "../components/Gallery";
+import CommentItem from "../components/comments/CommentItem";
+import { IComment } from "../types";
 
 const AdminUserDetail: React.FC = () => {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
+	const [activeTab, setActiveTab] = React.useState(0);
+
+	// Pagination & Sorting state
+	const [pageSize, setPageSize] = React.useState(10);
+	const [sortOrder, setSortOrder] = React.useState<"asc" | "desc">("desc");
+	const [postsPage, setPostsPage] = React.useState(1);
+	const [commentsPage, setCommentsPage] = React.useState(1);
+	const [likesPage, setLikesPage] = React.useState(1);
 
 	const { data: user, isLoading: userLoading } = useAdminUser(id);
 	const { data: stats, isLoading: statsLoading } = useUserStats(id);
+
+	const {
+		data: postsData,
+		isLoading: postsLoading,
+	} = useUserPosts(user?.publicId || "", {
+		enabled: !!user?.publicId && activeTab === 0,
+		limit: pageSize,
+		sortOrder: sortOrder,
+		page: postsPage,
+	});
+
+	const {
+		data: commentsData,
+		isLoading: commentsLoading,
+	} = useUserComments(user?.publicId || "", {
+		enabled: !!user?.publicId && activeTab === 1,
+		limit: pageSize,
+		sortOrder: sortOrder,
+		page: commentsPage,
+	});
+
+	const {
+		data: likesData,
+		isLoading: likesLoading,
+	} = useUserLikedPosts(user?.publicId || "", {
+		enabled: !!user?.publicId && activeTab === 2,
+		limit: pageSize,
+		sortOrder: sortOrder,
+		page: likesPage,
+	});
+
+	const deletePostMutation = useDeletePost();
+	const deleteCommentMutation = useDeleteComment();
+	const removeFavoriteMutation = useRemoveUserFavoriteAdmin();
+
+	const handleRemoveFavorite = (postPublicId: string) => {
+		if (user?.publicId) {
+			removeFavoriteMutation.mutate({ userPublicId: user.publicId, postPublicId });
+		}
+	};
+
+	const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+		setActiveTab(newValue);
+	};
 
 	if (userLoading || statsLoading) {
 		return (
@@ -58,7 +128,7 @@ const AdminUserDetail: React.FC = () => {
 			<Grid container spacing={3}>
 				{/* Header Card */}
 				<Grid item xs={12}>
-					<Card>
+					<Card sx={{ bgcolor: "#000000", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
 						<CardContent>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
 								<Avatar src={user.avatar} sx={{ width: 100, height: 100 }} />
@@ -118,7 +188,7 @@ const AdminUserDetail: React.FC = () => {
 
 				{/* Stats Cards */}
 				<Grid item xs={12} md={6}>
-					<Card sx={{ height: "100%" }}>
+					<Card sx={{ height: "100%", bgcolor: "#000000", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
 						<CardContent>
 							<Typography variant="h6" gutterBottom>
 								Account Statistics
@@ -155,7 +225,7 @@ const AdminUserDetail: React.FC = () => {
 				</Grid>
 
 				<Grid item xs={12} md={6}>
-					<Card sx={{ height: "100%" }}>
+					<Card sx={{ height: "100%", bgcolor: "#000000", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
 						<CardContent>
 							<Typography variant="h6" gutterBottom>
 								Security & Info
@@ -198,6 +268,174 @@ const AdminUserDetail: React.FC = () => {
 					</Card>
 				</Grid>
 			</Grid>
+
+			<Paper sx={{ mt: 4, borderRadius: 2, bgcolor: "#000000", border: "1px solid", borderColor: "divider" }}>
+				<Box sx={{ p: 2, display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: 1, borderColor: "divider" }}>
+					<Typography variant="h6">User Activity</Typography>
+					<Stack direction="row" spacing={2} alignItems="center">
+						<FormControl size="small" sx={{ minWidth: 120 }}>
+							<InputLabel>Sort Order</InputLabel>
+							<Select
+								value={sortOrder}
+								label="Sort Order"
+								onChange={(e) => setSortOrder(e.target.value as "asc" | "desc")}
+								startAdornment={<SortIcon sx={{ mr: 1, color: "text.secondary" }} />}
+							>
+								<MenuItem value="desc">Newest First</MenuItem>
+								<MenuItem value="asc">Oldest First</MenuItem>
+							</Select>
+						</FormControl>
+						<FormControl size="small" sx={{ minWidth: 100 }}>
+							<InputLabel>Per Page</InputLabel>
+							<Select
+								value={pageSize}
+								label="Per Page"
+								onChange={(e) => {
+									setPageSize(Number(e.target.value));
+									setPostsPage(1);
+									setCommentsPage(1);
+									setLikesPage(1);
+								}}
+							>
+								<MenuItem value={5}>5</MenuItem>
+								<MenuItem value={10}>10</MenuItem>
+								<MenuItem value={20}>20</MenuItem>
+								<MenuItem value={50}>50</MenuItem>
+							</Select>
+						</FormControl>
+					</Stack>
+				</Box>
+				<Tabs
+					value={activeTab}
+					onChange={handleTabChange}
+					variant="fullWidth"
+					indicatorColor="primary"
+					textColor="primary"
+				>
+					<Tab label={`Posts (${stats?.imageCount || 0})`} />
+					<Tab label="Comments" />
+					<Tab label="Liked Posts" />
+				</Tabs>
+
+				<Box sx={{ p: 2 }}>
+					{activeTab === 0 && (
+						<Box>
+							{postsLoading ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}><CircularProgress /></Box>
+							) : postsData?.pages[0].data.length === 0 ? (
+								<Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+									No posts found
+								</Typography>
+							) : (
+								<>
+									<Gallery
+										posts={postsData?.pages[0].data || []}
+										fetchNextPage={() => {}}
+										hasNextPage={false}
+										isLoadingAll={false}
+									/>
+									{postsData && postsData.pages[0].totalPages > 1 && (
+										<Box sx={{ display: "flex", justifyContent: "center", mt: 3, pb: 2 }}>
+											<Pagination
+												count={postsData.pages[0].totalPages}
+												page={postsPage}
+												onChange={(_, page) => setPostsPage(page)}
+												color="primary"
+											/>
+										</Box>
+									)}
+								</>
+							)}
+						</Box>
+					)}
+
+					{activeTab === 1 && (
+						<Box>
+							{commentsLoading ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}><CircularProgress /></Box>
+							) : commentsData?.pages[0].comments.length === 0 ? (
+								<Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+									No comments found
+								</Typography>
+							) : (
+								<Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+									{commentsData?.pages[0].comments.map((comment: any) => (
+										<CommentItem key={comment.id} comment={comment as IComment} />
+									))}
+									{commentsData && commentsData.pages[0].totalPages > 1 && (
+										<Box sx={{ display: "flex", justifyContent: "center", mt: 3, pb: 2 }}>
+											<Pagination
+												count={commentsData.pages[0].totalPages}
+												page={commentsPage}
+												onChange={(_, page) => setCommentsPage(page)}
+												color="primary"
+											/>
+										</Box>
+									)}
+								</Box>
+							)}
+						</Box>
+					)}
+
+					{activeTab === 2 && (
+						<Box>
+							{likesLoading ? (
+								<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}><CircularProgress /></Box>
+							) : likesData?.pages[0].data.length === 0 ? (
+								<Typography color="text.secondary" align="center" sx={{ py: 4 }}>
+									No liked posts found
+								</Typography>
+							) : (
+								<Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+									{likesData?.pages[0].data.map((post: any) => (
+										<Paper key={post.publicId} sx={{ p: 1, display: "flex", alignItems: "center", gap: 2, bgcolor: "#000000", border: "1px solid", borderColor: "divider", borderRadius: 2 }}>
+											{post.image?.url && (
+												<Box
+													component="img"
+													src={post.image.url.startsWith("http") ? post.image.url : `/api/${post.image.url}`}
+													sx={{ width: 50, height: 50, borderRadius: 1, objectFit: "cover" }}
+												/>
+											)}
+											<Box sx={{ flex: 1 }}>
+												<Typography variant="body2" noWrap>
+													{post.body || "No content"}
+												</Typography>
+												<Typography variant="caption" color="text.secondary">
+													by @{post.user?.handle || "unknown"}
+												</Typography>
+											</Box>
+											<Button
+												size="small"
+												color="error"
+												startIcon={<DeleteIcon />}
+												onClick={() => handleRemoveFavorite(post.publicId)}
+											>
+												Remove Like
+											</Button>
+											<Button
+												size="small"
+												onClick={() => navigate(`/posts/${post.publicId}`)}
+											>
+												View
+											</Button>
+										</Paper>
+									))}
+									{likesData && likesData.pages[0].totalPages > 1 && (
+										<Box sx={{ display: "flex", justifyContent: "center", mt: 3, pb: 2 }}>
+											<Pagination
+												count={likesData.pages[0].totalPages}
+												page={likesPage}
+												onChange={(_, page) => setLikesPage(page)}
+												color="primary"
+											/>
+										</Box>
+									)}
+								</Box>
+							)}
+						</Box>
+					)}
+				</Box>
+			</Paper>
 		</Container>
 	);
 };

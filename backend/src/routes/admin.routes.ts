@@ -32,6 +32,12 @@ export class AdminUserRoutes {
 		//Delete an image by public ID
 		this.router.delete("/image/:publicId", this.adminUserController.deleteImage);
 
+		//Delete a comment by ID
+		this.router.delete("/comment/:commentId", this.adminUserController.deleteComment);
+
+		//Remove a favorite from a user
+		this.router.delete("/user/:publicId/favorite/:postPublicId", this.adminUserController.removeUserFavorite);
+
 		// ===New Admin endpoints===
 
 		// User management

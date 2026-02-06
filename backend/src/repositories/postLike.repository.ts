@@ -78,7 +78,9 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 	async findLikedPostIdsByUser(
 		userId: string,
 		page: number,
-		limit: number
+		limit: number,
+		sortBy: string = "createdAt",
+		sortOrder: "asc" | "desc" = "desc"
 	): Promise<{ postIds: Types.ObjectId[]; total: number }> {
 		const normalizedUserId = this.normalizeId(userId, "userId");
 		const skip = (page - 1) * limit;
@@ -86,7 +88,7 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 		const [likes, total] = await Promise.all([
 			this.model
 				.find({ userId: normalizedUserId })
-				.sort({ createdAt: -1 })
+				.sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
 				.skip(skip)
 				.limit(limit)
 				.select("postId")

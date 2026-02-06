@@ -87,8 +87,11 @@ export class PostController {
 		const { publicId } = req.params;
 		const page = parseInt(req.query.page as string) || 1;
 		const limit = parseInt(req.query.limit as string) || 10;
+		const sortBy = (req.query.sortBy as string) || "createdAt";
+		const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+
 		try {
-			const query = new GetPostsByUserQuery(publicId, page, limit);
+			const query = new GetPostsByUserQuery(publicId, page, limit, sortBy, sortOrder);
 			const posts = await this.queryBus.execute<UserPostsResult>(query);
 			res.json(posts);
 		} catch (error) {
@@ -105,10 +108,12 @@ export class PostController {
 		const { publicId } = req.params;
 		const page = parseInt(req.query.page as string) || 1;
 		const limit = parseInt(req.query.limit as string) || 10;
+		const sortBy = (req.query.sortBy as string) || "createdAt";
+		const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 		const viewerPublicId = req.decodedUser?.publicId;
 
 		try {
-			const query = new GetLikedPostsByUserQuery(publicId, page, limit, viewerPublicId);
+			const query = new GetLikedPostsByUserQuery(publicId, page, limit, viewerPublicId, sortBy, sortOrder);
 			const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
 			res.json(posts);
 		} catch (error) {

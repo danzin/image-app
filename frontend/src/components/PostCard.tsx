@@ -1,15 +1,16 @@
 import React, { useState } from "react";
 import { IPost } from "../types";
-import { Typography, Box, Avatar, Chip } from "@mui/material";
+import { Typography, Box, Avatar, Chip, IconButton, Tooltip } from "@mui/material";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import RepeatIcon from "@mui/icons-material/Repeat";
 import GroupsIcon from "@mui/icons-material/Groups";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
-import { useRepostPost } from "../hooks/posts/usePosts";
+import { useRepostPost, useDeletePost } from "../hooks/posts/usePosts";
 import { useAuth } from "../hooks/context/useAuth";
 import { useTranslation } from "react-i18next";
 
@@ -43,9 +44,19 @@ const formatCount = (count: number | undefined): string => {
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
-	const { isLoggedIn } = useAuth();
+	const { isLoggedIn, user } = useAuth();
 	const { mutate: triggerRepost } = useRepostPost();
+	const { mutate: deletePost } = useDeletePost();
 	const [isExpanded, setIsExpanded] = useState(false);
+
+	const isAdmin = user?.isAdmin;
+
+	const handleDeletePost = (e: React.MouseEvent) => {
+		e.stopPropagation();
+		if (window.confirm(t("post.confirm_delete", { defaultValue: "Are you sure you want to delete this post?" }))) {
+			deletePost(post.publicId);
+		}
+	};
 
 	const handleClick = () => {
 		navigate(`/posts/${post.publicId}`);
@@ -205,6 +216,23 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								day: "numeric",
 							})}
 						</Typography>
+
+						{isAdmin && (
+							<Tooltip title={t("admin.delete_post", { defaultValue: "Delete Post (Admin)" })}>
+								<IconButton
+									size="small"
+									onClick={handleDeletePost}
+									sx={{
+										ml: "auto",
+										color: "error.main",
+										padding: 0.5,
+										"&:hover": { bgcolor: "rgba(244, 33, 46, 0.1)" },
+									}}
+								>
+									<DeleteIcon sx={{ fontSize: 18 }} />
+								</IconButton>
+							</Tooltip>
+						)}
 					</Box>
 
 					{/* Post Content */}

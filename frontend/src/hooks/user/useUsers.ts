@@ -110,31 +110,55 @@ export const useGetUser = (identifier: string | undefined) => {
 	});
 };
 
-export const useUserPosts = (userPublicId: string, options?: UseUserImagesOptions) => {
+export const useUserPosts = (
+	userPublicId: string,
+	options?: UseUserImagesOptions & { limit?: number; sortBy?: string; sortOrder?: string; page?: number }
+) => {
+	const limit = options?.limit || 10;
+	const sortBy = options?.sortBy || "createdAt";
+	const sortOrder = options?.sortOrder || "desc";
+	const page = options?.page || 1;
+
 	return useInfiniteQuery({
-		queryKey: ["userPosts", userPublicId] as const,
-		queryFn: ({ pageParam = 1 }) => fetchUserPosts(pageParam as number, userPublicId),
-		initialPageParam: 1,
+		queryKey: ["userPosts", userPublicId, limit, sortBy, sortOrder, page] as const,
+		queryFn: ({ pageParam = page }) => fetchUserPosts(pageParam as number, userPublicId, limit, sortBy, sortOrder),
+		initialPageParam: page,
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		...options,
 	});
 };
 
-export const useUserLikedPosts = (userPublicId: string, options?: UseUserImagesOptions) => {
+export const useUserLikedPosts = (
+	userPublicId: string,
+	options?: UseUserImagesOptions & { limit?: number; sortBy?: string; sortOrder?: string; page?: number }
+) => {
+	const limit = options?.limit || 10;
+	const sortBy = options?.sortBy || "createdAt";
+	const sortOrder = options?.sortOrder || "desc";
+	const page = options?.page || 1;
+
 	return useInfiniteQuery({
-		queryKey: ["userLikedPosts", userPublicId] as const,
-		queryFn: ({ pageParam = 1 }) => fetchUserLikedPosts(pageParam as number, userPublicId),
-		initialPageParam: 1,
+		queryKey: ["userLikedPosts", userPublicId, limit, sortBy, sortOrder, page] as const,
+		queryFn: ({ pageParam = page }) => fetchUserLikedPosts(pageParam as number, userPublicId, limit, sortBy, sortOrder),
+		initialPageParam: page,
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		...options,
 	});
 };
 
-export const useUserComments = (userPublicId: string, options?: UseUserCommentsOptions) => {
+export const useUserComments = (
+	userPublicId: string,
+	options?: UseUserCommentsOptions & { limit?: number; sortBy?: string; sortOrder?: string; page?: number }
+) => {
+	const limit = options?.limit || 10;
+	const sortBy = options?.sortBy || "createdAt";
+	const sortOrder = options?.sortOrder || "desc";
+	const page = options?.page || 1;
+
 	return useInfiniteQuery({
-		queryKey: ["userComments", userPublicId] as const,
-		queryFn: ({ pageParam = 1 }) => fetchUserComments(pageParam as number, userPublicId),
-		initialPageParam: 1,
+		queryKey: ["userComments", userPublicId, limit, sortBy, sortOrder, page] as const,
+		queryFn: ({ pageParam = page }) => fetchUserComments(pageParam as number, userPublicId, limit, sortBy, sortOrder),
+		initialPageParam: page,
 		getNextPageParam: (lastPage) => (lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined),
 		...options,
 	});

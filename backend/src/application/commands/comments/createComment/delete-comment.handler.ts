@@ -71,12 +71,12 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 					: (postOwner?.toString?.() ?? "");
 			const postOwnerMatch = postOwnerInternalId === user.id;
 
-			if (!isCommentOwner && !postOwnerMatch) {
+			if (!isCommentOwner && !postOwnerMatch && !user.isAdmin) {
 				throw createError("ForbiddenError", "You can only delete your own comments or comments on your posts");
 			}
 
 			// determine if this is a user delete or admin/post owner delete
-			const deletedBy: "user" | "admin" = isCommentOwner ? "user" : "admin";
+			const deletedBy: "user" | "admin" = (isCommentOwner && !user.isAdmin) ? "user" : "admin";
 
 			// Extract post data for events
 			postTags = Array.isArray((effectivePost as any).tags)
