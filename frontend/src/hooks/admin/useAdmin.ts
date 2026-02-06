@@ -10,6 +10,8 @@ import {
 	deleteUserAdmin,
 	fetchAllImagesAdmin,
 	deleteImageAdmin,
+	deleteCommentAdmin,
+	removeUserFavoriteAdmin,
 	fetchDashboardStats,
 	fetchRecentActivity,
 	clearCache,
@@ -143,6 +145,35 @@ export const useDeleteImageAdmin = () => {
 		},
 		onError: (error: Error) => {
 			toast.error(`failed to delete image: ${error.message}`);
+		},
+	});
+};
+
+export const useDeleteCommentAdmin = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (commentId: string) => deleteCommentAdmin(commentId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["userComments"] });
+			toast.success("comment deleted successfully");
+		},
+		onError: (error: Error) => {
+			toast.error(`failed to delete comment: ${error.message}`);
+		},
+	});
+};
+
+export const useRemoveUserFavoriteAdmin = () => {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({ userPublicId, postPublicId }: { userPublicId: string; postPublicId: string }) =>
+			removeUserFavoriteAdmin(userPublicId, postPublicId),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["userLikedPosts"] });
+			toast.success("favorite removed successfully");
+		},
+		onError: (error: Error) => {
+			toast.error(`failed to remove favorite: ${error.message}`);
 		},
 	});
 };

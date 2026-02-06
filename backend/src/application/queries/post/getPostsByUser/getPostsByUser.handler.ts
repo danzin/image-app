@@ -22,6 +22,8 @@ export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQ
 			this.postReadRepository.findByUserPublicId(query.userPublicId, {
 				page: query.page,
 				limit: query.limit,
+				sortBy: query.sortBy,
+				sortOrder: query.sortOrder,
 			}),
 			this.userReadRepository.findByPublicId(query.userPublicId),
 		]);

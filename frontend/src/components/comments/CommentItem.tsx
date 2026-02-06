@@ -36,6 +36,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 	const likeCommentMutation = useLikeComment();
 
 	const isOwner = user?.publicId === comment.user?.publicId;
+	const isAdmin = user?.isAdmin;
 	const isMenuOpen = Boolean(anchorEl);
 
 	const handleMenuClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -266,7 +267,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 						{formatDate(comment.createdAt)}
 						{comment.isEdited && " (edited)"}
 					</Typography>
-					{isOwner && (
+					{(isOwner || isAdmin) && (
 						<IconButton size="small" onClick={handleMenuClick} sx={{ ml: "auto", p: 0.5 }}>
 							<MoreVertIcon fontSize="small" />
 						</IconButton>

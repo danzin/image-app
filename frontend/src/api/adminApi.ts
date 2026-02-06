@@ -98,6 +98,14 @@ export const deleteImageAdmin = async (publicId: string): Promise<void> => {
 	await axiosClient.delete(`/api/admin/image/${publicId}`);
 };
 
+export const deleteCommentAdmin = async (commentId: string): Promise<void> => {
+	await axiosClient.delete(`/api/admin/comment/${commentId}`);
+};
+
+export const removeUserFavoriteAdmin = async (userPublicId: string, postPublicId: string): Promise<void> => {
+	await axiosClient.delete(`/api/admin/user/${userPublicId}/favorite/${postPublicId}`);
+};
+
 export const fetchDashboardStats = async (): Promise<DashboardStats> => {
 	const { data } = await axiosClient.get("/api/admin/dashboard/stats");
 	return data;

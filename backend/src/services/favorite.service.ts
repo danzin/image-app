@@ -70,6 +70,22 @@ export class FavoriteService {
 		await this.removeFavorite(actorId, postId);
 	}
 
+	async removeFavoriteAdmin(userPublicId: string, postPublicId: string): Promise<void> {
+		const userId = await this.userRepository.findInternalIdByPublicId(userPublicId);
+		if (!userId) {
+			throw createError("NotFoundError", "User not found");
+		}
+
+		const postId = await this.postRepository.findInternalIdByPublicId(postPublicId);
+		if (!postId) {
+			throw createError("NotFoundError", "Post not found");
+		}
+
+		return this.unitOfWork.executeInTransaction(async (session) => {
+			await this.favoriteRepository.remove(userId, postId, session);
+		});
+	}
+
 	async getFavoritesForViewer(viewerPublicId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
 		const userId = await this.userRepository.findInternalIdByPublicId(viewerPublicId);
 		if (!userId) {
