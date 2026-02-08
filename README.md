@@ -74,7 +74,7 @@ The `RedisService` goes beyond basic key-value storage:
 * **Runtime:** Node.js (v20+), TypeScript
 * **Framework:** Express.js
 * **Database:** MongoDB (Mongoose with schema validation & sanitization)
-* **Caching/Message Broker:** Redis (ioredis)
+* **Caching/Message Broker:** Redis (node-redis)
 * **Architecture:** DI (TSyringe), Repository Pattern, CQRS
 * **Testing:** Mocha, Chai, Sinon
 
