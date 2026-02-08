@@ -78,13 +78,6 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				const timestamp = Date.now();
 				redisLogger.info(`Populating ZSET for user`, { userId, postCount: transformedFeedData.length });
 				
-				// We need to store them with scores that preserve order.
-				// Since getRankedFeedWithCursor returns ranked items, we can assign scores 
-				// based on their rank index or use the actual rankScore if available.
-				// However, `addToFeed` uses timestamp.
-				// For the "For You" feed, if it's rank-based, we should ideally use rankScore as the ZSET score.
-				// But our RedisService.addToFeed assumes "timestamp".
-				// Let's use a decreasing timestamp to maintain order in ZSET (Newest/Highest Score first).
 				
 				Promise.all(
 					transformedFeedData.map((post: FeedPost, idx: number) => {
