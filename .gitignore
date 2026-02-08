@@ -17,3 +17,4 @@ migrate-atlas-to-local.ts
 notes.txt
 tsconfig.tsbuildinfo
 backend/src/scripts/stress-test.ts
+notes.md
