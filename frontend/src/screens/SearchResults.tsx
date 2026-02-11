@@ -64,16 +64,21 @@ const SearchResults = () => {
 		isFetchingNextPage,
 		isLoading: isLoadingPosts,
 	} = usePostsByTag(searchTerms, {
-		enabled: searchMode !== "handles" && searchTerms.length > 0,
+		enabled: searchMode === "tags" && searchTerms.length > 0,
 	});
 
 	// Flatten pages
 	const allPosts = useMemo(() => {
-		return postsData?.pages.flatMap((page) => page.data) || [];
-	}, [postsData]);
+		if (searchMode === "tags") {
+			return postsData?.pages.flatMap((page) => page.data) || [];
+		}
+		return searchData?.data.posts || [];
+	}, [postsData, searchData, searchMode]);
 
 	useEffect(() => {
-		if (!isLoadingPosts && !isSearchingUsers && activeTab === "posts") {
+		const isModeLoading = (searchMode === "tags" && isLoadingPosts) || isSearchingUsers;
+
+		if (!isModeLoading && activeTab === "posts") {
 			const hasPosts = allPosts.length > 0;
 			const hasUsers = searchData?.data.users && searchData.data.users.length > 0;
 
@@ -81,11 +86,11 @@ const SearchResults = () => {
 				setActiveTab("users");
 			}
 		}
-	}, [isLoadingPosts, isSearchingUsers, allPosts.length, searchData, activeTab]);
+	}, [isLoadingPosts, isSearchingUsers, allPosts.length, searchData, activeTab, searchMode]);
 
 	const users = searchData?.data.users ?? [];
 	const communities = searchData?.data.communities ?? [];
-	const isLoading = (searchMode !== "handles" && isLoadingPosts) || isSearchingUsers;
+	const isLoading = (searchMode === "tags" && isLoadingPosts) || isSearchingUsers;
 
 	const getFullAvatarUrl = (avatar?: string) => {
 		if (!avatar) return undefined;
