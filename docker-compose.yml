@@ -93,7 +93,7 @@ services:
       MONGODB_URI: mongodb://root:secret@mongo:27017/PhotoAppOOP?authSource=admin&replicaSet=rs0
       REDIS_URL: redis://redis-service:6379
       JWT_SECRET: YourProductionJWTSecretGoesHere
-      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000,http://192.168.56.1:80
+      ALLOWED_ORIGINS: http://localhost,http://localhost:80,http://localhost:5173,http://localhost:8000,http://192.168.1.10:80
       COOKIE_SECURE: "false" # true in real production environment with HTTPS
       # Cloudinary credentials go here for production
       # CLOUDINARY_CLOUD_NAME: ...

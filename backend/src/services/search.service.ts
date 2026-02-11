@@ -26,16 +26,30 @@ export class SearchService {
 	}> {
 		try {
 			// Execute independent search queries in parallel
-			const [users, communities, tags] = await Promise.all([
+			const [users, communities, tags, textPosts] = await Promise.all([
 				this.userRepository.getAll({ search: query }),
 				this.communityRepository.search(query),
 				this.tagRepository.searchTags(query),
+				this.postRepository.searchByText(query),
 			]);
 
 			// Search for posts by tag IDs (dependent on tags result)
 			const tagIds = tags.map((tag) => tag._id);
-			const posts = await this.postRepository.findByTags(tagIds as string[]);
-			const postDTOs = posts?.data?.map((post) => this.dtoService.toPostDTO(post)) ?? [];
+			const tagPostsResult = await this.postRepository.findByTags(tagIds as string[]);
+			const tagPosts = tagPostsResult?.data ?? [];
+
+			const allPosts = [...(textPosts ?? []), ...tagPosts];
+			const uniquePostsMap = new Map<string, any>();
+
+			for (const post of allPosts) {
+				if (post && post.publicId && !uniquePostsMap.has(post.publicId)) {
+					uniquePostsMap.set(post.publicId, post);
+				}
+			}
+
+			const uniquePosts = Array.from(uniquePostsMap.values());
+			const postDTOs = uniquePosts.map((post) => this.dtoService.toPostDTO(post));
+
 			const userDTOs = users?.map((user) => this.dtoService.toPublicDTO(user)) ?? [];
 			const communityDTOs = communities?.map((community) => this.dtoService.toCommunityDTO(community)) ?? [];
 
