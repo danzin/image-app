@@ -22,6 +22,7 @@ import {
 	ExpandMore as ExpandMoreIcon,
 	AlternateEmail as AlternateEmailIcon,
 	ChatBubbleOutline as ChatBubbleOutlineIcon,
+	Security as SecurityIcon,
 } from "@mui/icons-material";
 import { useNotifications } from "../hooks/notifications/useNotification";
 import { Notification } from "../types";
@@ -71,6 +72,8 @@ const Notifications: React.FC = () => {
 				return <AlternateEmailIcon sx={{ color: "#f59e0b", fontSize: 20 }} />;
 			case "message":
 				return <ChatBubbleOutlineIcon sx={{ color: "#0ea5e9", fontSize: 20 }} />;
+			case "security_alert":
+				return <SecurityIcon sx={{ color: "#ef4444", fontSize: 20 }} />;
 			default:
 				return null;
 		}
@@ -92,6 +95,8 @@ const Notifications: React.FC = () => {
 				return "mentioned you in a comment";
 			case "message":
 				return "sent you a message";
+			case "security_alert":
+				return "triggered a security alert";
 			default:
 				return notification.actionType;
 		}
@@ -117,6 +122,8 @@ const Notifications: React.FC = () => {
 		} else if (notification.actionType === "follow") {
 			const profileIdentifier = notification.actorHandle || notification.actorId;
 			navigate(`/profile/${profileIdentifier}`);
+		} else if (notification.actionType === "security_alert") {
+			navigate("/admin");
 		}
 	};
 

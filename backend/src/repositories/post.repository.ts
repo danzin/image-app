@@ -21,6 +21,30 @@ export class PostRepository extends BaseRepository<IPost> {
 		super(model);
 	}
 
+	async searchByText(terms: string[], limit: number = 20): Promise<IPost[]> {
+		try {
+			if (!terms.length) return [];
+
+			// MongoDB text search expects a space-separated string
+			const searchString = terms.join(" ");
+
+			const pipeline: PipelineStage[] = [
+				{ $match: { $text: { $search: searchString } } },
+				{ $limit: limit },
+				// Sort by text relevance score
+				{ $addFields: { score: { $meta: "textScore" } } },
+				{ $sort: { score: { $meta: "textScore" } } },
+				...this.getStandardLookups(),
+				this.getStandardProjection(),
+			];
+
+			const results = await this.model.aggregate(pipeline).exec();
+			return results;
+		} catch (error: any) {
+			throw createError("DatabaseError", error.message ?? "failed to search posts by text");
+		}
+	}
+
 	private async loadFavoriteTagIds(tagNames: string[]): Promise<mongoose.Types.ObjectId[]> {
 		if (tagNames.length === 0) {
 			return [];
