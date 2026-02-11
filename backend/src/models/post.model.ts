@@ -123,6 +123,7 @@ postSchema.methods.canBeViewedBy = function (user?: IUser | null): boolean {
 
 postSchema.index({ user: 1, createdAt: -1 }); // profile feed queries
 postSchema.index({ tags: 1, createdAt: -1 }); // tag discovery
+postSchema.index({ body: "text" }); // text search on body
 postSchema.index({ slug: 1 }, { unique: true, sparse: true }); // fast lookup by slug
 postSchema.index({ commentsCount: -1, likesCount: -1 }); // engagement ranking
 postSchema.index({ type: 1, createdAt: -1 }); // filter by post type (original vs repost)

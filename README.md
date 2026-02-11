@@ -116,7 +116,7 @@ docker-compose up --build
 * Frontend: http://localhost:80
 * API Gateway: http://localhost:8000
 * Direct Backend: http://localhost:3000
-* Grafana Dashboards: http://localhost:3000 
+* Grafana Dashboards: http://localhost:3001 
 * Prometheus: http://localhost:9090
   
 ## Local Development (Monorepo)
@@ -124,7 +124,7 @@ The project uses `concurrently` to run the Backend, API Gateway, Frontend, and W
 1. Setup Environment
 * Create a .env file in the root directory:
 ```
-MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/DBName
+MONGODB_URI=your://local@or@remote:mongodb.connectionString
 JWT_SECRET=your_jwt_secret_here
 # CLOUDINARY_... (Optional)
 PORT=3000

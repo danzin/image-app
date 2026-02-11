@@ -232,7 +232,7 @@ export interface GalleryProps {
 export interface Notification {
 	id: string;
 	userId: string;
-	actionType: string; // 'like' | 'comment' | 'follow' | 'message'
+	actionType: string; // 'like' | 'comment' | 'follow' | 'message' | 'security_alert'
 	actorId: string; // actor's publicId
 	actorUsername?: string; // denormalized username
 	actorHandle?: string;

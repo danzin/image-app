@@ -20,7 +20,7 @@ const RequestLogSchema = new Schema<IRequestLog>(
 			metaField: "metadata",
 			granularity: "seconds",
 		},
-		expireAfterSeconds: 60 * 60 * 24 * 30, // 30 days
+		expireAfterSeconds: 60 * 60 * 24 * 90, // 90 days
 	},
 );
 
