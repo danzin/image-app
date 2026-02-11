@@ -105,14 +105,12 @@ describe("SearchService", () => {
 
 			mockUserRepository.getAll.resolves(null);
 			mockCommunityRepository.search.resolves(null);
-			mockTagRepository.searchTags.resolves([]); // tags usually return []
-			mockPostRepository.searchByText.resolves(null); // searchByText might return null (though in code I initialized it to empty array in service?)
+			mockTagRepository.searchTags.resolves([]); 
+			mockPostRepository.searchByText.resolves(null); 
 
-			// Wait, in service: `const [users, communities, tags, textPosts] = await Promise.all(...)`
-			// `const allPosts = [...(textPosts ?? []), ...tagPosts];`
-			// So if textPosts is null, it works.
 
-			mockPostRepository.findByTags.resolves(null); // findByTags might return null
+
+			mockPostRepository.findByTags.resolves(null); 
 
 			const result = await searchService.searchAll(query);
 
