@@ -48,6 +48,7 @@ export class FollowService {
 					actorId: follower.publicId,
 					actorUsername: follower.username,
 					actorHandle: follower.handle,
+					actorAvatar: follower.avatar,
 				});
 			}
 

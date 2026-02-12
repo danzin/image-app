@@ -60,10 +60,8 @@ export class ImageRoutes {
 		// === PROTECTED ROUTES (require authentication) ===
 		this.router.use(this.auth);
 
-		//logged in user uploads an image
 		this.router.post("/upload", upload.single("image"), this.controller.createPost);
 
-		//logged in deletes an image by public ID
 		this.router.delete(
 			"/image/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
