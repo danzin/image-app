@@ -152,6 +152,13 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 		if (postOwnerPublicId && postOwnerPublicId !== command.userId) {
 			logger.info(`[LikeAction] Queuing notification for owner ${postOwnerPublicId} from actor ${command.userId}`);
 			const actorUser = await this.userReadRepository.findById(command.userId);
+			
+			const postPreview = post.body
+				? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
+				: post.image
+					? "[Image post]"
+					: "[Post]";
+
 			this.eventBus.queueTransactional(
 				new NotificationRequestedEvent({
 					receiverId: postOwnerPublicId,
@@ -161,6 +168,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 					actorHandle: actorUser?.handle,
 					actorAvatar: actorUser?.avatar,
 					targetId: (post as any).publicId ?? command.postId,
+					targetType: "post",
+					targetPreview: postPreview,
 				}),
 				this.notificationRequestedHandler,
 			);
