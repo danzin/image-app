@@ -127,6 +127,7 @@ export class IpMonitorWorker {
                             actorId: "system-monitor",
                             actorUsername: "System Monitor",
                             actorHandle: "system",
+                            actorAvatar: "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg",
                             targetId: ip,
                             targetType: "ip",
                             targetPreview: `New unknown IP detected: ${ip}`

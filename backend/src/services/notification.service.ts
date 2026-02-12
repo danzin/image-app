@@ -98,11 +98,30 @@ export class NotificationService {
 			const userPublicId = data.receiverId.trim();
 			const actorPublicId = data.actorId.trim();
 			const targetPublicId = data.targetId?.trim();
-			const actorUsername = data.actorUsername?.trim();
-			const actorHandle = data.actorHandle?.trim();
-			const actorAvatar = data.actorAvatar?.trim();
+			let actorUsername = data.actorUsername?.trim();
+			let actorHandle = data.actorHandle?.trim();
+			let actorAvatar = data.actorAvatar?.trim();
 			const targetType = data.targetType?.trim();
 			const targetPreview = data.targetPreview?.trim();
+
+			// Fallback: Fetch actor info if missing
+			if ((!actorUsername || !actorHandle || !actorAvatar) && actorPublicId !== "system-monitor") {
+				try {
+					const actor = await this.userRepository.findByPublicId(actorPublicId);
+					if (actor) {
+						actorUsername = actorUsername || actor.username;
+						actorHandle = actorHandle || actor.handle;
+						actorAvatar = actorAvatar || actor.avatar;
+					}
+				} catch (err) {
+					logger.warn(`Failed to fetch fallback actor info for ${actorPublicId}`, { error: err });
+				}
+			}
+
+			// Final fallback for avatar to ensure it's never empty
+			if (!actorAvatar) {
+				actorAvatar = "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg";
+			}
 
 			const io = this.getIO();
 
