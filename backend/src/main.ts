@@ -30,6 +30,7 @@ import { MetricsService } from "./metrics/metrics.service";
 import { TrendingWorker } from "./workers/_impl/trending.worker.impl";
 import { ProfileSyncWorker } from "./workers/_impl/profile-sync.worker.impl";
 import { NewFeedWarmCacheWorker } from "./workers/_impl/newFeedWarmCache.worker.impl";
+import { IpMonitorWorker } from "./workers/_impl/ip-monitor.worker.impl";
 
 dns.setServers(['8.8.8.8', '1.1.1.1']);
 // Global error handlers
@@ -125,6 +126,13 @@ async function startInProcessWorkers(metricsService: MetricsService): Promise<vo
 		newFeedWarmCacheWorker.start();
 		metricsService.markWorkerRunning("newFeedWarmCache.worker");
 		logger.info("Started in-process worker: newFeedWarmCache");
+
+		// ip monitor worker
+		const ipMonitorWorker = new IpMonitorWorker();
+		await ipMonitorWorker.init();
+		ipMonitorWorker.start();
+		metricsService.markWorkerRunning("ip-monitor.worker");
+		logger.info("Started in-process worker: ip-monitor");
 
 		logger.info("All in-process workers started successfully");
 	} catch (error) {
