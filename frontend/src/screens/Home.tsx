@@ -5,6 +5,7 @@ import Gallery from "../components/Gallery";
 import CreatePost from "../components/CreatePost";
 import { Box, Typography, useMediaQuery, useTheme, Card, Skeleton, CardActions } from "@mui/material";
 import { useAuth } from "../hooks/context/useAuth";
+import { PageSeo, buildHomeMetadata } from "../lib/seo";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
@@ -19,60 +20,66 @@ const Home: React.FC = () => {
 	// show loading skeletons while auth is loading OR query is loading
 	if (authLoading || isLoading) {
 		return (
-			<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", mt: 2 }}>
-				<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
-					{Array.from({ length: 3 }).map((_, i) => (
-						<Card
-							key={i}
-							sx={{
-								width: "100%",
-								borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
-								borderRadius: 0,
-								boxShadow: "none",
-							}}
-						>
-							<Skeleton variant="rectangular" height={400} sx={{ bgcolor: "rgba(99, 102, 241, 0.1)" }} />
-							<CardActions sx={{ p: 2 }}>
-								<Skeleton variant="text" width="60%" height={24} />
-								<Skeleton variant="circular" width={40} height={40} sx={{ ml: "auto" }} />
-							</CardActions>
-						</Card>
-					))}
+			<>
+				<PageSeo {...buildHomeMetadata()} />
+				<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", mt: 2 }}>
+					<Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+						{Array.from({ length: 3 }).map((_, i) => (
+							<Card
+								key={i}
+								sx={{
+									width: "100%",
+									borderBottom: "1px solid rgba(99, 102, 241, 0.1)",
+									borderRadius: 0,
+									boxShadow: "none",
+								}}
+							>
+								<Skeleton variant="rectangular" height={400} sx={{ bgcolor: "rgba(99, 102, 241, 0.1)" }} />
+								<CardActions sx={{ p: 2 }}>
+									<Skeleton variant="text" width="60%" height={24} />
+									<Skeleton variant="circular" width={40} height={40} sx={{ ml: "auto" }} />
+								</CardActions>
+							</Card>
+						))}
+					</Box>
 				</Box>
-			</Box>
+			</>
 		);
 	}
 
 	return (
-		<Box sx={{ display: "flex", flexDirection: "column", mt: 2 }}>
-			{/* CreatePost decides whether it should render or not - hide on mobile */}
-			{!isMobile && <CreatePost />}
+		<>
+			<PageSeo {...buildHomeMetadata()} />
+			<Box sx={{ display: "flex", flexDirection: "column", mt: 2 }}>
+				{/* CreatePost decides whether it should render or not - hide on mobile */}
+				{!isMobile && <CreatePost />}
 
-			<Box
-				sx={{
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-				}}
-			>
-				{error ? (
-					<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
-						<Typography color="error" sx={{ textAlign: "center", py: 4, fontSize: "1.1rem" }}>
-							Error fetching images: {error.message}
-						</Typography>
-					</motion.div>
-				) : (
-					<Gallery
-						key={`posts-feed`}
-						posts={activePosts}
-						fetchNextPage={fetchNextPage}
-						hasNextPage={hasNextPage}
-						isFetchingNext={isFetchingNextPage}
-						isLoadingAll={isLoading}
-					/>
-				)}
+				<Box
+					sx={{
+						display: "flex",
+						flexDirection: "column",
+						alignItems: "center",
+					}}
+				>
+					{error ? (
+						<motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+							<Typography color="error" sx={{ textAlign: "center", py: 4, fontSize: "1.1rem" }}>
+								Error fetching images: {error.message}
+							</Typography>
+						</motion.div>
+					) : (
+						<Gallery
+							key={`posts-feed`}
+							posts={activePosts}
+							fetchNextPage={fetchNextPage}
+							hasNextPage={hasNextPage}
+							isFetchingNext={isFetchingNextPage}
+							isLoadingAll={isLoading}
+						/>
+					)}
+				</Box>
 			</Box>
-		</Box>
+		</>
 	);
 };
 

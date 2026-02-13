@@ -4,6 +4,7 @@ import { usePostsByTag } from "../hooks/posts/usePosts";
 import { Avatar, Box, Button, CircularProgress, Typography } from "@mui/material";
 import Gallery from "../components/Gallery";
 import { Link, useLocation } from "react-router-dom";
+import { PageSeo, buildSearchMetadata } from "../lib/seo";
 
 const SearchResults = () => {
 	const location = useLocation();
@@ -100,124 +101,127 @@ const SearchResults = () => {
 	};
 
 	return (
-		<Box sx={{ maxWidth: "800px", mx: "auto", p: 3 }}>
-			{/* Tab Buttons */}
-			<Box sx={{ display: "flex", gap: 2, mb: 3 }}>
-				<Button variant={activeTab === "posts" ? "contained" : "outlined"} onClick={() => setActiveTab("posts")}>
-					Posts ({allPosts.length})
-				</Button>
-				<Button variant={activeTab === "users" ? "contained" : "outlined"} onClick={() => setActiveTab("users")}>
-					Users ({users.length})
-				</Button>
-				<Button
-					variant={activeTab === "communities" ? "contained" : "outlined"}
-					onClick={() => setActiveTab("communities")}
-				>
-					Communities ({communities.length})
-				</Button>
-			</Box>
-
-			{isLoading && allPosts.length === 0 ? (
-				<Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
-					<CircularProgress />
+		<>
+			<PageSeo {...buildSearchMetadata(displayQuery, location.search)} />
+			<Box sx={{ maxWidth: "800px", mx: "auto", p: 3 }}>
+				{/* Tab Buttons */}
+				<Box sx={{ display: "flex", gap: 2, mb: 3 }}>
+					<Button variant={activeTab === "posts" ? "contained" : "outlined"} onClick={() => setActiveTab("posts")}>
+						Posts ({allPosts.length})
+					</Button>
+					<Button variant={activeTab === "users" ? "contained" : "outlined"} onClick={() => setActiveTab("users")}>
+						Users ({users.length})
+					</Button>
+					<Button
+						variant={activeTab === "communities" ? "contained" : "outlined"}
+						onClick={() => setActiveTab("communities")}
+					>
+						Communities ({communities.length})
+					</Button>
 				</Box>
-			) : (
-				<>
-					{/* Posts tab */}
-					{activeTab === "posts" && (
-						<Box>
-							{allPosts.length > 0 ? (
-								<Gallery
-									posts={allPosts}
-									fetchNextPage={fetchNextPage}
-									isFetchingNext={isFetchingNextPage}
-									hasNextPage={!!hasNextPage}
-								/>
-							) : (
-								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No posts found for "{displayQuery}".
-								</Typography>
-							)}
-						</Box>
-					)}
 
-					{/* Users tab */}
-					{activeTab === "users" && (
-						<Box>
-							{users.length > 0 ? (
-								users.map((user) => (
-									<Box
-										key={user.publicId}
-										sx={{
-											p: 2,
-											borderBottom: "1px solid #eee",
-											display: "flex",
-											alignItems: "center",
-											gap: 2,
-											"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
-										}}
-									>
-										<Avatar src={getFullAvatarUrl(user.avatar)} alt={user.username} sx={{ width: 40, height: 40 }}>
-											{user.username}
-										</Avatar>
-										<Link
-											to={`/profile/${user.handle}`}
-											style={{ textDecoration: "none", fontWeight: "bold", color: "inherit" }}
+				{isLoading && allPosts.length === 0 ? (
+					<Box sx={{ display: "flex", justifyContent: "center", mt: 5 }}>
+						<CircularProgress />
+					</Box>
+				) : (
+					<>
+						{/* Posts tab */}
+						{activeTab === "posts" && (
+							<Box>
+								{allPosts.length > 0 ? (
+									<Gallery
+										posts={allPosts}
+										fetchNextPage={fetchNextPage}
+										isFetchingNext={isFetchingNextPage}
+										hasNextPage={!!hasNextPage}
+									/>
+								) : (
+									<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+										No posts found for "{displayQuery}".
+									</Typography>
+								)}
+							</Box>
+						)}
+
+						{/* Users tab */}
+						{activeTab === "users" && (
+							<Box>
+								{users.length > 0 ? (
+									users.map((user) => (
+										<Box
+											key={user.publicId}
+											sx={{
+												p: 2,
+												borderBottom: "1px solid #eee",
+												display: "flex",
+												alignItems: "center",
+												gap: 2,
+												"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
+											}}
 										>
-											@{user.handle}
-										</Link>
-									</Box>
-								))
-							) : (
-								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No users found matching "{displayQuery}".
-								</Typography>
-							)}
-						</Box>
-					)}
-
-					{/* Communities tab */}
-					{activeTab === "communities" && (
-						<Box>
-							{communities.length > 0 ? (
-								communities.map((community) => (
-									<Box
-										key={community.publicId}
-										sx={{
-											p: 2,
-											borderBottom: "1px solid #eee",
-											display: "flex",
-											alignItems: "center",
-											gap: 2,
-											"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
-										}}
-									>
-										<Avatar src={community.avatar} variant="rounded" sx={{ width: 40, height: 40 }}>
-											{community.name.charAt(0)}
-										</Avatar>
-										<Box>
+											<Avatar src={getFullAvatarUrl(user.avatar)} alt={user.username} sx={{ width: 40, height: 40 }}>
+												{user.username}
+											</Avatar>
 											<Link
-												to={`/communities/${community.slug}`}
-												style={{ textDecoration: "none", fontWeight: "bold", color: "inherit", display: "block" }}
+												to={`/profile/${user.handle}`}
+												style={{ textDecoration: "none", fontWeight: "bold", color: "inherit" }}
 											>
-												{community.name}
+												@{user.handle}
 											</Link>
-											<Typography variant="body2" color="text.secondary">
-												{community.description}
-											</Typography>
 										</Box>
-									</Box>
-								))
-							) : (
-								<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
-									No communities found matching "{displayQuery}".
-								</Typography>
-							)}
-						</Box>
-					)}
-				</>
-			)}
-		</Box>
+									))
+								) : (
+									<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+										No users found matching "{displayQuery}".
+									</Typography>
+								)}
+							</Box>
+						)}
+
+						{/* Communities tab */}
+						{activeTab === "communities" && (
+							<Box>
+								{communities.length > 0 ? (
+									communities.map((community) => (
+										<Box
+											key={community.publicId}
+											sx={{
+												p: 2,
+												borderBottom: "1px solid #eee",
+												display: "flex",
+												alignItems: "center",
+												gap: 2,
+												"&:hover": { bgcolor: "rgba(0,0,0,0.02)" },
+											}}
+										>
+											<Avatar src={community.avatar} variant="rounded" sx={{ width: 40, height: 40 }}>
+												{community.name.charAt(0)}
+											</Avatar>
+											<Box>
+												<Link
+													to={`/communities/${community.slug}`}
+													style={{ textDecoration: "none", fontWeight: "bold", color: "inherit", display: "block" }}
+												>
+													{community.name}
+												</Link>
+												<Typography variant="body2" color="text.secondary">
+													{community.description}
+												</Typography>
+											</Box>
+										</Box>
+									))
+								) : (
+									<Typography color="text.secondary" sx={{ mt: 4, textAlign: "center" }}>
+										No communities found matching "{displayQuery}".
+									</Typography>
+								)}
+							</Box>
+						)}
+					</>
+				)}
+			</Box>
+		</>
 	);
 };
 

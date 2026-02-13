@@ -28,6 +28,7 @@ import RepeatIcon from "@mui/icons-material/Repeat";
 import GroupsIcon from "@mui/icons-material/Groups";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import CommentSection from "../components/comments/CommentSection";
+import { PageSeo, buildPostMetadata } from "../lib/seo";
 
 const BASE_URL = "/api";
 
@@ -45,6 +46,14 @@ const PostView = () => {
 
 	const [isFavorited, setIsFavorited] = useState<boolean>(post?.isFavoritedByViewer ?? false);
 	const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+	const seoMetadata = buildPostMetadata({
+		id,
+		body: post?.body,
+		authorHandle: post?.user?.handle,
+		authorName: post?.user?.username,
+		image: post?.url || post?.image?.url,
+		communityName: post?.community?.name,
+	});
 
 	// syncing local state with server state only when the underlying post ID changes
 	useEffect(() => {
@@ -53,20 +62,26 @@ const PostView = () => {
 
 	if (isLoading) {
 		return (
-			<Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
-				<CircularProgress />
-			</Box>
+			<>
+				<PageSeo {...seoMetadata} />
+				<Box sx={{ mt: 4, display: "flex", justifyContent: "center" }}>
+					<CircularProgress />
+				</Box>
+			</>
 		);
 	}
 
 	if (isError || !post) {
 		return (
-			<Box sx={{ mt: 4, px: 2 }}>
-				<Alert severity="error">Error loading post: {error?.message || "Post not found"}</Alert>
-				<Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
-					Go Back
-				</Button>
-			</Box>
+			<>
+				<PageSeo {...seoMetadata} />
+				<Box sx={{ mt: 4, px: 2 }}>
+					<Alert severity="error">Error loading post: {error?.message || "Post not found"}</Alert>
+					<Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+						Go Back
+					</Button>
+				</Box>
+			</>
 		);
 	}
 
@@ -131,7 +146,9 @@ const PostView = () => {
 	};
 
 	return (
-		<Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
+		<>
+			<PageSeo {...seoMetadata} />
+			<Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
 			{/* Sticky Header */}
 			<Box
 				sx={{
@@ -456,7 +473,8 @@ const PostView = () => {
 					/>
 				</Box>
 			</Modal>
-		</Box>
+			</Box>
+		</>
 	);
 };
 
