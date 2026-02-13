@@ -141,4 +141,4 @@ async function startInProcessWorkers(metricsService: MetricsService): Promise<vo
 	}
 }
 
-bootstrap().catch(console.error);
+bootstrap();
