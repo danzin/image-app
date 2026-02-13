@@ -1,5 +1,19 @@
 User-agent: *
 Allow: /
+# Public API endpoints used to render publicly indexable pages
+Allow: /api/posts
+Allow: /api/comments
+Allow: /api/search
+Allow: /api/communities
+Allow: /api/users/profile/
+Allow: /api/users/public/
+Allow: /api/users/users
+Allow: /api/feed/trending
+Allow: /api/feed/new
+Allow: /api/feed/trending-tags
+Allow: /api/images
+Allow: /api/uploads/
+
 Disallow: /admin
 Disallow: /login
 Disallow: /register
@@ -9,8 +23,29 @@ Disallow: /verify-email
 Disallow: /messages
 Disallow: /notifications
 Disallow: /favorites
-Disallow: /api
+Disallow: /api/admin
+Disallow: /api/messaging
+Disallow: /api/notifications
+Disallow: /api/favorites
+Disallow: /api/feed
+Disallow: /api/users/me
+Disallow: /api/users/login
+Disallow: /api/users/register
+Disallow: /api/users/logout
+Disallow: /api/users/forgot-password
+Disallow: /api/users/reset-password
+Disallow: /api/users/verify-email
+Disallow: /api/users/follow/
+Disallow: /api/users/unfollow/
+Disallow: /api/users/follows/
+Disallow: /api/users/like/
+Disallow: /api/users/suggestions/who-to-follow
+Disallow: /api/communities/me
+Disallow: /api/communities/*/join
+Disallow: /api/communities/*/leave
 Disallow: /telemetry
 Disallow: /metrics
+Disallow: /api/telemetry
+Disallow: /api/metrics
 
 Sitemap: https://ascendance.social/sitemap.xml

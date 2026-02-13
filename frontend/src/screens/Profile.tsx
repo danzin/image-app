@@ -42,6 +42,7 @@ import ImageEditor from "../components/ImageEditor";
 import { useQueryClient } from "@tanstack/react-query";
 import { useInitiateConversation } from "../hooks/messaging/useInitiateConversation";
 import { useTranslation } from "react-i18next";
+import { PageSeo, buildProfileMetadata } from "../lib/seo";
 
 const BASE_URL = "/api";
 
@@ -138,6 +139,12 @@ const Profile: React.FC = () => {
 	const flattenedImages = imagesData?.pages?.flatMap((page) => page.data) || [];
 	const flattenedLikedPosts = likedPostsData?.pages?.flatMap((page) => page.data) || [];
 	const flattenedComments = commentsData?.pages?.flatMap((page) => page.comments) || [];
+	const seoMetadata = buildProfileMetadata({
+		id,
+		handle: profileData?.handle,
+		username: profileData?.username,
+		bio: profileData?.bio,
+	});
 
 	const isLoadingAll = isLoadingImages || imagesData?.pages.length === 0;
 	const isLoadingAllLiked = isLoadingLikedPosts || likedPostsData?.pages.length === 0;
@@ -226,54 +233,63 @@ const Profile: React.FC = () => {
 	// Loading state
 	if (isLoadingProfile) {
 		return (
-			<Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "calc(100vh - 64px)" }}>
-				<CircularProgress />
-			</Box>
+			<>
+				<PageSeo {...seoMetadata} />
+				<Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "calc(100vh - 64px)" }}>
+					<CircularProgress />
+				</Box>
+			</>
 		);
 	}
 
 	if (getUserError) {
 		return (
-			<Box sx={{ p: 3, textAlign: "center" }}>
-				<Typography color="error">We couldn't load this profile right now.</Typography>
-			</Box>
+			<>
+				<PageSeo {...seoMetadata} />
+				<Box sx={{ p: 3, textAlign: "center" }}>
+					<Typography color="error">We couldn't load this profile right now.</Typography>
+				</Box>
+			</>
 		);
 	}
 
 	if (!profileData) {
 		return (
-			<Box
-				sx={{
-					p: { xs: 3, md: 6 },
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
-					minHeight: "60vh",
-					textAlign: "center",
-				}}
-			>
+			<>
+				<PageSeo {...seoMetadata} />
 				<Box
 					sx={{
-						maxWidth: 420,
-						px: 3,
-						py: 4,
-						borderRadius: 4,
-						border: `1px solid ${theme.palette.divider}`,
-						bgcolor: alpha(theme.palette.background.default, 0.9),
-						boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
+						p: { xs: 3, md: 6 },
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						minHeight: "60vh",
+						textAlign: "center",
 					}}
 				>
-					<Typography variant="h5" fontWeight={800} gutterBottom>
-						This profile doesn't exist
-					</Typography>
-					<Typography variant="body2" color="text.secondary">
-						The handle might be wrong or the user has left
-					</Typography>
-					<Button variant="contained" sx={{ mt: 3, borderRadius: 9999, px: 3 }} onClick={() => navigate("/")}>
-						Go home
-					</Button>
+					<Box
+						sx={{
+							maxWidth: 420,
+							px: 3,
+							py: 4,
+							borderRadius: 4,
+							border: `1px solid ${theme.palette.divider}`,
+							bgcolor: alpha(theme.palette.background.default, 0.9),
+							boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
+						}}
+					>
+						<Typography variant="h5" fontWeight={800} gutterBottom>
+							This profile doesn't exist
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							The handle might be wrong or the user has left
+						</Typography>
+						<Button variant="contained" sx={{ mt: 3, borderRadius: 9999, px: 3 }} onClick={() => navigate("/")}>
+							Go home
+						</Button>
+					</Box>
 				</Box>
-			</Box>
+			</>
 		);
 	}
 
@@ -291,7 +307,9 @@ const Profile: React.FC = () => {
 	const fullCoverUrl = getFullUrl(profileData?.cover);
 
 	return (
-		<Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
+		<>
+			<PageSeo {...seoMetadata} />
+			<Box sx={{ minHeight: "100%", bgcolor: "background.default" }}>
 			{/* Sticky Header */}
 			<Box
 				sx={{
@@ -758,7 +776,8 @@ const Profile: React.FC = () => {
 				autoClose={3000}
 				theme={theme.palette.mode === "dark" ? "dark" : "light"}
 			/>
-		</Box>
+			</Box>
+		</>
 	);
 };
 
