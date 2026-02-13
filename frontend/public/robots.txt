@@ -6,13 +6,10 @@ Allow: /api/comments
 Allow: /api/search
 Allow: /api/communities
 Allow: /api/users/profile/
-Allow: /api/users/public/
-Allow: /api/users/users
 Allow: /api/feed/trending
 Allow: /api/feed/new
 Allow: /api/feed/trending-tags
-Allow: /api/images
-Allow: /api/uploads/
+
 
 Disallow: /admin
 Disallow: /login
