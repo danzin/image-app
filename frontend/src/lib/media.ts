@@ -3,12 +3,15 @@ const CLOUDINARY_HOST = "res.cloudinary.com";
 const CLOUDINARY_UPLOAD_SEGMENT = "/upload/";
 
 type CloudinaryCrop = "fill" | "fit" | "limit" | "lfill" | "pad";
+type CloudinaryQuality = "auto" | "auto:eco" | "auto:good" | number;
+type CloudinaryDpr = "auto" | number | false;
 
 interface CloudinaryTransformOptions {
 	width?: number;
 	height?: number;
 	crop?: CloudinaryCrop;
-	quality?: "auto" | number;
+	quality?: CloudinaryQuality;
+	dpr?: CloudinaryDpr;
 }
 
 const normalizeSize = (value?: number): number | undefined => {
@@ -40,11 +43,19 @@ export const transformCloudinaryUrl = (url: string | undefined, options: Cloudin
 	const height = normalizeSize(options.height);
 	const quality = options.quality ?? "auto";
 	const crop = options.crop ?? (width || height ? "limit" : undefined);
+	const dpr =
+		options.dpr === false
+			? undefined
+			: typeof options.dpr === "number"
+				? options.dpr > 0
+					? `dpr_${options.dpr}`
+					: "dpr_auto"
+				: "dpr_auto";
 
 	const transforms = [
 		"f_auto",
 		`q_${quality}`,
-		"dpr_auto",
+		dpr,
 		width ? `w_${width}` : undefined,
 		height ? `h_${height}` : undefined,
 		crop ? `c_${crop}` : undefined,
@@ -66,7 +77,7 @@ export const buildResponsiveCloudinarySrcSet = (
 		.filter((width) => width > 0)
 		.sort((a, b) => a - b)
 		.map((width) => {
-			const transformed = transformCloudinaryUrl(url, { ...options, width });
+			const transformed = transformCloudinaryUrl(url, { ...options, width, dpr: options.dpr ?? false });
 			return transformed ? `${transformed} ${width}w` : undefined;
 		})
 		.filter(Boolean);

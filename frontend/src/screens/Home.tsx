@@ -4,21 +4,18 @@ import { usePosts } from "../hooks/posts/usePosts";
 import Gallery from "../components/Gallery";
 import CreatePost from "../components/CreatePost";
 import { Box, Typography, useMediaQuery, useTheme, Card, Skeleton, CardActions } from "@mui/material";
-import { useAuth } from "../hooks/context/useAuth";
 import { PageSeo, buildHomeMetadata } from "../lib/seo";
 
 const Home: React.FC = () => {
 	const theme = useTheme();
 	const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-	const { loading: authLoading } = useAuth();
 
 	// backend picks personalized vs trending based on auth present in the request
 	const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, error } = usePosts();
 
 	const activePosts = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
 
-	// show loading skeletons while auth is loading OR query is loading
-	if (authLoading || isLoading) {
+	if (isLoading) {
 		return (
 			<>
 				<PageSeo {...buildHomeMetadata()} />
