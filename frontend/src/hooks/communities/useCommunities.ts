@@ -15,7 +15,7 @@ export const useCommunities = () => {
 	});
 };
 
-export const useUserCommunities = () => {
+export const useUserCommunities = (enabled: boolean = true) => {
 	return useInfiniteQuery({
 		queryKey: ["user-communities"],
 		queryFn: ({ pageParam = 1 }) => fetchUserCommunities(pageParam),
@@ -26,5 +26,6 @@ export const useUserCommunities = () => {
 			return undefined;
 		},
 		initialPageParam: 1,
+		enabled,
 	});
 };

@@ -8,7 +8,7 @@ Allow: /api/communities
 Allow: /api/users/profile/
 Allow: /api/feed/trending
 Allow: /api/feed/new
-Allow: /api/feed/trending-tags
+
 
 
 Disallow: /admin

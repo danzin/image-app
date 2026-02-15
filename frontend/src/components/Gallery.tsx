@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useParams, useLocation } from "react-router-dom";
 import { GalleryProps } from "../types";
@@ -35,6 +35,7 @@ const Gallery: React.FC<GalleryProps> = ({
 	// show loading when: explicit loading state OR fetching with no posts to display
 	const isLoading = isLoadingAll || (isFetchingAll && (!posts || posts.length === 0));
 	const hasPostsToShow = posts && posts.length > 0;
+	const firstImageIndex = useMemo(() => posts.findIndex((post) => Boolean(post.url || post.image?.url)), [posts]);
 	// show skeleton only when loading/fetching - never show empty state while loading
 	const showSkeleton = isLoading && !hasPostsToShow;
 	const fallbackEmptyTitle = t("profile.no_posts");
@@ -131,7 +132,7 @@ const Gallery: React.FC<GalleryProps> = ({
 							index={index}
 							onVisible={() => setVisibleIndex((prev) => Math.max(prev, index + 1))}
 						>
-							<PostCard post={img} />
+							<PostCard post={img} prioritizeImage={index === firstImageIndex} />
 						</TrackedPost>
 					))
 				))}
