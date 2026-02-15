@@ -17,6 +17,7 @@ import { buildMediaUrl, buildResponsiveCloudinarySrcSet, transformCloudinaryUrl 
 
 interface PostCardProps {
 	post: IPost;
+	prioritizeImage?: boolean;
 }
 
 // Format large numbers 2345 -> 2.3K
@@ -33,7 +34,7 @@ const formatCount = (count: number | undefined): string => {
 	return count.toString();
 };
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, prioritizeImage = false }) => {
 	const { t } = useTranslation();
 	const navigate = useNavigate();
 	const { isLoggedIn, user } = useAuth();
@@ -76,16 +77,19 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 		height: 80,
 		crop: "fill",
 	});
-	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1200, crop: "limit" });
-	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [480, 768, 1100, 1400], { crop: "limit" });
+	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 960, crop: "limit" });
+	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [320, 480, 560, 720, 960, 1200], {
+		crop: "limit",
+	});
 	const repostImageRawUrl = buildMediaUrl(post.repostOf?.image?.url);
-	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 960, crop: "limit" });
-	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [320, 640, 960], { crop: "limit" });
+	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 640, crop: "limit" });
+	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [256, 384, 512, 640], { crop: "limit" });
 	const repostAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.repostOf?.user?.avatar), {
 		width: 48,
 		height: 48,
 		crop: "fill",
 	});
+	const shouldPrioritizeImage = prioritizeImage && hasImage;
 
 	return (
 		<Box
@@ -295,6 +299,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 								srcSet={postImageSrcSet}
 								sizes="(max-width: 600px) 100vw, 553px"
 								alt={post.body?.substring(0, 50) || post.publicId}
+								loading={shouldPrioritizeImage ? "eager" : "lazy"}
+								fetchPriority={shouldPrioritizeImage ? "high" : "auto"}
 								decoding="async"
 								style={{
 									width: "100%",

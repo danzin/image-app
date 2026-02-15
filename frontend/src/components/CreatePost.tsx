@@ -77,7 +77,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 	}, []);
 
 	// fetch user's communities for the dropdown
-	const { data: communitiesData, isLoading: isLoadingCommunities } = useUserCommunities();
+	const { data: communitiesData, isLoading: isLoadingCommunities } = useUserCommunities(isLoggedIn);
 
 	const userCommunities = useMemo(() => {
 		return communitiesData?.pages.flatMap((page) => page.data) ?? [];

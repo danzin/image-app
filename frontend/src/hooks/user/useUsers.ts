@@ -6,6 +6,7 @@ import {
 	useMutation,
 	useQueryClient,
 } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
 import {
 	fetchCurrentUser,
 	fetchUserByPublicId,
@@ -56,8 +57,12 @@ export const useCurrentUser = () => {
 		refetchOnWindowFocus: false,
 		refetchOnMount: false,
 		enabled: isEmailVerified,
-		retry: (failureCount, error: any) => {
-			return failureCount < 3;
+		retry: (failureCount, error) => {
+			const status = (error as AxiosError<{ message?: string }>).response?.status;
+			if (status === 401 || status === 403) {
+				return false;
+			}
+			return failureCount < 2;
 		},
 	});
 };
