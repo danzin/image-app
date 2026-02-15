@@ -38,15 +38,10 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 
 		const communities = await this.communityRepository.findByIds(communityIds);
 
-		// fetch actual member counts for all communities
-		const memberCounts = await Promise.all(
-			communities.map((c) => this.communityMemberRepository.countByCommunityId(c._id)),
-		);
-
 		// user is querying their own communities so they are members of all of them
-		const data = communities.map((c, index) => {
+		const data = communities.map((c) => {
 			return this.dtoService.toCommunityDTO(c, {
-				memberCount: memberCounts[index],
+				memberCount: c.stats?.memberCount ?? 0,
 				isMember: true,
 				isCreator: c.creatorId?.toString() === userId.toString(),
 			});

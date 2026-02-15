@@ -38,12 +38,7 @@ export class GetAllCommunitiesQueryHandler
 			};
 		}
 
-		// fetch actual member counts for all communities
 		const communityIds = result.data.map((community) => community._id);
-		const memberCounts = await Promise.all(
-			communityIds.map((id) => this.communityMemberRepository.countByCommunityId(id)),
-		);
-		const memberCountMap = new Map(communityIds.map((id, index) => [id.toString(), memberCounts[index]]));
 
 		let viewerId = "";
 		let membershipSet = new Set<string>();
@@ -61,9 +56,8 @@ export class GetAllCommunitiesQueryHandler
 
 		const data = result.data.map((community) => {
 			const communityId = community._id.toString();
-			const actualMemberCount = memberCountMap.get(communityId) ?? 0;
 			return this.dtoService.toCommunityDTO(community, {
-				memberCount: actualMemberCount,
+				memberCount: community.stats?.memberCount ?? 0,
 				isMember: membershipSet.has(communityId),
 				isCreator: community.creatorId?.toString() === viewerId,
 			});

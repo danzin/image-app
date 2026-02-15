@@ -2,12 +2,11 @@ import React from "react";
 import { IPost } from "../types";
 import { Box } from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { buildMediaUrl, buildResponsiveCloudinarySrcSet, transformCloudinaryUrl } from "../lib/media";
 
 interface MediaCardProps {
 	post: IPost;
 }
-
-const BASE_URL = "/api";
 
 const MediaCard: React.FC<MediaCardProps> = ({ post }) => {
 	const navigate = useNavigate();
@@ -17,19 +16,9 @@ const MediaCard: React.FC<MediaCardProps> = ({ post }) => {
 	};
 
 	// Handle optional image URL
-	const fullImageUrl = post.url
-		? post.url.startsWith("http")
-			? post.url
-			: post.url.startsWith("/")
-				? `${BASE_URL}${post.url}`
-				: `${BASE_URL}/${post.url}`
-		: post.image?.url
-			? post.image.url.startsWith("http")
-				? post.image.url
-				: post.image.url.startsWith("/")
-					? `${BASE_URL}${post.image.url}`
-					: `${BASE_URL}/${post.image.url}`
-			: undefined;
+	const fullImageUrl = buildMediaUrl(post.url) ?? buildMediaUrl(post.image?.url);
+	const optimizedImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 900, crop: "limit" });
+	const imageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [240, 360, 480, 720, 900], { crop: "limit" });
 
 	if (!fullImageUrl) return null;
 
@@ -49,8 +38,14 @@ const MediaCard: React.FC<MediaCardProps> = ({ post }) => {
 			onClick={handleClick}
 		>
 			<img
-				src={fullImageUrl}
+				src={optimizedImageUrl}
+				srcSet={imageSrcSet}
+				sizes="(max-width: 600px) 50vw, (max-width: 1200px) 33vw, 25vw"
 				alt={post.body?.substring(0, 50) || "User media"}
+				loading="lazy"
+				decoding="async"
+				width={900}
+				height={900}
 				style={{
 					position: "absolute",
 					top: 0,

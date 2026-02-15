@@ -25,8 +25,7 @@ export class GetCommunityDetailsQueryHandler
 			throw createError("NotFound", "Community not found");
 		}
 
-		// get the actual member count from the database
-		const actualMemberCount = await this.communityMemberRepository.countByCommunityId(community._id);
+		const actualMemberCount = community.stats?.memberCount ?? 0;
 
 		const options: {
 			memberCount?: number;

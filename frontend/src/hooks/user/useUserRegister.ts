@@ -1,10 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
-import { registerRequest } from "../../api/userApi";
-import { AuthenticatedUserDTO } from "../../types";
+import { registerRequest, RegisterResponse } from "../../api/userApi";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/useAuth";
-
-type RegisterResponse = { user: AuthenticatedUserDTO; token: string };
 
 export const useRegister = () => {
 	const { login: setAuthUser } = useAuth();
