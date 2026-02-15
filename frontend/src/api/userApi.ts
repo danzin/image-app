@@ -12,22 +12,25 @@ import {
 } from "../types";
 import axios, { AxiosError } from "axios";
 
-// Login returns user and token
+export type LoginResponse = { user: AuthenticatedUserDTO | AdminUserDTO };
+export type RegisterResponse = { user: AuthenticatedUserDTO };
+
+// Login returns authenticated user (tokens are stored in httpOnly cookies)
 export const loginRequest = async (credentials: {
 	email: string;
 	password: string;
-}): Promise<{ user: AuthenticatedUserDTO | AdminUserDTO; token: string }> => {
+}): Promise<LoginResponse> => {
 	const response = await axiosClient.post("/api/users/login", credentials);
 	return response.data;
 };
 
-// Register returns the full response with user and token
+// Register returns authenticated user (tokens are stored in httpOnly cookies)
 export const registerRequest = async (credentials: {
 	handle: string;
 	username: string;
 	email: string;
 	password: string;
-}): Promise<{ user: AuthenticatedUserDTO; token: string }> => {
+}): Promise<RegisterResponse> => {
 	const response = await axiosClient.post("/api/users/register", credentials);
 	return response.data;
 };

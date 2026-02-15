@@ -33,6 +33,8 @@ import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { TelemetryService } from "@/services/telemetry.service";
 import { EmailService } from "@/services/email.service";
 import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
+import { AuthSessionService } from "@/services/auth-session.service";
+import { BloomFilterService } from "@/services/bloom-filter.service";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -47,6 +49,8 @@ export function registerServices(): void {
 	container.registerSingleton("TelemetryService", TelemetryService);
 	container.registerSingleton("SearchService", SearchService);
 	container.registerSingleton("AuthService", AuthService);
+	container.registerSingleton("AuthSessionService", AuthSessionService);
+	container.registerSingleton("BloomFilterService", BloomFilterService);
 	container.registerSingleton("ImageService", ImageService);
 	container.registerSingleton("CommentService", CommentService);
 	container.registerSingleton("FollowService", FollowService);

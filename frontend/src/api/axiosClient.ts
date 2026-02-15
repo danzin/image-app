@@ -1,4 +1,10 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+
+interface RetryableRequestConfig extends InternalAxiosRequestConfig {
+	_retry?: boolean;
+}
+
+const AUTH_BYPASS_ENDPOINTS = ["/api/users/login", "/api/users/register", "/api/users/refresh", "/api/users/logout"];
 
 const axiosClient = axios.create({
 	baseURL: import.meta.env.VITE_API_URL || "",
@@ -8,14 +14,25 @@ const axiosClient = axios.create({
 	},
 });
 
+let refreshPromise: Promise<void> | null = null;
+
+const shouldBypassRefresh = (url?: string): boolean => {
+	if (!url) return false;
+	return AUTH_BYPASS_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+};
+
+const refreshAccessSession = async (): Promise<void> => {
+	await axiosClient.post("/api/users/refresh");
+};
+
 export default axiosClient;
 
 // Global response interceptor to catch auth expiry
 axiosClient.interceptors.response.use(
 	(response) => response,
-	(error) => {
-		const status = error?.response?.status;
-		const rawMessage = error?.response?.data?.message;
+	async (error: AxiosError<{ message?: string }>) => {
+		const status = error.response?.status;
+		const rawMessage = error.response?.data?.message;
 
 		// Extract the backend error message if available
 		if (rawMessage) {
@@ -33,9 +50,34 @@ axiosClient.interceptors.response.use(
 			error.message = sanitized;
 		}
 
+		const originalRequest = error.config as RetryableRequestConfig | undefined;
+		const shouldRefresh =
+			status === 401 &&
+			Boolean(originalRequest) &&
+			!originalRequest?._retry &&
+			!shouldBypassRefresh(originalRequest?.url);
+
+		if (shouldRefresh && originalRequest) {
+			originalRequest._retry = true;
+
+			if (!refreshPromise) {
+				refreshPromise = refreshAccessSession().finally(() => {
+					refreshPromise = null;
+				});
+			}
+
+			try {
+				await refreshPromise;
+				return axiosClient(originalRequest);
+			} catch {
+				console.warn("[Axios] Session refresh failed");
+			}
+		}
+
 		if (status === 401 || status === 403) {
 			console.warn("[Axios] Auth error status", status, "- user session expired");
 		}
+
 		return Promise.reject(error);
-	}
+	},
 );

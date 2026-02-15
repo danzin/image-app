@@ -208,6 +208,29 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			.map((id: mongoose.Types.ObjectId) => id.toString());
 	}
 
+	async getFollowerObjectIdsPaginated(
+		userId: string | mongoose.Types.ObjectId,
+		page: number,
+		limit: number,
+	): Promise<{ ids: string[]; total: number }> {
+		const normalized = this.normalizeId(userId);
+		const safePage = Math.max(1, Math.floor(page || 1));
+		const safeLimit = Math.max(1, Math.floor(limit || 20));
+		const skip = (safePage - 1) * safeLimit;
+
+		const [followers, total] = await Promise.all([
+			this.model.find({ followeeId: normalized }).select("followerId").skip(skip).limit(safeLimit).lean().exec(),
+			this.model.countDocuments({ followeeId: normalized }).exec(),
+		]);
+
+		const ids = followers
+			.map((doc: any) => doc?.followerId)
+			.filter(Boolean)
+			.map((id: mongoose.Types.ObjectId) => id.toString());
+
+		return { ids, total };
+	}
+
 	async getFollowingObjectIds(userId: string | mongoose.Types.ObjectId): Promise<string[]> {
 		const normalized = this.normalizeId(userId);
 		const following = await this.model.find({ followerId: normalized }).select("followeeId").lean().exec();
@@ -215,6 +238,29 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			.map((doc: any) => doc?.followeeId)
 			.filter(Boolean)
 			.map((id: mongoose.Types.ObjectId) => id.toString());
+	}
+
+	async getFollowingObjectIdsPaginated(
+		userId: string | mongoose.Types.ObjectId,
+		page: number,
+		limit: number,
+	): Promise<{ ids: string[]; total: number }> {
+		const normalized = this.normalizeId(userId);
+		const safePage = Math.max(1, Math.floor(page || 1));
+		const safeLimit = Math.max(1, Math.floor(limit || 20));
+		const skip = (safePage - 1) * safeLimit;
+
+		const [following, total] = await Promise.all([
+			this.model.find({ followerId: normalized }).select("followeeId").skip(skip).limit(safeLimit).lean().exec(),
+			this.model.countDocuments({ followerId: normalized }).exec(),
+		]);
+
+		const ids = following
+			.map((doc: any) => doc?.followeeId)
+			.filter(Boolean)
+			.map((id: mongoose.Types.ObjectId) => id.toString());
+
+		return { ids, total };
 	}
 
 	async getFollowerPublicIdsByPublicId(userPublicId: string): Promise<string[]> {

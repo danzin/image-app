@@ -1,25 +1,28 @@
 import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
-import jwt from "jsonwebtoken";
+import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { createError } from "@/utils/errors";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
-import { IUser } from "@/types/index";
 import { DTOService, AuthenticatedUserDTO } from "@/services/dto.service";
 import { EmailService } from "@/services/email.service";
+import { BloomFilterService } from "@/services/bloom-filter.service";
+import { USERNAME_BLOOM_KEY, USERNAME_BLOOM_OPTIONS } from "@/config/bloomConfig";
+import { logger } from "@/utils/winston";
 import crypto from "crypto";
 
 export interface RegisterUserResult {
 	user: AuthenticatedUserDTO;
-	token: string;
 }
 
 @injectable()
 export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserCommand, RegisterUserResult> {
 	constructor(
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("DTOService") private readonly dtoService: DTOService,
 		@inject("EmailService") private readonly emailService: EmailService,
+		@inject("BloomFilterService") private readonly bloomFilterService: BloomFilterService,
 	) {}
 	// Trying and keeping the logic from my current userservice method, see how it goes
 
@@ -27,12 +30,20 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 		try {
 			const emailVerificationToken = this.generateVerificationToken();
 			const emailVerificationExpires = this.getVerificationExpiry();
+			const usernameTrimmed = command.username.trim();
+			const usernameMayExist = await this.usernameMayExist(usernameTrimmed);
+			if (usernameMayExist) {
+				const existingUser = await this.userReadRepository.findByUsername(usernameTrimmed);
+				if (existingUser) {
+					throw createError("ValidationError", "Username is already taken");
+				}
+			}
 
 			const handleTrimmed = command.handle.trim();
 			const user = await this.userWriteRepository.create({
 				handle: handleTrimmed,
 				handleNormalized: handleTrimmed.toLowerCase(),
-				username: command.username,
+				username: usernameTrimmed,
 				email: command.email,
 				password: command.password,
 				avatar: command.avatar || "",
@@ -46,10 +57,10 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 			});
 
 			await this.emailService.sendEmailVerification(user.email, emailVerificationToken);
+			await this.seedUsernameBloom(usernameTrimmed);
 
-			const token = this.generateToken(user);
 			const userDTO = this.dtoService.toAuthenticatedUserDTO(user);
-			return { user: userDTO, token };
+			return { user: userDTO };
 		} catch (error) {
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
@@ -68,22 +79,26 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
 		return new Date(Date.now() + ttlMinutes * 60 * 1000);
 	}
 
-	/**
-	 * Generates a JWT token for a user.
-	 * @param user - The user object
-	 * @returns A signed JWT token
-	 */
-	private generateToken(user: IUser): string {
-		const payload = {
-			publicId: user.publicId,
-			email: user.email,
-			handle: user.handle,
-			username: user.username,
-			isAdmin: user.isAdmin,
-		};
-		const secret = process.env.JWT_SECRET;
-		if (!secret) throw createError("ConfigError", "JWT secret is not configured");
+	private async usernameMayExist(username: string): Promise<boolean> {
+		try {
+			return await this.bloomFilterService.mightContain(USERNAME_BLOOM_KEY, username, USERNAME_BLOOM_OPTIONS);
+		} catch (error) {
+			logger.warn("[Bloom][username] availability pre-check failed; falling back to DB path", {
+				username,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return true;
+		}
+	}
 
-		return jwt.sign(payload, secret, { expiresIn: "12h" });
+	private async seedUsernameBloom(username: string): Promise<void> {
+		try {
+			await this.bloomFilterService.add(USERNAME_BLOOM_KEY, username, USERNAME_BLOOM_OPTIONS);
+		} catch (error) {
+			logger.warn("[Bloom][username] failed to seed bloom filter after registration", {
+				username,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
 	}
 }

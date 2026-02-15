@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { container } from "tsyringe";
-import { createError } from "@/utils/errors";
+import { createError, isErrorWithStatusCode } from "@/utils/errors";
 import rateLimit from "express-rate-limit";
 import { DecodedUser, AdminContext } from "@/types";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { logger } from "@/utils/winston";
+import { authCookieNames } from "@/config/cookieConfig";
+import { AuthSessionService } from "@/services/auth-session.service";
 
 declare global {
 	namespace Express {
@@ -27,7 +29,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 
 	async authenticate(req: Request): Promise<DecodedUser> {
 		// Prefer secure httpOnly cookie but fall back to Authorization header if present
-		let token: string | undefined = req.cookies?.token;
+		let token: string | undefined = req.cookies?.[authCookieNames.accessToken] || req.cookies?.[authCookieNames.legacyToken];
 		if (!token) {
 			// Some proxies may strip cookie; log incoming headers for diagnostics in dev
 			if (process.env.NODE_ENV !== "production") {
@@ -45,17 +47,28 @@ export class BearerTokenStrategy extends AuthStrategy {
 			throw createError("AuthenticationError", "Missing token");
 		}
 		try {
-			const payload = jwt.verify(token, this.secret) as DecodedUser;
-
-			if (!payload.publicId || !payload.email || !payload.username || !payload.handle) {
+			const verified = jwt.verify(token, this.secret);
+			if (typeof verified !== "object" || verified === null) {
 				throw createError("AuthenticationError", "Invalid token payload");
 			}
+			const payload = verified as DecodedUser;
+
+			if (!payload.publicId || !payload.email || !payload.username || !payload.handle || !payload.sid) {
+				throw createError("AuthenticationError", "Invalid token payload");
+			}
+
+			const authSessionService = container.resolve<AuthSessionService>("AuthSessionService");
+			await authSessionService.assertAccessSession(payload.sid, payload.publicId);
 
 			logger.info(`[AUTH] User from token: ${payload.username} (${payload.publicId})`);
 			return payload;
 		} catch (err) {
+			if (isErrorWithStatusCode(err)) {
+				throw err;
+			}
 			console.error("[AUTH] Token verification failed", (err as Error).message);
-			throw createError("AuthenticationError", "Invalid or expired token");
+			const message = err instanceof Error && err.name === "TokenExpiredError" ? "Access token expired" : "Invalid token";
+			throw createError("AuthenticationError", message);
 		}
 	}
 }
@@ -86,13 +99,9 @@ export class AuthenticationMiddleware {
 			} catch (error) {
 				// Preserve original AppError Wwith statusCode
 				if (
-					typeof error === "object" &&
-					error !== null &&
-					"name" in error &&
-					"message" in error &&
-					"statusCode" in (error as any)
+					isErrorWithStatusCode(error)
 				) {
-					return next(error as any);
+					return next(error);
 				}
 				const message =
 					typeof error === "object" && error !== null && "message" in error
