@@ -1,16 +1,22 @@
 User-agent: *
 Allow: /
-# Public API endpoints used to render publicly indexable pages
-Allow: /api/posts
-Allow: /api/comments
-Allow: /api/search
-Allow: /api/communities
-Allow: /api/users/profile/
-Allow: /api/feed/trending
+# Public pages we want indexed
+Allow: /discover
+Allow: /communities
+Allow: /profile/
+Allow: /posts/
+Allow: /comments/
+
+# Public APIs required to render indexable pages for anonymous crawlers
 Allow: /api/feed/new
+Allow: /api/feed/trending
+Allow: /api/feed/trending-tags
+Allow: /api/posts/
+Allow: /api/comments/
+Allow: /api/users/public/
+Allow: /api/users/profile/
 
-
-
+# Private app routes
 Disallow: /admin
 Disallow: /login
 Disallow: /register
@@ -20,6 +26,8 @@ Disallow: /verify-email
 Disallow: /messages
 Disallow: /notifications
 Disallow: /favorites
+
+# Private or session-bound APIs
 Disallow: /api/admin
 Disallow: /api/messaging
 Disallow: /api/notifications
@@ -29,6 +37,7 @@ Disallow: /api/users/me
 Disallow: /api/users/login
 Disallow: /api/users/register
 Disallow: /api/users/logout
+Disallow: /api/users/refresh
 Disallow: /api/users/forgot-password
 Disallow: /api/users/reset-password
 Disallow: /api/users/verify-email

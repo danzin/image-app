@@ -77,13 +77,22 @@ const PostCard: React.FC<PostCardProps> = ({ post, prioritizeImage = false }) =>
 		height: 80,
 		crop: "fill",
 	});
-	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 960, crop: "limit" });
-	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [320, 480, 560, 720, 960, 1200], {
+	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 960, crop: "limit", quality: "auto:eco", dpr: false });
+	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [320, 480, 640, 768, 960, 1080], {
 		crop: "limit",
+		quality: "auto:eco",
 	});
 	const repostImageRawUrl = buildMediaUrl(post.repostOf?.image?.url);
-	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 640, crop: "limit" });
-	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [256, 384, 512, 640], { crop: "limit" });
+	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, {
+		width: 640,
+		crop: "limit",
+		quality: "auto:eco",
+		dpr: false,
+	});
+	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [256, 384, 512, 640], {
+		crop: "limit",
+		quality: "auto:eco",
+	});
 	const repostAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.repostOf?.user?.avatar), {
 		width: 48,
 		height: 48,

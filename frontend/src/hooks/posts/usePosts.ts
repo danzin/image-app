@@ -18,10 +18,9 @@ import { useAuth } from "../context/useAuth";
 import { mapPost } from "../../lib/mappers";
 
 export const usePosts = () => {
-	const { user, loading } = useAuth();
+	const { user } = useAuth();
 
 	const queryKey = ["posts", user?.publicId];
-	console.log("usePosts - Query Key:", queryKey, "User state:", { user: user?.publicId, loading });
 
 	return useInfiniteQuery<
 		PaginatedResponse<IPost>,
@@ -29,23 +28,14 @@ export const usePosts = () => {
 	>({
 		queryKey,
 		queryFn: async ({ pageParam = 1 }) => {
-			console.log("usePosts - Fetching with queryKey:", queryKey, "pageParam:", pageParam);
 			// fetchPosts (user feed) still uses numeric page, fetchNewFeed can use cursor
 			const response = !user 
 				? await fetchNewFeed(pageParam as number | string, 10) 
 				: await fetchPosts(pageParam as number, 10);
 
-			console.log("usePosts - Raw response for query:", queryKey, response.data[0]);
-
-			const mappedData = response.data.map((rawPost: IPost) => {
-				const mapped = mapPost(rawPost);
-				console.log("usePosts - Mapped post for query:", queryKey, mapped);
-				return mapped;
-			});
-
 			return {
 				...response,
-				data: mappedData,
+				data: response.data.map((rawPost: IPost) => mapPost(rawPost)),
 			};
 		},
 		getNextPageParam: (lastPage) => {
@@ -56,7 +46,6 @@ export const usePosts = () => {
 			return undefined;
 		},
 		initialPageParam: 1,
-		enabled: !loading,
 		staleTime: 0,
 		gcTime: 0,
 		refetchOnMount: true,
@@ -64,7 +53,7 @@ export const usePosts = () => {
 };
 
 export const usePostByPublicId = (publicId: string) => {
-	const { user, loading } = useAuth();
+	const { user } = useAuth();
 
 	return useQuery<IPost, Error>({
 		queryKey: ["post", "publicId", publicId, user?.publicId],
@@ -72,7 +61,7 @@ export const usePostByPublicId = (publicId: string) => {
 			const rawPost = await fetchPostByPublicId(publicId);
 			return mapPost(rawPost);
 		},
-		enabled: !!publicId && !loading, // Wait for auth
+		enabled: !!publicId,
 		staleTime: 0,
 		refetchOnMount: true,
 	});
@@ -92,8 +81,6 @@ export const usePostBySlug = (slug: string) => {
 };
 
 export const usePostById = (identifier: string) => {
-	const { user } = useAuth();
-
 	// Strip file extension
 	const cleanIdentifier = identifier ? identifier.replace(/\.(png|jpg|jpeg|gif|webp)$/i, "") : identifier;
 
@@ -101,11 +88,7 @@ export const usePostById = (identifier: string) => {
 		queryKey: ["post", cleanIdentifier],
 		queryFn: async () => {
 			const rawPost = await fetchPostByPublicId(cleanIdentifier);
-			console.log("Raw post from API:", rawPost);
-			console.log("Raw post isLikedByViewer:", rawPost.isLikedByViewer);
 			const mappedPost = mapPost(rawPost);
-			console.log("Mapped post:", mappedPost);
-			console.log("User publicId for mapping:", user?.publicId);
 			return mappedPost;
 		},
 		enabled: !!identifier,

@@ -121,11 +121,11 @@ const PostView = () => {
 
 	// Handle optional image URL (post might be text-only)
 	const fullImageUrl = buildMediaUrl(post.url) ?? buildMediaUrl(post.image?.url);
-	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1400, crop: "limit" });
-	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [640, 960, 1400, 1920], { crop: "limit" });
+	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1200, crop: "limit", dpr: false });
+	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [480, 640, 768, 960, 1200], { crop: "limit" });
 	const repostImageRawUrl = buildMediaUrl(post.repostOf?.image?.url);
-	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 960, crop: "limit" });
-	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [320, 640, 960], { crop: "limit" });
+	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 900, crop: "limit", dpr: false });
+	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [320, 480, 640, 800, 960], { crop: "limit" });
 	const modalImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1920, crop: "limit" });
 
 	const hasImage = !!fullImageUrl;
@@ -314,6 +314,8 @@ const PostView = () => {
 							srcSet={postImageSrcSet}
 							sizes="(max-width: 600px) 100vw, 553px"
 							alt="Post content"
+							loading="eager"
+							fetchPriority="high"
 							decoding="async"
 							style={{
 								width: "100%",
