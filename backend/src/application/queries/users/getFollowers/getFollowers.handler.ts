@@ -35,28 +35,39 @@ export class GetFollowersQueryHandler implements IQueryHandler<GetFollowersQuery
 				throw createError("NotFoundError", "User not found");
 			}
 
-			const followerIds = await this.followRepository.getFollowerObjectIds(String(user._id));
-			const total = followerIds.length;
+			const { ids: followerIds, total } = await this.followRepository.getFollowerObjectIdsPaginated(
+				String(user._id),
+				query.page,
+				query.limit,
+			);
 			const totalPages = Math.ceil(total / query.limit);
 
-			// paginate the IDs
-			const startIndex = (query.page - 1) * query.limit;
-			const endIndex = startIndex + query.limit;
-			const paginatedIds = followerIds.slice(startIndex, endIndex);
-
-			const users: FollowUserItem[] = [];
-			for (const id of paginatedIds) {
-				const followerUser = await this.userReadRepository.findById(id);
-				if (followerUser) {
-					users.push({
-						publicId: followerUser.publicId,
-						handle: followerUser.handle,
-						username: followerUser.username,
-						avatar: followerUser.avatar || "",
-						bio: followerUser.bio,
-					});
-				}
+			if (followerIds.length === 0) {
+				return {
+					users: [],
+					total,
+					page: query.page,
+					limit: query.limit,
+					totalPages,
+				};
 			}
+
+			const followerUsers = await this.userReadRepository.findWithPagination({
+				page: 1,
+				limit: followerIds.length,
+				filter: { _id: { $in: followerIds } },
+			});
+			const usersById = new Map(followerUsers.data.map((entry) => [entry._id.toString(), entry]));
+			const users: FollowUserItem[] = followerIds
+				.map((id) => usersById.get(id))
+				.filter((entry): entry is typeof followerUsers.data[number] => !!entry)
+				.map((followerUser) => ({
+					publicId: followerUser.publicId,
+					handle: followerUser.handle,
+					username: followerUser.username,
+					avatar: followerUser.avatar || "",
+					bio: followerUser.bio,
+				}));
 
 			return {
 				users,

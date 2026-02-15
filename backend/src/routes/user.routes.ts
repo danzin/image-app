@@ -53,6 +53,7 @@ export class UserRoutes {
 		);
 
 		this.router.post("/logout", this.userController.logout);
+		this.router.post("/refresh", this.userController.refresh);
 
 		this.router.post(
 			"/forgot-password",

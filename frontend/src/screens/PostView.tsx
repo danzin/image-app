@@ -29,8 +29,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import CommentSection from "../components/comments/CommentSection";
 import { PageSeo, buildPostMetadata } from "../lib/seo";
-
-const BASE_URL = "/api";
+import { buildMediaUrl, buildResponsiveCloudinarySrcSet, transformCloudinaryUrl } from "../lib/media";
 
 const PostView = () => {
 	const { id } = useParams<{ id: string }>();
@@ -88,14 +87,21 @@ const PostView = () => {
 	const isOwner = isLoggedIn && user?.publicId === post.user.publicId;
 	const isLiked = isLoggedIn && post.isLikedByViewer;
 
-	const buildMediaUrl = (value?: string) => {
-		if (!value) return undefined;
-		if (value.startsWith("http")) return value;
-		if (value.startsWith("/api/")) return value;
-		return value.startsWith("/") ? `${BASE_URL}${value}` : `${BASE_URL}/${value}`;
-	};
-
-	const avatarUrl = buildMediaUrl(post.user?.avatar);
+	const avatarUrl = transformCloudinaryUrl(buildMediaUrl(post.user?.avatar), {
+		width: 80,
+		height: 80,
+		crop: "fill",
+	});
+	const communityAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.community?.avatar), {
+		width: 64,
+		height: 64,
+		crop: "fill",
+	});
+	const repostAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.repostOf?.user?.avatar), {
+		width: 48,
+		height: 48,
+		crop: "fill",
+	});
 	const displayName = post.user?.username || post.user?.publicId || "Unknown user";
 	const profileHref = post.user?.handle
 		? `/profile/${post.user.handle}`
@@ -114,7 +120,13 @@ const PostView = () => {
 	});
 
 	// Handle optional image URL (post might be text-only)
-	const fullImageUrl = post.url ? buildMediaUrl(post.url) : buildMediaUrl(post.image?.url);
+	const fullImageUrl = buildMediaUrl(post.url) ?? buildMediaUrl(post.image?.url);
+	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1400, crop: "limit" });
+	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [640, 960, 1400, 1920], { crop: "limit" });
+	const repostImageRawUrl = buildMediaUrl(post.repostOf?.image?.url);
+	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 960, crop: "limit" });
+	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [320, 640, 960], { crop: "limit" });
+	const modalImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1920, crop: "limit" });
 
 	const hasImage = !!fullImageUrl;
 
@@ -188,7 +200,7 @@ const PostView = () => {
 					>
 						{post.community.avatar ? (
 							<Avatar
-								src={post.community.avatar.startsWith("http") ? post.community.avatar : `/api/${post.community.avatar}`}
+								src={communityAvatarUrl}
 								sx={{ width: 18, height: 18 }}
 							/>
 						) : (
@@ -298,8 +310,11 @@ const PostView = () => {
 						onClick={() => setIsImageModalOpen(true)}
 					>
 						<img
-							src={fullImageUrl}
+							src={postImageUrl}
+							srcSet={postImageSrcSet}
+							sizes="(max-width: 600px) 100vw, 553px"
 							alt="Post content"
+							decoding="async"
 							style={{
 								width: "100%",
 								height: "auto",
@@ -327,7 +342,7 @@ const PostView = () => {
 						}}
 					>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-							<Avatar sx={{ width: 24, height: 24 }} src={buildMediaUrl(post.repostOf.user?.avatar)}>
+							<Avatar sx={{ width: 24, height: 24 }} src={repostAvatarUrl}>
 								{(post.repostOf.user?.username || "U").charAt(0).toUpperCase()}
 							</Avatar>
 							<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -354,8 +369,12 @@ const PostView = () => {
 								}}
 							>
 								<img
-									src={buildMediaUrl(post.repostOf.image.url)}
+									src={repostImageUrl}
+									srcSet={repostImageSrcSet}
+									sizes="(max-width: 600px) 100vw, 511px"
 									alt="Reposted content"
+									loading="lazy"
+									decoding="async"
 									style={{
 										width: "100%",
 										height: "auto",
@@ -461,8 +480,10 @@ const PostView = () => {
 						<CloseIcon />
 					</IconButton>
 					<img
-						src={fullImageUrl}
+						src={modalImageUrl}
 						alt="Full size"
+						loading="lazy"
+						decoding="async"
 						style={{
 							maxWidth: "100%",
 							maxHeight: "90vh",

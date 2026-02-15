@@ -1,10 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { loginRequest } from "../../api/userApi";
-import { AdminUserDTO, AuthenticatedUserDTO } from "../../types";
+import { loginRequest, LoginResponse } from "../../api/userApi";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/useAuth";
-
-type LoginResponse = { user: AuthenticatedUserDTO | AdminUserDTO; token: string };
 
 export const useLogin = () => {
 	const queryClient = useQueryClient();

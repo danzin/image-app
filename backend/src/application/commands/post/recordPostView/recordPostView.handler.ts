@@ -8,6 +8,7 @@ import { PostViewRepository } from "@/repositories/postView.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { FeedService } from "@/services/feed.service";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
+import { BloomFilterService } from "@/services/bloom-filter.service";
 import { createError } from "@/utils/errors";
 import { isValidPublicId } from "@/utils/sanitizers";
 import {
@@ -18,6 +19,7 @@ import {
 } from "@/application/errors/post.errors";
 import { logger } from "@/utils/winston";
 import { IPost, IUser } from "@/types";
+import { getPostViewBloomKey, POST_VIEW_BLOOM_OPTIONS, POST_VIEW_BLOOM_TTL_SECONDS } from "@/config/bloomConfig";
 
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
@@ -28,6 +30,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
 		@inject("FeedService") private readonly feedService: FeedService,
 		@inject("TransactionQueueService") private readonly transactionQueue: TransactionQueueService,
+		@inject("BloomFilterService") private readonly bloomFilterService: BloomFilterService,
 	) {}
 
 	async execute(command: RecordPostViewCommand): Promise<boolean> {
@@ -72,7 +75,14 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 				throw new PostAuthorizationError("User cannot view this post");
 			}
 
+			const bloomKey = getPostViewBloomKey(command.postPublicId);
+			const alreadyViewed = await this.wasLikelyAlreadyViewedByUser(bloomKey, command.userPublicId);
+			if (alreadyViewed) {
+				return false;
+			}
+
 			const isNewView = await this.postViewRepository.recordView(postId, userId);
+			await this.markViewSeenInBloom(bloomKey, command.userPublicId);
 
 			if (isNewView) {
 				// view count increment is non-critical analytics - queue under load, execute immediately otherwise
@@ -104,6 +114,31 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 				action: "record-post-view",
 				postPublicId: command.postPublicId,
 				userPublicId: command.userPublicId,
+			});
+		}
+	}
+
+	private async wasLikelyAlreadyViewedByUser(bloomKey: string, userPublicId: string): Promise<boolean> {
+		try {
+			return await this.bloomFilterService.mightContain(bloomKey, userPublicId, POST_VIEW_BLOOM_OPTIONS);
+		} catch (error) {
+			logger.warn("[Bloom][post-view] read failed; falling back to DB uniqueness check", {
+				bloomKey,
+				userPublicId,
+				error: error instanceof Error ? error.message : String(error),
+			});
+			return false;
+		}
+	}
+
+	private async markViewSeenInBloom(bloomKey: string, userPublicId: string): Promise<void> {
+		try {
+			await this.bloomFilterService.add(bloomKey, userPublicId, POST_VIEW_BLOOM_OPTIONS, POST_VIEW_BLOOM_TTL_SECONDS);
+		} catch (error) {
+			logger.warn("[Bloom][post-view] failed to seed bloom filter after view write", {
+				bloomKey,
+				userPublicId,
+				error: error instanceof Error ? error.message : String(error),
 			});
 		}
 	}

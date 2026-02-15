@@ -7,6 +7,7 @@ import { RecordPostViewCommand } from "@/application/commands/post/recordPostVie
 import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { FeedService } from "@/services/feed.service";
 import { PostViewRepository } from "@/repositories/postView.repository";
+import { BloomFilterService } from "@/services/bloom-filter.service";
 
 describe("RecordPostViewCommandHandler", () => {
 	let handler: RecordPostViewCommandHandler;
@@ -16,6 +17,7 @@ describe("RecordPostViewCommandHandler", () => {
 	let userReadRepoStub: any;
 	let feedServiceStub: any;
 	let transactionQueueStub: any;
+	let bloomFilterServiceStub: any;
 
 	const postId = new mongoose.Types.ObjectId();
 	const userId = new mongoose.Types.ObjectId();
@@ -36,6 +38,7 @@ describe("RecordPostViewCommandHandler", () => {
 		};
 		feedServiceStub = sinon.createStubInstance(FeedService);
 		transactionQueueStub = sinon.createStubInstance(TransactionQueueService);
+		bloomFilterServiceStub = sinon.createStubInstance(BloomFilterService);
 
 		// Default successful mocks
 		postReadRepoStub.findOneByPublicId.resolves({
@@ -51,6 +54,8 @@ describe("RecordPostViewCommandHandler", () => {
 		});
 
 		postViewRepoStub.recordView.resolves(true); // New view
+		bloomFilterServiceStub.mightContain.resolves(false);
+		bloomFilterServiceStub.add.resolves();
 
 		transactionQueueStub.executeOrQueue.resolves();
 
@@ -61,6 +66,7 @@ describe("RecordPostViewCommandHandler", () => {
 			userReadRepoStub,
 			feedServiceStub,
 			transactionQueueStub,
+			bloomFilterServiceStub,
 		);
 	});
 
@@ -75,6 +81,7 @@ describe("RecordPostViewCommandHandler", () => {
 
 		expect(result).to.be.true;
 		expect(postViewRepoStub.recordView.calledWith(postId, userId)).to.be.true;
+		expect(bloomFilterServiceStub.add.calledOnce).to.be.true;
 
 		// Verify transaction queue usage
 		expect(transactionQueueStub.executeOrQueue.calledOnce).to.be.true;
@@ -90,6 +97,18 @@ describe("RecordPostViewCommandHandler", () => {
 		const result = await handler.execute(command);
 
 		expect(result).to.be.false;
+		expect(transactionQueueStub.executeOrQueue.called).to.be.false;
+		expect(bloomFilterServiceStub.add.calledOnce).to.be.true;
+	});
+
+	it("should short-circuit when bloom filter indicates the user has already viewed the post", async () => {
+		bloomFilterServiceStub.mightContain.resolves(true);
+
+		const command = new RecordPostViewCommand(postPublicId, userPublicId);
+		const result = await handler.execute(command);
+
+		expect(result).to.be.false;
+		expect(postViewRepoStub.recordView.called).to.be.false;
 		expect(transactionQueueStub.executeOrQueue.called).to.be.false;
 	});
 

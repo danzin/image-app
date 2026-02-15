@@ -5,12 +5,11 @@ import FavoriteIcon from "@mui/icons-material/Favorite";
 import CommentIcon from "@mui/icons-material/Comment";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import { useNavigate } from "react-router-dom";
+import { buildMediaUrl, transformCloudinaryUrl } from "../lib/media";
 
 interface ImageCardProps {
 	image: IImage;
 }
-
-const BASE_URL = "/api";
 
 const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 	console.log("ImageCard - Received image data:", {
@@ -18,11 +17,13 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 		commentsCount: image.commentsCount,
 		likes: image.likes,
 	});
-	const fullImageUrl = image.url.startsWith("http")
-		? image.url
-		: image.url.startsWith("/")
-			? `${BASE_URL}${image.url}`
-			: `${BASE_URL}/${image.url}`;
+	const fullImageUrl = buildMediaUrl(image.url);
+	const optimizedImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1400, crop: "limit" });
+	const avatarUrl = transformCloudinaryUrl(buildMediaUrl(image.user?.avatar), {
+		width: 64,
+		height: 64,
+		crop: "fill",
+	});
 	const navigate = useNavigate();
 
 	const handleClick = () => {
@@ -60,8 +61,10 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 							transform: "scale(1.05)",
 						},
 					}}
-					image={fullImageUrl}
+					image={optimizedImageUrl}
 					alt={image.publicId}
+					loading="lazy"
+					decoding="async"
 				/>
 				{/* Gradient overlay for better text readability */}
 				<Box
@@ -99,8 +102,12 @@ const ImageCard: React.FC<ImageCardProps> = ({ image }) => {
 					>
 						{image.user?.avatar ? (
 							<img
-								src={image.user.avatar.startsWith("http") ? image.user.avatar : `/api/${image.user.avatar}`}
+								src={avatarUrl}
 								alt={image.user.username}
+								loading="lazy"
+								decoding="async"
+								width={32}
+								height={32}
 								style={{ width: "100%", height: "100%", borderRadius: "50%" }}
 							/>
 						) : (

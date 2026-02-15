@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { Model } from "mongoose";
+import { Model, Types } from "mongoose";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DeleteUserCommand } from "./deleteUser.command";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
@@ -113,12 +113,26 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 				await this.followRepository.deleteAllFollowsByUserId(userId, session);
 
-				for (const followedUserId of followingIds) {
-					await this.userWriteRepository.updateFollowerCount(followedUserId, -1, session);
+				const uniqueFollowingIds = Array.from(new Set(followingIds));
+				if (uniqueFollowingIds.length > 0) {
+					await this.userModel
+						.updateMany(
+							{ _id: { $in: uniqueFollowingIds.map((id) => new Types.ObjectId(id)) } },
+							{ $inc: { followerCount: -1 } },
+							{ session },
+						)
+						.exec();
 				}
 
-				for (const followerUserId of followerIds) {
-					await this.userWriteRepository.updateFollowingCount(followerUserId, -1, session);
+				const uniqueFollowerIds = Array.from(new Set(followerIds));
+				if (uniqueFollowerIds.length > 0) {
+					await this.userModel
+						.updateMany(
+							{ _id: { $in: uniqueFollowerIds.map((id) => new Types.ObjectId(id)) } },
+							{ $inc: { followingCount: -1 } },
+							{ session },
+						)
+						.exec();
 				}
 
 				await this.userPreferenceRepository.deleteManyByUserId(userId, session);
@@ -128,18 +142,10 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				await this.notificationRepository.deleteManyByUserId(user.publicId, session);
 				await this.notificationRepository.deleteManyByActorId(user.publicId, session);
 
-				// remove user from communities and update member counts
-				if (user.joinedCommunities && user.joinedCommunities.length > 0) {
-					for (const community of user.joinedCommunities) {
-						if (community._id) {
-							await this.communityRepository.update(
-								community._id.toString(),
-								{ $inc: { "stats.memberCount": -1 } } as any,
-								session
-							);
-						}
-					}
-				}
+				const joinedCommunityIds = (user.joinedCommunities ?? [])
+					.map((community) => (community && community._id ? community._id.toString() : ""))
+					.filter((id): id is string => id.length > 0);
+				await this.communityRepository.decrementMemberCountsByIds(joinedCommunityIds, session);
 				await this.communityMemberRepository.deleteManyByUserId(userId, session);
 
 				const userConversations = await this.conversationRepository.findByParticipant(userId, session);

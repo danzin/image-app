@@ -22,18 +22,32 @@ export class CommentRoutes {
 	}
 
 	private initializeRoutes(): void {
-		// Comments on posts
-		this.router.post(
-			"/posts/:postPublicId/comments",
-			this.auth,
-			new ValidationMiddleware({ params: postPublicIdSchema, body: createCommentSchema }).validate(),
-			this.commentController.createComment
+
+		this.router.get(
+			"/comments/:commentId/replies",
+			new ValidationMiddleware({ params: commentIdSchema, query: commentsQuerySchema }).validate(),
+			this.commentController.getCommentReplies
+		);
+
+		
+		// User comments
+		this.router.get(
+			"/users/:publicId/comments",
+			new ValidationMiddleware({ params: userPublicIdSchema }).validate(),
+			this.commentController.getCommentsByUserId
 		);
 
 		this.router.get(
 			"/posts/:postPublicId/comments",
 			new ValidationMiddleware({ params: postPublicIdSchema, query: commentsQuerySchema }).validate(),
 			this.commentController.getCommentsByPostId
+		);
+		
+		// Comment thread view
+		this.router.get(
+			"/comments/:commentId/thread",
+			new ValidationMiddleware({ params: commentIdSchema }).validate(),
+			this.commentController.getCommentThread
 		);
 
 		// Comment management
@@ -58,25 +72,14 @@ export class CommentRoutes {
 			this.commentController.deleteComment
 		);
 
-		// Comment thread view
-		this.router.get(
-			"/comments/:commentId/thread",
-			new ValidationMiddleware({ params: commentIdSchema }).validate(),
-			this.commentController.getCommentThread
+		this.router.post(
+			"/posts/:postPublicId/comments",
+			this.auth,
+			new ValidationMiddleware({ params: postPublicIdSchema, body: createCommentSchema }).validate(),
+			this.commentController.createComment
 		);
 
-		this.router.get(
-			"/comments/:commentId/replies",
-			new ValidationMiddleware({ params: commentIdSchema, query: commentsQuerySchema }).validate(),
-			this.commentController.getCommentReplies
-		);
 
-		// User comments
-		this.router.get(
-			"/users/:publicId/comments",
-			new ValidationMiddleware({ params: userPublicIdSchema }).validate(),
-			this.commentController.getCommentsByUserId
-		);
 	}
 
 	public getRouter(): express.Router {

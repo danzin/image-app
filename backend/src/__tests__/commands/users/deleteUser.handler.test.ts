@@ -44,13 +44,14 @@ describe("DeleteUserCommandHandler", () => {
 			removeUserFromReadBy: sinon.stub().resolves(),
 		};
 		mocks.postViewRepository = { deleteManyByUserId: sinon.stub().resolves() };
-		mocks.communityRepository = { update: sinon.stub().resolves() };
+		mocks.communityRepository = { decrementMemberCountsByIds: sinon.stub().resolves() };
 		mocks.communityMemberRepository = { deleteManyByUserId: sinon.stub().resolves() };
 		mocks.imageStorageService = { deleteMany: sinon.stub().resolves({ result: "ok" }) };
 		mocks.unitOfWork = {
 			executeInTransaction: sinon.stub().callsFake(async (fn) => await fn("session")),
 		};
 		mocks.eventBus = { publish: sinon.stub().resolves() };
+		mocks.redisService = { invalidateByTags: sinon.stub().resolves() };
 		mocks.userModel = { findOne: sinon.stub() };
 
 		handler = new DeleteUserCommandHandler(
@@ -73,6 +74,7 @@ describe("DeleteUserCommandHandler", () => {
 			mocks.imageStorageService,
 			mocks.unitOfWork,
 			mocks.eventBus,
+			mocks.redisService,
 			mocks.userModel
 		);
 	});
@@ -99,8 +101,11 @@ describe("DeleteUserCommandHandler", () => {
 		await handler.execute(command);
 
 		// verify community member count updates
-		expect(mocks.communityRepository.update.calledWith(communityId1.toString(), sinon.match({ $inc: { "stats.memberCount": -1 } }))).to.be.true;
-		expect(mocks.communityRepository.update.calledWith(communityId2.toString(), sinon.match({ $inc: { "stats.memberCount": -1 } }))).to.be.true;
+		expect(mocks.communityRepository.decrementMemberCountsByIds.calledOnce).to.be.true;
+		expect(mocks.communityRepository.decrementMemberCountsByIds.firstCall.args[0]).to.deep.equal([
+			communityId1.toString(),
+			communityId2.toString(),
+		]);
 
 		// verify community membership deletion
 		expect(mocks.communityMemberRepository.deleteManyByUserId.calledWith(userId.toString(), "session")).to.be.true;

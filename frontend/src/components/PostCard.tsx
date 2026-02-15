@@ -13,19 +13,11 @@ import RichText from "./RichText";
 import { useRepostPost, useDeletePost } from "../hooks/posts/usePosts";
 import { useAuth } from "../hooks/context/useAuth";
 import { useTranslation } from "react-i18next";
+import { buildMediaUrl, buildResponsiveCloudinarySrcSet, transformCloudinaryUrl } from "../lib/media";
 
 interface PostCardProps {
 	post: IPost;
 }
-
-const BASE_URL = "/api";
-
-const buildMediaUrl = (value?: string) => {
-	if (!value) return undefined;
-	if (value.startsWith("http")) return value;
-	if (value.startsWith("/api/")) return value;
-	return value.startsWith("/") ? `${BASE_URL}${value}` : `${BASE_URL}/${value}`;
-};
 
 // Format large numbers 2345 -> 2.3K
 const formatCount = (count: number | undefined): string => {
@@ -72,21 +64,28 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 		triggerRepost({ postPublicId: post.publicId });
 	};
 
-	const fullImageUrl = post.url
-		? post.url.startsWith("http")
-			? post.url
-			: post.url.startsWith("/")
-				? `${BASE_URL}${post.url}`
-				: `${BASE_URL}/${post.url}`
-		: post.image?.url
-			? post.image.url.startsWith("http")
-				? post.image.url
-				: post.image.url.startsWith("/")
-					? `${BASE_URL}${post.image.url}`
-					: `${BASE_URL}/${post.image.url}`
-			: undefined;
-
+	const fullImageUrl = buildMediaUrl(post.url) ?? buildMediaUrl(post.image?.url);
 	const hasImage = !!fullImageUrl;
+	const communityAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.community?.avatar), {
+		width: 48,
+		height: 48,
+		crop: "fill",
+	});
+	const userAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.user?.avatar), {
+		width: 80,
+		height: 80,
+		crop: "fill",
+	});
+	const postImageUrl = transformCloudinaryUrl(fullImageUrl, { width: 1200, crop: "limit" });
+	const postImageSrcSet = buildResponsiveCloudinarySrcSet(fullImageUrl, [480, 768, 1100, 1400], { crop: "limit" });
+	const repostImageRawUrl = buildMediaUrl(post.repostOf?.image?.url);
+	const repostImageUrl = transformCloudinaryUrl(repostImageRawUrl, { width: 960, crop: "limit" });
+	const repostImageSrcSet = buildResponsiveCloudinarySrcSet(repostImageRawUrl, [320, 640, 960], { crop: "limit" });
+	const repostAvatarUrl = transformCloudinaryUrl(buildMediaUrl(post.repostOf?.user?.avatar), {
+		width: 48,
+		height: 48,
+		crop: "fill",
+	});
 
 	return (
 		<Box
@@ -119,7 +118,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 					}}
 				>
 					{post.community.avatar ? (
-						<Avatar src={buildMediaUrl(post.community.avatar)} sx={{ width: 16, height: 16 }} />
+						<Avatar src={communityAvatarUrl} sx={{ width: 16, height: 16 }} />
 					) : (
 						<GroupsIcon sx={{ fontSize: 16, color: "primary.main" }} />
 					)}
@@ -161,8 +160,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 				>
 					{post.user?.avatar ? (
 						<img
-							src={buildMediaUrl(post.user.avatar)}
+							src={userAvatarUrl}
 							alt={post.user.username}
+							loading="lazy"
+							decoding="async"
+							width={40}
+							height={40}
 							style={{ width: "100%", height: "100%", objectFit: "cover" }}
 						/>
 					) : (
@@ -288,8 +291,11 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							}}
 						>
 							<img
-								src={fullImageUrl}
+								src={postImageUrl}
+								srcSet={postImageSrcSet}
+								sizes="(max-width: 600px) 100vw, 553px"
 								alt={post.body?.substring(0, 50) || post.publicId}
+								decoding="async"
 								style={{
 									width: "100%",
 									height: "auto",
@@ -321,7 +327,7 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 							}}
 						>
 							<Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-								<Avatar sx={{ width: 24, height: 24 }} src={buildMediaUrl(post.repostOf.user.avatar)}>
+								<Avatar sx={{ width: 24, height: 24 }} src={repostAvatarUrl}>
 									{post.repostOf.user.username.charAt(0).toUpperCase()}
 								</Avatar>
 								<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
@@ -348,14 +354,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
 									}}
 								>
 									<img
-										src={
-											post.repostOf.image.url.startsWith("http")
-												? post.repostOf.image.url
-												: post.repostOf.image.url.startsWith("/")
-													? `${BASE_URL}${post.repostOf.image.url}`
-													: `${BASE_URL}/${post.repostOf.image.url}`
-										}
+										src={repostImageUrl}
+										srcSet={repostImageSrcSet}
+										sizes="(max-width: 600px) 100vw, 511px"
 										alt={t("post.reposted_content")}
+										loading="lazy"
+										decoding="async"
 										style={{
 											width: "100%",
 											height: "auto",
