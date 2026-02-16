@@ -50,6 +50,8 @@ The `RedisService` goes beyond basic key-value storage:
 * **Tag-Based Invalidation:** Uses Sets to map logical tags to cache keys, allowing precise O(1) invalidation of complex dependency trees.
 * **Write-Behind Caching:** High-velocity counters (likes/views) are buffered in Redis and flushed to MongoDB in batches.
 * **Pub/Sub & Streams:** Handles real-time notifications (Socket.io) and decoupling of background jobs.
+* **Probabilistic Data Structures:** Implements Bloom Filters to preemptively screen high-velocity existence checks (e.g., 'Has User X viewed Post Y?'), eliminating expensive database lookups for negative results and preserving I/O bandwidth.
+* **Redis-backed session management:** Implements a hybrid auth architecture that combines short-lived stateless JWTs for low-latency API checks with persistent Redis sessions to enable immediate revocation, rotating refresh tokens, and replay attack detection.
 
 #### 3. CQRS & Event-Driven Design
 * **Command Bus:** Handles writes (e.g., `CreatePostCommand`) ensuring data integrity via Unit of Work transactions.
@@ -66,6 +68,12 @@ The `RedisService` goes beyond basic key-value storage:
 * The system is instrumented for real-time production monitoring:
 * **Prometheus:** Scrapes application metrics (HTTP latency, database connection pool status, worker queue depth).
 * **Grafana:** Provides visual dashboards for tracking system health and identifying bottlenecks during load spikes.
+
+#### 6. Adaptive Traffic-Aware Caching
+To ensure the application feels alive during both viral spikes and low-traffic periods, the system implements an **"Adaptive Cache with Historical Fallback"**:
+* **Dynamic TTLs:** Cache lifetimes auto-adjust based on write velocity (e.g., 5 mins during high activity vs. 30 days during dormancy).
+* **Tiered Fallback:** Queries progressively widen time windows (24h → 6 months) and utilize historical snapshots to guarantee content availability.
+* **Activity Decay:** Uses exponential decay algorithms (similar to load balancers) to track realtime system "temperature" and switch between "High Traffic" (engagement based) and "Low Traffic" (recency based) recommendation strategies.
 ---
 
 ## 🛠 Tech Stack
@@ -143,7 +151,7 @@ npm run dev
 
 ## 🛡 Security Features
 
-* **JWT Authentication:** Secure, HTTP-only cookie-based auth strategy.
+* **Hybrid Redis+JWT Auth:** Secure, HTTP-only cookie strategy using short-lived access tokens and rotating refresh tokens to prevent replay attacks.
 * **Rate Limiting:** IP-based throttling at the API Gateway level.
 * **Secure Recovery:** Token-based Password Reset flow with short-lived expiry (via Resend). 
 * **Input Sanitization:** Custom sanitizers for NoSQL injection and XSS prevention.
