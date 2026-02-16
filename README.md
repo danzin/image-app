@@ -59,7 +59,7 @@ The `RedisService` goes beyond basic key-value storage:
 * **Separation of Concerns:** Read models (DTOs) are optimized for specific UI views, distinct from Domain Models.
   
 #### 4. Resilient Transaction Orchestration
-* To ensure data integrity under high concurrency, the system implements a custom Resiliency Layer on top of MongoDB transactions:
+* In order to preserve data integrity under high concurrency, the system implements a custom Resiliency Layer on top of MongoDB transactions:
   * **Transaction Queueing:** TransactionQueueService serializes conflicting write operations to prevent race conditions during "thundering herd" scenarios.
   * **Smart Retries:** A RetryService with exponential backoff handles transient database failures (like WriteConflict exceptions), ensuring user requests succeed even when the database is under stress.
   * **ACID Compliance:** All side effects (notifications, feed updates) are strictly coupled to transaction commits via the UnitOfWork pattern.
@@ -70,7 +70,7 @@ The `RedisService` goes beyond basic key-value storage:
   * **Grafana:** Provides visual dashboards for tracking system health and identifying bottlenecks during load spikes.
 
 #### 6. Adaptive Traffic-Aware Caching
-To ensure the application feels alive during both viral spikes and low-traffic periods, the system implements an **"Adaptive Cache with Historical Fallback"**:
+* To ensure the application feels alive during both viral spikes and low-traffic periods, the system implements an **"Adaptive Cache with Historical Fallback"**:
   * **Dynamic TTLs:** Cache lifetimes auto-adjust based on write velocity (e.g., 5 mins during high activity vs. 30 days during dormancy).
   * **Tiered Fallback:** Queries progressively widen time windows (24h → 6 months) and utilize historical snapshots to guarantee content availability.
   * **Activity Decay:** Uses exponential decay algorithms (similar to load balancers) to track realtime system "temperature" and switch between "High Traffic" (engagement based) and "Low Traffic" (recency based) recommendation strategies.
