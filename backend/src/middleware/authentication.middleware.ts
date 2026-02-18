@@ -8,6 +8,7 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { logger } from "@/utils/winston";
 import { authCookieNames } from "@/config/cookieConfig";
 import { AuthSessionService } from "@/services/auth-session.service";
+import { MetricsService } from "@/metrics/metrics.service";
 
 declare global {
 	namespace Express {
@@ -89,6 +90,44 @@ export class AuthenticationMiddleware {
 		}
 	}
 
+	private getOptionalAuthFailureReason(error: unknown): string {
+		if (!error || typeof error !== "object") return "unknown";
+
+		const err = error as { message?: string; name?: string };
+		const message = (err.message || "").toLowerCase();
+
+		if (message.includes("missing token")) return "missing_token";
+		if (message.includes("expired")) return "token_expired";
+		if (message.includes("invalid token")) return "invalid_token";
+		if (message.includes("email verification")) return "email_not_verified";
+		if (message.includes("session")) return "invalid_session";
+
+		return err.name ? err.name.toLowerCase() : "unknown";
+	}
+
+	private recordOptionalAuthFailure(req: Request, error: unknown): void {
+		const reason = this.getOptionalAuthFailureReason(error);
+		const route = `${req.baseUrl || ""}${req.path || req.originalUrl || "/"}`;
+
+		if (reason !== "missing_token") {
+			logger.warn("[AUTH][OPTIONAL] Authentication failed", {
+				reason,
+				route,
+				method: req.method,
+				error: error instanceof Error ? error.message : String(error),
+			});
+		}
+
+		try {
+			const metricsService = container.resolve<MetricsService>("MetricsService");
+			metricsService.recordOptionalAuthFailure(reason, route);
+		} catch (metricsError) {
+			logger.warn("[AUTH][OPTIONAL] Failed to record auth metric", {
+				error: metricsError instanceof Error ? metricsError.message : String(metricsError),
+			});
+		}
+	}
+
 	handle(): RequestHandler {
 		return async (req: Request, _res: Response, next: NextFunction) => {
 			try {
@@ -123,9 +162,9 @@ export class AuthenticationMiddleware {
 				req.decodedUser = await this.strategy.authenticate(req);
 				await this.enforceVerifiedEmail(req.decodedUser);
 				logger.info(`[AUTH] Optional auth - User authenticated: ${req.decodedUser.username}`);
-			} catch {
-				// Silently fail for optional authentication
+			} catch (error) {
 				req.decodedUser = undefined;
+				this.recordOptionalAuthFailure(req, error);
 			}
 			next();
 		};

@@ -4,6 +4,10 @@ export class CacheKeyBuilder {
 		USER_DATA: "user_data",
 		POST_META: "post_meta",
 		CORE_FEED: "core_feed",
+		FOR_YOU_FEED: "for_you_feed",
+		TRENDING_FEED: "trending_feed",
+		NEW_FEED: "new_feed",
+		REDIS_FEED: "feed",
 		TRENDING_TAGS: "trending_tags",
 		USER_FEED: "user_feed",
 		USER_FOR_YOU: "user_for_you_feed",
@@ -23,6 +27,78 @@ export class CacheKeyBuilder {
 
 	static getCoreFeedKey(userId: string, page: number, limit: number): string {
 		return `${this.PREFIXES.CORE_FEED}:${userId}:${page}:${limit}`;
+	}
+
+	static getForYouFeedKey(userId: string, page: number, limit: number): string {
+		return `${this.PREFIXES.FOR_YOU_FEED}:${userId}:${page}:${limit}`;
+	}
+
+	static getTrendingFeedKey(page: number, limit: number): string {
+		return `${this.PREFIXES.TRENDING_FEED}:${page}:${limit}`;
+	}
+
+	static getTrendingFeedTag(): string {
+		return this.PREFIXES.TRENDING_FEED;
+	}
+
+	static getTrendingFeedPattern(): string {
+		return `${this.PREFIXES.TRENDING_FEED}:*`;
+	}
+
+	static getNewFeedKey(page: number, limit: number): string {
+		return `${this.PREFIXES.NEW_FEED}:${page}:${limit}`;
+	}
+
+	static getNewFeedCursorKey(cursor: string, limit: number): string {
+		return `${this.PREFIXES.NEW_FEED}:cursor:${cursor}:${limit}`;
+	}
+
+	static getNewFeedTag(): string {
+		return this.PREFIXES.NEW_FEED;
+	}
+
+	static getFeedPageTag(page: number): string {
+		return `page:${page}`;
+	}
+
+	static getFeedLimitTag(limit: number): string {
+		return `limit:${limit}`;
+	}
+
+	static getUserFeedTag(userId: string): string {
+		return `${this.PREFIXES.USER_FEED}:${userId}`;
+	}
+
+	static getUserForYouFeedTag(userId: string): string {
+		return `${this.PREFIXES.USER_FOR_YOU}:${userId}`;
+	}
+
+	static getRedisFeedKey(feedType: string, userId: string): string {
+		return `${this.PREFIXES.REDIS_FEED}:${feedType}:${userId}`;
+	}
+
+	static getUserFeedPatterns(userId: string): string[] {
+		return [this.getCoreFeedKeyPattern(userId), this.getForYouFeedKeyPattern(userId)];
+	}
+
+	static getCoreFeedKeyPattern(userId: string): string {
+		return `${this.PREFIXES.CORE_FEED}:${userId}:*`;
+	}
+
+	static getForYouFeedKeyPattern(userId: string): string {
+		return `${this.PREFIXES.FOR_YOU_FEED}:${userId}:*`;
+	}
+
+	static getGlobalFeedPatterns(includeNewFeed = false): string[] {
+		const patterns = [
+			`${this.PREFIXES.CORE_FEED}:*`,
+			`${this.PREFIXES.FOR_YOU_FEED}:*`,
+			this.getTrendingFeedPattern(),
+		];
+		if (includeNewFeed) {
+			patterns.push(`${this.PREFIXES.NEW_FEED}:*`);
+		}
+		return patterns;
 	}
 
 	static getTrendingTagsKey(limit: number, timeWindow: number): string {

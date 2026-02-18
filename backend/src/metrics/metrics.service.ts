@@ -14,6 +14,7 @@ export class MetricsService {
 	private readonly workerStatus: client.Gauge<string>;
 	private readonly workerRestarts: client.Counter<string>;
 	private readonly redisUp: client.Gauge<string>;
+	private readonly optionalAuthFailuresTotal: client.Counter<string>;
 
 	constructor() {
 		this.registry = new client.Registry();
@@ -62,6 +63,13 @@ export class MetricsService {
 			help: "Redis connection state (1 up, 0 down)",
 			registers: [this.registry],
 		});
+
+		this.optionalAuthFailuresTotal = new client.Counter({
+			name: "auth_optional_failures_total",
+			help: "Optional-auth failures by reason and route",
+			labelNames: ["reason", "route"],
+			registers: [this.registry],
+		});
 	}
 
 	public httpMetricsMiddleware(): RequestHandler {
@@ -100,6 +108,10 @@ export class MetricsService {
 
 	public setRedisConnectionState(up: boolean): void {
 		this.redisUp.set(up ? 1 : 0);
+	}
+
+	public recordOptionalAuthFailure(reason: string, route: string): void {
+		this.optionalAuthFailuresTotal.labels(reason || "unknown", route || "unknown").inc();
 	}
 
 	private normalizeRoute(req: Request): string {

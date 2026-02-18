@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { ImageDeletedEvent } from "./image.event";
 import { RedisService } from "@/services/redis.service";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -19,19 +20,19 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			// use tag-based invalidation for active cache entries
 			const tagsToInvalidate: string[] = [];
 
-			tagsToInvalidate.push("trending_feed");
+			tagsToInvalidate.push(CacheKeyBuilder.getTrendingFeedTag());
 
 			// invalidate uploader's personalized feeds
-			tagsToInvalidate.push(`user_feed:${event.uploaderPublicId}`);
-			tagsToInvalidate.push(`user_for_you_feed:${event.uploaderPublicId}`);
+			tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(event.uploaderPublicId));
+			tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(event.uploaderPublicId));
 
 			// get followers and invalidate their feeds
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
 			if (followers.length > 0) {
 				logger.info(`Invalidating feeds for ${followers.length} followers`);
 				followers.forEach((publicId) => {
-					tagsToInvalidate.push(`user_feed:${publicId}`);
-					tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
+					tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(publicId));
+					tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(publicId));
 				});
 			}
 
@@ -42,16 +43,14 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			// also do pattern-based cleanup for any keys that might not have tag metadata
 			// (e.g., if tags expired but cache keys haven't yet)
 			const patterns = [
-				`core_feed:${event.uploaderPublicId}:*`,
-				`for_you_feed:${event.uploaderPublicId}:*`,
-				"trending_feed:*",
+				...CacheKeyBuilder.getUserFeedPatterns(event.uploaderPublicId),
+				CacheKeyBuilder.getTrendingFeedPattern(),
 				// do NOT clear new_feed - lazy refresh only
 			];
 
 			// add follower patterns
 			followers.forEach((publicId) => {
-				patterns.push(`core_feed:${publicId}:*`);
-				patterns.push(`for_you_feed:${publicId}:*`);
+				patterns.push(...CacheKeyBuilder.getUserFeedPatterns(publicId));
 			});
 
 			await this.redis.deletePatterns(patterns);
@@ -59,7 +58,7 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
 			logger.info(`Feed invalidation complete for image deletion`);
 		} catch (error) {
 			console.error("Error handling image deletion:", error);
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
+			const fallbackPatterns = CacheKeyBuilder.getGlobalFeedPatterns();
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

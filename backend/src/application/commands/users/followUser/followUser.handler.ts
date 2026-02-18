@@ -11,6 +11,7 @@ import { NotificationRequestedHandler } from "@/application/events/notification/
 import { RedisService } from "@/services/redis.service";
 import { createError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 export interface FollowUserResult {
 	action: "followed" | "unfollowed";
@@ -105,8 +106,8 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 	private async invalidateFeedCaches(followerPublicId: string): Promise<void> {
 		try {
 			await this.redisService.invalidateByTags([
-				`user_feed:${followerPublicId}`,
-				`for_you_feed:${followerPublicId}`,
+				CacheKeyBuilder.getUserFeedTag(followerPublicId),
+				CacheKeyBuilder.getUserForYouFeedTag(followerPublicId),
 				"who_to_follow",
 				`user_suggestions:${followerPublicId}`,
 			]);

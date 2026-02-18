@@ -7,6 +7,7 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
 import { logger } from "@/utils/winston";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
 	constructor(
@@ -58,19 +59,25 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 				console.warn("Failed to update post like meta during like/unlike event", e);
 			}
 			// Invalidate only actor's structural feed using tags
-			await this.redis.invalidateByTags([`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`]);
+			await this.redis.invalidateByTags([
+				CacheKeyBuilder.getUserFeedTag(event.userId),
+				CacheKeyBuilder.getUserForYouFeedTag(event.userId),
+			]);
 			logger.info("Selective invalidation done (actor only) for like/unlike; others rely on meta overlay");
 			return;
 		}
 
 		// Non-like events: invalidate actor's feeds and affected users' feeds using tags
-		const tagsToInvalidate: string[] = [`user_feed:${event.userId}`, `user_for_you_feed:${event.userId}`];
+		const tagsToInvalidate: string[] = [
+			CacheKeyBuilder.getUserFeedTag(event.userId),
+			CacheKeyBuilder.getUserForYouFeedTag(event.userId),
+		];
 
 		const affectedUsers = await this.getAffectedUsers(event);
 		if (affectedUsers.length > 0) {
 			affectedUsers.forEach((publicId) => {
-				tagsToInvalidate.push(`user_feed:${publicId}`);
-				tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
+				tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(publicId));
+				tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(publicId));
 			});
 			logger.info(`Invalidating feeds for ${affectedUsers.length} affected users (non-like event)`);
 		}
@@ -101,7 +108,7 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 		} catch (error) {
 			console.error("Error determining affected users:", error);
 			// Fallback: invalidate global feeds using tags (except new_feed - lazy refresh)
-			await this.redis.invalidateByTags(["trending_feed", "for_you_feed"]);
+			await this.redis.invalidateByTags([CacheKeyBuilder.getTrendingFeedTag()]);
 			return [];
 		}
 	}

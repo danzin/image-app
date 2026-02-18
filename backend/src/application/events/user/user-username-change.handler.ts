@@ -2,6 +2,7 @@ import { IEventHandler } from "@/application/common/interfaces/event-handler.int
 import { inject, injectable } from "tsyringe";
 import { UserUsernameChangedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -17,7 +18,7 @@ export class UserUsernameChangedHandler implements IEventHandler<UserUsernameCha
 			await this.redis.invalidateByTags(userTags);
 
 			// invalidate feed caches that might contain old username
-			const feedTags = [`user_feed:${event.userPublicId}`];
+			const feedTags = [CacheKeyBuilder.getUserFeedTag(event.userPublicId)];
 			await this.redis.invalidateByTags(feedTags);
 
 			// publish to profile_snapshot_updates channel for background worker to update embedded author snapshots in posts

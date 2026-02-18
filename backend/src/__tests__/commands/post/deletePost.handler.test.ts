@@ -52,6 +52,7 @@ describe("DeletePostCommandHandler", () => {
 	let mockRedisService: {
 		invalidateFeed: SinonStub;
 		invalidateByTags: SinonStub;
+		removeFromFeed: SinonStub;
 	};
 	let mockEventBus: {
 		queueTransactional: SinonStub;
@@ -106,6 +107,7 @@ describe("DeletePostCommandHandler", () => {
 		mockRedisService = {
 			invalidateFeed: sinon.stub(),
 			invalidateByTags: sinon.stub().resolves(),
+			removeFromFeed: sinon.stub().resolves(),
 		};
 
 		mockEventBus = {

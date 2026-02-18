@@ -232,8 +232,7 @@ export class PostController {
 			const { decodedUser } = req;
 
 			if (!decodedUser || !decodedUser.publicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
+				throw createError("AuthenticationError", "Authentication required");
 			}
 
 			const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");

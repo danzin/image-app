@@ -100,6 +100,30 @@ export class UserController {
 		res.clearCookie(authCookieNames.legacyToken, clearAuthCookieOptions);
 	}
 
+	private requireAuthenticatedUserPublicId(req: Request): string {
+		const userPublicId = req.decodedUser?.publicId;
+		if (!userPublicId) {
+			throw createError("AuthenticationError", "Authentication required");
+		}
+		return userPublicId;
+	}
+
+	private mapErrorByMessage(
+		error: unknown,
+		mappings: Array<{ contains: string; type: string; message: string }>,
+	): Error {
+		if (error instanceof Error) {
+			const normalizedMessage = error.message.toLowerCase();
+			const matched = mappings.find((m) => normalizedMessage.includes(m.contains.toLowerCase()));
+			if (matched) {
+				return createError(matched.type, matched.message);
+			}
+			return createError(error.name, error.message);
+		}
+
+		return createError("UnknownError", "An unknown error occurred");
+	}
+
 	register = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			const { handle, username, email, password } = req.body;
@@ -269,7 +293,7 @@ export class UserController {
 		}
 	};
 
-	getUserByHandle = async (req: Request, res: Response): Promise<void> => {
+	getUserByHandle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { handle } = req.params;
 			const query = new GetUserByHandleQuery(handle);
@@ -277,17 +301,11 @@ export class UserController {
 
 			res.status(200).json(userDTO);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(this.mapErrorByMessage(error, [{ contains: "not found", type: "NotFoundError", message: "User not found" }]));
 		}
 	};
 
-	getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+	getUserByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
 			const query = new GetUserByPublicIdQuery(publicId);
@@ -295,99 +313,70 @@ export class UserController {
 
 			res.status(200).json(userDTO);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(this.mapErrorByMessage(error, [{ contains: "not found", type: "NotFoundError", message: "User not found" }]));
 		}
 	};
 
 	/**
 	 * Follow a user by their public ID
 	 */
-	followUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+	followUserByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerPublicId = req.decodedUser?.publicId;
-
-			if (!followerPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
+			const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
 			const command = new FollowUserCommand(followerPublicId, publicId);
 			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else if (errorMessage.includes("already following")) {
-				res.status(400).json({ error: "Already following this user" });
-			} else if (errorMessage.includes("follow yourself")) {
-				res.status(400).json({ error: "Cannot follow yourself" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(
+				this.mapErrorByMessage(error, [
+					{ contains: "not found", type: "NotFoundError", message: "User not found" },
+					{ contains: "already following", type: "ValidationError", message: "Already following this user" },
+					{ contains: "follow yourself", type: "ValidationError", message: "Cannot follow yourself" },
+				]),
+			);
 		}
 	};
 
 	/**
 	 * Unfollow a user by their public ID
 	 */
-	unfollowUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+	unfollowUserByPublicId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerPublicId = req.decodedUser?.publicId;
-
-			if (!followerPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
+			const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
 			const command = new FollowUserCommand(followerPublicId, publicId);
 			const result = await this.commandBus.dispatch<FollowUserResult>(command);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else if (errorMessage.includes("not following")) {
-				res.status(400).json({ error: "Not following this user" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(
+				this.mapErrorByMessage(error, [
+					{ contains: "not found", type: "NotFoundError", message: "User not found" },
+					{ contains: "not following", type: "ValidationError", message: "Not following this user" },
+				]),
+			);
 		}
 	};
 
 	/**
 	 * Check if current user follows another user
 	 */
-	checkFollowStatus = async (req: Request, res: Response): Promise<void> => {
+	checkFollowStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
-			const followerPublicId = req.decodedUser?.publicId;
-
-			if (!followerPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
+			const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
 			const query = new CheckFollowStatusQuery(followerPublicId, publicId);
 			const isFollowing = await this.queryBus.execute<boolean>(query);
 			res.status(200).json({ isFollowing });
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			res.status(500).json({ error: errorMessage });
+			next(this.mapErrorByMessage(error, []));
 		}
 	};
 
-	getFollowers = async (req: Request, res: Response): Promise<void> => {
+	getFollowers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
@@ -397,16 +386,11 @@ export class UserController {
 			const result = await this.queryBus.execute<GetFollowersResult>(query);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(this.mapErrorByMessage(error, [{ contains: "not found", type: "NotFoundError", message: "User not found" }]));
 		}
 	};
 
-	getFollowing = async (req: Request, res: Response): Promise<void> => {
+	getFollowing = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
 			const { publicId } = req.params;
 			const page = parseInt(req.query.page as string) || 1;
@@ -416,23 +400,13 @@ export class UserController {
 			const result = await this.queryBus.execute<GetFollowingResult>(query);
 			res.status(200).json(result);
 		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			if (errorMessage.includes("not found")) {
-				res.status(404).json({ error: "User not found" });
-			} else {
-				res.status(500).json({ error: errorMessage });
-			}
+			next(this.mapErrorByMessage(error, [{ contains: "not found", type: "NotFoundError", message: "User not found" }]));
 		}
 	};
 
 	getAccountInfo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const userPublicId = req.decodedUser?.publicId;
-
-			if (!userPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
+			const userPublicId = this.requireAuthenticatedUserPublicId(req);
 
 			const query = new GetAccountInfoQuery(userPublicId);
 			const result = await this.queryBus.execute<GetAccountInfoResult>(query);
@@ -444,13 +418,8 @@ export class UserController {
 
 	deleteMyAccount = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
 		try {
-			const userPublicId = req.decodedUser?.publicId;
+			const userPublicId = this.requireAuthenticatedUserPublicId(req);
 			const { password } = req.body;
-
-			if (!userPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
 
 			const command = new DeleteUserCommand(userPublicId, password);
 			await this.commandBus.dispatch(command);
@@ -510,20 +479,13 @@ export class UserController {
 	likeActionByPublicId = async (req: Request, res: Response, next: NextFunction) => {
 		try {
 			let { publicId } = req.params;
-			const userPublicId = req.decodedUser?.publicId;
+			const userPublicId = this.requireAuthenticatedUserPublicId(req);
 
 			// strip file extension for backward compatibility
 			publicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
 
 			logger.info(`[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`);
-			if (!userPublicId) {
-				res.status(401).json({ error: "Authentication required" });
-				return;
-			}
 			logger.info(publicId);
-			if (!userPublicId) {
-				return next(createError("UnauthorizedError", "User not authenticated."));
-			}
 			const command = new LikeActionByPublicIdCommand(userPublicId, publicId);
 			const result = await this.commandBus.dispatch(command);
 			res.status(200).json(result);
