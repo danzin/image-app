@@ -25,6 +25,7 @@ import { NotificationRequestedEvent } from "@/application/events/notification/no
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 import { logger } from "@/utils/winston";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 const MAX_BODY_LENGTH = 300;
 
 @injectable()
@@ -329,7 +330,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			throw new PostNotFoundError("Post not found after creation");
 		}
 
-		await this.redisService.invalidateByTags([`user_feed:${result.user.publicId}`]);
+		await this.redisService.invalidateByTags([CacheKeyBuilder.getUserFeedTag(result.user.publicId)]);
 
 		return this.dtoService.toPostDTO(hydratedPost);
 	}

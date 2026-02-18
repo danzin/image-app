@@ -4,6 +4,7 @@ import { ImageUploadedEvent } from "@/application/events/image/image.event";
 import { RedisService } from "@/services/redis.service";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -21,11 +22,11 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 			// use tag-based invalidation for efficient cache clearing
 			const tagsToInvalidate: string[] = [];
 
-			tagsToInvalidate.push("trending_feed");
+			tagsToInvalidate.push(CacheKeyBuilder.getTrendingFeedTag());
 
 			// invalidate uploader's own feeds
-			tagsToInvalidate.push(`user_feed:${event.uploaderPublicId}`);
-			tagsToInvalidate.push(`user_for_you_feed:${event.uploaderPublicId}`);
+			tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(event.uploaderPublicId));
+			tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(event.uploaderPublicId));
 
 			logger.info(`[IMAGE_UPLOAD_HANDLER] Getting followers for user: ${event.uploaderPublicId}`);
 			const followers = await this.getFollowersOfUser(event.uploaderPublicId);
@@ -51,12 +52,11 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 
 					batch.forEach((userId) => {
 						// Tags for invalidation
-						batchTags.push(`user_feed:${userId}`);
-						batchTags.push(`user_for_you_feed:${userId}`);
+						batchTags.push(CacheKeyBuilder.getUserFeedTag(userId));
+						batchTags.push(CacheKeyBuilder.getUserForYouFeedTag(userId));
 
 						// Patterns for cleanup
-						batchPatterns.push(`core_feed:${userId}:*`);
-						batchPatterns.push(`for_you_feed:${userId}:*`);
+						batchPatterns.push(...CacheKeyBuilder.getUserFeedPatterns(userId));
 					});
 
 					// Execute batch invalidation
@@ -84,9 +84,8 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 
 			// pattern-based cleanup (backup) for any keys without tag metadata
 			const patterns = [
-				`core_feed:${event.uploaderPublicId}:*`,
-				`for_you_feed:${event.uploaderPublicId}:*`,
-				"trending_feed:*",
+				...CacheKeyBuilder.getUserFeedPatterns(event.uploaderPublicId),
+				CacheKeyBuilder.getTrendingFeedPattern(),
 				// do NOT clear new_feed - lazy refresh only
 			];
 
@@ -97,7 +96,7 @@ export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 			logger.info(`[IMAGE_UPLOAD_HANDLER] Cache invalidation complete for new image upload`);
 		} catch (error) {
 			console.error("[IMAGE_UPLOAD_HANDLER] Error handling image upload:", error);
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
+			const fallbackPatterns = CacheKeyBuilder.getGlobalFeedPatterns();
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

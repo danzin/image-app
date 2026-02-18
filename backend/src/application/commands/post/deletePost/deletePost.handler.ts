@@ -22,6 +22,7 @@ import {
 	UserNotFoundError,
 	mapPostError,
 } from "../../../errors/post.errors";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 export interface DeletePostResult {
 	message: string;
@@ -230,16 +231,16 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 
 	private async invalidateCache(userPublicId: string, postPublicId: string): Promise<void> {
 		// 1. Remove from user's own feed cache
-		await this.redisService.invalidateByTags([`user_feed:${userPublicId}`]);
+		await this.redisService.invalidateByTags([CacheKeyBuilder.getUserFeedTag(userPublicId)]);
 		
 		// 2. Remove from global feed caches
-		await this.redisService.invalidateByTags(["trending_feed", "new_feed"]);
+		await this.redisService.invalidateByTags([CacheKeyBuilder.getTrendingFeedTag(), CacheKeyBuilder.getNewFeedTag()]);
 		
 		// 3. Remove from trending ZSET (leaderboard)
 		await this.redisService.removeFromFeed("global", postPublicId, "trending:posts"); // key is "trending:posts" from worker
 		
 		// 4. Remove from post metadata cache
-		await this.redisService.invalidateByTags([`post_meta:${postPublicId}`]);
+		await this.redisService.invalidateByTags([CacheKeyBuilder.getPostMetaKey(postPublicId)]);
 	}
 
 	private async publishDeleteEvent(postPublicId: string, authorPublicId: string): Promise<void> {

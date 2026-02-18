@@ -2,6 +2,7 @@ import { IEventHandler } from "@/application/common/interfaces/event-handler.int
 import { inject, injectable } from "tsyringe";
 import { UserAvatarChangedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -18,7 +19,7 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 			const avatarTags = [`user_data:${event.userPublicId}`];
 			await this.redis.invalidateByTags(avatarTags);
 
-			const followerTags = [`user_feed:${event.userPublicId}`]; // User's own feed
+			const followerTags = [CacheKeyBuilder.getUserFeedTag(event.userPublicId)]; // User's own feed
 			await this.redis.invalidateByTags(followerTags);
 
 			// Publish real-time avatar update for connected clients
@@ -49,8 +50,8 @@ export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChanged
 			try {
 				const tags = [
 					`user_data:${event.userPublicId}`,
-					`user_feed:${event.userPublicId}`,
-					`user_for_you_feed:${event.userPublicId}`,
+					CacheKeyBuilder.getUserFeedTag(event.userPublicId),
+					CacheKeyBuilder.getUserForYouFeedTag(event.userPublicId),
 				];
 				await this.redis.invalidateByTags(tags);
 				logger.info(`Fallback: Cleared specific user Redis caches due to error`);

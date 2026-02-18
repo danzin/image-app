@@ -11,6 +11,7 @@ import {
 } from "@/types";
 import { createError } from "@/utils/errors";
 import { TagRepository } from "./tag.repository";
+import { decodeCursor, encodeCursor } from "@/utils/cursorCodec";
 
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {
@@ -917,11 +918,11 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			// decode cursor if provided
 			let cursorFilter: Record<string, unknown> = {};
-			if (options.cursor) {
+			const decodedCursor = decodeCursor<{ createdAt?: string; _id?: string }>(options.cursor);
+			if (decodedCursor?.createdAt && decodedCursor._id) {
 				try {
-					const decoded = JSON.parse(Buffer.from(options.cursor, "base64").toString("utf-8"));
-					const cursorDate = new Date(decoded.createdAt);
-					const cursorId = new mongoose.Types.ObjectId(decoded._id);
+					const cursorDate = new Date(decodedCursor.createdAt);
+					const cursorId = new mongoose.Types.ObjectId(decodedCursor._id);
 
 					// for forward pagination (newer -> older), get documents older than cursor
 					// for backward pagination (older -> newer), get documents newer than cursor
@@ -973,18 +974,14 @@ export class PostRepository extends BaseRepository<IPost> {
 			let nextCursor: string | undefined;
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
-				nextCursor = Buffer.from(JSON.stringify({ createdAt: lastItem.createdAt, _id: lastItem._id })).toString(
-					"base64",
-				);
+				nextCursor = encodeCursor({ createdAt: lastItem.createdAt, _id: lastItem._id });
 			}
 
 			// generate prev cursor from first item (for backward navigation)
 			let prevCursor: string | undefined;
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
-				prevCursor = Buffer.from(JSON.stringify({ createdAt: firstItem.createdAt, _id: firstItem._id })).toString(
-					"base64",
-				);
+				prevCursor = encodeCursor({ createdAt: firstItem.createdAt, _id: firstItem._id });
 			}
 
 			// remove internal fields from response
@@ -1033,11 +1030,11 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			// decode cursor if provided
 			let cursorFilter: Record<string, unknown> = {};
-			if (options.cursor) {
+			const decodedCursor = decodeCursor<{ trendScore?: number; _id?: string }>(options.cursor);
+			if (decodedCursor?.trendScore !== undefined && decodedCursor._id) {
 				try {
-					const decoded = JSON.parse(Buffer.from(options.cursor, "base64").toString("utf-8"));
-					const cursorScore = decoded.trendScore;
-					const cursorId = new mongoose.Types.ObjectId(decoded._id);
+					const cursorScore = decodedCursor.trendScore;
+					const cursorId = new mongoose.Types.ObjectId(decodedCursor._id);
 
 					// cursor pagination on computed fields requires comparing both score and _id
 					if (direction === "forward") {
@@ -1116,18 +1113,14 @@ export class PostRepository extends BaseRepository<IPost> {
 			let nextCursor: string | undefined;
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
-				nextCursor = Buffer.from(JSON.stringify({ trendScore: lastItem.trendScore, _id: lastItem._id })).toString(
-					"base64",
-				);
+				nextCursor = encodeCursor({ trendScore: lastItem.trendScore, _id: lastItem._id });
 			}
 
 			// generate prev cursor
 			let prevCursor: string | undefined;
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
-				prevCursor = Buffer.from(JSON.stringify({ trendScore: firstItem.trendScore, _id: firstItem._id })).toString(
-					"base64",
-				);
+				prevCursor = encodeCursor({ trendScore: firstItem.trendScore, _id: firstItem._id });
 			}
 
 			const data = results.map(({ _id, ...rest }) => rest);
@@ -1171,11 +1164,11 @@ export class PostRepository extends BaseRepository<IPost> {
 
 			// decode cursor if provided
 			let cursorFilter: Record<string, unknown> = {};
-			if (options.cursor) {
+			const decodedCursor = decodeCursor<{ rankScore?: number; _id?: string }>(options.cursor);
+			if (decodedCursor?.rankScore !== undefined && decodedCursor._id) {
 				try {
-					const decoded = JSON.parse(Buffer.from(options.cursor, "base64").toString("utf-8"));
-					const cursorScore = decoded.rankScore;
-					const cursorId = new mongoose.Types.ObjectId(decoded._id);
+					const cursorScore = decodedCursor.rankScore;
+					const cursorId = new mongoose.Types.ObjectId(decodedCursor._id);
 
 					if (direction === "forward") {
 						cursorFilter = {
@@ -1253,18 +1246,14 @@ export class PostRepository extends BaseRepository<IPost> {
 			let nextCursor: string | undefined;
 			if (hasMore && results.length > 0) {
 				const lastItem = results[results.length - 1];
-				nextCursor = Buffer.from(JSON.stringify({ rankScore: lastItem.rankScore, _id: lastItem._id })).toString(
-					"base64",
-				);
+				nextCursor = encodeCursor({ rankScore: lastItem.rankScore, _id: lastItem._id });
 			}
 
 			// generate prev cursor
 			let prevCursor: string | undefined;
 			if (options.cursor && results.length > 0) {
 				const firstItem = results[0];
-				prevCursor = Buffer.from(JSON.stringify({ rankScore: firstItem.rankScore, _id: firstItem._id })).toString(
-					"base64",
-				);
+				prevCursor = encodeCursor({ rankScore: firstItem.rankScore, _id: firstItem._id });
 			}
 
 			const data = results.map(({ _id, ...rest }) => rest);

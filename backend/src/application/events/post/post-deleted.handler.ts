@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { PostDeletedEvent } from "@/application/events/post/post.event";
 import { RedisService } from "@/services/redis.service";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -18,17 +19,17 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 		try {
 			const tagsToInvalidate: string[] = [];
 
-			tagsToInvalidate.push("trending_feed");
-			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
-			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
+			tagsToInvalidate.push(CacheKeyBuilder.getTrendingFeedTag());
+			tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(event.authorPublicId));
+			tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(event.authorPublicId));
 			tagsToInvalidate.push(`user_post_count:${event.authorPublicId}`);
 
 			const followers = await this.getFollowersOfUser(event.authorPublicId);
 			if (followers.length > 0) {
 				logger.info(`Invalidating feeds for ${followers.length} followers`);
 				followers.forEach((publicId) => {
-					tagsToInvalidate.push(`user_feed:${publicId}`);
-					tagsToInvalidate.push(`user_for_you_feed:${publicId}`);
+					tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(publicId));
+					tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(publicId));
 				});
 			}
 
@@ -36,15 +37,13 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 			await this.redis.invalidateByTags(tagsToInvalidate);
 
 			const patterns = [
-				`core_feed:${event.authorPublicId}:*`,
-				`for_you_feed:${event.authorPublicId}:*`,
-				"trending_feed:*",
+				...CacheKeyBuilder.getUserFeedPatterns(event.authorPublicId),
+				CacheKeyBuilder.getTrendingFeedPattern(),
 				// do NOT clear new_feed - lazy refresh only
 			];
 
 			followers.forEach((publicId) => {
-				patterns.push(`core_feed:${publicId}:*`);
-				patterns.push(`for_you_feed:${publicId}:*`);
+				patterns.push(...CacheKeyBuilder.getUserFeedPatterns(publicId));
 			});
 
 			await this.redis.deletePatterns(patterns);
@@ -62,7 +61,7 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 			logger.info(`Feed invalidation complete for post deletion`);
 		} catch (error) {
 			console.error("Error handling post deletion:", error);
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
+			const fallbackPatterns = CacheKeyBuilder.getGlobalFeedPatterns();
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

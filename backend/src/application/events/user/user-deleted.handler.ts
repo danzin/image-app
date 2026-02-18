@@ -3,6 +3,7 @@ import { IEventHandler } from "@/application/common/interfaces/event-handler.int
 import { UserDeletedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { logger } from "@/utils/winston";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 /**
  * Handles cache cleanup when a user is deleted
@@ -20,14 +21,13 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 			const patternsToDelete: string[] = [];
 
 			// user's own feed tags
-			tagsToInvalidate.push(`user_feed:${event.userPublicId}`);
-			tagsToInvalidate.push(`user_for_you_feed:${event.userPublicId}`);
+			tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(event.userPublicId));
+			tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(event.userPublicId));
 			tagsToInvalidate.push(`user_post_count:${event.userPublicId}`);
 			tagsToInvalidate.push(`user_profile:${event.userPublicId}`);
 
 			// user's cache patterns
-			patternsToDelete.push(`core_feed:${event.userPublicId}:*`);
-			patternsToDelete.push(`for_you_feed:${event.userPublicId}:*`);
+			patternsToDelete.push(...CacheKeyBuilder.getUserFeedPatterns(event.userPublicId));
 			patternsToDelete.push(`user:${event.userPublicId}:*`);
 			patternsToDelete.push(`notifications:${event.userPublicId}:*`);
 			patternsToDelete.push(`notification_count:${event.userPublicId}`);
@@ -42,17 +42,16 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 			if (event.followerPublicIds.length > 0) {
 				logger.info(`[UserDeletedHandler] Invalidating feeds for ${event.followerPublicIds.length} followers`);
 				for (const followerPublicId of event.followerPublicIds) {
-					tagsToInvalidate.push(`user_feed:${followerPublicId}`);
-					tagsToInvalidate.push(`user_for_you_feed:${followerPublicId}`);
-					patternsToDelete.push(`core_feed:${followerPublicId}:*`);
-					patternsToDelete.push(`for_you_feed:${followerPublicId}:*`);
+					tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(followerPublicId));
+					tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(followerPublicId));
+					patternsToDelete.push(...CacheKeyBuilder.getUserFeedPatterns(followerPublicId));
 				}
 			}
 
 			// invalidate global feeds that might contain user's posts
-			tagsToInvalidate.push("trending_feed");
-			patternsToDelete.push("trending_feed:*");
-			patternsToDelete.push("new_feed:*");
+			tagsToInvalidate.push(CacheKeyBuilder.getTrendingFeedTag());
+			patternsToDelete.push(CacheKeyBuilder.getTrendingFeedPattern());
+			patternsToDelete.push(`${CacheKeyBuilder.PREFIXES.NEW_FEED}:*`);
 
 			// perform cache invalidation
 			logger.info(`[UserDeletedHandler] Invalidating ${tagsToInvalidate.length} tags`);
@@ -79,8 +78,8 @@ export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
 				const fallbackPatterns = [
 					`*:${event.userPublicId}:*`,
 					`*:${event.userPublicId}`,
-					"trending_feed:*",
-					"new_feed:*",
+					CacheKeyBuilder.getTrendingFeedPattern(),
+					`${CacheKeyBuilder.PREFIXES.NEW_FEED}:*`,
 				];
 				await this.redis.deletePatterns(fallbackPatterns);
 			} catch (fallbackError) {

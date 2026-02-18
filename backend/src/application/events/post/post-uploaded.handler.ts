@@ -36,8 +36,8 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 			const tagsToInvalidate: string[] = [];
 
 			// invalidate author's own feeds and metrics
-			tagsToInvalidate.push(`user_feed:${event.authorPublicId}`);
-			tagsToInvalidate.push(`user_for_you_feed:${event.authorPublicId}`);
+			tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(event.authorPublicId));
+			tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(event.authorPublicId));
 			tagsToInvalidate.push(`user_post_count:${event.authorPublicId}`);
 
 			logger.info(`[POST_UPLOAD_HANDLER] Getting followers for user: ${event.authorPublicId}`);
@@ -56,8 +56,8 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 			if (affectedUsers.length > 0) {
 				// invalidate affected users' feeds using tags
 				affectedUsers.forEach((userId) => {
-					tagsToInvalidate.push(`user_feed:${userId}`);
-					tagsToInvalidate.push(`user_for_you_feed:${userId}`);
+					tagsToInvalidate.push(CacheKeyBuilder.getUserFeedTag(userId));
+					tagsToInvalidate.push(CacheKeyBuilder.getUserForYouFeedTag(userId));
 				});
 			}
 
@@ -67,16 +67,14 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 
 			// fallback cleanup for keys without tag metadata
 			const patterns = [
-				`core_feed:${event.authorPublicId}:*`,
-				`for_you_feed:${event.authorPublicId}:*`,
-				"trending_feed:*",
+				...CacheKeyBuilder.getUserFeedPatterns(event.authorPublicId),
+				CacheKeyBuilder.getTrendingFeedPattern(),
 				`${CacheKeyBuilder.getTrendingTagsPrefix()}:*`, // Invalidate trending tags
 				// do NOT clear new_feed - lazy refresh only
 			];
 
 			affectedUsers.forEach((userId) => {
-				patterns.push(`core_feed:${userId}:*`);
-				patterns.push(`for_you_feed:${userId}:*`);
+				patterns.push(...CacheKeyBuilder.getUserFeedPatterns(userId));
 			});
 
 			await this.redis.deletePatterns(patterns);
@@ -103,7 +101,7 @@ export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 		} catch (error) {
 			console.error("[POST_UPLOAD_HANDLER] Error handling post upload:", error);
 			// Fallback: invalidate all feed patterns (except new_feed)
-			const fallbackPatterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*"];
+			const fallbackPatterns = CacheKeyBuilder.getGlobalFeedPatterns();
 			await this.redis.deletePatterns(fallbackPatterns);
 		}
 	}

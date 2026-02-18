@@ -24,6 +24,7 @@ import { createError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { RedisService } from "@/services/redis.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 @injectable()
 export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserCommand, void> {
@@ -189,9 +190,9 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 			await this.redisService.invalidateByTags([
 				"who_to_follow", 
 				`user:${userPublicId}`, 
-				`user_feed:${userPublicId}`,
-				"trending_feed",
-				"new_feed"
+				CacheKeyBuilder.getUserFeedTag(userPublicId),
+				CacheKeyBuilder.getTrendingFeedTag(),
+				CacheKeyBuilder.getNewFeedTag(),
 			]);
 			
 			// Remove user from trending sets if they are there (though trending is usually post-based)

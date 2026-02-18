@@ -19,9 +19,7 @@ export class CloudinaryService implements IImageStorageService {
 	private extractPublicId(url: string): string | null {
 		try {
 			const cleanUrl = url.trim();
-
 			const parsedUrl = new URL(cleanUrl);
-
 			const segments = parsedUrl.pathname.split("/");
 
 			if (segments.length < 2) return null;

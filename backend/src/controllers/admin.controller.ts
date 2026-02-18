@@ -23,6 +23,7 @@ import { AdminUserDTO } from "@/services/dto.service";
 import { FavoriteService } from "@/services/favorite.service";
 import { escapeRegex } from "@/utils/sanitizers";
 import { RedisService } from "@/services/redis.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 @injectable()
 export class AdminUserController {
@@ -254,7 +255,7 @@ export class AdminUserController {
 
 			if (patternToDelete === "all_feeds") {
 				// clear all feed-related cache patterns
-				const patterns = ["core_feed:*", "for_you_feed:*", "trending_feed:*", "new_feed:*", "tag:*", "key_tags:*"];
+				const patterns = [...CacheKeyBuilder.getGlobalFeedPatterns(true), "tag:*", "key_tags:*"];
 
 				for (const p of patterns) {
 					deletedCount += await this.redisService.del(p);

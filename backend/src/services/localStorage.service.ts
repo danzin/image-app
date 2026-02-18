@@ -24,7 +24,7 @@ export class LocalStorageService implements IImageStorageService {
 
 			const filename = `${uuidv4()}.png`;
 			logger.info("UserID in local storage service:", { safeUserId });
-
+			
 			let userDir = this.safeJoin(this.uploadsDir, safeUserId);
 			let urlPrefix = `/uploads/${safeUserId}`;
 			let publicIdPrefix = safeUserId;

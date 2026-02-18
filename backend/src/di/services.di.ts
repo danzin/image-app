@@ -35,6 +35,11 @@ import { EmailService } from "@/services/email.service";
 import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
 import { AuthSessionService } from "@/services/auth-session.service";
 import { BloomFilterService } from "@/services/bloom-filter.service";
+import { FeedCoreService } from "@/services/feed-core.service";
+import { FeedReadService } from "@/services/feed/feed-read.service";
+import { FeedInteractionService } from "@/services/feed/feed-interaction.service";
+import { FeedMetaService } from "@/services/feed/feed-meta.service";
+import { FeedFanoutService } from "@/services/feed/feed-fanout.service";
 
 export function registerServices(): void {
 	const isCloudinaryConfigured =
@@ -58,6 +63,11 @@ export function registerServices(): void {
 	container.registerSingleton<IImageStorageService>("ImageStorageService", ImageStorageService);
 	container.registerSingleton("DTOService", DTOService);
 	container.registerSingleton("FeedEnrichmentService", FeedEnrichmentService);
+	container.registerSingleton("FeedCoreService", FeedCoreService);
+	container.registerSingleton("FeedReadService", FeedReadService);
+	container.registerSingleton("FeedInteractionService", FeedInteractionService);
+	container.registerSingleton("FeedMetaService", FeedMetaService);
+	container.registerSingleton("FeedFanoutService", FeedFanoutService);
 	container.registerSingleton("FeedService", FeedService);
 	container.registerSingleton("RedisService", RedisService);
 	container.registerSingleton("UserActionService", UserActionService);

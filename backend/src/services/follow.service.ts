@@ -7,6 +7,7 @@ import { RedisService } from "./redis.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 @injectable()
 export class FollowService {
@@ -103,8 +104,8 @@ export class FollowService {
 		try {
 			// use tag-based invalidation for efficient cache clearing
 			await this.redisService.invalidateByTags([
-				`user_feed:${userId}`,
-				`for_you_feed:${userId}`,
+				CacheKeyBuilder.getUserFeedTag(userId),
+				CacheKeyBuilder.getUserForYouFeedTag(userId),
 				"who_to_follow",
 				`user_suggestions:${userId}`,
 			]);
