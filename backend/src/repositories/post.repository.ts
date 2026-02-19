@@ -46,14 +46,25 @@ export class PostRepository extends BaseRepository<IPost> {
 		}
 	}
 
+	// in-process cache for tag name → ObjectId resolution; avoids repeated DB hits per feed request
+	private readonly tagIdCacheStore = new Map<string, { ids: mongoose.Types.ObjectId[]; expiresAt: number }>();
+	private readonly TAG_ID_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 	private async loadFavoriteTagIds(tagNames: string[]): Promise<mongoose.Types.ObjectId[]> {
 		if (tagNames.length === 0) {
 			return [];
 		}
 
-		const tagDocs = await this.tagRepository.findByTags(tagNames);
+		const cacheKey = [...tagNames].sort().join(",");
+		const cached = this.tagIdCacheStore.get(cacheKey);
+		if (cached && cached.expiresAt > Date.now()) {
+			return cached.ids;
+		}
 
-		return tagDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id));
+		const tagDocs = await this.tagRepository.findByTags(tagNames);
+		const ids = tagDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id));
+		this.tagIdCacheStore.set(cacheKey, { ids, expiresAt: Date.now() + this.TAG_ID_CACHE_TTL_MS });
+		return ids;
 	}
 
 	async findInternalIdByPublicId(publicId: string): Promise<string | null> {
@@ -518,7 +529,10 @@ export class PostRepository extends BaseRepository<IPost> {
 			// backfill with new posts if not enough personalized content
 			if (results.length < limit) {
 				const needed = limit - results.length;
-				const existingIds = results.map((post) => post.publicId);
+				// cap exclusion list: $nin on large arrays defeats indexes; results is already
+				// bounded by limit but we cap explicitly to guard against future regressions
+				const BACKFILL_NIN_CAP = 100;
+				const existingIds = results.slice(0, BACKFILL_NIN_CAP).map((post) => post.publicId);
 
 				const backfillPipeline: PipelineStage[] = [
 					{ $match: { publicId: { $nin: existingIds } } },
@@ -614,7 +628,7 @@ export class PostRepository extends BaseRepository<IPost> {
 				this.model.countDocuments({ createdAt: { $gte: sinceDate } }),
 			]);
 
-			console.info(`Ranked feed generated with results: ${JSON.stringify(results)} `);
+			console.info(`Ranked feed generated with ${results.length} results`);
 
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
@@ -742,7 +756,7 @@ export class PostRepository extends BaseRepository<IPost> {
 			]);
 			const totalPages = Math.ceil(total / limit);
 			const currentPage = Math.floor(skip / limit) + 1;
-			console.info(`New feed generated with results: ${JSON.stringify(results)}`);
+			console.info(`New feed generated with ${results.length} results`);
 			return { data: results, total, page: currentPage, limit, totalPages };
 		} catch (error: any) {
 			throw createError("DatabaseError", error.message ?? "failed to build new feed");

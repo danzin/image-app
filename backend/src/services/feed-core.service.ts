@@ -7,6 +7,11 @@ import { ColdStartFeedGeneratedEvent } from "@/application/events/ColdStartFeedG
 import { CoreFeed } from "@/types";
 import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
+import { RedisService } from "@/services/redis.service";
+import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+
+// how long to cache a user's following-IDs list; short TTL keeps feed reasonably fresh
+const FOLLOWING_IDS_TTL_SECONDS = 60;
 
 @injectable()
 export class FeedCoreService {
@@ -16,6 +21,7 @@ export class FeedCoreService {
 		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
 		@inject("FollowRepository") private readonly followRepository: FollowRepository,
 		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject("RedisService") private readonly redisService: RedisService,
 	) {}
 
 	async generatePersonalizedCoreFeed(userPublicId: string, page: number, limit: number): Promise<CoreFeed> {
@@ -26,7 +32,7 @@ export class FeedCoreService {
 
 		const [topTags, followingIds] = await Promise.all([
 			this.userPreferenceRepository.getTopUserTags(user.id),
-			this.followRepository.getFollowingObjectIds(user.id),
+			this.getFollowingIdsWithCache(user.id),
 		]);
 
 		const favoriteTags = topTags.map((pref) => pref.tag);
@@ -48,5 +54,21 @@ export class FeedCoreService {
 		}
 
 		return this.postReadRepository.getFeedForUserCore(followingIds, favoriteTags, limit, skip) as Promise<CoreFeed>;
+	}
+
+	/**
+	 * Returns the list of user IDs the given user follows, served from a short-lived Redis
+	 * cache to avoid a DB round-trip on every feed request.
+	 */
+	private async getFollowingIdsWithCache(userId: string): Promise<string[]> {
+		const cacheKey = CacheKeyBuilder.getFollowingIdsKey(userId);
+		const cached = await this.redisService.get<string[]>(cacheKey);
+		if (cached !== null) {
+			return cached;
+		}
+
+		const ids = await this.followRepository.getFollowingObjectIds(userId);
+		await this.redisService.set(cacheKey, ids, FOLLOWING_IDS_TTL_SECONDS);
+		return ids;
 	}
 }

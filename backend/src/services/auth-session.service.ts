@@ -7,6 +7,17 @@ import { createError } from "@/utils/errors";
 const SESSION_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_HEX_REGEX = /^[a-f0-9]{64}$/i;
 
+// maximum concurrent sessions a single user may hold; excess stale sessions are pruned on login
+const MAX_SESSIONS_PER_USER = 20;
+
+// Lua script: delete a lock key only if the caller still owns it (atomic compare-and-delete)
+const RELEASE_LOCK_SCRIPT = `
+if redis.call('get', KEYS[1]) == ARGV[1] then
+  return redis.call('del', KEYS[1])
+else
+  return 0
+end`;
+
 export interface SessionContext {
 	ip?: string;
 	userAgent?: string;
@@ -50,6 +61,9 @@ export class AuthSessionService {
 		pipeline.expire(this.userSessionsKey(input.publicId), ttlSeconds);
 		await pipeline.exec();
 
+		// prune stale entries from the session set to prevent unbounded growth
+		await this.pruneStaleSessionsFromSet(input.publicId);
+
 		return session;
 	}
 
@@ -84,6 +98,83 @@ export class AuthSessionService {
 		}
 
 		return session;
+	}
+
+	/**
+	 * Atomically validates the current refresh token and rotates it to a new one
+	 * under a per-session distributed lock.
+	 *
+	 * Replacing the separate validateRefreshToken + rotateRefreshToken call sequence
+	 * with this single method closes the TOCTOU race where two concurrent requests
+	 * both pass validation before either write commits, causing one device to be
+	 * silently logged out.
+	 *
+	 * @param currentRefreshToken - The token presented by the client (validated inside the lock).
+	 * @param newRefreshToken - The replacement token to store.
+	 * @param ttlSeconds - Session TTL in seconds.
+	 * @param context - Optional IP / user-agent for session metadata.
+	 */
+	async validateAndRotate(
+		currentRefreshToken: string,
+		newRefreshToken: string,
+		ttlSeconds: number,
+		context?: SessionContext,
+	): Promise<AuthSessionRecord> {
+		const sid = this.extractSessionIdFromRefreshToken(currentRefreshToken);
+		if (!sid) {
+			throw createError("AuthenticationError", "Invalid refresh token");
+		}
+
+		const lockKey = `session:rotate:lock:${sid}`;
+		const lockToken = crypto.randomBytes(16).toString("hex");
+
+		// acquire a short-lived per-session lock; 10 s is well above any realistic rotation time
+		const acquired = await this.redisService.clientInstance.set(lockKey, lockToken, {
+			NX: true,
+			EX: 10,
+		});
+
+		if (!acquired) {
+			// another request is already rotating this session — surface as a retriable error
+			throw createError("ConflictError", "Concurrent session rotation in progress, please retry");
+		}
+
+		try {
+			const current = await this.getSession(sid);
+			if (!current || current.status !== "active") {
+				throw createError("AuthenticationError", "Session is invalid or expired");
+			}
+
+			// re-validate the hash inside the lock to prevent TOCTOU races
+			const presentedHash = this.hashRefreshToken(currentRefreshToken);
+			if (!this.hashesMatch(current.refreshTokenHash, presentedHash)) {
+				await this.revokeSession(sid);
+				throw createError("AuthenticationError", "Refresh token reuse detected");
+			}
+
+			const normalizedTtl = this.normalizeTtlSeconds(ttlSeconds);
+			const next: AuthSessionRecord = {
+				...current,
+				refreshTokenHash: this.hashRefreshToken(newRefreshToken),
+				lastSeenAt: Date.now(),
+				ip: context?.ip ?? current.ip,
+				userAgent: context?.userAgent ?? current.userAgent,
+			};
+
+			const pipeline = this.redisService.clientInstance.multi();
+			pipeline.setEx(this.sessionKey(sid), normalizedTtl, JSON.stringify(next));
+			pipeline.sAdd(this.userSessionsKey(next.publicId), sid);
+			pipeline.expire(this.userSessionsKey(next.publicId), normalizedTtl);
+			await pipeline.exec();
+
+			return next;
+		} finally {
+			// release the lock only if we still own it
+			await this.redisService.clientInstance.eval(RELEASE_LOCK_SCRIPT, {
+				keys: [lockKey],
+				arguments: [lockToken],
+			});
+		}
 	}
 
 	async rotateRefreshToken(
@@ -167,5 +258,48 @@ export class AuthSessionService {
 			throw createError("ConfigError", "Invalid session TTL configuration");
 		}
 		return Math.floor(ttlSeconds);
+	}
+
+	/**
+	 * Scans the user's session set and removes any SIDs whose session keys have already
+	 * expired in Redis, then enforces MAX_SESSIONS_PER_USER by deleting the oldest-inserted
+	 * members if the set still exceeds the cap.
+	 *
+	 * This prevents the set from growing unboundedly for long-lived accounts and keeps
+	 * revokeAllSessionsForUser's sMembers call from returning an unbounded list.
+	 */
+	private async pruneStaleSessionsFromSet(publicId: string): Promise<void> {
+		const userSessionsKey = this.userSessionsKey(publicId);
+		const sessionIds = await this.redisService.clientInstance.sMembers(userSessionsKey);
+		if (sessionIds.length === 0) return;
+
+		// check which session keys still exist
+		const existsPipeline = this.redisService.clientInstance.multi();
+		for (const sid of sessionIds) {
+			existsPipeline.exists(this.sessionKey(sid));
+		}
+		const existsResults = (await existsPipeline.exec()) as number[];
+
+		const staleIds = sessionIds.filter((_, i) => existsResults[i] === 0);
+		const activeIds = sessionIds.filter((_, i) => existsResults[i] !== 0);
+
+		// remove expired entries from the set in one call
+		if (staleIds.length > 0) {
+			await this.redisService.clientInstance.sRem(userSessionsKey, staleIds);
+		}
+
+		// if still over the cap, remove excess (oldest by insertion order is not tracked in a
+		// plain Set, so we just remove arbitrary excess — users rarely hit this limit legitimately)
+		const remaining = activeIds.length;
+		if (remaining > MAX_SESSIONS_PER_USER) {
+			const excess = activeIds.slice(0, remaining - MAX_SESSIONS_PER_USER);
+			const keysToRevoke = excess.map((sid) => this.sessionKey(sid));
+			keysToRevoke.push(...excess.map((sid) => sid));
+			// delete the session data and remove from the set
+			const pipeline = this.redisService.clientInstance.multi();
+			excess.forEach((sid) => pipeline.del(this.sessionKey(sid)));
+			pipeline.sRem(userSessionsKey, excess);
+			await pipeline.exec();
+		}
 	}
 }

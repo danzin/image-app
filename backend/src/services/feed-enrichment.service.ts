@@ -4,7 +4,6 @@ import { IUserReadRepository } from "@/repositories/interfaces";
 import { FeedPost, UserLookupData } from "@/types";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { CacheConfig } from "@/config/cacheConfig";
-import { UserRepository } from "@/repositories/user.repository";
 
 @injectable()
 export class FeedEnrichmentService {
@@ -44,10 +43,8 @@ export class FeedEnrichmentService {
 		// Assuming granular key is better: post_meta:{id}
 		const postMetaKeys = postPublicIds.map((id) => CacheKeyBuilder.getPostMetaKey(id));
 
-		// Ideally use mGet if available, else Promise.all
-		const metaResults = await Promise.all(
-			postMetaKeys.map((k) => this.redisService.getWithTags<any>(k).catch(() => null)),
-		);
+		// single MGET round-trip instead of N individual GET calls
+		const metaResults = await this.redisService.mGet<any>(postMetaKeys);
 
 		const metaMap = new Map<string, any>();
 		postPublicIds.forEach((id, idx) => {
@@ -82,37 +79,29 @@ export class FeedEnrichmentService {
 	private async getUsersWithCache(userPublicIds: string[]): Promise<UserLookupData[]> {
 		if (userPublicIds.length === 0) return [];
 
+		const keys = userPublicIds.map((id) => CacheKeyBuilder.getUserDataKey(id));
+
+		// single MGET round-trip to check all users at once
+		const cached = await this.redisService.mGet<UserLookupData>(keys);
+
 		const results: UserLookupData[] = [];
 		const missingIds: string[] = [];
 
-		// Try to fetch each user individually from cache
-		// Since RedisService doesn't expose mget, we use Promise.all
-		const cachedUsers = await Promise.all(
-			userPublicIds.map(async (id) => {
-				const key = CacheKeyBuilder.getUserDataKey(id);
-				const data = await this.redisService.getWithTags<UserLookupData>(key);
-				return { id, data };
-			}),
-		);
-
-		for (const { id, data } of cachedUsers) {
-			if (data) {
-				results.push(data);
+		for (let i = 0; i < userPublicIds.length; i++) {
+			if (cached[i]) {
+				results.push(cached[i]!);
 			} else {
-				missingIds.push(id);
+				missingIds.push(userPublicIds[i]);
 			}
 		}
 
 		if (missingIds.length > 0) {
-			// Fetch missing from DB
-			// Note: UserRepository.findUsersByPublicIds returns UserLookupData[]
 			const fetchedUsers = await this.userReadRepository.findUsersByPublicIds(missingIds);
 
 			// Store missing back to cache individually
 			await Promise.all(
 				fetchedUsers.map((user) => {
 					const key = CacheKeyBuilder.getUserDataKey(user.publicId);
-					// Tag with user_data:{id} for invalidation
 					return this.redisService.setWithTags(key, user, [`user_data:${user.publicId}`], CacheConfig.FEED.USER_DATA);
 				}),
 			);
