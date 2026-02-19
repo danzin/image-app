@@ -79,42 +79,10 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		let userPublicId: string = command.userPublicId;
 		let userId: string = "";
 
-		// batch size and cap for pre-transaction follower publicId collection
-		const FOLLOWER_BATCH_SIZE = 500;
-		// beyond this cap, stale caches expire via TTL — loading millions of publicIds is not worth it
-		const FOLLOWER_INVALIDATION_CAP = 1000;
-
-		// count-decrement batch size for the updateMany loops inside the transaction
-		const COUNT_BATCH_SIZE = 500;
-
 		try {
-			// get the user's internal ID so we can use paginated follow queries below
-			const userForQuery = await this.userReadRepository.findByPublicId(command.userPublicId);
-			if (!userForQuery) {
-				throw createError("NotFoundError", "User not found");
-			}
-
-			// collect follower publicIds for cache invalidation in bounded batches
-			// (avoids loading the entire follower list into memory for high-follower accounts)
-			let followerPage = 1;
-			while (followerPublicIds.length < FOLLOWER_INVALIDATION_CAP) {
-				const remaining = FOLLOWER_INVALIDATION_CAP - followerPublicIds.length;
-				const { ids: batchInternalIds } = await this.followRepository.getFollowerObjectIdsPaginated(
-					userForQuery.id,
-					followerPage++,
-					Math.min(FOLLOWER_BATCH_SIZE, remaining),
-				);
-				if (batchInternalIds.length === 0) break;
-
-				const batchUsers = await this.userModel
-					.find({ _id: { $in: batchInternalIds.map((id) => new Types.ObjectId(id)) } })
-					.select("publicId")
-					.lean()
-					.exec();
-
-				followerPublicIds.push(...(batchUsers as any[]).map((u: any) => u.publicId).filter(Boolean));
-				if (batchInternalIds.length < Math.min(FOLLOWER_BATCH_SIZE, remaining)) break;
-			}
+			// get followers before transaction since findUsersFollowing doesn't support sessions
+			const followers = await this.userReadRepository.findUsersFollowing(command.userPublicId);
+			followerPublicIds = followers.map((f) => f.publicId);
 
 			await this.unitOfWork.executeInTransaction(async (session) => {
 				const user = await this.userReadRepository.findByPublicId(command.userPublicId, session);
@@ -124,6 +92,12 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 				userId = user.id;
 				userPublicId = user.publicId;
+
+				// get users that the deleted user was following (they need followerCount decremented)
+				const followingIds = await this.followRepository.getFollowingObjectIds(userId);
+
+				// get users that were following the deleted user (they need followingCount decremented)
+				const followerIds = await this.followRepository.getFollowerObjectIds(userId);
 
 				// delete all user relationships and content in proper order
 				await this.commentRepository.deleteCommentsByUserId(userId, session);
@@ -138,51 +112,29 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 				await this.imageRepository.deleteMany(userId, session);
 
-				// decrement followerCount for each user the deleted user was following,
-				// processed in batches to avoid holding all IDs in memory at once
-				let followingPage = 1;
-				while (true) {
-					const { ids: followingBatch } = await this.followRepository.getFollowingObjectIdsPaginated(
-						userId,
-						followingPage++,
-						COUNT_BATCH_SIZE,
-					);
-					if (followingBatch.length > 0) {
-						const uniqueBatch = [...new Set(followingBatch)];
-						await this.userModel
-							.updateMany(
-								{ _id: { $in: uniqueBatch.map((id) => new Types.ObjectId(id)) } },
-								{ $inc: { followerCount: -1 } },
-								{ session },
-							)
-							.exec();
-					}
-					if (followingBatch.length < COUNT_BATCH_SIZE) break;
-				}
-
-				// decrement followingCount for each user who was following the deleted user,
-				// processed in batches to avoid holding all IDs in memory at once
-				let followerCountPage = 1;
-				while (true) {
-					const { ids: followerBatch } = await this.followRepository.getFollowerObjectIdsPaginated(
-						userId,
-						followerCountPage++,
-						COUNT_BATCH_SIZE,
-					);
-					if (followerBatch.length > 0) {
-						const uniqueBatch = [...new Set(followerBatch)];
-						await this.userModel
-							.updateMany(
-								{ _id: { $in: uniqueBatch.map((id) => new Types.ObjectId(id)) } },
-								{ $inc: { followingCount: -1 } },
-								{ session },
-							)
-							.exec();
-					}
-					if (followerBatch.length < COUNT_BATCH_SIZE) break;
-				}
-
 				await this.followRepository.deleteAllFollowsByUserId(userId, session);
+
+				const uniqueFollowingIds = Array.from(new Set(followingIds));
+				if (uniqueFollowingIds.length > 0) {
+					await this.userModel
+						.updateMany(
+							{ _id: { $in: uniqueFollowingIds.map((id) => new Types.ObjectId(id)) } },
+							{ $inc: { followerCount: -1 } },
+							{ session },
+						)
+						.exec();
+				}
+
+				const uniqueFollowerIds = Array.from(new Set(followerIds));
+				if (uniqueFollowerIds.length > 0) {
+					await this.userModel
+						.updateMany(
+							{ _id: { $in: uniqueFollowerIds.map((id) => new Types.ObjectId(id)) } },
+							{ $inc: { followingCount: -1 } },
+							{ session },
+						)
+						.exec();
+				}
 
 				await this.userPreferenceRepository.deleteManyByUserId(userId, session);
 
@@ -236,13 +188,15 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 			// Explicitly invalidate "Who to follow" cache (global or user-specific if tagged)
 			await this.redisService.invalidateByTags([
-				"who_to_follow",
-				`user:${userPublicId}`,
+				"who_to_follow", 
+				`user:${userPublicId}`, 
 				CacheKeyBuilder.getUserFeedTag(userPublicId),
 				CacheKeyBuilder.getTrendingFeedTag(),
 				CacheKeyBuilder.getNewFeedTag(),
 			]);
-
+			
+			// Remove user from trending sets if they are there (though trending is usually post-based)
+			
 		} catch (error) {
 			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
 				throw createError(

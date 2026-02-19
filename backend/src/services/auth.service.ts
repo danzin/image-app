@@ -66,24 +66,7 @@ export class AuthService {
 	}
 
 	async refreshSession(refreshToken: string, context: AuthSessionContext = {}): Promise<AuthenticatedSessionResult> {
-		// extract the sid first so we can pre-build the next token before entering the lock
-		const sid = this.authSessionService.extractSessionIdFromRefreshToken(refreshToken);
-		if (!sid) {
-			throw createError("AuthenticationError", "Invalid refresh token");
-		}
-
-		const { refreshToken: nextRefreshToken } = this.createRefreshToken(sid);
-
-		// validate the current token and rotate to the new one atomically under a per-session lock;
-		// this eliminates the TOCTOU race that occurred with the old separate
-		// validateRefreshToken → rotateRefreshToken call sequence
-		const session = await this.authSessionService.validateAndRotate(
-			refreshToken,
-			nextRefreshToken,
-			this.getRefreshTokenTtlSeconds(),
-			context,
-		);
-
+		const session = await this.authSessionService.validateRefreshToken(refreshToken);
 		const user = await this.userRepository.findByPublicId(session.publicId);
 		if (!user) {
 			await this.authSessionService.revokeSession(session.sid);
@@ -91,6 +74,14 @@ export class AuthService {
 		}
 
 		const userDTO = user.isAdmin ? this.dtoService.toAdminDTO(user) : this.dtoService.toAuthenticatedUserDTO(user);
+		const { refreshToken: nextRefreshToken } = this.createRefreshToken(session.sid);
+		await this.authSessionService.rotateRefreshToken(
+			session.sid,
+			nextRefreshToken,
+			this.getRefreshTokenTtlSeconds(),
+			context,
+		);
+
 		const accessToken = this.generateAccessToken(this.toSessionUser(user), session.sid);
 		return { user: userDTO, accessToken, refreshToken: nextRefreshToken, sid: session.sid };
 	}
