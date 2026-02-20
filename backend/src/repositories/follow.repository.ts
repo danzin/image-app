@@ -17,8 +17,12 @@ export class FollowRepository extends BaseRepository<IFollow> {
 	 * @param {string} followeeId - The internal MongoDB ID of the user being followed.
 	 * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
 	 */
-	async isFollowing(followerId: string, followeeId: string): Promise<boolean> {
-		const existingFollow = await this.model.findOne({ followerId, followeeId });
+	async isFollowing(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<boolean> {
+		const query = this.model.findOne({ followerId, followeeId });
+		if (session && typeof (query as unknown as { session?: (s: mongoose.ClientSession) => unknown }).session === "function") {
+			(query as unknown as { session: (s: mongoose.ClientSession) => unknown }).session(session);
+		}
+		const existingFollow = await query;
 		return !!existingFollow;
 	}
 
@@ -29,7 +33,11 @@ export class FollowRepository extends BaseRepository<IFollow> {
 	 * @param {string} followeePublicId - The public ID of the user being followed.
 	 * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
 	 */
-	async isFollowingByPublicId(followerPublicId: string, followeePublicId: string): Promise<boolean> {
+	async isFollowingByPublicId(
+		followerPublicId: string,
+		followeePublicId: string,
+		session?: mongoose.ClientSession,
+	): Promise<boolean> {
 		try {
 			// First, get the internal IDs from public IDs
 			const [followerUser, followeeUser] = await Promise.all([
@@ -42,10 +50,18 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			}
 
 			// Now check the follow relationship using internal IDs
-			const existingFollow = await this.model.findOne({
+			const query = this.model.findOne({
 				followerId: followerUser._id,
 				followeeId: followeeUser._id,
 			});
+			if (
+				session &&
+				typeof (query as unknown as { session?: (s: mongoose.ClientSession) => unknown }).session === "function"
+			) {
+				(query as unknown as { session: (s: mongoose.ClientSession) => unknown }).session(session);
+			}
+
+			const existingFollow = await query;
 
 			return !!existingFollow;
 		} catch (error) {
@@ -64,7 +80,7 @@ export class FollowRepository extends BaseRepository<IFollow> {
 	 */
 	async addFollow(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<IFollow> {
 		// Prevent duplicate follow relationships
-		if (await this.isFollowing(followerId, followeeId)) {
+		if (await this.isFollowing(followerId, followeeId, session)) {
 			throw createError("DuplicateError", "Already following this user");
 		}
 
@@ -102,7 +118,7 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			const followeeId = followeeUser._id.toString();
 
 			// Prevent duplicate follow relationships
-			if (await this.isFollowing(followerId, followeeId)) {
+			if (await this.isFollowing(followerId, followeeId, session)) {
 				throw createError("DuplicateError", "Already following this user");
 			}
 
@@ -124,7 +140,7 @@ export class FollowRepository extends BaseRepository<IFollow> {
 	 */
 	async removeFollow(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<void> {
 		// Ensure that the follow relationship exists before attempting to remove it
-		if (!(await this.isFollowing(followerId, followeeId))) {
+		if (!(await this.isFollowing(followerId, followeeId, session))) {
 			throw createError("NotFoundError", "Not following this user");
 		}
 
@@ -161,7 +177,7 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			const followeeId = followeeUser._id.toString();
 
 			// Ensure that the follow relationship exists before attempting to remove it
-			if (!(await this.isFollowing(followerId, followeeId))) {
+			if (!(await this.isFollowing(followerId, followeeId, session))) {
 				throw createError("NotFoundError", "Not following this user");
 			}
 

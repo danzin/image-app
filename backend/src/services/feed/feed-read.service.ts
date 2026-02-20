@@ -73,7 +73,10 @@ export class FeedReadService {
 		const isCacheHit = !!cached;
 		if (!cached) {
 			const skip = (safePage - 1) * safeLimit;
-			const core = await this.postRepository.getTrendingFeed(safeLimit, skip, { timeWindowDays: 14, minLikes: 1 });
+			const core = await this.postRepository.getTrendingFeedWithFacet(safeLimit, skip, {
+				timeWindowDays: 14,
+				minLikes: 1,
+			});
 			await this.redisService.setWithTags(
 				cacheKey,
 				core,

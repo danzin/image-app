@@ -10,6 +10,9 @@ describe("AuthSessionService", () => {
 	let getStub: sinon.SinonStub;
 	let sMembersStub: sinon.SinonStub;
 	let delStub: sinon.SinonStub;
+	let directSetExStub: sinon.SinonStub;
+	let ttlStub: sinon.SinonStub;
+	let directSRemStub: sinon.SinonStub;
 	let multiStub: sinon.SinonStub;
 	let pipelineSetExStub: sinon.SinonStub;
 	let pipelineSAddStub: sinon.SinonStub;
@@ -37,6 +40,9 @@ describe("AuthSessionService", () => {
 
 		sMembersStub = sinon.stub().resolves([]);
 		delStub = sinon.stub().resolves(1);
+		directSetExStub = sinon.stub().resolves("OK");
+		ttlStub = sinon.stub().resolves(3600);
+		directSRemStub = sinon.stub().resolves(1);
 		getStub = sinon.stub();
 
 		const mockRedisService = {
@@ -45,6 +51,9 @@ describe("AuthSessionService", () => {
 				multi: multiStub,
 				sMembers: sMembersStub,
 				del: delStub,
+				setEx: directSetExStub,
+				ttl: ttlStub,
+				sRem: directSRemStub,
 			},
 		} as unknown as RedisService;
 
@@ -120,6 +129,84 @@ describe("AuthSessionService", () => {
 		await expect(authSessionService.validateRefreshToken(refreshToken)).to.be.rejectedWith("Refresh token reuse detected");
 		expect(pipelineDelStub.calledWith(`session:${sid}`)).to.be.true;
 		expect(pipelineSRemStub.calledWith("user:sessions:user-public-id", sid)).to.be.true;
+	});
+
+	it("rejects recently rotated refresh token without revoking the session", async () => {
+		const sid = "3f7c90af-22a8-4a48-8e03-3ea6f865b59f";
+		const currentRefreshToken = `${sid}.current-refresh-secret`;
+		const previousRefreshToken = `${sid}.previous-refresh-secret`;
+
+		getStub.resolves({
+			sid,
+			publicId: "user-public-id",
+			refreshTokenHash: crypto.createHash("sha256").update(currentRefreshToken, "utf8").digest("hex"),
+			previousRefreshTokenHash: crypto.createHash("sha256").update(previousRefreshToken, "utf8").digest("hex"),
+			previousRefreshTokenGraceUntil: Date.now() + 60_000,
+			createdAt: Date.now(),
+			lastSeenAt: Date.now(),
+			status: "active",
+		});
+
+		await expect(authSessionService.validateRefreshToken(previousRefreshToken)).to.be.rejectedWith(
+			"Refresh token already rotated",
+		);
+		expect(pipelineDelStub.called).to.be.false;
+		expect(pipelineSRemStub.called).to.be.false;
+	});
+
+	it("rejects duplicate rotation retries within grace period", async () => {
+		const sid = "3f7c90af-22a8-4a48-8e03-3ea6f865b59f";
+		const priorRefreshToken = `${sid}.prior-refresh-secret`;
+		const currentRefreshToken = `${sid}.current-refresh-secret`;
+		const nextRefreshToken = `${sid}.next-refresh-secret`;
+
+		getStub.resolves({
+			sid,
+			publicId: "user-public-id",
+			refreshTokenHash: crypto.createHash("sha256").update(currentRefreshToken, "utf8").digest("hex"),
+			previousRefreshTokenHash: crypto.createHash("sha256").update(priorRefreshToken, "utf8").digest("hex"),
+			previousRefreshTokenGraceUntil: Date.now() + 60_000,
+			createdAt: Date.now(),
+			lastSeenAt: Date.now(),
+			status: "active",
+		});
+
+		await expect(authSessionService.rotateRefreshToken(sid, priorRefreshToken, nextRefreshToken, 3600)).to.be.rejectedWith(
+			"Refresh token already rotated",
+		);
+		expect(pipelineSetExStub.called).to.be.false;
+		expect(pipelineDelStub.called).to.be.false;
+	});
+
+	it("updates lastSeenAt during access-session validation when touch interval has elapsed", async () => {
+		const sid = "3f7c90af-22a8-4a48-8e03-3ea6f865b59f";
+		const previousSeen = Date.now() - 120_000;
+		getStub.resolves({
+			sid,
+			publicId: "user-public-id",
+			refreshTokenHash: crypto.createHash("sha256").update(`${sid}.refresh-secret`, "utf8").digest("hex"),
+			createdAt: Date.now() - 300_000,
+			lastSeenAt: previousSeen,
+			status: "active",
+		});
+
+		const session = await authSessionService.assertAccessSession(sid, "user-public-id");
+
+		expect(session.sid).to.equal(sid);
+		expect(ttlStub.calledOnceWith(`session:${sid}`)).to.be.true;
+		expect(directSetExStub.calledOnce).to.be.true;
+		const persistedPayload = JSON.parse(directSetExStub.getCall(0).args[2] as string);
+		expect(persistedPayload.lastSeenAt).to.be.greaterThan(previousSeen);
+	});
+
+	it("removes stale user-session index entry when access-session key is missing", async () => {
+		const sid = "3f7c90af-22a8-4a48-8e03-3ea6f865b59f";
+		getStub.resolves(null);
+
+		await expect(authSessionService.assertAccessSession(sid, "user-public-id")).to.be.rejectedWith(
+			"Session is invalid or expired",
+		);
+		expect(directSRemStub.calledOnceWith("user:sessions:user-public-id", sid)).to.be.true;
 	});
 
 	it("revokes all sessions for a user", async () => {

@@ -6,6 +6,8 @@ import { createError } from "@/utils/errors";
 
 const SESSION_ID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SHA256_HEX_REGEX = /^[a-f0-9]{64}$/i;
+const DEFAULT_REFRESH_ROTATION_GRACE_SECONDS = 15 * 60;
+const DEFAULT_ACCESS_TOUCH_INTERVAL_SECONDS = 60;
 
 export interface SessionContext {
 	ip?: string;
@@ -60,9 +62,15 @@ export class AuthSessionService {
 
 	async assertAccessSession(sid: string, publicId: string): Promise<AuthSessionRecord> {
 		const session = await this.getSession(sid);
-		if (!session || session.status !== "active" || session.publicId !== publicId) {
+		if (!session) {
+			// If the session key was evicted, proactively clear stale membership index entry.
+			await this.redisService.clientInstance.sRem(this.userSessionsKey(publicId), sid);
 			throw createError("AuthenticationError", "Session is invalid or expired");
 		}
+		if (session.status !== "active" || session.publicId !== publicId) {
+			throw createError("AuthenticationError", "Session is invalid or expired");
+		}
+		await this.touchSessionOnAccess(session);
 		return session;
 	}
 
@@ -78,7 +86,11 @@ export class AuthSessionService {
 		}
 
 		const presentedHash = this.hashRefreshToken(refreshToken);
-		if (!this.hashesMatch(session.refreshTokenHash, presentedHash)) {
+		const matchState = this.classifyRefreshTokenMatch(session, presentedHash);
+		if (matchState === "recently_rotated") {
+			throw createError("AuthenticationError", "Refresh token already rotated");
+		}
+		if (matchState !== "current") {
 			await this.revokeSession(sid);
 			throw createError("AuthenticationError", "Refresh token reuse detected");
 		}
@@ -88,7 +100,8 @@ export class AuthSessionService {
 
 	async rotateRefreshToken(
 		sid: string,
-		refreshToken: string,
+		presentedRefreshToken: string,
+		nextRefreshToken: string,
 		ttlSeconds: number,
 		context?: SessionContext,
 	): Promise<AuthSessionRecord> {
@@ -97,11 +110,24 @@ export class AuthSessionService {
 			throw createError("AuthenticationError", "Session is invalid or expired");
 		}
 
+		const presentedHash = this.hashRefreshToken(presentedRefreshToken);
+		const matchState = this.classifyRefreshTokenMatch(current, presentedHash);
+		if (matchState === "recently_rotated") {
+			throw createError("AuthenticationError", "Refresh token already rotated");
+		}
+		if (matchState !== "current") {
+			await this.revokeSession(sid);
+			throw createError("AuthenticationError", "Refresh token reuse detected");
+		}
+
+		const now = Date.now();
 		const normalizedTtl = this.normalizeTtlSeconds(ttlSeconds);
 		const next: AuthSessionRecord = {
 			...current,
-			refreshTokenHash: this.hashRefreshToken(refreshToken),
-			lastSeenAt: Date.now(),
+			refreshTokenHash: this.hashRefreshToken(nextRefreshToken),
+			previousRefreshTokenHash: current.refreshTokenHash,
+			previousRefreshTokenGraceUntil: now + this.getRefreshRotationGraceMs(),
+			lastSeenAt: now,
 			ip: context?.ip ?? current.ip,
 			userAgent: context?.userAgent ?? current.userAgent,
 		};
@@ -160,6 +186,70 @@ export class AuthSessionService {
 		if (stored.length !== presented.length) return false;
 
 		return crypto.timingSafeEqual(stored, presented);
+	}
+
+	private classifyRefreshTokenMatch(
+		session: AuthSessionRecord,
+		presentedHash: string,
+		now: number = Date.now(),
+	): "current" | "recently_rotated" | "unknown" {
+		if (this.hashesMatch(session.refreshTokenHash, presentedHash)) {
+			return "current";
+		}
+
+		const previousHash = session.previousRefreshTokenHash;
+		const previousGraceUntil = session.previousRefreshTokenGraceUntil ?? 0;
+		if (previousHash && this.hashesMatch(previousHash, presentedHash) && previousGraceUntil >= now) {
+			return "recently_rotated";
+		}
+
+		return "unknown";
+	}
+
+	private async touchSessionOnAccess(session: AuthSessionRecord): Promise<void> {
+		const now = Date.now();
+		if (now - session.lastSeenAt < this.getAccessTouchIntervalMs()) {
+			return;
+		}
+
+		const key = this.sessionKey(session.sid);
+		const ttlSeconds = await this.redisService.clientInstance.ttl(key);
+		if (ttlSeconds <= 0) {
+			await this.redisService.clientInstance.sRem(this.userSessionsKey(session.publicId), session.sid);
+			throw createError("AuthenticationError", "Session is invalid or expired");
+		}
+
+		const touchedSession: AuthSessionRecord = {
+			...session,
+			lastSeenAt: now,
+		};
+		await this.redisService.clientInstance.setEx(key, ttlSeconds, JSON.stringify(touchedSession));
+	}
+
+	private getRefreshRotationGraceMs(): number {
+		return this.readPositiveIntegerEnv(
+			"REFRESH_TOKEN_ROTATION_GRACE_SECONDS",
+			DEFAULT_REFRESH_ROTATION_GRACE_SECONDS,
+		) * 1000;
+	}
+
+	private getAccessTouchIntervalMs(): number {
+		return this.readPositiveIntegerEnv(
+			"SESSION_ACCESS_TOUCH_INTERVAL_SECONDS",
+			DEFAULT_ACCESS_TOUCH_INTERVAL_SECONDS,
+		) * 1000;
+	}
+
+	private readPositiveIntegerEnv(key: string, fallback: number): number {
+		const raw = process.env[key];
+		if (raw === undefined) {
+			return fallback;
+		}
+		const parsed = Number(raw);
+		if (!Number.isFinite(parsed) || parsed <= 0) {
+			return fallback;
+		}
+		return Math.floor(parsed);
 	}
 
 	private normalizeTtlSeconds(ttlSeconds: number): number {
