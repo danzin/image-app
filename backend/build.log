@@ -1,0 +1,13 @@
+src/repositories/read/PostReadRepository.ts(20,14): error TS2420: Class 'PostReadRepository' incorrectly implements interface 'IPostReadRepository'.
+  Property 'getFeedForUserCoreWithCursor' is missing in type 'PostReadRepository' but required in type 'IPostReadRepository'.
+src/repositories/read/PostReadRepository.ts(80,30): error TS2339: Property 'getFeedForUserCore' does not exist on type 'PostRepository'.
+src/services/feed/feed-read.service.ts(35,5): error TS2741: Property 'limit' is missing in type 'CursorPaginationResult<any>' but required in type 'CoreFeed'.
+src/services/feed/feed-read.service.ts(35,90): error TS2345: Argument of type 'number' is not assignable to parameter of type 'string'.
+src/services/feed/feed-read.service.ts(47,84): error TS18047: 'coreFeed' is possibly 'null'.
+src/services/feed/feed-read.service.ts(51,4): error TS2322: Type '{ data: PostDTO[]; total: number; page: number; totalPages: number; limit?: number | undefined; hasMore?: boolean; nextCursor?: string; prevCursor?: string; }' is not assignable to type 'PaginationResult<PostDTO>'.
+  Types of property 'limit' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/services/feed/feed-read.service.ts(54,12): error TS18047: 'coreFeed' is possibly 'null'.
+src/services/feed/feed-read.service.ts(55,11): error TS18047: 'coreFeed' is possibly 'null'.
+src/services/feed/feed-read.service.ts(56,17): error TS18047: 'coreFeed' is possibly 'null'.

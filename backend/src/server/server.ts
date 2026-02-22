@@ -1,7 +1,9 @@
 import "reflect-metadata";
-import express, { Application } from "express";
+import express, { Application, Request } from "express";
 import cookieParser from "cookie-parser";
 import http from "http";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 
 import helmet from "helmet";
 import { injectable, inject } from "tsyringe";
@@ -27,147 +29,200 @@ import { TelemetryRoutes } from "../routes/telemetry.routes";
 
 @injectable()
 export class Server {
-	private app: Application;
+  private app: Application;
 
-	/**
-	 * Constructor for initializing the server with injected dependencies.
-	 * @param {UserRoutes} userRoutes - Routes for user-related endpoints.
-	 * @param {ImageRoutes} imageRoutes - Routes for legacy image endpoints.
-	 * @param {PostRoutes} postRoutes - Routes for post-related endpoints.
-	 * @param {CommentRoutes} commentRoutes - Routes for comment-related endpoints.
-	 * @param {SearchRoutes} searchRoutes - Routes for search-related endpoints.
-	 * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
-	 * @param {NotificationRoutes} notificationRoutes - Routes for notifications.
-	 * @param {FeedRoutes} feedRoutes - Routes for managing user feeds.
-	 * @param {FavoriteRoutes} favoriteRoutes - Routes for managing user favorites.
-	 * @param {MessagingRoutes} messagingRoutes - Routes for messaging features.
-	 */
-	constructor(
-		@inject(UserRoutes) private readonly userRoutes: UserRoutes,
-		@inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
-		@inject(PostRoutes) private readonly postRoutes: PostRoutes,
-		@inject(CommentRoutes) private readonly commentRoutes: CommentRoutes,
-		@inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
-		@inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
-		@inject(NotificationRoutes)
-		private readonly notificationRoutes: NotificationRoutes,
-		@inject(FeedRoutes) private readonly feedRoutes: FeedRoutes,
-		@inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
-		@inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes,
-		@inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
-		@inject("MetricsService") private readonly metricsService: MetricsService,
-		@inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
-		@inject("TelemetryRoutes") private readonly telemetryRoutes: TelemetryRoutes,
-	) {
-		this.app = express();
-		this.initializeMiddlewares();
-		this.initializeRoutes();
-		this.initializeErrorHandling(); // Set up global error handling
-	}
+  /**
+   * Constructor for initializing the server with injected dependencies.
+   * @param {UserRoutes} userRoutes - Routes for user-related endpoints.
+   * @param {ImageRoutes} imageRoutes - Routes for legacy image endpoints.
+   * @param {PostRoutes} postRoutes - Routes for post-related endpoints.
+   * @param {CommentRoutes} commentRoutes - Routes for comment-related endpoints.
+   * @param {SearchRoutes} searchRoutes - Routes for search-related endpoints.
+   * @param {AdminUserRoutes} adminUserRoutes - Routes for admin-related endpoints.
+   * @param {NotificationRoutes} notificationRoutes - Routes for notifications.
+   * @param {FeedRoutes} feedRoutes - Routes for managing user feeds.
+   * @param {FavoriteRoutes} favoriteRoutes - Routes for managing user favorites.
+   * @param {MessagingRoutes} messagingRoutes - Routes for messaging features.
+   */
+  constructor(
+    @inject(UserRoutes) private readonly userRoutes: UserRoutes,
+    @inject(ImageRoutes) private readonly imageRoutes: ImageRoutes,
+    @inject(PostRoutes) private readonly postRoutes: PostRoutes,
+    @inject(CommentRoutes) private readonly commentRoutes: CommentRoutes,
+    @inject(SearchRoutes) private readonly searchRoutes: SearchRoutes,
+    @inject(AdminUserRoutes) private readonly adminUserRoutes: AdminUserRoutes,
+    @inject(NotificationRoutes)
+    private readonly notificationRoutes: NotificationRoutes,
+    @inject(FeedRoutes) private readonly feedRoutes: FeedRoutes,
+    @inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
+    @inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes,
+    @inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
+    @inject("MetricsService") private readonly metricsService: MetricsService,
+    @inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
+    @inject("TelemetryRoutes") private readonly telemetryRoutes: TelemetryRoutes,
+  ) {
+    this.app = express();
+    this.initializeMiddlewares();
+    this.initializeRoutes();
+    this.initializeErrorHandling(); // Set up global error handling
+  }
 
-	/**
-	 * Initializes middleware for the Express app.
-	 */
-	private initializeMiddlewares(): void {
-		this.app.set("trust proxy", 1);
-		this.app.use(helmet());
-		this.app.use(this.metricsService.httpMetricsMiddleware());
-		this.app.use((req, res, next) => {
-			logger.info(`[Backend] ${req.method} ${(req.originalUrl || req.url).split("?")[0]}`);
-			next();
-		});
+  /**
+   * Initializes middleware for the Express app.
+   */
+  private initializeMiddlewares(): void {
+    this.app.set("trust proxy", 1);
+    this.app.use(helmet());
 
-		this.app.use(cookieParser() as any); // Parsing cookies
-		this.app.use(express.json()); // Parsing JSON request bodies
-		this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads
+    // CORS setup
+    const envAllowedOrigins = process.env.ALLOWED_ORIGINS?.split(",") || [];
+    const allowedOrigins = [
+      ...envAllowedOrigins,
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:80",
+      "http://localhost",
+      "http://192.168.56.1:5173",
+      "http://192.168.1.10:5173",
+      "http://172.28.144.1:5173",
+      "http://172.18.128.1:5173",
+    ];
 
-		// Loggers
-		this.app.use(logBehaviour); // Logs basic request/response info
-		this.app.use(detailedRequestLogging); // Logs detailed request info
-		this.app.use(requestLogger); // Logs requests to database for admin panel
-	}
+    const corsOptions: cors.CorsOptions = {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: string | boolean) => void) => {
+        if (!origin) {
+          return callback(null, true);
+        }
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, origin);
+        }
+        logger.warn(`[Backend CORS] Blocked origin: ${origin}`);
+        callback(new Error("Request from this origin is blocked by CORS policy"));
+      },
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+      exposedHeaders: ["Set-Cookie"],
+      maxAge: 86400,
+    };
+    this.app.use(cors(corsOptions));
+    this.app.options("*", cors(corsOptions));
 
-	/**
-	 * Registers API routes with the Express app.
-	 */
-	private initializeRoutes() {
-		const uploadsPath = path.join(process.cwd(), "uploads");
-		logger.info("Serving static uploads from:", uploadsPath);
-		this.app.use("/uploads", express.static(uploadsPath));
+    // Rate Limiting setup
+    const getClientIp = (req: Request): string => {
+      const cfIp = req.headers["cf-connecting-ip"];
+      if (typeof cfIp === "string" && cfIp) return cfIp.trim();
+      return req.ip || "unknown";
+    };
 
-		this.app.use("/metrics", this.metricsRoutes.getRouter());
-		this.app.use("/telemetry", this.telemetryRoutes.getRouter());
+    const limiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 15000,
+      message: "Too many requests, please try again after 15 minutes",
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => getClientIp(req as Request),
+      skip: (req) => req.path === "/metrics" || req.path === "/health",
+    });
+    this.app.use(limiter);
 
-		// Add health check endpoint
-		this.app.get("/health", (req, res) => {
-			res.status(200).json({
-				status: "ok",
-				timestamp: new Date().toISOString(),
-				service: "backend",
-			});
-		});
+    this.app.use(this.metricsService.httpMetricsMiddleware());
+    this.app.use((req, res, next) => {
+      logger.info(`[Backend] ${req.method} ${(req.originalUrl || req.url).split("?")[0]}`);
+      next();
+    });
 
-		this.app.use("/users", this.userRoutes.getRouter());
-		this.app.use("/images", this.imageRoutes.getRouter());
-		this.app.use("/posts", this.postRoutes.getRouter());
-		this.app.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
-		this.app.use("/search", this.searchRoutes.getRouter());
-		this.app.use("/admin", this.adminUserRoutes.getRouter());
-		this.app.use("/notifications/", this.notificationRoutes.getRouter());
-		this.app.use("/feed", this.feedRoutes.getRouter());
-		this.app.use("/favorites", this.favoriteRoutes.getRouter());
-		this.app.use("/messaging", this.messagingRoutes.getRouter());
-		this.app.use("/communities", this.communityRoutes.getRouter());
+    this.app.use(cookieParser() as any); // Parsing cookies
+    this.app.use(express.json()); // Parsing JSON request bodies
+    this.app.use(express.urlencoded({ extended: true })); // Handling URL-encoded payloads
 
-		// Catch-all route for debugging
-		this.app.use("*", (req, res) => {
-			logger.info(`[Backend] 404 - Unmatched route: ${req.method} ${req.path}`);
-			res.status(404).json({
-				error: "Route not found",
-				method: req.method,
-				path: req.path,
-				availableRoutes: [
-					"/health",
-					"/api/users",
-					"/api/images",
-					"/api/posts",
-					"/api/search",
-					"/api/admin",
-					"/api/notifications",
-					"/api/feed",
-					"/api/favorites/images/:imageId/ (POST/DELETE)",
-					"/api/favorites/user (GET)",
-					"/api/messaging/conversations",
-					"/api/messaging/messages",
-				],
-			});
-		});
-	}
+    // Loggers
+    this.app.use(logBehaviour); // Logs basic request/response info
+    this.app.use(detailedRequestLogging); // Logs detailed request info
+    this.app.use(requestLogger); // Logs requests to database for admin panel
+  }
 
-	/**
-	 * Sets up global error handling middleware.
-	 * Any unhandled errors will be caught and formatted using the ErrorHandler.
-	 */
-	private initializeErrorHandling() {
-		this.app.use(ErrorHandler.handleError);
-	}
+  /**
+   * Registers API routes with the Express app.
+   */
+  private initializeRoutes() {
+    const uploadsPath = path.join(process.cwd(), "uploads");
+    logger.info("Serving static uploads from:", uploadsPath);
+    this.app.use("/uploads", express.static(uploadsPath));
 
-	/**
-	 * Provides access to the Express application instance.
-	 * @returns {Application} - The Express app instance.
-	 */
-	public getExpressApp(): Application {
-		return this.app;
-	}
+    this.app.use("/metrics", this.metricsRoutes.getRouter());
+    this.app.use("/telemetry", this.telemetryRoutes.getRouter());
 
-	/**
-	 * Starts the HTTP server on the specified port.
-	 * @param {http.Server} server - The HTTP server instance.
-	 * @param {number} port - The port number to listen on.
-	 */
-	public start(server: http.Server, port: number): void {
-		server.listen(port, () => {
-			logger.info(`Server running on port ${port}`);
-		});
-	}
+    // Add health check endpoint
+    this.app.get("/health", (req, res) => {
+      res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        service: "backend",
+      });
+    });
+
+    this.app.use("/users", this.userRoutes.getRouter());
+    this.app.use("/images", this.imageRoutes.getRouter());
+    this.app.use("/posts", this.postRoutes.getRouter());
+    this.app.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
+    this.app.use("/search", this.searchRoutes.getRouter());
+    this.app.use("/admin", this.adminUserRoutes.getRouter());
+    this.app.use("/notifications/", this.notificationRoutes.getRouter());
+    this.app.use("/feed", this.feedRoutes.getRouter());
+    this.app.use("/favorites", this.favoriteRoutes.getRouter());
+    this.app.use("/messaging", this.messagingRoutes.getRouter());
+    this.app.use("/communities", this.communityRoutes.getRouter());
+
+    // Catch-all route for debugging
+    this.app.use("*", (req, res) => {
+      logger.info(`[Backend] 404 - Unmatched route: ${req.method} ${req.path}`);
+      res.status(404).json({
+        error: "Route not found",
+        method: req.method,
+        path: req.path,
+        availableRoutes: [
+          "/health",
+          "/api/users",
+          "/api/images",
+          "/api/posts",
+          "/api/search",
+          "/api/admin",
+          "/api/notifications",
+          "/api/feed",
+          "/api/favorites/images/:imageId/ (POST/DELETE)",
+          "/api/favorites/user (GET)",
+          "/api/messaging/conversations",
+          "/api/messaging/messages",
+        ],
+      });
+    });
+  }
+
+  /**
+   * Sets up global error handling middleware.
+   * Any unhandled errors will be caught and formatted using the ErrorHandler.
+   */
+  private initializeErrorHandling() {
+    this.app.use(ErrorHandler.handleError);
+  }
+
+  /**
+   * Provides access to the Express application instance.
+   * @returns {Application} - The Express app instance.
+   */
+  public getExpressApp(): Application {
+    return this.app;
+  }
+
+  /**
+   * Starts the HTTP server on the specified port.
+   * @param {http.Server} server - The HTTP server instance.
+   * @param {number} port - The port number to listen on.
+   */
+  public start(server: http.Server, port: number): void {
+    server.listen(port, () => {
+      logger.info(`Server running on port ${port}`);
+    });
+  }
 }

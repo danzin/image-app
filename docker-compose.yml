@@ -31,7 +31,7 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: secret
-    command: ["mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all"]
+    command: [ "mongod", "--replSet", "rs0", "--keyFile", "/opt/keyfile/mongodb-keyfile", "--bind_ip_all" ]
     depends_on:
       - mongo-setup
     healthcheck:
@@ -60,7 +60,7 @@ services:
       MONGO_HOST: mongo
     volumes:
       - ./mongo-rs-init.sh:/rs-init/mongo-rs-init.sh:ro
-    entrypoint: ["bash", "/rs-init/mongo-rs-init.sh"]
+    entrypoint: [ "bash", "/rs-init/mongo-rs-init.sh" ]
     restart: "no"
 
   redis-service:
@@ -73,7 +73,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -85,8 +85,6 @@ services:
       dockerfile: backend/backend.Dockerfile
     container_name: backend
     restart: always
-    ports:
-      - "3000:3000"
     # shared environment variables here using a YAML anchor (&)
     environment: &backend-environment
       NODE_ENV: production
@@ -111,31 +109,7 @@ services:
     volumes:
       - ./backend/uploads:/app/backend/uploads
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-  api-gateway:
-    build:
-      context: .
-      dockerfile: api-gateway/gateway.Dockerfile
-    container_name: api-gateway
-    restart: always
-    ports:
-      - "8000:8000"
-    environment:
-      NODE_ENV: production
-      PORT: 8000
-      BACKEND_MONOLITH_URL: http://backend:3000
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:8000/health || exit 1"]
+      test: [ "CMD", "sh", "-c", "wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1" ]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -153,7 +127,7 @@ services:
     ports:
       - "80:80"
     depends_on:
-      api-gateway:
+      backend:
         condition: service_healthy
     networks:
       - app-network
@@ -172,8 +146,6 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
       backend:
-        condition: service_healthy
-      api-gateway:
         condition: service_healthy
     networks:
       - app-network
@@ -196,7 +168,6 @@ services:
       - app-network
     mem_limit: 256m
     cpu_shares: 256
-
   # Workers now in-process with the backend on the same Node event loop
   # ENABLE_WORKERS=false in backend environment to disable them
 
