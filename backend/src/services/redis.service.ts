@@ -181,6 +181,19 @@ export class RedisService {
 	}
 
 	/**
+	 * Batch-fetches multiple keys in a single Redis round-trip using MGET.
+	 * Prefer this over a Promise.all of individual get() calls for any set of N keys.
+	 *
+	 * @param keys - Array of cache keys to fetch.
+	 * @returns Array of parsed values, parallel to input keys; null for each miss.
+	 */
+	async mGet<T>(keys: string[]): Promise<(T | null)[]> {
+		if (keys.length === 0) return [];
+		const values = await this.client.mGet(keys);
+		return values.map((v) => (v ? (JSON.parse(v) as T) : null));
+	}
+
+	/**
 	 * Serializes and stores a value in Redis.
 	 *
 	 * @wrapper

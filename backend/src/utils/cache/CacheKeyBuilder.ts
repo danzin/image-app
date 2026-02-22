@@ -11,6 +11,7 @@ export class CacheKeyBuilder {
 		TRENDING_TAGS: "trending_tags",
 		USER_FEED: "user_feed",
 		USER_FOR_YOU: "user_for_you_feed",
+		FOLLOWING_IDS: "following_ids",
 	};
 
 	static getUserBatchKey(userPublicIds: string[]): string {
@@ -71,6 +72,10 @@ export class CacheKeyBuilder {
 
 	static getUserForYouFeedTag(userId: string): string {
 		return `${this.PREFIXES.USER_FOR_YOU}:${userId}`;
+	}
+
+	static getFollowingIdsKey(userId: string): string {
+		return `${this.PREFIXES.FOLLOWING_IDS}:${userId}`;
 	}
 
 	static getRedisFeedKey(feedType: string, userId: string): string {

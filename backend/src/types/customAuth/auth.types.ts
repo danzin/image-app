@@ -27,6 +27,8 @@ export interface AuthSessionRecord {
 	sid: string;
 	publicId: string;
 	refreshTokenHash: string;
+	previousRefreshTokenHash?: string;
+	previousRefreshTokenGraceUntil?: number;
 	createdAt: number;
 	lastSeenAt: number;
 	ip?: string;

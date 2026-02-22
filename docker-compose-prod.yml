@@ -42,27 +42,13 @@ services:
       interval: 30s
       retries: 5
 
-  api-gateway:
-    image: ghcr.io/danzin/photoapp-gateway:latest
-    container_name: api-gateway
-    restart: always
-    environment:
-      NODE_ENV: production
-      PORT: 8000
-      BACKEND_MONOLITH_URL: http://backend:3000
-      ALLOWED_ORIGINS: https://${DOMAIN_NAME},https://www.${DOMAIN_NAME}
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - app-network
-
   frontend:
     image: ghcr.io/danzin/photoapp-frontend:latest
     container_name: frontend
     restart: always
     depends_on:
-      - api-gateway
+      backend:
+        condition: service_healthy
     networks:
       - app-network
 

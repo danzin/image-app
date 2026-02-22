@@ -77,6 +77,7 @@ export class AuthService {
 		const { refreshToken: nextRefreshToken } = this.createRefreshToken(session.sid);
 		await this.authSessionService.rotateRefreshToken(
 			session.sid,
+			refreshToken,
 			nextRefreshToken,
 			this.getRefreshTokenTtlSeconds(),
 			context,
