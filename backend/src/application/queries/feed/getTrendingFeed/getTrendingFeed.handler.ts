@@ -93,12 +93,12 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
       let nextCursor = result.nextCursor;
       let hasMore = result.hasMore;
 
-      // Backfill transitioning from trending to new phase
-      if (!hasMore || transformedPosts.length <= limit) {
-        const needed = limit - transformedPosts.length + 1;
+      // When trending content is exhausted, transition to chronological (new) feed
+      if (!hasMore) {
+        const needed = limit - transformedPosts.length;
         if (needed > 0) {
-          // We need to fetch from new feed to fill the page, or just start fetching so we can generate a new_phase cursor.
-          const backfill = await this.postReadRepository.getNewFeedWithCursor({ limit: needed });
+          // Current page isn't full backfill the remainder with new posts
+          const backfill = await this.postReadRepository.getNewFeedWithCursor({ limit: needed + 1 });
           const existingIds = new Set(transformedPosts.map(p => p.publicId));
 
           const uniqueBackfill = backfill.data.filter(p => !existingIds.has(p.publicId));
@@ -107,6 +107,12 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
           transformedPosts = [...transformedPosts, ...mappedBackfill];
           nextCursor = backfill.nextCursor ? `new_phase:${backfill.nextCursor}` : undefined;
           hasMore = backfill.hasMore;
+        } else {
+          // Current page is full with trending posts, but there are no more trending posts.
+          // Fetch a single new feed page so we can generate the new_phase cursor for the NEXT request.
+          const backfill = await this.postReadRepository.getNewFeedWithCursor({ limit: limit + 1 });
+          nextCursor = backfill.nextCursor ? `new_phase:${backfill.nextCursor}` : undefined;
+          hasMore = backfill.data.length > 0;
         }
       }
 
