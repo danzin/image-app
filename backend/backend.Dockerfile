@@ -5,7 +5,6 @@ WORKDIR /app
 # Copy root package files and each workspace package.json so npm knows the workspaces
 COPY package.json package-lock.json ./
 COPY backend/package.json ./backend/
-COPY api-gateway/package.json ./api-gateway/
 COPY frontend/package.json ./frontend/
 
 # Install ALL dependencies including dev deps (needed for tsc)
@@ -25,14 +24,13 @@ WORKDIR /app
 
 # Create a non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+  adduser -S nodejs -u 1001
 
 # Copy the root package files again
 COPY package.json package-lock.json ./
 
 # Copy the package.json files for each workspace so npm knows what to install
 COPY backend/package.json ./backend/
-COPY api-gateway/package.json ./api-gateway/
 COPY frontend/package.json ./frontend/
 
 # Install ONLY production dependencies for all workspaces
@@ -43,7 +41,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/backend/dist ./backend/dist
 
 # Create uploads directory and give nodejs user ownership of necessary directories
 RUN mkdir -p /app/uploads && \
-    chown -R nodejs:nodejs /app/uploads /app/backend
+  chown -R nodejs:nodejs /app/uploads /app/backend
 
 # Switch to non-root user
 USER nodejs
