@@ -36,14 +36,6 @@ jobs:
           file: ./backend/backend.Dockerfile
           push: true
           tags: ghcr.io/danzin/photoapp-backend:latest
-
-      - name: Build and push Gateway
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./api-gateway/gateway.Dockerfile
-          push: true
-          tags: ghcr.io/danzin/photoapp-gateway:latest
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
