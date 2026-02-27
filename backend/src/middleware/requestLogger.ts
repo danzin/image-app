@@ -4,7 +4,7 @@ import { CommandBus } from "@/application/common/buses/command.bus";
 import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
 
 const getClientIp = (req: Request): string => {
-	// This header has now traveled: Cloudflare -> Caddy -> Gateway -> Backend
+	// This header has traveled: Cloudflare -> Caddy -> Nginx -> Backend
 	const cfIp = req.headers["cf-connecting-ip"];
 	if (typeof cfIp === "string") return cfIp.trim();
 
