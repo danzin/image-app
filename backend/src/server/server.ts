@@ -162,17 +162,21 @@ export class Server {
       });
     });
 
-    this.app.use("/users", this.userRoutes.getRouter());
-    this.app.use("/images", this.imageRoutes.getRouter());
-    this.app.use("/posts", this.postRoutes.getRouter());
-    this.app.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
-    this.app.use("/search", this.searchRoutes.getRouter());
-    this.app.use("/admin", this.adminUserRoutes.getRouter());
-    this.app.use("/notifications/", this.notificationRoutes.getRouter());
-    this.app.use("/feed", this.feedRoutes.getRouter());
-    this.app.use("/favorites", this.favoriteRoutes.getRouter());
-    this.app.use("/messaging", this.messagingRoutes.getRouter());
-    this.app.use("/communities", this.communityRoutes.getRouter());
+    const apiRouter = express.Router();
+
+    apiRouter.use("/users", this.userRoutes.getRouter());
+    apiRouter.use("/images", this.imageRoutes.getRouter());
+    apiRouter.use("/posts", this.postRoutes.getRouter());
+    apiRouter.use("/", this.commentRoutes.getRouter()); // Comments are nested under images and users
+    apiRouter.use("/search", this.searchRoutes.getRouter());
+    apiRouter.use("/admin", this.adminUserRoutes.getRouter());
+    apiRouter.use("/notifications", this.notificationRoutes.getRouter());
+    apiRouter.use("/feed", this.feedRoutes.getRouter());
+    apiRouter.use("/favorites", this.favoriteRoutes.getRouter());
+    apiRouter.use("/messaging", this.messagingRoutes.getRouter());
+    apiRouter.use("/communities", this.communityRoutes.getRouter());
+
+    this.app.use("/api", apiRouter);
 
     // Catch-all route for debugging
     this.app.use("*", (req, res) => {
