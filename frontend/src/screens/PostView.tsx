@@ -3,7 +3,7 @@ import { useParams, Link as RouterLink, useNavigate } from "react-router-dom";
 import { usePostById } from "../hooks/posts/usePosts";
 import { useLikePost, useFavoritePost } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
-import { useDeletePost, useRepostPost } from "../hooks/posts/usePosts";
+import { useDeletePost, useRepostPost, useUnrepostPost } from "../hooks/posts/usePosts";
 import RichText from "../components/RichText";
 import {
 	Box,
@@ -42,6 +42,7 @@ const PostView = () => {
 	const { mutate: toggleFavoriteMutation } = useFavoritePost();
 	const deleteMutation = useDeletePost();
 	const { mutate: triggerRepost } = useRepostPost();
+	const { mutate: triggerUnrepost } = useUnrepostPost();
 
 	const [isFavorited, setIsFavorited] = useState<boolean>(post?.isFavoritedByViewer ?? false);
 	const [isImageModalOpen, setIsImageModalOpen] = useState(false);
@@ -86,6 +87,8 @@ const PostView = () => {
 
 	const isOwner = isLoggedIn && user?.publicId === post.user.publicId;
 	const isLiked = isLoggedIn && post.isLikedByViewer;
+	const isOwnRepost = post.type === "repost" && isLoggedIn && post.user?.publicId === user?.publicId;
+	const hasReposted = isOwnRepost || post.isRepostedByViewer;
 
 	const avatarUrl = transformCloudinaryUrl(buildMediaUrl(post.user?.avatar), {
 		width: 80,
@@ -140,7 +143,17 @@ const PostView = () => {
 			navigate("/login");
 			return;
 		}
-		triggerRepost({ postPublicId: post.publicId });
+
+		// For repost cards, target the original post
+		const targetId = post.type === "repost" && post.repostOf?.publicId
+			? post.repostOf.publicId
+			: post.publicId;
+
+		if (hasReposted) {
+			triggerUnrepost({ postPublicId: targetId });
+		} else {
+			triggerRepost({ postPublicId: targetId });
+		}
 	};
 
 	const handleToggleFavorite = () => {
@@ -440,7 +453,7 @@ const PostView = () => {
 					<IconButton onClick={handleLikePost} color={isLiked ? "primary" : "default"}>
 						{isLiked ? <FavoriteIcon /> : <FavoriteBorderIcon />}
 					</IconButton>
-					<IconButton onClick={handleRepostClick} color="default">
+					<IconButton onClick={handleRepostClick} sx={{ color: hasReposted ? "#22c55e" : "default" }}>
 						<RepeatIcon />
 					</IconButton>
 					<IconButton onClick={handleToggleFavorite} color={isFavorited ? "primary" : "default"}>
