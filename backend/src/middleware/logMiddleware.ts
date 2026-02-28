@@ -22,28 +22,39 @@ export const logBehaviour = (req: Request, res: Response, next: NextFunction) =>
 	next();
 };
 
+/** Strip port suffix from IP (e.g. "1.2.3.4:10150" → "1.2.3.4") */
+const stripPort = (raw: string): string => {
+	const trimmed = raw.trim();
+	if (trimmed.startsWith("[")) return trimmed;
+	const lastColon = trimmed.lastIndexOf(":");
+	if (lastColon === -1) return trimmed;
+	const maybePart = trimmed.slice(lastColon + 1);
+	if (/^\d{1,5}$/.test(maybePart)) return trimmed.slice(0, lastColon);
+	return trimmed;
+};
+
 const getClientIp = (req: Request): string => {
 	const cfConnectingIp = req.headers["cf-connecting-ip"];
 	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
-		return cfConnectingIp.trim();
+		return stripPort(cfConnectingIp);
 	}
 
 	const trueClientIp = req.headers["true-client-ip"];
 	if (typeof trueClientIp === "string" && trueClientIp.trim()) {
-		return trueClientIp.trim();
+		return stripPort(trueClientIp);
 	}
 
 	const xRealIp = req.headers["x-real-ip"];
 	if (typeof xRealIp === "string" && xRealIp.trim()) {
-		return xRealIp.trim();
+		return stripPort(xRealIp);
 	}
 
 	const xForwardedFor = req.headers["x-forwarded-for"];
 	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
-		return xForwardedFor.split(",")[0].trim();
+		return stripPort(xForwardedFor.split(",")[0]);
 	}
 
-	return req.ip || req.socket.remoteAddress || "unknown";
+	return stripPort(req.ip || req.socket.remoteAddress || "unknown");
 };
 
 export const detailedRequestLogging = (req: Request, res: Response, next: NextFunction) => {

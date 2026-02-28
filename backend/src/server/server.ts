@@ -110,9 +110,20 @@ export class Server {
 
     // Rate Limiting setup
     const getClientIp = (req: Request): string => {
+      const stripPort = (raw: string): string => {
+        const t = raw.trim();
+        if (t.startsWith("[")) return t;
+        const i = t.lastIndexOf(":");
+        if (i === -1) return t;
+        return /^\d{1,5}$/.test(t.slice(i + 1)) ? t.slice(0, i) : t;
+      };
       const cfIp = req.headers["cf-connecting-ip"];
-      if (typeof cfIp === "string" && cfIp) return cfIp.trim();
-      return req.ip || "unknown";
+      if (typeof cfIp === "string" && cfIp.trim()) return stripPort(cfIp);
+      const xRealIp = req.headers["x-real-ip"];
+      if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
+      const xff = req.headers["x-forwarded-for"];
+      if (typeof xff === "string" && xff.trim()) return stripPort(xff.split(",")[0]);
+      return stripPort(req.ip || "unknown");
     };
 
     const limiter = rateLimit({

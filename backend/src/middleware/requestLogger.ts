@@ -3,13 +3,31 @@ import { container } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
 
-const getClientIp = (req: Request): string => {
-	// This header has traveled: Cloudflare -> Caddy -> Nginx -> Backend
-	const cfIp = req.headers["cf-connecting-ip"];
-	if (typeof cfIp === "string") return cfIp.trim();
+const stripPort = (raw: string): string => {
+	const trimmed = raw.trim();
+	if (trimmed.startsWith("[")) return trimmed; // dont touch IPv6
+	const lastColon = trimmed.lastIndexOf(":");
+	if (lastColon === -1) return trimmed;
+	// Only strip if the part after the colon is a valid port number
+	const maybePart = trimmed.slice(lastColon + 1);
+	if (/^\d{1,5}$/.test(maybePart)) return trimmed.slice(0, lastColon);
+	return trimmed;
+};
 
-	// Fallback if header is missing
-	return req.ip || "unknown";
+const getClientIp = (req: Request): string => {
+	// CF-Connecting-IP: Cloudflare sets it. Real visitor IP
+	const cfIp = req.headers["cf-connecting-ip"];
+	if (typeof cfIp === "string" && cfIp.trim()) return stripPort(cfIp);
+
+	// X-Real-IP: This one is set by Caddy/NgninX.
+	const xRealIp = req.headers["x-real-ip"];
+	if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
+
+	// X-Forwarded-For: First entry is the original client
+	const xff = req.headers["x-forwarded-for"];
+	if (typeof xff === "string" && xff.trim()) return stripPort(xff.split(",")[0]);
+
+	return stripPort(req.ip || "unknown");
 };
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {
