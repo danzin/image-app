@@ -150,7 +150,12 @@ const PostView = () => {
 			: post.publicId;
 
 		if (hasReposted) {
-			triggerUnrepost({ postPublicId: targetId });
+			triggerUnrepost({ postPublicId: targetId }, {
+				onSuccess: () => {
+					// If viewing own repost, it's now deleted — navigate back
+					if (isOwnRepost) navigate(-1);
+				},
+			});
 		} else {
 			triggerRepost({ postPublicId: targetId });
 		}
