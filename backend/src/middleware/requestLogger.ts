@@ -19,7 +19,7 @@ const getClientIp = (req: Request): string => {
 	const cfIp = req.headers["cf-connecting-ip"];
 	if (typeof cfIp === "string" && cfIp.trim()) return stripPort(cfIp);
 
-	// X-Real-IP: This one is set by Caddy/NgninX.
+	// X-Real-IP: This one is set by Caddy/Ngninx.
 	const xRealIp = req.headers["x-real-ip"];
 	if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
 
