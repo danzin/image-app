@@ -78,6 +78,11 @@ export class PostRoutes {
 			this.postController.repostPost
 		);
 		this.router.delete(
+			"/:publicId/repost",
+			new ValidationMiddleware({ params: publicIdSchema }).validate(),
+			this.postController.unrepostPost
+		);
+		this.router.delete(
 			"/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
 			this.postController.deletePost

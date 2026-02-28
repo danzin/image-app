@@ -140,6 +140,10 @@ export class PostReadRepository implements IPostReadRepository {
     return this.postRepository.countDocuments(filter);
   }
 
+  async findOneByFilter(filter: Record<string, unknown>): Promise<IPost | null> {
+    return this.postRepository.findOneByFilter(filter);
+  }
+
   async countByCommunityId(communityId: string): Promise<number> {
     return this.postRepository.countByCommunityId(communityId);
   }

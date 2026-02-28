@@ -49,6 +49,8 @@ import { DeletePostCommand } from "@/application/commands/post/deletePost/delete
 import { DeletePostCommandHandler } from "@/application/commands/post/deletePost/deletePost.handler";
 import { RepostPostCommand } from "@/application/commands/post/repostPost/repostPost.command";
 import { RepostPostCommandHandler } from "@/application/commands/post/repostPost/repostPost.handler";
+import { UnrepostPostCommand } from "@/application/commands/post/unrepostPost/unrepostPost.command";
+import { UnrepostPostCommandHandler } from "@/application/commands/post/unrepostPost/unrepostPost.handler";
 import { RecordPostViewCommand } from "@/application/commands/post/recordPostView/recordPostView.command";
 import { RecordPostViewCommandHandler } from "@/application/commands/post/recordPostView/recordPostView.handler";
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
@@ -177,6 +179,7 @@ export function registerCQRS(): void {
 	container.register("CreatePostCommandHandler", { useClass: CreatePostCommandHandler });
 	container.register("DeletePostCommandHandler", { useClass: DeletePostCommandHandler });
 	container.register("RepostPostCommandHandler", { useClass: RepostPostCommandHandler });
+	container.register("UnrepostPostCommandHandler", { useClass: UnrepostPostCommandHandler });
 
 	container.register("RecordPostViewCommandHandler", { useClass: RecordPostViewCommandHandler });
 	container.register("GetLikedPostsByUserHandler", { useClass: GetLikedPostsByUserHandler });
@@ -273,6 +276,10 @@ export function initCQRS(): void {
 	commandBus.register(CreatePostCommand, container.resolve<CreatePostCommandHandler>("CreatePostCommandHandler"));
 	commandBus.register(DeletePostCommand, container.resolve<DeletePostCommandHandler>("DeletePostCommandHandler"));
 	commandBus.register(RepostPostCommand, container.resolve<RepostPostCommandHandler>("RepostPostCommandHandler"));
+	commandBus.register(
+		UnrepostPostCommand,
+		container.resolve<UnrepostPostCommandHandler>("UnrepostPostCommandHandler"),
+	);
 	commandBus.register(
 		RecordPostViewCommand,
 		container.resolve<RecordPostViewCommandHandler>("RecordPostViewCommandHandler"),

@@ -12,6 +12,7 @@ import {
   fetchNewFeed,
   fetchForYouFeed,
   repostPost,
+  unrepostPost,
 } from "../../api/postApi";
 import { IPost, ITag, PaginatedResponse } from "../../types";
 import { useAuth } from "../context/useAuth";
@@ -212,7 +213,9 @@ export const useRepostPost = () => {
             pages: existing.pages.map((page) => ({
               ...page,
               data: page.data.map((post) =>
-                post.publicId === postPublicId ? { ...post, repostCount: (post.repostCount || 0) + 1 } : post
+                post.publicId === postPublicId
+                  ? { ...post, repostCount: (post.repostCount || 0) + 1, isRepostedByViewer: true }
+                  : post
               ),
             })),
           };
@@ -220,10 +223,10 @@ export const useRepostPost = () => {
       };
 
       queryClient.setQueriesData<IPost>({ queryKey: ["post", "publicId", postPublicId] }, (existing) =>
-        existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1 } : existing
+        existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1, isRepostedByViewer: true } : existing
       );
       queryClient.setQueriesData<IPost>({ queryKey: ["post", postPublicId] }, (existing) =>
-        existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1 } : existing
+        existing ? { ...existing, repostCount: (existing.repostCount || 0) + 1, isRepostedByViewer: true } : existing
       );
 
       bumpRepostCountInInfinite(["posts"]);
@@ -245,6 +248,71 @@ export const useRepostPost = () => {
     },
     onError: (error: Error) => {
       console.error("Error reposting post:", error);
+    },
+  });
+};
+
+export const useUnrepostPost = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, { postPublicId: string }>({
+    mutationFn: ({ postPublicId }) => unrepostPost(postPublicId),
+    onSuccess: (_result, { postPublicId }) => {
+      const decrementRepostCountInInfinite = (key: unknown[]) => {
+        queryClient.setQueriesData<
+          InfiniteData<{
+            data: IPost[];
+            total: number;
+            page: number;
+            limit: number;
+            totalPages: number;
+          }>
+        >({ queryKey: key }, (existing) => {
+          if (!existing) return existing;
+          return {
+            ...existing,
+            pages: existing.pages.map((page) => ({
+              ...page,
+              data: page.data.map((post) =>
+                post.publicId === postPublicId
+                  ? { ...post, repostCount: Math.max((post.repostCount || 0) - 1, 0), isRepostedByViewer: false }
+                  : post
+              ),
+            })),
+          };
+        });
+      };
+
+      queryClient.setQueriesData<IPost>({ queryKey: ["post", "publicId", postPublicId] }, (existing) =>
+        existing
+          ? { ...existing, repostCount: Math.max((existing.repostCount || 0) - 1, 0), isRepostedByViewer: false }
+          : existing
+      );
+      queryClient.setQueriesData<IPost>({ queryKey: ["post", postPublicId] }, (existing) =>
+        existing
+          ? { ...existing, repostCount: Math.max((existing.repostCount || 0) - 1, 0), isRepostedByViewer: false }
+          : existing
+      );
+
+      decrementRepostCountInInfinite(["posts"]);
+      decrementRepostCountInInfinite(["personalizedFeed"]);
+      decrementRepostCountInInfinite(["trendingFeed"]);
+      decrementRepostCountInInfinite(["newFeed"]);
+      decrementRepostCountInInfinite(["forYouFeed"]);
+      decrementRepostCountInInfinite(["postsByTag"]);
+
+      queryClient.invalidateQueries({ queryKey: ["post", "publicId", postPublicId] });
+      queryClient.invalidateQueries({ queryKey: ["post", postPublicId] });
+
+      // Invalidate feeds to remove the repost
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
+      queryClient.invalidateQueries({ queryKey: ["newFeed"] });
+      queryClient.invalidateQueries({ queryKey: ["forYouFeed"] });
+      queryClient.invalidateQueries({ queryKey: ["userPosts"] });
+    },
+    onError: (error: Error) => {
+      console.error("Error removing repost:", error);
     },
   });
 };

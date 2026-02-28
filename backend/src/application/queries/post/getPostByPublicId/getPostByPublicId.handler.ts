@@ -59,6 +59,18 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 				const favoriteRecord = await this.favoriteRepository.findByUserAndPost(viewerInternalId, postInternalId);
 				dto.isFavoritedByViewer = !!favoriteRecord;
 
+				// Check if viewer has reposted this post (or the original if viewing a repost)
+				const repostOfDoc = post.repostOf as any;
+				const repostCheckTargetId = repostOfDoc?._id
+					? repostOfDoc._id.toString()
+					: postInternalId;
+				const repostCount = await this.postReadRepository.countDocuments({
+					user: new mongoose.Types.ObjectId(viewerInternalId),
+					repostOf: new mongoose.Types.ObjectId(repostCheckTargetId),
+					type: "repost",
+				});
+				dto.isRepostedByViewer = repostCount > 0;
+
 				// Check delete permission
 				const isOwner = post.author.publicId === query.viewerPublicId;
 				let canDelete = isOwner;

@@ -139,6 +139,10 @@ export const repostPost = async (postPublicId: string, body?: string): Promise<I
 	return data;
 };
 
+export const unrepostPost = async (postPublicId: string): Promise<void> => {
+	await axiosClient.delete(`/api/posts/${postPublicId}/repost`);
+};
+
 export const fetchPostsByCommunity = async (
 	communityId: string,
 	pageParam: number,

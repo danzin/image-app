@@ -74,6 +74,9 @@ export interface IPostReadRepository {
   ): Promise<PaginationResult<any>>;
   getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>>;
 
+  // single post by arbitrary filter
+  findOneByFilter(filter: Record<string, unknown>): Promise<IPost | null>;
+
   // counts
   countDocuments(filter: Record<string, unknown>): Promise<number>;
   countByCommunityId(communityId: string): Promise<number>;
