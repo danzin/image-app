@@ -15,19 +15,33 @@ const stripPort = (raw: string): string => {
 };
 
 const getClientIp = (req: Request): string => {
-	// CF-Connecting-IP: Cloudflare sets it. Real visitor IP
-	const cfIp = req.headers["cf-connecting-ip"];
-	if (typeof cfIp === "string" && cfIp.trim()) return stripPort(cfIp);
+	const xff = req.headers["x-forwarded-for"];
+	const forwardedIps =
+		typeof xff === "string" && xff.trim()
+			? xff
+					.split(",")
+					.map((value) => stripPort(value))
+					.filter((value) => value.length > 0)
+			: [];
+	const firstForwardedIp = forwardedIps[0];
 
-	// X-Real-IP: This one is set by Caddy/Ngninx.
+	const cfIp = req.headers["cf-connecting-ip"];
+	if (typeof cfIp === "string" && cfIp.trim()) {
+		const normalizedCfIp = stripPort(cfIp);
+		if (firstForwardedIp && firstForwardedIp !== normalizedCfIp && forwardedIps.includes(normalizedCfIp)) {
+			return firstForwardedIp;
+		}
+		return normalizedCfIp;
+	}
+
+	const trueClientIp = req.headers["true-client-ip"];
+	if (typeof trueClientIp === "string" && trueClientIp.trim()) return stripPort(trueClientIp);
+
 	const xRealIp = req.headers["x-real-ip"];
 	if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
+	if (firstForwardedIp) return firstForwardedIp;
 
-	// X-Forwarded-For: First entry is the original client
-	const xff = req.headers["x-forwarded-for"];
-	if (typeof xff === "string" && xff.trim()) return stripPort(xff.split(",")[0]);
-
-	return stripPort(req.ip || "unknown");
+	return stripPort(req.ip || req.socket.remoteAddress || "unknown");
 };
 
 export const requestLogger = (req: Request, res: Response, next: NextFunction) => {

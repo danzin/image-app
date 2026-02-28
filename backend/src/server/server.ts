@@ -71,7 +71,7 @@ export class Server {
    * Initializes middleware for the Express app.
    */
   private initializeMiddlewares(): void {
-    this.app.set("trust proxy", 1);
+    this.app.set("trust proxy", true);
     this.app.use(helmet());
 
     // CORS setup
@@ -117,13 +117,31 @@ export class Server {
         if (i === -1) return t;
         return /^\d{1,5}$/.test(t.slice(i + 1)) ? t.slice(0, i) : t;
       };
+
+      const xff = req.headers["x-forwarded-for"];
+      const forwardedIps =
+        typeof xff === "string" && xff.trim()
+          ? xff
+              .split(",")
+              .map((value) => stripPort(value))
+              .filter((value) => value.length > 0)
+          : [];
+      const firstForwardedIp = forwardedIps[0];
+
       const cfIp = req.headers["cf-connecting-ip"];
-      if (typeof cfIp === "string" && cfIp.trim()) return stripPort(cfIp);
+      if (typeof cfIp === "string" && cfIp.trim()) {
+        const normalizedCfIp = stripPort(cfIp);
+        if (firstForwardedIp && firstForwardedIp !== normalizedCfIp && forwardedIps.includes(normalizedCfIp)) {
+          return firstForwardedIp;
+        }
+        return normalizedCfIp;
+      }
+      const trueClientIp = req.headers["true-client-ip"];
+      if (typeof trueClientIp === "string" && trueClientIp.trim()) return stripPort(trueClientIp);
       const xRealIp = req.headers["x-real-ip"];
       if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
-      const xff = req.headers["x-forwarded-for"];
-      if (typeof xff === "string" && xff.trim()) return stripPort(xff.split(",")[0]);
-      return stripPort(req.ip || "unknown");
+      if (firstForwardedIp) return firstForwardedIp;
+      return stripPort(req.ip || req.socket.remoteAddress || "unknown");
     };
 
     const limiter = rateLimit({
