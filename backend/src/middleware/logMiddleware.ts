@@ -34,9 +34,23 @@ const stripPort = (raw: string): string => {
 };
 
 const getClientIp = (req: Request): string => {
+	const xForwardedFor = req.headers["x-forwarded-for"];
+	const forwardedIps =
+		typeof xForwardedFor === "string" && xForwardedFor.trim()
+			? xForwardedFor
+					.split(",")
+					.map((value) => stripPort(value))
+					.filter((value) => value.length > 0)
+			: [];
+	const firstForwardedIp = forwardedIps[0];
+
 	const cfConnectingIp = req.headers["cf-connecting-ip"];
 	if (typeof cfConnectingIp === "string" && cfConnectingIp.trim()) {
-		return stripPort(cfConnectingIp);
+		const normalizedCfIp = stripPort(cfConnectingIp);
+		if (firstForwardedIp && firstForwardedIp !== normalizedCfIp && forwardedIps.includes(normalizedCfIp)) {
+			return firstForwardedIp;
+		}
+		return normalizedCfIp;
 	}
 
 	const trueClientIp = req.headers["true-client-ip"];
@@ -48,10 +62,8 @@ const getClientIp = (req: Request): string => {
 	if (typeof xRealIp === "string" && xRealIp.trim()) {
 		return stripPort(xRealIp);
 	}
-
-	const xForwardedFor = req.headers["x-forwarded-for"];
-	if (typeof xForwardedFor === "string" && xForwardedFor.trim()) {
-		return stripPort(xForwardedFor.split(",")[0]);
+	if (firstForwardedIp) {
+		return firstForwardedIp;
 	}
 
 	return stripPort(req.ip || req.socket.remoteAddress || "unknown");
