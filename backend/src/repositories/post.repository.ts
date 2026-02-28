@@ -82,6 +82,14 @@ export class PostRepository extends BaseRepository<IPost> {
     }
   }
 
+  async findOneByFilter(filter: Record<string, unknown>): Promise<IPost | null> {
+    try {
+      return await this.model.findOne(filter).exec();
+    } catch (error: any) {
+      throw createError("DatabaseError", error.message ?? "failed to find post by filter");
+    }
+  }
+
   async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
     const skip = (page - 1) * limit;
     return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("image").exec();

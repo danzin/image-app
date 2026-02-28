@@ -149,6 +149,7 @@ export function mapPost(rawInput: unknown): IPost {
 		createdAt: new Date(String(raw.createdAt || new Date().toISOString())),
 		isLikedByViewer: typeof raw.isLikedByViewer === "boolean" ? raw.isLikedByViewer : false,
 		isFavoritedByViewer: typeof raw.isFavoritedByViewer === "boolean" ? raw.isFavoritedByViewer : false,
+		isRepostedByViewer: typeof raw.isRepostedByViewer === "boolean" ? raw.isRepostedByViewer : false,
 		canDelete: typeof raw.canDelete === "boolean" ? raw.canDelete : undefined,
 		authorCommunityRole: extractSafeString(raw.authorCommunityRole) as "admin" | "moderator" | "member" | undefined,
 	};

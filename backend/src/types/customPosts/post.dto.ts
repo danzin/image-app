@@ -59,6 +59,7 @@ export interface PostDTO {
 
 	isLikedByViewer?: boolean;
 	isFavoritedByViewer?: boolean;
+	isRepostedByViewer?: boolean;
 	canDelete?: boolean;
 	authorCommunityRole?: "admin" | "moderator" | "member";
 }

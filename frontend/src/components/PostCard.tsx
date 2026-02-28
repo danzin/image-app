@@ -10,7 +10,7 @@ import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { useNavigate } from "react-router-dom";
 import RichText from "./RichText";
-import { useRepostPost, useDeletePost } from "../hooks/posts/usePosts";
+import { useRepostPost, useDeletePost, useUnrepostPost } from "../hooks/posts/usePosts";
 import { useAuth } from "../hooks/context/useAuth";
 import { useTranslation } from "react-i18next";
 import { buildMediaUrl, buildResponsiveCloudinarySrcSet, transformCloudinaryUrl } from "../lib/media";
@@ -39,10 +39,13 @@ const PostCard: React.FC<PostCardProps> = ({ post, prioritizeImage = false }) =>
 	const navigate = useNavigate();
 	const { isLoggedIn, user } = useAuth();
 	const { mutate: triggerRepost } = useRepostPost();
+	const { mutate: triggerUnrepost } = useUnrepostPost();
 	const { mutate: deletePost } = useDeletePost();
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	const isAdmin = user?.isAdmin;
+	const isOwnRepost = post.type === "repost" && post.user?.publicId === user?.publicId;
+	const hasReposted = isOwnRepost || post.isRepostedByViewer;
 
 	const handleDeletePost = (e: React.MouseEvent) => {
 		e.stopPropagation();
@@ -62,7 +65,20 @@ const PostCard: React.FC<PostCardProps> = ({ post, prioritizeImage = false }) =>
 			return;
 		}
 
-		triggerRepost({ postPublicId: post.publicId });
+		// For repost cards, target the original post
+		const targetId = post.type === "repost" && post.repostOf?.publicId
+			? post.repostOf.publicId
+			: post.publicId;
+
+		// Determine if the user has already reposted (own repost card or server flag)
+		const isOwnRepost = post.type === "repost" && post.user?.publicId === user?.publicId;
+		const hasReposted = isOwnRepost || post.isRepostedByViewer;
+
+		if (hasReposted) {
+			triggerUnrepost({ postPublicId: targetId });
+		} else {
+			triggerRepost({ postPublicId: targetId });
+		}
 	};
 
 	const fullImageUrl = buildMediaUrl(post.url) ?? buildMediaUrl(post.image?.url);
@@ -427,7 +443,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, prioritizeImage = false }) =>
 								display: "flex",
 								alignItems: "center",
 								gap: 0.5,
-								color: "text.secondary",
+								color: hasReposted ? "#22c55e" : "text.secondary",
 								"&:hover": { color: "#22c55e" },
 								cursor: "pointer",
 							}}

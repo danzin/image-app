@@ -6,6 +6,7 @@ import { CreatePostCommand } from "@/application/commands/post/createPost/create
 import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
 import { RecordPostViewCommand } from "@/application/commands/post/recordPostView/recordPostView.command";
 import { RepostPostCommand } from "@/application/commands/post/repostPost/repostPost.command";
+import { UnrepostPostCommand } from "@/application/commands/post/unrepostPost/unrepostPost.command";
 import { GetPostByPublicIdQuery } from "@/application/queries/post/getPostByPublicId/getPostByPublicId.query";
 import { GetPostBySlugQuery } from "@/application/queries/post/getPostBySlug/getPostBySlug.query";
 import { GetPostsQuery } from "@/application/queries/post/getPosts/getPosts.query";
@@ -262,6 +263,28 @@ export class PostController {
 			const command = new RepostPostCommand(decodedUser.publicId, sanitizedPublicId, body);
 			const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
 			res.status(201).json(postDTO);
+		} catch (error) {
+			if (error instanceof Error) {
+				next(createError(error.name, error.message));
+			} else {
+				next(createError("UnknownError", "An unknown error occurred"));
+			}
+		}
+	};
+
+	unrepostPost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+		try {
+			const { publicId } = req.params;
+			const { decodedUser } = req;
+
+			if (!decodedUser || !decodedUser.publicId) {
+				throw createError("AuthenticationError", "User authentication required");
+			}
+
+			const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+			const command = new UnrepostPostCommand(decodedUser.publicId, sanitizedPublicId);
+			const result = await this.commandBus.dispatch(command);
+			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
 				next(createError(error.name, error.message));

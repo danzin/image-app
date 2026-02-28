@@ -130,6 +130,7 @@ export class DTOService {
 			createdAt: post.createdAt,
 			isLikedByViewer: post.isLikedByViewer,
 			isFavoritedByViewer: post.isFavoritedByViewer,
+			isRepostedByViewer: post.isRepostedByViewer,
 			user: {
 				publicId: userSnapshot.publicId,
 				handle: userSnapshot.handle,
