@@ -18,6 +18,7 @@ import CameraAltIcon from "@mui/icons-material/CameraAlt";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import GavelIcon from "@mui/icons-material/Gavel";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 
@@ -462,6 +463,17 @@ const Profile: React.FC = () => {
 								</Button>
 								{user?.isAdmin && !isProfileOwner && (
 									<>
+										<Tooltip title="Account Details (Admin)">
+											<IconButton
+												onClick={() => navigate(`/admin/users/${profileData.publicId}`)}
+												sx={{
+													border: `1px solid ${theme.palette.divider}`,
+													color: "info.main",
+												}}
+											>
+												<InfoOutlinedIcon />
+											</IconButton>
+										</Tooltip>
 										<Tooltip title="Ban User (Admin)">
 											<IconButton
 												onClick={handleBanUser}
