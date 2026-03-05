@@ -190,14 +190,23 @@ export class NotificationService {
 
 			// cache miss - fetch from MongoDB
 			redisLogger.info(`Notification Redis MISS, fetching from DB`, { userId });
-			const dbNotifications = await this.notificationRepository.getNotifications(userId, limit, 0);
+			// Fetch up to MAX_NOTIFICATIONS_PER_USER to properly populate the Redis cache,
+			// but only return `limit` items to the caller
+			const allRecentNotifications = await this.notificationRepository.getNotifications(
+				userId,
+				this.MAX_NOTIFICATIONS_PER_USER,
+				0
+			);
 
-			redisLogger.debug(`DB returned notifications`, { userId, count: dbNotifications.length });
+			redisLogger.debug(`DB returned notifications for backfill`, {
+				userId,
+				count: allRecentNotifications.length,
+			});
 
-			// backfill cache in correct order (newest-first)
-			if (dbNotifications.length > 0) {
+			// backfill cache with the full recent window
+			if (allRecentNotifications.length > 0) {
 				this.redisService
-					.backfillNotifications(userId, dbNotifications, this.MAX_NOTIFICATIONS_PER_USER)
+					.backfillNotifications(userId, allRecentNotifications, this.MAX_NOTIFICATIONS_PER_USER)
 					.catch((err: Error) => {
 						errorLogger.error(`Failed to backfill notification cache`, {
 							userId,
@@ -206,7 +215,7 @@ export class NotificationService {
 					});
 			}
 
-			return dbNotifications;
+			return allRecentNotifications.slice(0, limit);
 		} catch (error) {
 			errorLogger.error(`getNotifications error`, {
 				userId,
