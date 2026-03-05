@@ -21,8 +21,8 @@ export const useNotifications = () => {
 		enabled: isVerified,
 		initialPageParam: undefined, // first page has no cursor
 		getNextPageParam: (lastPage) => {
-			// if there are less notifications than requested, there are no more pages
-			if (!lastPage || lastPage.length === 0 || lastPage.length < 20) {
+			// only stop when backend returns empty — a partial page is not the end
+			if (!lastPage || lastPage.length === 0) {
 				return undefined;
 			}
 

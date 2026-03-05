@@ -18,7 +18,7 @@ export class NotificationController {
 
 			// cursor-based pagination support
 			const beforeStr = req.query.before as string | undefined;
-			const before = beforeStr ? parseInt(beforeStr, 10) : undefined;
+			const before = beforeStr ? new Date(beforeStr).getTime() : undefined;
 			const limit = parseInt(req.query.limit as string) || 20;
 
 			// validate pagination params
