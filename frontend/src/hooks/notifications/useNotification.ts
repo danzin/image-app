@@ -33,7 +33,6 @@ export const useNotifications = () => {
 		staleTime: 5 * 60_000, // 5 minutes
 		gcTime: 10 * 60_000, // 10 minutes
 		refetchOnWindowFocus: false,
-		refetchOnMount: false, // dont refetch on component mount if data exists
 	});
 
 	// flatten all pages into single array
