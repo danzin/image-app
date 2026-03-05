@@ -20,8 +20,8 @@ export class CommentRepository extends BaseRepository<IComment> {
 				content: comment.deletedBy === "admin" ? "[removed by moderator]" : "[deleted by user]",
 				postPublicId: comment.postId.publicId,
 				parentId: comment.parentId ? comment.parentId.toString() : null,
-				replyCount: comment.replyCount ?? 0,
-				depth: comment.depth ?? 0,
+				replyCount: comment.replyCount,
+				depth: comment.depth,
 				likesCount: 0,
 				user: null,
 				createdAt: comment.createdAt,
@@ -37,9 +37,9 @@ export class CommentRepository extends BaseRepository<IComment> {
 			content: comment.content,
 			postPublicId: comment.postId.publicId,
 			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount ?? 0,
-			depth: comment.depth ?? 0,
-			likesCount: comment.likesCount ?? 0,
+			replyCount: comment.replyCount,
+			depth: comment.depth,
+			likesCount: comment.likesCount,
 			user: comment.userId
 				? {
 						publicId: comment.userId.publicId,
@@ -150,7 +150,6 @@ export class CommentRepository extends BaseRepository<IComment> {
 				{
 					content,
 					isEdited: true,
-					updatedAt: new Date(),
 				},
 				{ new: true, session },
 			)

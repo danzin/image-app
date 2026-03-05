@@ -46,7 +46,7 @@ export const useFollowUser = () => {
 				}
 				queryClient.setQueryData<PublicUserDTO>(key, {
 					...data,
-					followerCount: Math.max(0, (data.followerCount ?? 0) + delta),
+					followerCount: Math.max(0, data.followerCount + delta),
 				});
 			});
 
@@ -59,7 +59,7 @@ export const useFollowUser = () => {
 						...page,
 						profile: {
 							...page.profile,
-							followerCount: Math.max(0, (page.profile.followerCount ?? 0) + delta),
+							followerCount: Math.max(0, page.profile.followerCount + delta),
 						},
 					};
 				});
@@ -72,7 +72,7 @@ export const useFollowUser = () => {
 			if (previousCurrentUser) {
 				queryClient.setQueryData<AuthenticatedUserDTO | AdminUserDTO>(["currentUser"], {
 					...previousCurrentUser,
-					followingCount: Math.max(0, (previousCurrentUser.followingCount ?? 0) + delta),
+					followingCount: Math.max(0, previousCurrentUser.followingCount + delta),
 				});
 			}
 
@@ -89,7 +89,7 @@ export const useFollowUser = () => {
 				} else if (delta < 0) {
 					const suggestions = data.suggestions.map((suggestion) =>
 						suggestion.publicId === publicId
-							? { ...suggestion, followerCount: Math.max(0, (suggestion.followerCount ?? 0) + delta) }
+							? { ...suggestion, followerCount: Math.max(0, suggestion.followerCount + delta) }
 							: suggestion
 					);
 					queryClient.setQueryData<WhoToFollowResponse>(key, {

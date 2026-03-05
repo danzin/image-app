@@ -254,8 +254,8 @@ export class DTOService {
 				memberCount: options?.memberCount ?? stats.memberCount ?? 0,
 				postCount: stats.postCount ?? 0,
 			},
-			createdAt: source?.createdAt ?? new Date(0),
-			updatedAt: source?.updatedAt ?? new Date(0),
+			createdAt: source.createdAt,
+			updatedAt: source.updatedAt,
 			isMember: options?.isMember,
 			isCreator: options?.isCreator,
 			isAdmin: options?.isAdmin,
@@ -311,7 +311,7 @@ export class DTOService {
 		return {
 			...this.toPublicUserDTO(user),
 			email: user.email,
-			isEmailVerified: user.isEmailVerified ?? true,
+			isEmailVerified: user.isEmailVerified ?? false,
 		};
 	}
 
@@ -321,7 +321,7 @@ export class DTOService {
 			handle: user.handle,
 			username: user.username,
 			email: user.email,
-			isEmailVerified: user.isEmailVerified ?? true,
+			isEmailVerified: user.isEmailVerified ?? false,
 			createdAt: user.createdAt,
 			registrationIp: user.registrationIp,
 		};
@@ -336,7 +336,7 @@ export class DTOService {
 		return {
 			...this.toPublicUserDTO(user),
 			email: user.email,
-			isEmailVerified: user.isEmailVerified ?? true,
+			isEmailVerified: user.isEmailVerified ?? false,
 			isAdmin: user.isAdmin,
 			isBanned: user.isBanned,
 			bannedAt: user.bannedAt,

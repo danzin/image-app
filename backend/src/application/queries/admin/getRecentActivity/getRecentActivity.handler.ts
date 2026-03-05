@@ -41,7 +41,7 @@ export class GetRecentActivityQueryHandler
 				action: activity.actionType || "unknown",
 				targetType: this.getTargetType(activity.actionType),
 				targetId: activity.targetId?.toString() || "",
-				timestamp: activity.timestamp || new Date(),
+				timestamp: activity.timestamp,
 			};
 		});
 
