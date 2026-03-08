@@ -11,6 +11,8 @@ import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
+import { IPost, PopulatedPostUser, PopulatedPostTag } from "@/types";
+import mongoose from "mongoose";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
@@ -55,7 +57,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 
 			// Check if user owns the comment or the post
 			const isCommentOwner = comment.userId && comment.userId.toString() === user.id;
-			const { ownerInternalId: postOwnerInternalId } = this.extractPostOwnerInfo(effectivePost as any);
+			const { ownerInternalId: postOwnerInternalId } = this.extractPostOwnerInfo(effectivePost);
 			const postOwnerMatch = postOwnerInternalId === user.id;
 
 			if (!isCommentOwner && !postOwnerMatch) {
@@ -63,17 +65,19 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			}
 
 			// Extract post data for events
-			postTags = Array.isArray((effectivePost as any).tags)
-				? (effectivePost as any).tags.map((t: any) => t.tag ?? t)
+			postTags = Array.isArray(effectivePost.tags)
+				? (effectivePost.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[]).map(
+						(t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : t.toString())
+					)
 				: [];
-			const { ownerPublicId: postOwnerPublicId } = this.extractPostOwnerInfo(effectivePost as any);
+			const { ownerPublicId: postOwnerPublicId } = this.extractPostOwnerInfo(effectivePost);
 			if (!postOwnerPublicId && postOwnerInternalId) {
 				const ownerDoc = await this.userRepository.findById(postOwnerInternalId);
 				postOwnerId = ownerDoc?.publicId ?? "";
 			} else {
 				postOwnerId = postOwnerPublicId ?? "";
 			}
-			postPublicId = (effectivePost as any).publicId ?? comment.postId.toString();
+			postPublicId = effectivePost.publicId ?? comment.postId.toString();
 
 			// Execute the comment deletion within transaction
 			await this.unitOfWork.executeInTransaction(async (session) => {
@@ -103,22 +107,22 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 		}
 	}
 
-	private extractPostOwnerInfo(post: any): { ownerInternalId: string; ownerPublicId?: string } {
-		const rawUser = post?.user;
-		const authorSnapshot = post?.author;
+	private extractPostOwnerInfo(post: IPost): { ownerInternalId: string; ownerPublicId?: string } {
+		const rawUser = post.user as mongoose.Types.ObjectId | PopulatedPostUser;
+		const authorSnapshot = post.author;
 
 		let ownerInternalId = "";
-		if (rawUser && typeof rawUser === "object" && "_id" in rawUser) {
-			ownerInternalId = rawUser._id?.toString?.() ?? "";
+		if (typeof rawUser === "object" && "_id" in rawUser) {
+			ownerInternalId = (rawUser as PopulatedPostUser)._id?.toString() ?? "";
 		} else if (authorSnapshot?._id) {
 			ownerInternalId = authorSnapshot._id.toString();
-		} else if (typeof rawUser?.toString === "function") {
+		} else if (rawUser) {
 			ownerInternalId = rawUser.toString();
 		}
 
 		const ownerPublicId =
-			typeof rawUser === "object" && rawUser !== null && "publicId" in rawUser
-				? (rawUser as any).publicId
+			typeof rawUser === "object" && "publicId" in rawUser
+				? (rawUser as PopulatedPostUser).publicId
 				: authorSnapshot?.publicId;
 
 		return { ownerInternalId, ownerPublicId };

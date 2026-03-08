@@ -1,6 +1,7 @@
 import { injectable } from "tsyringe";
 import { IEventHandler } from "../interfaces/event-handler.interface";
 import { IEvent } from "../interfaces/event.interface";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class EventBus {
@@ -60,7 +61,7 @@ export class EventBus {
     await Promise.all(
       this.transactionalQueue.map(({ event, handler }) => {
         handler.handle(event).catch((err) => {
-          console.error(`Transactional event ffailed: ${err.message}`);
+          logger.error(`Transactional event failed: ${err.message}`, { err });
         });
       })
     );

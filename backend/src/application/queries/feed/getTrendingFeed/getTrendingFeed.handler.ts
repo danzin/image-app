@@ -48,7 +48,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
           totalPages: 0,
           nextCursor: result.nextCursor ? `new_phase:${result.nextCursor}` : undefined,
           hasMore: result.hasMore
-        } as any;
+        };
       }
 
 
@@ -61,7 +61,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
           // Re-sort to match Redis order
           const postMap = new Map(posts.map(p => [p.publicId, p]));
-          const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter(Boolean) as any[];
+          const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter((p): p is IPost => p !== undefined);
 
           const transformedPosts = this.transformPosts(orderedPosts);
           const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
@@ -74,7 +74,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
             totalPages: 0,
             nextCursor: redisResult.nextCursor,
             hasMore: redisResult.hasMore
-          } as any;
+          };
         }
       } catch (err) {
         redisLogger.warn("Failed to get trending feed from Redis, falling back to DB", { error: err });
@@ -132,7 +132,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         totalPages: 0,
         nextCursor,
         hasMore
-      } as any;
+      };
 
     } catch (error) {
       redisLogger.error("Trending feed error", {
@@ -145,7 +145,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
   private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
     return posts.map((post) => {
       const plainPost =
-        typeof (post as any).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
+        typeof (post as IPost).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
       const userDoc = this.getUserSnapshot(plainPost);
       const imageDoc = plainPost.image as IImage | Record<string, unknown> | undefined;
       const repostOfDoc = plainPost.repostOf as IPost | Record<string, unknown> | undefined;
@@ -182,9 +182,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         },
         image: imageDoc
           ? {
-            publicId: (imageDoc as any).publicId,
-            url: (imageDoc as any).url,
-            slug: (imageDoc as any).slug,
+            publicId: (imageDoc as IImage).publicId,
+            url: (imageDoc as IImage).url,
+            slug: (imageDoc as IImage).slug,
           }
           : undefined,
         repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
@@ -255,6 +255,6 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
       };
     }
     const author = "author" in post ? (post as Record<string, unknown>).author : undefined;
-    return (author as any) ?? {};
+    return (author as { publicId?: string; handle?: string; username?: string; avatar?: string; avatarUrl?: string }) ?? {};
   }
 }

@@ -12,6 +12,7 @@ import { RedisService } from "@/services/redis.service";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { RetryPresets, RetryService } from "@/services/retry.service";
 import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 import { UserCoverChangedEvent } from "@/application/events/user/user-interaction.event";
 
 @injectable()
@@ -48,14 +49,13 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			newCoverUrl = uploadResult.url;
 			newCoverPublicId = uploadResult.publicId;
 		} catch (error) {
-			console.error("Cover upload failed:", error);
 			// Clean up temp file if upload fails
 			if (fs.existsSync(command.filePath)) {
 				fs.unlink(command.filePath, (err) => {
-					if (err) console.error("Failed to delete temp file:", err);
+					if (err) logger.error("Failed to delete temp file", { err });
 				});
 			}
-			throw createError("UploadError", "Failed to upload cover");
+			throw createError("UploadError", error instanceof Error ? error.message : "Failed to upload cover");
 		}
 
 		try {
@@ -82,7 +82,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			}
 
 			const postCount = await this.postReadRepository.countDocuments({ user: updatedUser.id });
-			(updatedUser as any).postCount = postCount;
+			updatedUser.postCount = postCount;
 
 			return this.dtoService.toPublicDTO(updatedUser);
 		} catch (error) {
@@ -90,21 +90,18 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 				try {
 					await this.imageStorageService.deleteImage(newCoverPublicId);
 				} catch (deleteError) {
-					console.error("failed to clean up new cover", deleteError);
+					logger.error("failed to clean up new cover", { error: deleteError });
 				}
 			}
 
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message,
-				);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
 		} finally {
 			if (command.filePath && fs.existsSync(command.filePath)) {
 				fs.unlink(command.filePath, (err) => {
-					if (err) console.error("Failed to delete temp file:", err);
+					if (err) logger.error("Failed to delete temp file", { err });
 				});
 			}
 		}
@@ -121,7 +118,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 				RetryPresets.externalApi(),
 			);
 		} catch (deleteError) {
-			console.warn(`failed to delete old cover: ${oldCoverUrl}`, deleteError);
+			logger.warn(`failed to delete old cover: ${oldCoverUrl}`, { error: deleteError });
 		}
 	}
 }

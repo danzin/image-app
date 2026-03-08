@@ -77,8 +77,7 @@ export class GetFollowersQueryHandler implements IQueryHandler<GetFollowersQuery
 				totalPages,
 			};
 		} catch (error) {
-			console.error("Error in GetFollowersQueryHandler:", error);
-			if (error instanceof Error && error.name !== "Error") {
+			if (error instanceof Error) {
 				throw error;
 			}
 			throw createError("UnknownError", "Failed to get followers");

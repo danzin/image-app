@@ -1,7 +1,7 @@
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { LikeActionCommand } from "./likeAction.command";
-import { IPost } from "@/types/index";
+import { IPost, PopulatedPostUser, PopulatedPostTag } from "@/types/index";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
@@ -14,7 +14,7 @@ import { NotificationRequestedHandler } from "@/application/events/notification/
 import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { FeedService } from "@/services/feed.service";
-import { ClientSession } from "mongoose";
+import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 @injectable()
@@ -52,8 +52,10 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			if (!existingPost) {
 				throw createError("PathError", `Post ${command.postId} not found`);
 			}
-			postTags = Array.isArray((existingPost as any).tags)
-				? (existingPost as any).tags.map((t: any) => t.tag ?? t)
+			postTags = Array.isArray(existingPost.tags)
+				? (existingPost.tags as (Types.ObjectId | PopulatedPostTag)[]).map(
+						(t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : t.toString())
+					)
 				: [];
 
 			// Execute the like/unlike operation within transaction
@@ -73,9 +75,14 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 					new UserInteractedWithPostEvent(
 						command.userId,
 						isLikeAction ? "like" : "unlike",
-						(existingPost as any).publicId ?? command.postId,
+						existingPost!.publicId ?? command.postId,
 						postTags,
-						(existingPost as any).user?.publicId ?? (existingPost as any).user?.toString?.() ?? ""
+						(() => {
+							const owner = existingPost!.user as Types.ObjectId | PopulatedPostUser;
+							return (typeof owner === "object" && "publicId" in owner)
+								? (owner as PopulatedPostUser).publicId ?? ""
+								: owner?.toString() ?? "";
+						})()
 					),
 					this.feedInteractionHandler
 				);
@@ -87,14 +94,13 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 				throw createError("PathError", `Post ${command.postId} not found after update`);
 			}
 			// Update per-post meta cache asynchronously as not to block respons
-			if ((updatedPost as any).publicId) {
+			if (updatedPost.publicId) {
 				this.feedService
-					.updatePostLikeMeta((updatedPost as any).publicId, (updatedPost as any).likesCount ?? 0)
+					.updatePostLikeMeta(updatedPost.publicId, updatedPost.likesCount ?? 0)
 					.catch((e) => console.warn("updatePostLikeMeta failed", e));
 			}
 			return updatedPost;
 		} catch (error) {
-			console.error(error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";
 			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
 			throw createError(errorName, errorMessage, {
@@ -122,21 +128,13 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 
 		await this.userActionRepository.logAction(command.userId, "like", command.postId, session);
 
-		const postOwner = (post as any).user;
-		const postAuthor = (post as any).author;
+		const postOwner = post.user as Types.ObjectId | PopulatedPostUser;
 		let postOwnerPublicId = "";
 
 		logger.info(`[LikeAction] Resolving post owner for post ${command.postId}. postOwner raw:`, postOwner);
-		if (postAuthor) {
-			logger.info(`[LikeAction] post.author found:`, postAuthor);
-		}
 
-		// author.publicId if available since its embedded
-		if (postAuthor && postAuthor.publicId) {
-			postOwnerPublicId = postAuthor.publicId;
-			logger.info(`[LikeAction] Resolved owner from post.author.publicId: ${postOwnerPublicId}`);
-		} else if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
-			postOwnerPublicId = (postOwner as any).publicId.toString();
+		if (typeof postOwner === "object" && "publicId" in postOwner) {
+			postOwnerPublicId = (postOwner as PopulatedPostUser).publicId?.toString() ?? "";
 			logger.info(`[LikeAction] Resolved owner from populated object: ${postOwnerPublicId}`);
 		} else if (postOwner) {
 			// Resolve user publicId from ObjectId
@@ -145,7 +143,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 				postOwnerPublicId = ownerUser.publicId;
 				logger.info(`[LikeAction] Resolved owner from DB lookup: ${postOwnerPublicId}`);
 			} else {
-				console.warn(`[LikeAction] Could not find user for ObjectId: ${postOwner}`);
+				logger.warn(`[LikeAction] Could not find user for ObjectId: ${postOwner}`);
 			}
 		}
 
@@ -167,7 +165,7 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 					actorUsername: actorUser?.username,
 					actorHandle: actorUser?.handle,
 					actorAvatar: actorUser?.avatar,
-					targetId: (post as any).publicId ?? command.postId,
+					targetId: post.publicId ?? command.postId,
 					targetType: "post",
 					targetPreview: postPreview,
 				}),

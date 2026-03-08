@@ -4,6 +4,7 @@ import { IImage } from "@/types";
 import { createError, isNamedError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
+import { escapeRegex } from "@/utils/sanitizers";
 
 @injectable()
 export class ImageRepository extends BaseRepository<IImage> {
@@ -24,7 +25,6 @@ export class ImageRepository extends BaseRepository<IImage> {
 				return null;
 			}
 
-			const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 			const hasDotOrSlash = publicId.includes(".") || publicId.includes("/");
 			const filter = hasDotOrSlash
 				? { publicId }

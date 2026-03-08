@@ -75,8 +75,10 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 				})
 				.exec();
 		} catch (error) {
-			console.error("Error getting users with tag preferences:", error);
-			return [];
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
+			}
+			throw createError("UnknownError", String(error));
 		}
 	}
 

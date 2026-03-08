@@ -64,16 +64,14 @@ export class KickMemberCommandHandler implements ICommandHandler<KickMemberComma
 					$pull: {
 						joinedCommunities: { _id: communityId },
 					},
-				} as any,
+				},
 				session
 			);
 
 			// 5. Decrement Member Count
-			await this.communityRepository.update(
-				communityId.toString(),
-				{
-					$inc: { "stats.memberCount": -1 },
-				} as any,
+			await this.communityRepository.findOneAndUpdate(
+				{ _id: communityId },
+				{ $inc: { "stats.memberCount": -1 } },
 				session
 			);
 		});

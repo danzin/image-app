@@ -1,7 +1,7 @@
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { inject, injectable } from "tsyringe";
 import { LikeActionByPublicIdCommand } from "./likeActionByPublicId.command";
-import { IPost, PostDTO } from "@/types/index";
+import { IPost, PostDTO, PopulatedPostUser, PopulatedPostTag } from "@/types/index";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
@@ -14,7 +14,7 @@ import { NotificationRequestedHandler } from "@/application/events/notification/
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
-import { ClientSession } from "mongoose";
+import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 
@@ -50,19 +50,19 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				throw createError("PathError", `User with public ID ${command.userPublicId} not found`);
 			}
 			// Get MongoDB _id from user document - handle both raw and transformed
-			userMongoId = (user as any)._id ? (user as any)._id.toString() : (user as any).id?.toString();
+			userMongoId = user._id?.toString() ?? user.id?.toString();
 
 			if (!userMongoId) {
 				throw createError("PathError", `User internal ID not found for public ID ${command.userPublicId}`);
 			}
 
 			logger.info("[LIKEACTIONHANDLER] user keys:", Object.keys(user));
-			logger.info("[LIKEACTIONHANDLER] user._id:", (user as any)._id);
-			logger.info("[LIKEACTIONHANDLER] user.username:", (user as any).username);
+			logger.info("[LIKEACTIONHANDLER] user._id:", user._id);
+			logger.info("[LIKEACTIONHANDLER] user.username:", user.username);
 
-			const actorUsername = (user as any).username || (user as any).name || "Unknown";
-			const actorHandle = (user as any).handle;
-			const actorAvatar = (user as any).avatar;
+			const actorUsername = user.username || "Unknown";
+			const actorHandle = user.handle;
+			const actorAvatar = user.avatar;
 
 			existingPost = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!existingPost) {
@@ -70,27 +70,27 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 			}
 
 			logger.info("[LIKEACTIONHANDLER] existingPost keys:", Object.keys(existingPost));
-			logger.info("[LIKEACTIONHANDLER] existingPost._id:", (existingPost as any)._id);
-			logger.info("[LIKEACTIONHANDLER] existingPost.id:", (existingPost as any).id);
+			logger.info("[LIKEACTIONHANDLER] existingPost._id:", existingPost._id);
+			logger.info("[LIKEACTIONHANDLER] existingPost.id:", existingPost.id);
 
-			postTags = Array.isArray((existingPost as any).tags)
-				? (existingPost as any).tags.map((t: any) => t.tag ?? t)
+			postTags = Array.isArray(existingPost.tags)
+				? (existingPost.tags as (Types.ObjectId | PopulatedPostTag)[]).map(
+						(t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : t.toString())
+					)
 				: [];
 
 			// Get _id from the document to handle both Mongoose document and plain object
-			const postInternalId = (existingPost as any)._id
-				? (existingPost as any)._id.toString()
-				: (existingPost as any).id?.toString() || null;
+			const postInternalId = existingPost._id?.toString() ?? existingPost.id?.toString() ?? null;
 
 			if (!postInternalId) {
-				console.error("[LIKEACTIONHANDLER] Post object:", existingPost);
+				logger.error("[LIKEACTIONHANDLER] Post object:", { post: existingPost });
 				throw createError("PathError", `Post internal ID not found for public ID ${command.postPublicId}`);
 			}
 
-			const postOwner = (existingPost as any).user;
+			const postOwner = existingPost.user as Types.ObjectId | PopulatedPostUser;
 			let postOwnerPublicId = "";
-			if (postOwner && typeof postOwner === "object" && "publicId" in postOwner) {
-				postOwnerPublicId = (postOwner as any).publicId;
+			if (typeof postOwner === "object" && "publicId" in postOwner) {
+				postOwnerPublicId = (postOwner as PopulatedPostUser).publicId ?? "";
 			} else if (postOwner) {
 				const ownerUser = await this.userReadRepository.findById(postOwner.toString());
 				if (ownerUser) {
@@ -126,7 +126,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 
 			return this.dtoService.toPostDTO(updatedPost);
 		} catch (error) {
-			console.error(error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";
 			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
 			throw createError(errorName, errorMessage, {
@@ -147,7 +146,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		postOwnerPublicId: string,
 		session: ClientSession
 	) {
-		const postId = (post as any)._id.toString();
+		const postId = post._id?.toString();
 		const added = await this.postLikeRepository.addLike(postId, userMongoId, session);
 		if (!added) {
 			throw createError("ConflictError", "like already exists for user and post");
@@ -155,7 +154,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 
 		await this.postWriteRepository.updateLikeCount(postId, 1, session);
 
-		await this.userActionRepository.logAction(userMongoId, "like", (post as any)._id.toString(), session);
+		await this.userActionRepository.logAction(userMongoId, "like", post._id?.toString(), session);
 
 		if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
 			const postPreview = post.body

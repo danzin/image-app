@@ -80,7 +80,6 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			);
 			return result;
 		} catch (error) {
-			console.error("[GetTrendingTagsQuery] Error:", error);
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			}

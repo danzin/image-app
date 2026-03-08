@@ -158,7 +158,7 @@ describe("UnrepostPostCommandHandler", () => {
 		mockPostReadRepository.findByPublicId.resolves(targetPost);
 		mockPostReadRepository.findOneByFilter.resolves(null);
 
-		await handler.execute(command).catch(() => {});
+		await expect(handler.execute(command)).to.be.rejected;
 
 		expect(mockPostReadRepository.findOneByFilter.calledOnce).to.be.true;
 		const filter = mockPostReadRepository.findOneByFilter.firstCall.args[0];

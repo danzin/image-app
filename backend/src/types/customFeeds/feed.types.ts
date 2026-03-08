@@ -36,6 +36,9 @@ export interface PaginatedFeedResult {
 	limit: number;
 	total: number;
 	totalPages: number;
+	nextCursor?: string;
+	prevCursor?: string;
+	hasMore?: boolean;
 }
 
 export interface PostMeta {

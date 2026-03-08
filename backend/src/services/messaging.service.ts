@@ -26,6 +26,7 @@ import { MessageStatusUpdatedHandler } from "@/application/events/message/messag
 import { MessageAttachmentsDeletedHandler } from "@/application/handlers/message/MessageAttachmentsDeletedHandler";
 import { NotificationService } from "./notification.service";
 import { sanitizeTextInput } from "@/utils/sanitizers";
+import { logger } from "@/utils/winston";
 import { isUserViewingConversation } from "../server/socketServer";
 import { IImageStorageService } from "@/types";
 
@@ -530,19 +531,14 @@ export class MessagingService {
 				message.attachments
 					?.map((att) => {
 						const url = att.url;
-						try {
-							// Attempt Cloudinary extraction
-							const cloudinaryMatch = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
-							if (cloudinaryMatch) return cloudinaryMatch[1];
+						const cloudinaryMatch = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[^.]+$/);
+						if (cloudinaryMatch) return cloudinaryMatch[1];
 
-							// Attempt LocalStorage extraction
-							const localStorageMatch = url.match(/\/uploads\/(.+)$/);
-							if (localStorageMatch) return localStorageMatch[1];
+						const localStorageMatch = url.match(/\/uploads\/(.+)$/);
+						if (localStorageMatch) return localStorageMatch[1];
 
-							return null;
-						} catch (e) {
-							return null;
-						}
+						logger.warn("[MessagingService] Could not extract publicId from attachment URL, file may remain in storage", { url });
+						return null;
 					})
 					.filter((id): id is string => !!id) || [];
 

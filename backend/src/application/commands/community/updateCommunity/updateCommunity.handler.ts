@@ -8,6 +8,8 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { UserRepository } from "@/repositories/user.repository";
 import { ICommunity, IImageStorageService } from "@/types";
 import { createError } from "@/utils/errors";
+import { generateSlug } from "@/utils/helpers";
+import { logger } from "@/utils/winston";
 
 @injectable()
 export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateCommunityCommand, ICommunity> {
@@ -45,10 +47,7 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 
 		if (updates.name) {
 			updateData.name = updates.name;
-			const newSlug = updates.name
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, "-")
-				.replace(/(^-|-$)+/g, "");
+			const newSlug = generateSlug(updates.name);
 
 			// check slug uniqueness if changed
 			const existing = await this.communityRepository.findBySlug(newSlug);
@@ -67,11 +66,11 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 				);
 				updateData.avatar = uploadResult.url;
 			} catch (error) {
-				console.error("Failed to upload community avatar:", error);
+				logger.error("Failed to upload community avatar", { error });
 			} finally {
 				if (fs.existsSync(updates.avatarPath)) {
 					fs.unlink(updates.avatarPath, (err) => {
-						if (err) console.error("Failed to delete temp avatar file:", err);
+						if (err) logger.error("Failed to delete temp avatar file", { err });
 					});
 				}
 			}
@@ -86,11 +85,11 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 				);
 				updateData.coverPhoto = uploadResult.url;
 			} catch (error) {
-				console.error("Failed to upload community cover photo:", error);
+				logger.error("Failed to upload community cover photo", { error });
 			} finally {
 				if (fs.existsSync(updates.coverPhotoPath)) {
 					fs.unlink(updates.coverPhotoPath, (err) => {
-						if (err) console.error("Failed to delete temp cover photo file:", err);
+						if (err) logger.error("Failed to delete temp cover photo file", { err });
 					});
 				}
 			}

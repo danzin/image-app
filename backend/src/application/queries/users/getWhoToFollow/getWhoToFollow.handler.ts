@@ -90,7 +90,6 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQ
 			logger.info(`[WhoToFollow] Generated ${suggestions.length} suggestions for user ${query.userPublicId}`);
 			return result;
 		} catch (error) {
-			console.error("Error in GetWhoToFollowQueryHandler:", error);
 			if (error instanceof Error) {
 				throw createError(error.name, error.message);
 			}

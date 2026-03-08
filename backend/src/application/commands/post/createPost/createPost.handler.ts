@@ -20,7 +20,8 @@ import { PostUploadedEvent } from "@/application/events/post/post.event";
 import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
 import { createError } from "@/utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "@/utils/sanitizers";
-import { AttachmentSummary, IPost, PostDTO } from "@/types";
+import { generateSlug } from "@/utils/helpers";
+import { AttachmentSummary, IPost, IUser, PostDTO } from "@/types";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
@@ -94,7 +95,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				const normalizedBody = this.normalizeBody(command.body);
 				const tagNames = this.tagService.collectTagNames(normalizedBody, command.tags);
 				const tagDocs = await this.tagService.ensureTagsExist(tagNames, session);
-				const tagIds = tagDocs.map((tag) => new mongoose.Types.ObjectId((tag as any)._id));
+				const tagIds = tagDocs.map((tag) => new mongoose.Types.ObjectId(tag._id));
 
 				if (tagIds.length > 0) {
 					await this.tagService.incrementUsage(tagIds, session);
@@ -196,7 +197,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		}
 	}
 
-	private async validateUser(publicId: string): Promise<any> {
+	private async validateUser(publicId: string): Promise<IUser> {
 		const user = await this.userReadRepository.findByPublicId(publicId);
 		if (!user) {
 			throw new UserNotFoundError();
@@ -213,7 +214,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 			throw createError("NotFoundError", "Community not found");
 		}
 
-		const communityId = (community as any)._id as Types.ObjectId;
+		const communityId = community._id as Types.ObjectId;
 		const membership = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
 
 		if (!membership) {
@@ -271,7 +272,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 	}
 
 	private async createPost(
-		user: any,
+		user: IUser,
 		internalUserId: mongoose.Types.ObjectId,
 		normalizedBody: string,
 		tagIds: mongoose.Types.ObjectId[],
@@ -279,7 +280,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		session: ClientSession,
 		communityId: Types.ObjectId | null = null,
 	): Promise<IPost> {
-		const postSlug = imageSummary.slug ?? this.generatePostSlug(normalizedBody);
+		const postSlug = imageSummary.slug ?? `${generateSlug(normalizedBody, 60) || "post"}-${Date.now()}`;
 		const postPublicId = uuidv4();
 
 				const payload: Partial<IPost> = {
@@ -290,8 +291,8 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 						publicId: user.publicId,
 						handle: user.handle,
 						username: user.username,
-						avatarUrl: user.avatar ?? user.profile?.avatarUrl ?? "",
-						displayName: user.profile?.displayName ?? user.username,
+						avatarUrl: user.avatar ?? "",
+						displayName: user.username,
 					},
 			body: normalizedBody,
 			slug: postSlug,
@@ -314,17 +315,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		return await this.postWriteRepository.create(safePayload as unknown as IPost, session);
 	}
 
-	private generatePostSlug(body: string): string {
-		const base = body
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/(^-|-$)/g, "")
-			.slice(0, 60);
-		const safeBase = base || "post";
-		return `${safeBase}-${Date.now()}`;
-	}
-
-	private async finalizePost(result: { post: IPost; user: any; tagNames: string[] }): Promise<PostDTO> {
+	private async finalizePost(result: { post: IPost; user: IUser; tagNames: string[] }): Promise<PostDTO> {
 		const hydratedPost = await this.postReadRepository.findByPublicId(result.post.publicId);
 		if (!hydratedPost) {
 			throw new PostNotFoundError("Post not found after creation");

@@ -46,7 +46,7 @@ export class GetAllCommunitiesQueryHandler
 		if (viewerPublicId) {
 			const viewer = await this.userReadRepository.findByPublicId(viewerPublicId);
 			if (viewer) {
-				viewerId = (viewer as any)._id?.toString?.() ?? "";
+				viewerId = viewer._id?.toString() ?? viewer.id?.toString() ?? "";
 				if (viewerId) {
 					const memberships = await this.communityMemberRepository.findByUserAndCommunityIds(viewerId, communityIds);
 					membershipSet = new Set(memberships.map((member) => member.communityId.toString()));

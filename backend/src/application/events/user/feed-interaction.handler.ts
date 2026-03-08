@@ -52,8 +52,8 @@ export class FeedInteractionHandler implements IEventHandler<UserInteractedWithP
 			try {
 				logger.info(`event.postId in invalidateRelevantFeeds: ${event.postId}`);
 				const post = await this.postRepository.findByPublicId(event.postId);
-				if (post && (post as any).publicId) {
-					await this.feedService.updatePostLikeMeta((post as any).publicId, (post as any).likesCount || 0);
+				if (post && post.publicId) {
+					await this.feedService.updatePostLikeMeta(post.publicId, post.likesCount || 0);
 				}
 			} catch (e) {
 				console.warn("Failed to update post like meta during like/unlike event", e);

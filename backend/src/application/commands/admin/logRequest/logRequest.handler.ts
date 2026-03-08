@@ -11,27 +11,32 @@ export class LogRequestCommandHandler implements ICommandHandler<LogRequestComma
 		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
 	) {}
 
-	async execute(command: LogRequestCommand): Promise<void> {
-		const { method, route, ip, statusCode, responseTimeMs, userId, userAgent } = command.payload;
+async execute(command: LogRequestCommand): Promise<void> {
+    const { method, route, ip, statusCode, responseTimeMs, userId, userAgent } = command.payload;
 
-		await Promise.all([
-			this.requestLogRepository.create({
-				timestamp: new Date(),
-				metadata: {
-					method,
-					route,
-					ip,
-					statusCode,
-					responseTimeMs,
-					userId,
-					userAgent,
-				},
-			} as any),
-			userId
-				? this.userWriteRepository.updateByPublicId(userId, {
-						$set: { lastActive: new Date(), lastIp: ip },
-					})
-				: Promise.resolve(),
-		]);
-	}
+    const tasks: Promise<any>[] = [
+      this.requestLogRepository.create({
+        timestamp: new Date(),
+        metadata: {
+          method,
+          route,
+          ip,
+          statusCode,
+          responseTimeMs,
+          userId,
+          userAgent,
+        },
+      }),
+    ];
+
+    if (userId) {
+      tasks.push(
+        this.userWriteRepository.updateByPublicId(userId, {
+          $set: { lastActive: new Date(), lastIp: ip },
+        })
+      );
+    }
+
+    await Promise.allSettled(tasks);
+  }
 }
