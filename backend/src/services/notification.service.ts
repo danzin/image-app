@@ -278,11 +278,9 @@ export class NotificationService {
 			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);
 
 			if (modifiedCount > 0) {
-				// update all notification hashes in Redis
-				// fetch the list and update each one
-				const notificationIds = await this.redisService.get(`notifications:user:${userPublicId}`);
-				if (Array.isArray(notificationIds)) {
-					await Promise.all(notificationIds.map((id: string) => this.redisService.markNotificationRead(id)));
+				const notificationIds = await this.redisService.getUserNotificationIds(userPublicId);
+				if (notificationIds.length > 0) {
+					await this.redisService.markNotificationsRead(notificationIds);
 				}
 
 				// emit WebSocket event

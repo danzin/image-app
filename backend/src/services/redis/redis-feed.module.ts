@@ -191,6 +191,10 @@ export class RedisFeedModule {
 		return await this.client.zAdd(key, { score, value: member });
 	}
 
+	async zrem(key: string, member: string): Promise<number> {
+		return await this.client.zRem(key, member);
+	}
+
 	async zrangeByScore(key: string, min: string, max: string): Promise<string[]> {
 		return await this.client.zRangeByScore(key, min, max);
 	}

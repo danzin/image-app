@@ -123,8 +123,24 @@ export class RedisNotificationModule {
 		}
 	}
 
+	async getUserNotificationIds(userId: string, start = 0, end = -1): Promise<string[]> {
+		return this.client.lRange(`notifications:user:${userId}`, start, end);
+	}
+
 	async markNotificationRead(notificationId: string): Promise<void> {
 		await this.client.hSet(`notification:${notificationId}`, "isRead", "1");
+	}
+
+	async markNotificationsRead(notificationIds: string[]): Promise<void> {
+		if (notificationIds.length === 0) {
+			return;
+		}
+
+		const pipeline = this.client.multi();
+		for (const id of notificationIds) {
+			pipeline.hSet(`notification:${id}`, "isRead", "1");
+		}
+		await pipeline.exec();
 	}
 
 	async getUnreadNotificationCount(userId: string): Promise<number> {
@@ -139,7 +155,7 @@ export class RedisNotificationModule {
 		const results = await pipeline.exec();
 
 		for (const result of results) {
-			if (result !== "1") unreadCount++;
+			if (result === "0") unreadCount++;
 		}
 
 		return unreadCount;

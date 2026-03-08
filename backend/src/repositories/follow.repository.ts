@@ -1,5 +1,5 @@
 import mongoose, { Model, ClientSession } from "mongoose";
-import { createError } from "@/utils/errors";
+import { createError, isErrorWithStatusCode } from "@/utils/errors";
 import { IFollow } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
@@ -65,6 +65,9 @@ export class FollowRepository extends BaseRepository<IFollow> {
 
 			return !!existingFollow;
 		} catch (error) {
+			if (isErrorWithStatusCode(error)) {
+				throw error;
+			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
@@ -125,6 +128,9 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			const follow = await this.model.create([{ followerId, followeeId }], { session });
 			return follow[0];
 		} catch (error) {
+			if (isErrorWithStatusCode(error)) {
+				throw error;
+			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
 	}
@@ -184,6 +190,9 @@ export class FollowRepository extends BaseRepository<IFollow> {
 			// Remove the follow relationship, optionally within a transaction
 			await this.model.deleteOne({ followerId, followeeId }, { session });
 		} catch (error) {
+			if (isErrorWithStatusCode(error)) {
+				throw error;
+			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
 	}

@@ -490,8 +490,16 @@ export class RedisService {
 		return this.notificationModule.getUserNotifications(userId, page, limit);
 	}
 
+	async getUserNotificationIds(userId: string, start = 0, end = -1): Promise<string[]> {
+		return this.notificationModule.getUserNotificationIds(userId, start, end);
+	}
+
 	async markNotificationRead(notificationId: string): Promise<void> {
 		return this.notificationModule.markNotificationRead(notificationId);
+	}
+
+	async markNotificationsRead(notificationIds: string[]): Promise<void> {
+		return this.notificationModule.markNotificationsRead(notificationIds);
 	}
 
 	async getUnreadNotificationCount(userId: string): Promise<number> {
@@ -633,6 +641,10 @@ export class RedisService {
 
 	async zadd(key: string, score: number, member: string): Promise<number> {
 		return this.feedModule.zadd(key, score, member);
+	}
+
+	async zrem(key: string, member: string): Promise<number> {
+		return this.feedModule.zrem(key, member);
 	}
 
 	async zrangeByScore(key: string, min: string, max: string): Promise<string[]> {

@@ -399,6 +399,29 @@ describe("FollowRepository", () => {
 			expect(mockModel.create.called).to.be.false;
 		});
 
+		it("should preserve the DuplicateError type when follow relationship already exists", async () => {
+			const followerPublicId = "follower-public-123";
+			const followeePublicId = "followee-public-456";
+			const followerId = generateRandomObjectId();
+			const followeeId = generateRandomObjectId();
+
+			mockUsersCollection.findOne
+				.withArgs({ publicId: followerPublicId }, { projection: { _id: 1 } })
+				.resolves({ _id: followerId });
+			mockUsersCollection.findOne
+				.withArgs({ publicId: followeePublicId }, { projection: { _id: 1 } })
+				.resolves({ _id: followeeId });
+			mockModel.findOne.resolves(generateMockFollow({ followerId, followeeId }));
+
+			try {
+				await repository.addFollowByPublicId(followerPublicId, followeePublicId);
+				throw new Error("Expected addFollowByPublicId() to throw");
+			} catch (error: any) {
+				expect(error.name).to.equal("DuplicateError");
+				expect(error.message).to.equal("Already following this user");
+			}
+		});
+
 		it("should throw DatabaseError when database operation fails", async () => {
 			const followerPublicId = "follower-public-123";
 			const followeePublicId = "followee-public-456";
@@ -601,6 +624,29 @@ describe("FollowRepository", () => {
 			expect(mockModel.findOne.calledOnceWith({ followerId: followerId.toString(), followeeId: followeeId.toString() }))
 				.to.be.true;
 			expect(mockModel.deleteOne.called).to.be.false;
+		});
+
+		it("should preserve the NotFoundError type when follow relationship does not exist", async () => {
+			const followerPublicId = "follower-public-123";
+			const followeePublicId = "followee-public-456";
+			const followerId = generateRandomObjectId();
+			const followeeId = generateRandomObjectId();
+
+			mockUsersCollection.findOne
+				.withArgs({ publicId: followerPublicId }, { projection: { _id: 1 } })
+				.resolves({ _id: followerId });
+			mockUsersCollection.findOne
+				.withArgs({ publicId: followeePublicId }, { projection: { _id: 1 } })
+				.resolves({ _id: followeeId });
+			mockModel.findOne.resolves(null);
+
+			try {
+				await repository.removeFollowByPublicId(followerPublicId, followeePublicId);
+				throw new Error("Expected removeFollowByPublicId() to throw");
+			} catch (error: any) {
+				expect(error.name).to.equal("NotFoundError");
+				expect(error.message).to.equal("Not following this user");
+			}
 		});
 
 		it("should throw DatabaseError when database operation fails", async () => {

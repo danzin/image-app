@@ -31,10 +31,10 @@ export class PostRepository extends BaseRepository<IPost> {
 
       const pipeline: PipelineStage[] = [
         { $match: { $text: { $search: searchString } } },
-        { $limit: limit },
-        // Sort by text relevance score
         { $addFields: { score: { $meta: "textScore" } } },
+        // Sort by text relevance score before trimming the result window
         { $sort: { score: { $meta: "textScore" } } },
+        { $limit: limit },
         ...this.getStandardLookups(),
         this.getStandardProjection(),
       ];
@@ -515,7 +515,10 @@ export class PostRepository extends BaseRepository<IPost> {
       let results: any[] = [];
       let nextPhase: "personalized" | "backfill" = phase;
 
-      const feedProjection = this.getStandardProjectionFields();
+      const feedProjection = {
+        ...this.getStandardProjectionFields(),
+        _id: 1,
+      };
 
       if (phase === "personalized" && orConditions.length > 0) {
         const pipeline: PipelineStage[] = [

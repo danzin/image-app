@@ -52,7 +52,7 @@ describe("DeletePostCommandHandler", () => {
 	let mockRedisService: {
 		invalidateFeed: SinonStub;
 		invalidateByTags: SinonStub;
-		removeFromFeed: SinonStub;
+		zrem: SinonStub;
 	};
 	let mockEventBus: {
 		queueTransactional: SinonStub;
@@ -107,7 +107,7 @@ describe("DeletePostCommandHandler", () => {
 		mockRedisService = {
 			invalidateFeed: sinon.stub(),
 			invalidateByTags: sinon.stub().resolves(),
-			removeFromFeed: sinon.stub().resolves(),
+			zrem: sinon.stub().resolves(),
 		};
 
 		mockEventBus = {
@@ -397,6 +397,7 @@ describe("DeletePostCommandHandler", () => {
 			await handler.execute(command);
 
 			expect(mockRedisService.invalidateByTags.calledWith([`user_feed:${VALID_USER_PUBLIC_ID}`])).to.be.true;
+			expect(mockRedisService.zrem.calledOnceWith("trending:posts", VALID_POST_PUBLIC_ID)).to.be.true;
 		});
 	});
 });
