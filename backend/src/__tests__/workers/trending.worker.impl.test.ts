@@ -20,10 +20,10 @@ describe("TrendingWorker", () => {
 			setWithTags,
 		};
 		(worker as any).postRepo = {
-			findByPublicIds: sinon.stub().resolves([
+			findPostsByPublicIds: sinon.stub().resolves([
 				{
 					publicId: "post-1",
-					likesCount: 3,
+					likes: 3,
 					commentsCount: 1,
 					viewsCount: 0,
 					createdAt: new Date("2024-01-01T00:00:00.000Z"),
@@ -58,10 +58,10 @@ describe("TrendingWorker", () => {
 			setWithTags,
 		};
 		(worker as any).postRepo = {
-			findByPublicIds: sinon.stub().resolves([
+			findPostsByPublicIds: sinon.stub().resolves([
 				{
 					publicId: "post-1",
-					likesCount: 3,
+					likes: 3,
 					commentsCount: 1,
 					viewsCount: 0,
 					createdAt: new Date("2024-01-01T00:00:00.000Z"),

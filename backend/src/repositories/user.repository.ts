@@ -1,5 +1,5 @@
 import { Model, ClientSession, Types, UpdateQuery } from "mongoose";
-import { IUser, PaginationOptions, PaginationResult } from "@/types";
+import { IUser, PaginationOptions, PaginationResult, UserSuggestion } from "@/types";
 import { createError, isMongoDBDuplicateKeyError } from "@/utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
@@ -104,7 +104,7 @@ export class UserRepository extends BaseRepository<IUser> {
 	 */
 	async getAll(options: { search?: string[]; page?: number; limit?: number }): Promise<IUser[] | null> {
 		try {
-			const query: any = {};
+			const query: Record<string, unknown> = {};
 
 			if (options.search && options.search.length > 0) {
 				const patterns = options.search.map((term: string) => ({
@@ -141,7 +141,7 @@ export class UserRepository extends BaseRepository<IUser> {
 	}
 
 	//find by query
-	find(query: any) {
+	find(query: Record<string, unknown>) {
 		return this.model.find(query);
 	}
 
@@ -380,7 +380,7 @@ export class UserRepository extends BaseRepository<IUser> {
 	 * @param currentUserId - ID of the current user (to exclude from suggestions)
 	 * @param limit - Maximum number of suggestions to return
 	 */
-	async getSuggestedUsersToFollow(currentUserId: string, limit: number = 5): Promise<any[]> {
+	async getSuggestedUsersToFollow(currentUserId: string, limit: number = 5): Promise<UserSuggestion[]> {
 		try {
 			const thirtyDaysAgo = new Date();
 			thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -512,7 +512,7 @@ export class UserRepository extends BaseRepository<IUser> {
 		currentUserId: string,
 		limit: number = 5,
 		recentlyActiveUserPublicIds?: string[],
-	): Promise<any[]> {
+	): Promise<UserSuggestion[]> {
 		try {
 			const followingIds = (await this.followRepository.getFollowingObjectIds(currentUserId))
 				.map((id) => {
@@ -614,7 +614,7 @@ export class UserRepository extends BaseRepository<IUser> {
 	 * @param currentUserId internal user ID to exclude
 	 * @param limit maximum results
 	 */
-	async getSuggestedUsersHighTraffic(currentUserId: string, limit: number = 5): Promise<any[]> {
+	async getSuggestedUsersHighTraffic(currentUserId: string, limit: number = 5): Promise<UserSuggestion[]> {
 		try {
 			const sevenDaysAgo = new Date();
 			sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -783,8 +783,8 @@ export class UserRepository extends BaseRepository<IUser> {
 		try {
 			const query = this.model.findByIdAndUpdate(userId, { $inc: { followerCount: increment } }, { session });
 			await query.exec();
-		} catch (error: any) {
-			throw createError("DatabaseError", error.message ?? "failed to update follower count");
+		} catch (error: unknown) {
+			throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update follower count");
 		}
 	}
 
@@ -792,8 +792,8 @@ export class UserRepository extends BaseRepository<IUser> {
 		try {
 			const query = this.model.findByIdAndUpdate(userId, { $inc: { followingCount: increment } }, { session });
 			await query.exec();
-		} catch (error: any) {
-			throw createError("DatabaseError", error.message ?? "failed to update following count");
+		} catch (error: unknown) {
+			throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update following count");
 		}
 	}
 }

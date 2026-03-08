@@ -6,6 +6,7 @@ import { TagRepository } from "@/repositories/tag.repository";
 import { DTOService } from "./dto.service";
 import { createError } from "@/utils/errors";
 import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "@/types";
+import { FavoriteRepository } from "@/repositories/favorite.repository";
 import { TagService } from "./tag.service";
 import { logger } from "@/utils/winston";
 
@@ -16,7 +17,7 @@ export class PostService {
 		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
 		@inject("UserRepository") private readonly userRepository: UserRepository,
 		@inject("TagRepository") private readonly tagRepository: TagRepository,
-		@inject("FavoriteRepository") private readonly favoriteRepository: any,
+		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
 		@inject("TagService") private readonly tagService: TagService,
 		@inject("DTOService") private readonly dtoService: DTOService
 	) {}
@@ -68,7 +69,7 @@ export class PostService {
 		const result = await this.postRepository.findWithPagination({ page, limit });
 		return {
 			...result,
-			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry as unknown as IPost)),
+			data: result.data.map((entry) => this.dtoService.toPostDTO(entry as unknown as Record<string, unknown>)),
 		};
 	}
 
@@ -76,7 +77,7 @@ export class PostService {
 		const result = await this.postRepository.findByUserPublicId(userPublicId, { page, limit });
 		return {
 			...result,
-			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry as unknown as IPost)),
+			data: result.data.map((entry) => this.dtoService.toPostDTO(entry as unknown as Record<string, unknown>)),
 		};
 	}
 
@@ -90,7 +91,7 @@ export class PostService {
 
 		return {
 			...result,
-			data: result.data.map((entry: any) => this.dtoService.toPostDTO(entry as unknown as IPost)),
+			data: result.data.map((entry) => this.dtoService.toPostDTO(entry as unknown as Record<string, unknown>)),
 		};
 	}
 
@@ -111,3 +112,4 @@ export class PostService {
 		});
 	}
 }
+

@@ -1,4 +1,4 @@
-import { ClientSession, Model } from "mongoose";
+import mongoose, { ClientSession, Model } from "mongoose";
 import { ITag } from "@/types";
 import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
@@ -71,8 +71,8 @@ export class TagRepository extends BaseRepository<ITag> {
 
 			if (session) query.session(session);
 			return await query.exec();
-		} catch (error: any) {
-			throw createError("DatabaseError", error.message);
+		} catch (error: unknown) {
+			throw createError("DatabaseError", error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -82,13 +82,13 @@ export class TagRepository extends BaseRepository<ITag> {
 	 * @param session - Optional Mongoose session for transactions.
 	 * @returns Promise resolving to aggregation results.
 	 */
-	async aggregate<R = any>(pipeline: any[], session?: ClientSession): Promise<R[]> {
+	async aggregate<R>(pipeline: mongoose.PipelineStage[], session?: ClientSession): Promise<R[]> {
 		try {
-			const aggregation = this.model.aggregate(pipeline);
+			const aggregation = this.model.aggregate<R>(pipeline);
 			if (session) aggregation.session(session);
 			return await aggregation.exec();
-		} catch (error: any) {
-			throw createError("DatabaseError", error.message);
+		} catch (error: unknown) {
+			throw createError("DatabaseError", error instanceof Error ? error.message : String(error));
 		}
 	}
 

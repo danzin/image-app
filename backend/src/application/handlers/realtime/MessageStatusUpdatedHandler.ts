@@ -1,3 +1,4 @@
+import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "@/services/real-time-feed.service";
@@ -7,7 +8,7 @@ import { logger } from "@/utils/winston";
 export class MessageStatusUpdatedHandler implements IRealtimeMessageHandler {
 	readonly messageType = "message_status_updated";
 
-	async handle(io: any, message: FeedUpdateMessage, channel?: string): Promise<void> {
+	async handle(io: SocketIOServer, message: FeedUpdateMessage, channel?: string): Promise<void> {
 		if (!message.conversationId || !message.status) return;
 
 		const recipients = Array.isArray(message.recipients) ? message.recipients : [];
@@ -28,3 +29,5 @@ export class MessageStatusUpdatedHandler implements IRealtimeMessageHandler {
 		);
 	}
 }
+
+

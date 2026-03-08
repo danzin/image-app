@@ -43,3 +43,16 @@ export interface UserLookupData {
 	username: string;
 	avatar?: string;
 }
+
+/** Shape returned by user suggestion aggregation queries */
+export interface UserSuggestion {
+	publicId: string;
+	handle: string;
+	username: string;
+	avatar: string;
+	bio?: string;
+	followerCount: number;
+	postCount: number;
+	totalLikes: number;
+	score: number;
+}

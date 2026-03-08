@@ -1,3 +1,4 @@
+import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "@/services/real-time-feed.service";
@@ -7,7 +8,7 @@ import { logger } from "@/utils/winston";
 export class LikeUpdateMessageHandler implements IRealtimeMessageHandler {
 	readonly messageType = "like_update";
 
-	async handle(io: any, message: FeedUpdateMessage): Promise<void> {
+	async handle(io: SocketIOServer, message: FeedUpdateMessage): Promise<void> {
 		const targetId = message.postId ?? message.imageId;
 		if (!targetId || message.newLikes === undefined) return;
 
@@ -23,3 +24,5 @@ export class LikeUpdateMessageHandler implements IRealtimeMessageHandler {
 		logger.info(`Real-time like update sent for post ${targetId}: ${message.newLikes} likes`);
 	}
 }
+
+

@@ -1,7 +1,7 @@
 import mongoose, { ClientSession, Model } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IMessage } from "@/types";
+import { IMessage, IMessageWithPopulatedSender, PaginationResult } from "@/types";
 import { createError } from "@/utils/errors";
 
 @injectable()
@@ -20,7 +20,7 @@ export class MessageRepository extends BaseRepository<IMessage> {
 		conversationId: string,
 		page: number,
 		limit: number
-	): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+	): Promise<PaginationResult<IMessageWithPopulatedSender>> {
 		try {
 			const skip = (page - 1) * limit;
 			const objectId = new mongoose.Types.ObjectId(conversationId);
@@ -38,7 +38,7 @@ export class MessageRepository extends BaseRepository<IMessage> {
 			]);
 
 			return {
-				data: messages,
+				data: messages as unknown as IMessageWithPopulatedSender[],
 				total,
 				page,
 				limit,

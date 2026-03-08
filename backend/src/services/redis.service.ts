@@ -5,7 +5,6 @@ import { performance } from "perf_hooks";
 import { redisLogger } from "@/utils/winston";
 import { INotification } from "@/types";
 import { MetricsService } from "../metrics/metrics.service";
-import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { RedisNotificationModule } from "./redis/redis-notification.module";
 import { RedisFeedModule } from "./redis/redis-feed.module";
 import { RedisStreamModule } from "./redis/redis-stream.module";
@@ -13,14 +12,24 @@ import { RedisStreamModule } from "./redis/redis-stream.module";
 /**
  * Configuration for resilient Redis operations
  */
-interface ResilienceConfig {
+interface ResilienceConfigBase {
 	maxAttempts?: number;
 	baseDelayMs?: number;
 	maxDelayMs?: number;
-	fallbackValue?: any;
 }
 
-const DEFAULT_RESILIENCE: Required<Omit<ResilienceConfig, "fallbackValue">> = {
+interface ResilienceConfigWithFallback<T> extends ResilienceConfigBase {
+	fallbackValue: T;
+}
+
+type ResilienceConfig<T> = ResilienceConfigBase | ResilienceConfigWithFallback<T>;
+
+type RedisScanResult = {
+	cursor: number;
+	keys: string[];
+};
+
+const DEFAULT_RESILIENCE: Required<ResilienceConfigBase> = {
 	maxAttempts: 3,
 	baseDelayMs: 50,
 	maxDelayMs: 1000,
@@ -72,13 +81,49 @@ export class RedisService {
 		return this.client;
 	}
 
+	private getErrorMessage(error: unknown): string {
+		if (error instanceof Error) {
+			return error.message;
+		}
+
+		if (typeof error === "string") {
+			return error;
+		}
+
+		if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+			return error.message;
+		}
+
+		return "";
+	}
+
+	private parseJson<T>(payload: string): T {
+		return JSON.parse(payload) as T;
+	}
+
+	private hasFallback<T>(config?: ResilienceConfig<T>): config is ResilienceConfigWithFallback<T> {
+		return config !== undefined && "fallbackValue" in config;
+	}
+
+	private async scanKeys(cursor: number, match: string, count: number): Promise<RedisScanResult> {
+		const result = await this.client.scan(cursor, {
+			MATCH: match,
+			COUNT: count,
+		});
+
+		return {
+			cursor: typeof result.cursor === "number" ? result.cursor : Number(result.cursor),
+			keys: result.keys,
+		};
+	}
+
 	private async connect() {
 		try {
 			await this.client.connect();
 			redisLogger.info(`Redis client connection established`);
 		} catch (error) {
 			redisLogger.error(`Redis connection failed`, {
-				error: error instanceof Error ? error.message : String(error),
+				error: this.getErrorMessage(error) || String(error),
 			});
 			this.metricsService.setRedisConnectionState(false);
 		}
@@ -100,20 +145,21 @@ export class RedisService {
 	 * Execute a Redis operation with retry logic and optional fallback
 	 * Use for critical cache operations that should be resilient to transient failures
 	 */
-	async withResilience<T>(operation: () => Promise<T>, config?: ResilienceConfig): Promise<T> {
+	async withResilience<T>(operation: () => Promise<T>, config?: ResilienceConfig<T>): Promise<T> {
 		const cfg = { ...DEFAULT_RESILIENCE, ...config };
 		let lastError: Error | undefined;
 
 		for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
 			try {
 				return await operation();
-			} catch (error: any) {
-				lastError = error;
+			} catch (error: unknown) {
+				const message = this.getErrorMessage(error) || String(error);
+				lastError = error instanceof Error ? error : new Error(message);
 
 				if (!this.isRetryableRedisError(error) || attempt >= cfg.maxAttempts) {
-					if (config?.fallbackValue !== undefined) {
+					if (this.hasFallback(config)) {
 						redisLogger.warn(`Redis operation failed, using fallback`, {
-							error: error?.message,
+							error: lastError.message,
 							attempt,
 						});
 						return config.fallbackValue;
@@ -122,7 +168,7 @@ export class RedisService {
 				}
 
 				redisLogger.warn(`Redis operation failed, retrying`, {
-					error: error?.message,
+					error: lastError.message,
 					attempt,
 					maxAttempts: cfg.maxAttempts,
 				});
@@ -131,7 +177,7 @@ export class RedisService {
 			}
 		}
 
-		if (config?.fallbackValue !== undefined) {
+		if (this.hasFallback(config)) {
 			return config.fallbackValue;
 		}
 		throw lastError;
@@ -140,9 +186,10 @@ export class RedisService {
 	/**
 	 * Check if a Redis error is retryable
 	 */
-	private isRetryableRedisError(error: any): boolean {
-		if (!error) return false;
-		const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+	private isRetryableRedisError(error: unknown): boolean {
+		const message = this.getErrorMessage(error).toLowerCase();
+		if (!message) return false;
+
 		const retryablePatterns = [
 			"econnreset",
 			"econnrefused",
@@ -177,7 +224,7 @@ export class RedisService {
 	 */
 	async get<T>(key: string): Promise<T | null> {
 		const data = await this.client.get(key);
-		return data ? JSON.parse(data) : null;
+		return data ? this.parseJson<T>(data) : null;
 	}
 
 	/**
@@ -190,7 +237,7 @@ export class RedisService {
 	async mGet<T>(keys: string[]): Promise<(T | null)[]> {
 		if (keys.length === 0) return [];
 		const values = await this.client.mGet(keys);
-		return values.map((v) => (v ? (JSON.parse(v) as T) : null));
+		return values.map((value) => (value ? this.parseJson<T>(value) : null));
 	}
 
 	/**
@@ -263,16 +310,12 @@ export class RedisService {
 	 * @returns {Promise<number>} Total count of deleted keys.
 	 */
 	async del(keyPattern: string): Promise<number> {
-		let cursor: string | number = 0;
+		let cursor = 0;
 		let deletedCount = 0;
 		const batchSize = 100; // delete in batches to avoid memory issues
 
 		do {
-			const numericCursor = typeof cursor === "number" ? cursor : Number(cursor);
-			const result = (await this.client.scan(numericCursor, {
-				MATCH: keyPattern,
-				COUNT: batchSize,
-			})) as { cursor: number | string; keys: string[] };
+			const result = await this.scanKeys(cursor, keyPattern, batchSize);
 
 			cursor = result.cursor;
 			const keys = result.keys;
@@ -281,7 +324,7 @@ export class RedisService {
 				await this.client.del(keys);
 				deletedCount += keys.length;
 			}
-		} while (cursor !== 0 && cursor !== "0");
+		} while (cursor !== 0);
 
 		redisLogger.info(`[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`);
 		return deletedCount;
@@ -337,10 +380,13 @@ export class RedisService {
 
 		await subscriber.subscribe(channels, (message, channel) => {
 			try {
-				const parsedMessage = JSON.parse(message) as T;
+				const parsedMessage = this.parseJson<T>(message);
 				messageHandler(channel, parsedMessage);
 			} catch (error) {
-				redisLogger.error("Error parsing Redis message:", { error });
+				redisLogger.error("Error parsing Redis message", {
+					channel,
+					error: this.getErrorMessage(error) || String(error),
+				});
 			}
 		});
 	}
@@ -405,7 +451,7 @@ export class RedisService {
 					`[Redis] setWithTags key=${key} tags=${uniqueTags.length} duration=${durationMs.toFixed(2)}ms`,
 				);
 			},
-			{ maxAttempts: 3, fallbackValue: undefined },
+			{ maxAttempts: 3 },
 		);
 	}
 
@@ -441,9 +487,13 @@ export class RedisService {
 				uniqueTags.forEach((tag, idx) => {
 					const tagKey = `tag:${tag}`;
 					tagKeysToDelete.push(tagKey);
-					const members = tagResults?.[idx] as string[] | null;
-					if (Array.isArray(members)) {
-						members.forEach((k) => keysToDelete.add(k));
+					const membersResult = tagResults?.[idx];
+					if (Array.isArray(membersResult)) {
+						for (const member of membersResult) {
+							if (typeof member === "string") {
+								keysToDelete.add(member);
+							}
+						}
 					}
 				});
 
@@ -462,7 +512,7 @@ export class RedisService {
 					`[Redis] invalidateByTags tags=${uniqueTags.length} keys=${keysToDelete.size} deletedKeys=${deleteTargets.length} duration=${durationMs.toFixed(2)}ms`,
 				);
 			},
-			{ maxAttempts: 3, fallbackValue: undefined },
+			{ maxAttempts: 3 },
 		);
 	}
 
@@ -555,15 +605,11 @@ export class RedisService {
 	 * keep memory footprint minimal.
 	 */
 	async cleanupOrphanedTags(): Promise<void> {
-		let cursor: string | number = 0;
+		let cursor = 0;
 		let cleaned = 0;
 
 		do {
-			const numericCursor = typeof cursor === "number" ? cursor : Number(cursor);
-			const result = (await this.client.scan(numericCursor, {
-				MATCH: "tag:*",
-				COUNT: 100,
-			})) as { cursor: number | string; keys: string[] };
+			const result = await this.scanKeys(cursor, "tag:*", 100);
 
 			cursor = result.cursor;
 
@@ -589,7 +635,7 @@ export class RedisService {
 				await this.client.del(emptyTagKeys);
 				cleaned += emptyTagKeys.length;
 			}
-		} while (cursor !== 0 && cursor !== "0");
+		} while (cursor !== 0);
 
 		redisLogger.info(`[Redis] Cleaned ${cleaned} empty tag sets`);
 	}
@@ -607,11 +653,11 @@ export class RedisService {
 		return this.streamModule.ackStreamMessages(stream, group, ...ids);
 	}
 
-	async updateTrendingScore(postId: string, score: number, key = "trending:global"): Promise<void> {
+	async updateTrendingScore(postId: string, score: number, key = "trending:posts"): Promise<void> {
 		return this.feedModule.updateTrendingScore(postId, score, key);
 	}
 
-	async incrTrendingScore(postId: string, delta: number, key = "trending:global"): Promise<number> {
+	async incrTrendingScore(postId: string, delta: number, key = "trending:posts"): Promise<number> {
 		return this.feedModule.incrTrendingScore(postId, delta, key);
 	}
 

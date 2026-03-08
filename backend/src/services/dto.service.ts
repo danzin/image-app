@@ -1,5 +1,5 @@
 import { injectable } from "tsyringe";
-import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IMessagePopulated, ICommunity, ICommunityMember } from "@/types";
+import { IUser, IMessage, IMessageAttachment, MessageDTO, PostDTO, IPost, FeedPost, IMessagePopulated, ICommunity, ICommunityMember } from "@/types";
 
 export interface PublicUserDTO {
 	publicId: string;
@@ -78,45 +78,48 @@ export interface CommunityMemberDTO {
 	joinedAt: Date;
 }
 
+type RawPostInput = Record<string, unknown>;
+
 @injectable()
 export class DTOService {
 	/**
 	 * Converts a raw post document to PostDTO
 	 * Handles both Mongo documents and aggregation results
 	 */
-	toPostDTO(post: any): PostDTO {
-		const tags = Array.isArray(post.tags)
-			? post.tags.map((tag: any) => {
+	toPostDTO(post: IPost | FeedPost | RawPostInput): PostDTO {
+		const p = post as RawPostInput;
+		const tags = Array.isArray(p.tags)
+			? p.tags.map((tag: unknown) => {
 					if (typeof tag === "string") return tag;
-					if (tag?.tag) return tag.tag;
+					if (tag && typeof tag === "object" && "tag" in tag) return (tag as { tag: unknown }).tag as string;
 					return "";
 				})
 			: [];
 
-		const imageData = post.image ? (post.image as any) : null;
+		const imageData = p.image && typeof p.image === "object" ? (p.image as { url?: string; publicId?: string }) : null;
 		const url = imageData?.url || undefined;
 		const imagePublicId = imageData?.publicId || undefined;
 
 		// Create nested image object if image exists
 		const image = imageData && url && imagePublicId ? { url, publicId: imagePublicId } : null;
-		const likeCount = Array.isArray(post.likes)
-			? post.likes.length
-			: typeof post.likes === "number"
-				? post.likes
-				: typeof post.likesCount === "number"
-					? post.likesCount
+		const likeCount = Array.isArray(p.likes)
+			? (p.likes as unknown[]).length
+			: typeof p.likes === "number"
+				? p.likes
+				: typeof p.likesCount === "number"
+					? p.likesCount
 					: 0;
 
-		const userSnapshot = this.resolvePostUserSnapshot(post);
+		const userSnapshot = this.resolvePostUserSnapshot(p);
 
-		const repostOf = this.buildRepostOf(post.repostOf);
+		const repostOf = this.buildRepostOf(p.repostOf as RawPostInput | undefined);
 
 		return {
-			publicId: post.publicId,
-			body: post.body,
-			slug: post.slug,
-			type: post.type ?? "original",
-			repostCount: post.repostCount ?? 0,
+			publicId: p.publicId as string,
+			body: p.body as string,
+			slug: p.slug as string,
+			type: (p.type as "original" | "repost") ?? "original",
+			repostCount: (p.repostCount as number) ?? 0,
 			repostOf: repostOf,
 			// Nested format
 			image,
@@ -125,23 +128,23 @@ export class DTOService {
 			imagePublicId,
 			tags: tags.filter(Boolean),
 			likes: likeCount,
-			commentsCount: post.commentsCount ?? 0,
-			viewsCount: post.viewsCount ?? 0,
-			createdAt: post.createdAt,
-			isLikedByViewer: post.isLikedByViewer,
-			isFavoritedByViewer: post.isFavoritedByViewer,
-			isRepostedByViewer: post.isRepostedByViewer,
+			commentsCount: (p.commentsCount as number) ?? 0,
+			viewsCount: (p.viewsCount as number) ?? 0,
+			createdAt: p.createdAt as Date,
+			isLikedByViewer: p.isLikedByViewer as boolean | undefined,
+			isFavoritedByViewer: p.isFavoritedByViewer as boolean | undefined,
+			isRepostedByViewer: p.isRepostedByViewer as boolean | undefined,
 			user: {
 				publicId: userSnapshot.publicId,
 				handle: userSnapshot.handle,
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
-			community: this.buildCommunity(post.community ?? post.communityId),
+			community: this.buildCommunity((p.community ?? p.communityId) as RawPostInput | undefined),
 		};
 	}
 
-	private buildCommunity(source: any) {
+	private buildCommunity(source: RawPostInput | undefined | null) {
 		if (!source || typeof source !== "object") return null;
 		const publicId = this.pickString(source.publicId);
 		if (!publicId) return null;
@@ -153,9 +156,9 @@ export class DTOService {
 		};
 	}
 
-	private buildRepostOf(source: any) {
+	private buildRepostOf(source: RawPostInput | undefined) {
 		if (!source) return undefined;
-		const imageData = source.image ? (source.image as any) : null;
+		const imageData = source.image && typeof source.image === "object" ? (source.image as { url?: string; publicId?: string }) : null;
 		const image = imageData?.url && imageData?.publicId ? { url: imageData.url, publicId: imageData.publicId } : null;
 		const userSnapshot = this.resolvePostUserSnapshot(source);
 
@@ -169,23 +172,23 @@ export class DTOService {
 					: 0;
 
 		return {
-			publicId: source.publicId,
+			publicId: source.publicId as string,
 			user: {
 				publicId: userSnapshot.publicId,
 				handle: userSnapshot.handle,
 				username: userSnapshot.username,
 				avatar: userSnapshot.avatar,
 			},
-			body: source.body,
-			slug: source.slug,
+			body: source.body as string,
+			slug: source.slug as string,
 			image,
 			likes: likesCount,
-			repostCount: source.repostCount ?? 0,
-			commentsCount: source.commentsCount ?? 0,
+			repostCount: (source.repostCount as number) ?? 0,
+			commentsCount: (source.commentsCount as number) ?? 0,
 		};
 	}
 
-	private resolvePostUserSnapshot(post: any) {
+	private resolvePostUserSnapshot(post: RawPostInput) {
 		const normalizedUser = this.normalizeUserLike(post?.user);
 		if (normalizedUser) {
 			return normalizedUser;
@@ -194,26 +197,27 @@ export class DTOService {
 		return this.normalizeAuthorLike(post?.author);
 	}
 
-	private normalizeUserLike(candidate: any) {
+	private normalizeUserLike(candidate: unknown) {
 		if (!candidate || typeof candidate !== "object") {
 			return null;
 		}
+		const c = candidate as Record<string, unknown>;
 
-		const publicId = this.pickString(candidate.publicId ?? candidate.userPublicId ?? candidate.id);
+		const publicId = this.pickString(c.publicId ?? c.userPublicId ?? c.id);
 		if (!publicId) {
 			return null;
 		}
 
 		return {
 			publicId,
-			handle: this.pickString(candidate.handle) || "",
-			username: this.pickString(candidate.username ?? candidate.displayName) || "",
-			avatar: this.pickString(candidate.avatar ?? candidate.avatarUrl ?? candidate.profile?.avatarUrl) || "",
+			handle: this.pickString(c.handle) || "",
+			username: this.pickString(c.username ?? c.displayName) || "",
+			avatar: this.pickString(c.avatar ?? c.avatarUrl ?? (c.profile as Record<string, unknown>)?.avatarUrl) || "",
 		};
 	}
 
-	private normalizeAuthorLike(author: any) {
-		const source = author && typeof author === "object" ? author : {};
+	private normalizeAuthorLike(author: unknown) {
+		const source = author && typeof author === "object" ? (author as Record<string, unknown>) : ({} as Record<string, unknown>);
 		return {
 			publicId: this.pickString(source.publicId) || "",
 			handle: this.pickString(source.handle) || "",
@@ -222,7 +226,7 @@ export class DTOService {
 		};
 	}
 
-	private pickString(value: any): string | "" {
+	private pickString(value: unknown): string | "" {
 		if (typeof value === "string" && value.trim().length > 0) {
 			return value;
 		}
@@ -263,7 +267,7 @@ export class DTOService {
 	}
 
 	toCommunityMemberDTO(member: ICommunityMember): CommunityMemberDTO {
-		const userCandidate = (member as any)?.userId;
+		const userCandidate = (member as { userId?: unknown })?.userId;
 		const userSnapshot = this.normalizeUserLike(userCandidate) ?? {
 			publicId: "",
 			handle: "",

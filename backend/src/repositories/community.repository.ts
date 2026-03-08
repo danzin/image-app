@@ -35,7 +35,7 @@ export class CommunityRepository extends BaseRepository<ICommunity> {
 		limit: number,
 		search?: string
 	): Promise<{ data: ICommunity[]; total: number; page: number; limit: number; totalPages: number }> {
-		const query: any = {};
+		const query: Record<string, unknown> = {};
 		if (search) {
 			query.$or = [
 				{ name: { $regex: escapeRegex(search), $options: "i" } },

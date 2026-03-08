@@ -72,7 +72,7 @@ export class RealTimeFeedService {
 	private async initializePubSubListener(): Promise<void> {
 		try {
 			// Subscribe to feed_updates and messaging_updates channels for real time feed updates and message delivery
-			await this.redisService.subscribe(["feed_updates", "messaging_updates"], (channel: string, message: any) => {
+			await this.redisService.subscribe(["feed_updates", "messaging_updates"], (channel: string, message: unknown) => {
 				// Handle case where message might be a string that needs parsing
 				let parsedMessage: FeedUpdateMessage;
 				if (typeof message === "string") {
@@ -83,7 +83,7 @@ export class RealTimeFeedService {
 						return;
 					}
 				} else {
-					parsedMessage = message;
+					parsedMessage = message as FeedUpdateMessage;
 				}
 				this.handleFeedUpdate(parsedMessage, channel);
 			});
@@ -115,7 +115,7 @@ export class RealTimeFeedService {
 	/**
 	 * Send a custom real-time notification to specific users
 	 */
-	async notifyUsers(userIds: string[], event: string, data: any): Promise<void> {
+	async notifyUsers(userIds: string[], event: string, data: unknown): Promise<void> {
 		const io = this.webSocketServer.getIO();
 
 		for (const userId of userIds) {
@@ -126,7 +126,7 @@ export class RealTimeFeedService {
 	/**
 	 * Broadcast a message to all connected users
 	 */
-	async broadcast(event: string, data: any): Promise<void> {
+	async broadcast(event: string, data: unknown): Promise<void> {
 		const io = this.webSocketServer.getIO();
 		io.emit(event, data);
 	}

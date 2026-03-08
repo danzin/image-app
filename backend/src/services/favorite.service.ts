@@ -5,7 +5,7 @@ import { FavoriteRepository } from "@/repositories/favorite.repository";
 import { UserRepository } from "@/repositories/user.repository";
 import { PostRepository } from "@/repositories/post.repository";
 import { DTOService } from "./dto.service";
-import { IFavorite, PaginationResult, PostDTO } from "@/types";
+import { IFavorite, IPost, PaginationResult, PostDTO } from "@/types";
 import { createError } from "@/utils/errors";
 
 @injectable()
@@ -97,7 +97,7 @@ export class FavoriteService {
 		const { data, total } = await this.favoriteRepository.findFavoritesByUserId(userId, safePage, safeLimit);
 
 		const dtos = data.map((post) => {
-			const plain = this.ensurePlain(post);
+			const plain = this.ensurePlain(post) as IPost & Record<string, unknown>;
 			plain.isFavoritedByViewer = true;
 			if (plain.isLikedByViewer === undefined) {
 				plain.isLikedByViewer = false;
@@ -114,10 +114,10 @@ export class FavoriteService {
 		};
 	}
 
-	private ensurePlain(entry: any): any {
-		if (entry && typeof entry.toObject === "function") {
-			return entry.toObject();
+	private ensurePlain(entry: IPost): IPost & Record<string, unknown> {
+		if (entry && typeof (entry as IPost & { toObject?: () => IPost }).toObject === "function") {
+			return (entry as IPost & { toObject: () => IPost }).toObject() as IPost & Record<string, unknown>;
 		}
-		return entry;
+		return entry as IPost & Record<string, unknown>;
 	}
 }

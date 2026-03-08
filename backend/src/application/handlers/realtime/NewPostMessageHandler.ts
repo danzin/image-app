@@ -1,3 +1,4 @@
+import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "@/services/real-time-feed.service";
@@ -7,7 +8,7 @@ import { logger } from "@/utils/winston";
 export class NewPostMessageHandler implements IRealtimeMessageHandler {
 	readonly messageType = "new_post";
 
-	async handle(io: any, message: FeedUpdateMessage): Promise<void> {
+	async handle(io: SocketIOServer, message: FeedUpdateMessage): Promise<void> {
 		const authorId = message.authorId ?? message.uploaderId;
 		const postId = message.postId ?? message.imageId;
 		if (!authorId || !postId) return;
@@ -38,3 +39,5 @@ export class NewPostMessageHandler implements IRealtimeMessageHandler {
 		);
 	}
 }
+
+

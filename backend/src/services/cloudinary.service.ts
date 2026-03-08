@@ -41,9 +41,9 @@ export class CloudinaryService implements IImageStorageService {
 	/**
 	 * Check if an error is retryable for Cloudinary operations
 	 */
-	private isCloudinaryRetryable(error: any): boolean {
+	private isCloudinaryRetryable(error: unknown): boolean {
 		if (!error) return false;
-		const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+		const message = typeof (error as Record<string, unknown>).message === "string" ? ((error as Record<string, unknown>).message as string).toLowerCase() : "";
 		const retryablePatterns = [
 			"timeout",
 			"econnreset",
@@ -180,13 +180,14 @@ export class CloudinaryService implements IImageStorageService {
 			// Delete the current folder
 			await cloudinary.api.delete_folder(folderPath);
 			logger.info("Successfully deleted Cloudinary folder", { folder: folderPath });
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// If folder doesn't exist (404), that's fine.
 			// If it's not empty (e.g. more than 1000 resources or other resource types), it will fail here.
-			if (error?.http_code !== 404) {
+			const err = error as Record<string, unknown>;
+			if (err?.http_code !== 404) {
 				logger.warn("Cloudinary folder deletion skipped or failed", {
 					folder: folderPath,
-					error: error?.message || String(error),
+					error: typeof err?.message === "string" ? err.message : String(error),
 				});
 			}
 		}

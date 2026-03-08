@@ -34,7 +34,7 @@ export class FeedReadService {
         logger.info("Core feed cache miss, generating...");
         const cursorFeed = await this.feedCoreService.generatePersonalizedCoreFeed(userId, safeLimit);
         coreFeed = {
-          data: cursorFeed.data as any,
+          data: cursorFeed.data,
           limit: safeLimit,
           page: safePage,
           total: 0,
@@ -186,13 +186,13 @@ export class FeedReadService {
   }
 
   private mapToPostDTOArray(entries: FeedPost[]): PostDTO[] {
-    return entries.map((entry) => this.dtoService.toPostDTO(this.ensurePlain(entry)));
+    return entries.map((entry) => this.dtoService.toPostDTO(this.ensurePlain(entry) as FeedPost));
   }
 
-  private ensurePlain(entry: any): FeedPost {
-    if (entry && typeof entry.toObject === "function") {
-      return entry.toObject() as FeedPost;
+  private ensurePlain(entry: FeedPost): FeedPost {
+    if (entry && typeof (entry as FeedPost & { toObject?: () => FeedPost }).toObject === "function") {
+      return (entry as FeedPost & { toObject: () => FeedPost }).toObject();
     }
-    return entry as FeedPost;
+    return entry;
   }
 }

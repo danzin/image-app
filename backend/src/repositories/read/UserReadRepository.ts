@@ -1,6 +1,6 @@
 import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { IUser, PaginationOptions, PaginationResult } from "@/types";
+import { IUser, PaginationOptions, PaginationResult, UserSuggestion } from "@/types";
 import { IUserReadRepository } from "../interfaces/IUserReadRepository";
 import { UserRepository } from "../user.repository";
 
@@ -73,7 +73,7 @@ export class UserReadRepository implements IUserReadRepository {
 		return this.userRepository.countDocuments(filter);
 	}
 
-	async getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]> {
+	async getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<UserSuggestion[]> {
 		return this.userRepository.getSuggestedUsersToFollow(currentUserId, limit);
 	}
 
@@ -81,11 +81,11 @@ export class UserReadRepository implements IUserReadRepository {
 		currentUserId: string,
 		limit?: number,
 		recentlyActiveUserPublicIds?: string[],
-	): Promise<any[]> {
+	): Promise<UserSuggestion[]> {
 		return this.userRepository.getSuggestedUsersLowTraffic(currentUserId, limit, recentlyActiveUserPublicIds);
 	}
 
-	async getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<any[]> {
+	async getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<UserSuggestion[]> {
 		return this.userRepository.getSuggestedUsersHighTraffic(currentUserId, limit);
 	}
 }

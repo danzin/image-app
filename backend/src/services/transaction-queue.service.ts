@@ -16,7 +16,7 @@ interface QueuedTransaction<T = any> {
 	priority: TransactionPriority;
 	work: (session: ClientSession) => Promise<T>;
 	resolve: (value: T) => void;
-	reject: (error: any) => void;
+	reject: (error: unknown) => void;
 	createdAt: number;
 	attempts: number;
 	maxAttempts: number;

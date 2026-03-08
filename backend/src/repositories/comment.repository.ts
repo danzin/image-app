@@ -43,7 +43,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 			user: comment.userId
 				? {
 						publicId: comment.userId.publicId,
-						handle: (comment.userId as any).handle ?? "",
+						handle: comment.userId.handle ?? "",
 						username: comment.userId.username,
 						avatar: comment.userId.avatar,
 					}
@@ -72,7 +72,7 @@ export class CommentRepository extends BaseRepository<IComment> {
 		totalPages: number;
 	}> {
 		const skip = (page - 1) * limit;
-		const filter: any = { postId };
+		const filter: Record<string, unknown> = { postId };
 		filter.parentId = parentId ? parentId : null;
 
 		const [comments, total] = await Promise.all([

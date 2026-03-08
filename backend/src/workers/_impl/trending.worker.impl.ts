@@ -4,6 +4,7 @@ import { performance } from "perf_hooks";
 import type { RedisClientType } from "redis";
 import { RedisService } from "@/services/redis.service";
 import { PostRepository } from "@/repositories/post.repository";
+import { FeedPost } from "@/types";
 import { logger } from "@/utils/winston";
 
 /** Handles trending feed updates and calculations
@@ -199,24 +200,10 @@ export class TrendingWorker {
 				try {
 					const postIds = chunk.map(([postId]) => postId);
 
-					let posts: any[] = [];
-					// prefer batch method if available
-					if (typeof (this.postRepo as any).findByPublicIds === "function") {
-						// @ts-ignore
-						posts = await (this.postRepo as any).findByPublicIds(postIds);
-					} else {
-						// fallback to parallel fetch (bounded by chunk size)
-						posts = await Promise.all(
-							postIds.map((id) =>
-								this.postRepo.findByPublicId ? this.postRepo.findByPublicId(id) : Promise.resolve(null),
-							),
-						);
-					}
-
-					const postMap = new Map<string, any>();
-					for (const p of posts.filter(Boolean)) {
-						const key = p.publicId ?? p.publicId?.toString?.() ?? p._id?.toString?.();
-						postMap.set(key, p);
+					const posts: FeedPost[] = await this.postRepo.findPostsByPublicIds(postIds);
+					const postMap = new Map<string, FeedPost>();
+					for (const p of posts) {
+						postMap.set(p.publicId, p);
 					}
 
 					const updates: Promise<unknown>[] = [];
@@ -231,7 +218,7 @@ export class TrendingWorker {
 						}
 
 						// use MongoDB as source of truth (it's already updated by like/comment handlers)
-						const likes = post.likesCount || 0;
+						const likes = post.likes || 0;
 						const comments = post.commentsCount || 0;
 						const views = post.viewsCount || 0;
 

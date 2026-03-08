@@ -25,9 +25,9 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 
 			await this.model.create([viewData], { session });
 			return true; // new view recorded
-		} catch (error: any) {
+		} catch (error: unknown) {
 			// duplicate key error means user already viewed this post
-			if (error.code === 11000) {
+			if ((error as Record<string, unknown>).code === 11000) {
 				return false; // already viewed
 			}
 			throw createError("DatabaseError", "Failed to record post view", { cause: error });
@@ -41,7 +41,7 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 		try {
 			const view = await this.model.findOne({ post: postId, user: userId }).session(session || null);
 			return !!view;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			throw createError("DatabaseError", "Failed to check post view", { cause: error });
 		}
 	}
@@ -52,7 +52,7 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 	async getUniqueViewerCount(postId: Types.ObjectId, session?: ClientSession): Promise<number> {
 		try {
 			return await this.model.countDocuments({ post: postId }).session(session || null);
-		} catch (error: any) {
+		} catch (error: unknown) {
 			throw createError("DatabaseError", "Failed to count post views", { cause: error });
 		}
 	}
@@ -63,7 +63,7 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 	async deleteByPost(postId: Types.ObjectId, session?: ClientSession): Promise<void> {
 		try {
 			await this.model.deleteMany({ post: postId }).session(session || null);
-		} catch (error: any) {
+		} catch (error: unknown) {
 			throw createError("DatabaseError", "Failed to delete post views", { cause: error });
 		}
 	}
@@ -75,8 +75,11 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 				.session(session || null)
 				.exec();
 			return result.deletedCount || 0;
-		} catch (error: any) {
+		} catch (error: unknown) {
 			throw createError("DatabaseError", "Failed to delete post views by user", { cause: error });
 		}
 	}
 }
+
+
+

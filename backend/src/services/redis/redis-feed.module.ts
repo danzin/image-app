@@ -76,7 +76,7 @@ export class RedisFeedModule {
 			BY: "SCORE",
 			REV: true,
 			LIMIT: { offset: 0, count: limit + 10 },
-		} as any);
+		} as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } });
 
 		let filtered = rawResults;
 		if (cursor && maxId) {
@@ -160,7 +160,7 @@ export class RedisFeedModule {
 			BY: "SCORE",
 			REV: true,
 			LIMIT: { offset: 0, count: limit + 10 },
-		} as any);
+		} as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } });
 
 		let filtered = rawResults;
 		if (cursor && maxId) {
@@ -207,3 +207,4 @@ export class RedisFeedModule {
 		return await this.client.expire(key, seconds);
 	}
 }
+

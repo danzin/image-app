@@ -8,8 +8,8 @@ export interface RetryConfig {
 	maxAttempts?: number;
 	baseDelayMs?: number;
 	maxDelayMs?: number;
-	shouldRetry?: (error: any) => boolean;
-	onRetry?: (attempt: number, error: any) => void;
+	shouldRetry?: (error: unknown) => boolean;
+	onRetry?: (attempt: number, error: unknown) => void;
 }
 
 const DEFAULT_CONFIG: Required<Omit<RetryConfig, "shouldRetry" | "onRetry">> = {
@@ -35,15 +35,15 @@ export class RetryService {
 		for (let attempt = 1; attempt <= cfg.maxAttempts; attempt++) {
 			try {
 				return await operation();
-			} catch (error: any) {
-				lastError = error;
+			} catch (error: unknown) {
+				lastError = error instanceof Error ? error : new Error(String(error));
 
 				const shouldRetry = cfg.shouldRetry ? cfg.shouldRetry(error) : this.isRetryableError(error);
 
 				if (!shouldRetry || attempt >= cfg.maxAttempts) {
 					logger.error(`[RetryService] Operation failed after ${attempt} attempts`, {
-						error: error?.message,
-						stack: error?.stack?.substring(0, 500),
+						error: lastError.message,
+						stack: lastError.stack?.substring(0, 500),
 					});
 					throw error;
 				}
@@ -53,7 +53,7 @@ export class RetryService {
 				}
 
 				logger.warn(`[RetryService] Attempt ${attempt}/${cfg.maxAttempts} failed, retrying...`, {
-					error: error?.message?.substring(0, 100),
+					error: lastError.message.substring(0, 100),
 				});
 
 				await this.backoffWithJitter(attempt, cfg.baseDelayMs, cfg.maxDelayMs);
@@ -90,8 +90,9 @@ export class RetryService {
 	/**
 	 * Check if an error is generally retryable
 	 */
-	private isRetryableError(error: any): boolean {
-		if (!error) return false;
+	private isRetryableError(error: unknown): boolean {
+		if (!error || typeof error !== "object") return false;
+		const err = error as Record<string, unknown>;
 
 		// MongoDB specific error codes
 		const retryableCodes = new Set([
@@ -106,12 +107,12 @@ export class RetryService {
 			11000, // DuplicateKey - sometimes transient in race conditions
 		]);
 
-		if (error.code && retryableCodes.has(error.code)) {
+		if (err.code && retryableCodes.has(err.code as number)) {
 			return true;
 		}
 
 		// Network/connection errors
-		const message = typeof error.message === "string" ? error.message.toLowerCase() : "";
+		const message = typeof err.message === "string" ? err.message.toLowerCase() : "";
 		const retryableMessages = [
 			"econnreset",
 			"econnrefused",

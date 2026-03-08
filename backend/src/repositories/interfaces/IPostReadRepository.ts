@@ -2,6 +2,7 @@ import { ClientSession } from "mongoose";
 import {
   CursorPaginationOptions,
   CursorPaginationResult,
+  FeedPost,
   IPost,
   PaginationOptions,
   PaginationResult,
@@ -20,24 +21,24 @@ export interface IPostReadRepository {
   findByIdWithPopulates(id: string, session?: ClientSession): Promise<IPost | null>;
   findByPublicId(publicId: string, session?: ClientSession): Promise<IPost | null>;
   findBySlug(slug: string, session?: ClientSession): Promise<IPost | null>;
-  getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<IPost>>;
+  getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<FeedPost>>;
   getTrendingFeedWithCursor(
     options: CursorPaginationOptions & {
       timeWindowDays?: number;
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     }
-  ): Promise<CursorPaginationResult<IPost>>;
+  ): Promise<CursorPaginationResult<FeedPost>>;
   getRankedFeedWithCursor(
     favoriteTags: string[],
     options: CursorPaginationOptions & {
       weights?: { recency?: number; popularity?: number; tagMatch?: number };
     }
-  ): Promise<CursorPaginationResult<IPost>>;
+  ): Promise<CursorPaginationResult<FeedPost>>;
   // batch lookups
-  findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]>;
-  findPostsByPublicIds(publicIds: string[]): Promise<IPost[]>;
-  findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>>;
+  findPostsByIds(ids: string[], viewerPublicId?: string): Promise<FeedPost[]>;
+  findPostsByPublicIds(publicIds: string[]): Promise<FeedPost[]>;
+  findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<FeedPost>>;
   findByCommunityId(communityId: string, page: number, limit: number): Promise<IPost[]>;
   findByTags(
     tagIds: string[],
@@ -45,15 +46,15 @@ export interface IPostReadRepository {
   ): Promise<PaginationResult<IPost>>;
 
   // paginated queries
-  findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<IPost>>;
+  findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<FeedPost>>;
 
   // feed queries
   getFeedForUserCoreWithCursor(
     followingIds: string[],
     favoriteTags: string[],
     options: CursorPaginationOptions
-  ): Promise<CursorPaginationResult<any>>;
-  getRankedFeed(followingIds: string[], limit: number, skip: number): Promise<PaginationResult<any>>;
+  ): Promise<CursorPaginationResult<FeedPost>>;
+  getRankedFeed(followingIds: string[], limit: number, skip: number): Promise<PaginationResult<FeedPost>>;
   getTrendingFeed(
     limit: number,
     skip: number,
@@ -62,7 +63,7 @@ export interface IPostReadRepository {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     },
-  ): Promise<PaginationResult<any>>;
+  ): Promise<PaginationResult<FeedPost>>;
   getTrendingFeedWithFacet(
     limit: number,
     skip: number,
@@ -71,8 +72,8 @@ export interface IPostReadRepository {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     }
-  ): Promise<PaginationResult<any>>;
-  getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>>;
+  ): Promise<PaginationResult<FeedPost>>;
+  getNewFeed(limit: number, skip: number): Promise<PaginationResult<FeedPost>>;
 
   // single post by arbitrary filter
   findOneByFilter(filter: Record<string, unknown>): Promise<IPost | null>;

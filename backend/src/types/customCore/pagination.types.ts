@@ -11,7 +11,7 @@ export interface PaginationOptions {
 	limit?: number;
 	sortBy?: string;
 	sortOrder?: "asc" | "desc";
-	filter?: any;
+	filter?: Record<string, unknown>;
 }
 
 /**
