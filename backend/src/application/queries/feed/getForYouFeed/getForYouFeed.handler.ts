@@ -36,7 +36,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 					
 					// Re-sort to match Redis order (crucial for feed consistency)
 					const postMap = new Map(posts.map(p => [p.publicId, p]));
-					const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter(Boolean) as any[];
+					const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter((p): p is IPost => p !== undefined);
 
 					const transformedPosts = this.transformPosts(orderedPosts);
 					const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
@@ -52,7 +52,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 						totalPages: 0,
 						nextCursor: redisResult.nextCursor,
 						hasMore: redisResult.hasMore
-					} as any;
+					};
 				}
 			} catch (err) {
 				redisLogger.warn("Failed to get feed from Redis cursor", { error: err });
@@ -99,7 +99,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				totalPages: 0,
 				nextCursor: result.nextCursor,
 				hasMore: result.hasMore
-			} as any;
+			};
 
 		} catch (error) {
 			errorLogger.error("For You feed error", {
@@ -113,7 +113,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 	private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
 		return posts.map((post) => {
 			const plainPost =
-				typeof (post as any).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
+				typeof (post as IPost).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
 			const userDoc = this.getUserSnapshot(plainPost);
 			const imageDoc = plainPost.image as IImage | Record<string, unknown> | undefined;
 			const repostOfDoc = plainPost.repostOf as IPost | Record<string, unknown> | undefined;
@@ -151,9 +151,9 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				},
 				image: imageDoc
 					? {
-							publicId: (imageDoc as any).publicId,
-							url: (imageDoc as any).url,
-							slug: (imageDoc as any).slug,
+							publicId: (imageDoc as IImage).publicId,
+							url: (imageDoc as IImage).url,
+							slug: (imageDoc as IImage).slug,
 						}
 					: undefined,
 				repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
@@ -187,12 +187,12 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 		);
 
 		return {
-			publicId: (repostOf as any).publicId as string,
-			body: (repostOf as any).body ?? "",
-			slug: (repostOf as any).slug ?? "",
-			createdAt: (repostOf as any).createdAt as Date,
-			likes: ((repostOf as any).likesCount as number) ?? 0,
-			commentsCount: ((repostOf as any).commentsCount as number) ?? 0,
+			publicId: (repostOf as Record<string, unknown>).publicId as string,
+			body: (repostOf as Record<string, unknown>).body as string ?? "",
+			slug: (repostOf as Record<string, unknown>).slug as string ?? "",
+			createdAt: (repostOf as Record<string, unknown>).createdAt as Date,
+			likes: ((repostOf as Record<string, unknown>).likesCount as number) ?? 0,
+			commentsCount: ((repostOf as Record<string, unknown>).commentsCount as number) ?? 0,
 			tags: normalizedOriginalTags,
 			user: {
 				publicId: originalUserDoc?.publicId as string,
@@ -201,7 +201,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<GetForYouFeedQue
 				avatar: originalUserDoc?.avatar ?? "",
 			},
 			image: originalImageDoc
-				? ({ publicId: (originalImageDoc as any).publicId, url: (originalImageDoc as any).url, slug: (originalImageDoc as any).slug } as IImage)
+				? ({ publicId: (originalImageDoc as IImage).publicId, url: (originalImageDoc as IImage).url, slug: (originalImageDoc as IImage).slug } as IImage)
 				: undefined,
 		};
 	}

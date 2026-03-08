@@ -85,3 +85,17 @@ export interface DeleteAttachmentAssetInput {
 export interface IPostWithId extends IPost {
 	_id: mongoose.Types.ObjectId;
 }
+
+export type PopulatedPostUser = {
+	_id?: mongoose.Types.ObjectId;
+	publicId?: string;
+	username?: string;
+	handle?: string;
+	avatar?: string;
+};
+
+export type PopulatedPostTag = {
+	_id?: mongoose.Types.ObjectId;
+	tag: string;
+	publicId?: string;
+};

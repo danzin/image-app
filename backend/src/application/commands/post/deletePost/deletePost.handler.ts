@@ -162,8 +162,10 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 
 		// Ensure we handle both populated object and direct ID (though findByPublicId populates it)
-		const imageObj = post.image as any;
-		const imageId = imageObj._id ? imageObj._id.toString() : imageObj.toString();
+		const imageRef = post.image as unknown as mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId };
+		const imageId = imageRef instanceof mongoose.Types.ObjectId
+			? imageRef.toString()
+			: imageRef._id.toString();
 
 		if (!imageId) {
 			console.warn(`[DeletePostHandler] Post ${post.publicId} has image reference but no valid imageId`);
@@ -221,8 +223,8 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 
 		// In lean mode (findByPublicId), tags are populated as plain objects
-		const tagIds = post.tags.map((tag: any) => {
-			const id = tag._id || tag; // Handle both populated object and direct ID (fallback)
+		const tagIds = (post.tags as (mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId })[]).map((tag) => {
+			const id = typeof tag === "object" && "_id" in tag ? tag._id : tag; // Handle both populated object and direct ID (fallback)
 			return new mongoose.Types.ObjectId(id);
 		});
 

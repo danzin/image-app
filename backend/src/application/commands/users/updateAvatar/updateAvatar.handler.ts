@@ -12,6 +12,7 @@ import { RedisService } from "@/services/redis.service";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { RetryPresets, RetryService } from "@/services/retry.service";
 import { createError } from "@/utils/errors";
+import { logger } from "@/utils/winston";
 import { UserAvatarChangedEvent } from "@/application/events/user/user-interaction.event";
 
 @injectable()
@@ -48,14 +49,13 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			newAvatarUrl = uploadResult.url;
 			newAvatarPublicId = uploadResult.publicId;
 		} catch (error) {
-			console.error("Avatar upload failed:", error);
 			// Clean up temp file if upload fails
 			if (fs.existsSync(command.filePath)) {
 				fs.unlink(command.filePath, (err) => {
-					if (err) console.error("Failed to delete temp file:", err);
+					if (err) logger.error("Failed to delete temp file", { err });
 				});
 			}
-			throw createError("UploadError", "Failed to upload avatar");
+			throw createError("UploadError", error instanceof Error ? error.message : "Failed to upload avatar");
 		}
 
 		try {
@@ -82,7 +82,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 			}
 
 			const postCount = await this.postReadRepository.countDocuments({ user: updatedUser.id });
-			(updatedUser as any).postCount = postCount;
+			updatedUser.postCount = postCount;
 
 			return this.dtoService.toPublicDTO(updatedUser);
 		} catch (error) {
@@ -90,21 +90,18 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 				try {
 					await this.imageStorageService.deleteImage(newAvatarPublicId);
 				} catch (deleteError) {
-					console.error("failed to clean up new avatar", deleteError);
+					logger.error("failed to clean up new avatar", { error: deleteError });
 				}
 			}
 
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message,
-				);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
 		} finally {
 			if (command.filePath && fs.existsSync(command.filePath)) {
 				fs.unlink(command.filePath, (err) => {
-					if (err) console.error("Failed to delete temp file:", err);
+					if (err) logger.error("Failed to delete temp file", { err });
 				});
 			}
 		}
@@ -121,7 +118,7 @@ export class UpdateAvatarCommandHandler implements ICommandHandler<UpdateAvatarC
 				RetryPresets.externalApi(),
 			);
 		} catch (deleteError) {
-			console.warn(`failed to delete old avatar ${oldAvatarUrl}`, deleteError);
+			logger.warn(`failed to delete old avatar ${oldAvatarUrl}`, { error: deleteError });
 		}
 	}
 }

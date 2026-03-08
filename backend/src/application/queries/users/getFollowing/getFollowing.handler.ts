@@ -77,8 +77,7 @@ export class GetFollowingQueryHandler implements IQueryHandler<GetFollowingQuery
 				totalPages,
 			};
 		} catch (error) {
-			console.error("Error in GetFollowingQueryHandler:", error);
-			if (error instanceof Error && error.name !== "Error") {
+			if (error instanceof Error) {
 				throw error;
 			}
 			throw createError("UnknownError", "Failed to get following");

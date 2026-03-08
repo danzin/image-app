@@ -54,7 +54,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 		commentOwnerPublicId = await this.resolveCommentOwnerPublicId(comment);
 
 		await this.unitOfWork.executeInTransaction(async (session: ClientSession) => {
-			const userInternalId = (user as any)._id?.toString?.() || (user as any).id?.toString?.();
+			const userInternalId = user._id?.toString() || user.id?.toString();
 			if (!userInternalId) {
 				throw createError("ValidationError", "User internal id missing");
 			}
@@ -74,9 +74,9 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 					receiverId: commentOwnerPublicId,
 					actionType: "comment_like",
 					actorId: command.userPublicId,
-					actorUsername: (user as any).username,
-					actorHandle: (user as any).handle,
-					actorAvatar: (user as any).avatar,
+					actorUsername: user.username,
+					actorHandle: user.handle,
+					actorAvatar: user.avatar,
 					targetId: command.commentId,
 					targetType: "comment",
 					targetPreview: this.buildPreview(comment),
@@ -132,7 +132,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 	}
 
 	private async resolveCommentOwnerPublicId(comment: IComment): Promise<string> {
-		const ownerId = (comment as any).userId?.toString?.();
+		const ownerId = comment.userId?.toString();
 		if (!ownerId) return "";
 
 		const owner = await this.userReadRepository.findById(ownerId);
@@ -140,7 +140,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 	}
 
 	private buildPreview(comment: IComment): string {
-		const raw = (comment as any).content ?? "";
+		const raw = comment.content;
 		if (typeof raw !== "string") return "";
 		if (raw.length <= 50) return raw;
 		return `${raw.slice(0, 50)}...`;

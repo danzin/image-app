@@ -78,7 +78,7 @@ export class TransactionQueueService {
 
 		return new Promise<T>((resolve, reject) => {
 			const transaction: QueuedTransaction<T> = {
-				id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
 				priority,
 				work,
 				resolve,

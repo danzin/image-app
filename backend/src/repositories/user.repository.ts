@@ -1,4 +1,4 @@
-import { Model, ClientSession, Types } from "mongoose";
+import { Model, ClientSession, Types, UpdateQuery } from "mongoose";
 import { IUser, PaginationOptions, PaginationResult } from "@/types";
 import { createError, isMongoDBDuplicateKeyError } from "@/utils/errors";
 import { injectable, inject } from "tsyringe";
@@ -54,7 +54,7 @@ export class UserRepository extends BaseRepository<IUser> {
 	 * @param session - (Optional) Mongoose session for transactions.
 	 * @returns The updated user object or null if not found.
 	 */
-	async update(id: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+	async update(id: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
 		try {
 			logger.info("updateData in user repo:", updateData);
 
@@ -76,7 +76,7 @@ export class UserRepository extends BaseRepository<IUser> {
 		}
 	}
 
-	async updateByPublicId(publicId: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+	async updateByPublicId(publicId: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
 		try {
 			const query = this.model.findOneAndUpdate({ publicId }, updateData, { new: true });
 			if (session) query.session(session);

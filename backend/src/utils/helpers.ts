@@ -10,3 +10,14 @@ export function safeFireAndForget(promise: any) {
 		errorLogger.error("safeFireAndForget error", { err });
 	});
 }
+
+export function generateSlug(input: string, maxLength?: number): string {
+	let slug = input
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/(^-|-$)/g, "");
+	if (maxLength) {
+		slug = slug.slice(0, maxLength);
+	}
+	return slug;
+}

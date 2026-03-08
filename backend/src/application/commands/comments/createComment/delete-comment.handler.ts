@@ -11,6 +11,8 @@ import { createError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
+import { PopulatedPostUser, PopulatedPostTag } from "@/types";
+import mongoose from "mongoose";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
@@ -60,15 +62,15 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			if (!post) {
 				throw createError("NotFoundError", "Associated post not found");
 			}
-			const hydratedPost = await this.postReadRepository.findByPublicId((post as any).publicId);
+			const hydratedPost = await this.postReadRepository.findByPublicId(post.publicId);
 			const effectivePost = hydratedPost ?? post;
 
 			const isCommentOwner = comment.userId?.toString() === user.id;
-			const postOwner = (effectivePost as any).user;
+			const postOwner = effectivePost.user as mongoose.Types.ObjectId | PopulatedPostUser;
 			const postOwnerInternalId =
-				typeof postOwner === "object" && postOwner !== null && "_id" in postOwner
-					? (postOwner as any)._id.toString()
-					: (postOwner?.toString?.() ?? "");
+				typeof postOwner === "object" && "_id" in postOwner
+					? (postOwner as PopulatedPostUser)._id?.toString() ?? ""
+					: (postOwner?.toString() ?? "");
 			const postOwnerMatch = postOwnerInternalId === user.id;
 
 			if (!isCommentOwner && !postOwnerMatch && !user.isAdmin) {
@@ -79,12 +81,14 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			const deletedBy: "user" | "admin" = (isCommentOwner && !user.isAdmin) ? "user" : "admin";
 
 			// Extract post data for events
-			postTags = Array.isArray((effectivePost as any).tags)
-				? (effectivePost as any).tags.map((t: any) => t.tag ?? t)
+			postTags = Array.isArray(effectivePost.tags)
+				? (effectivePost.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[]).map(
+						(t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : t.toString())
+					)
 				: [];
 			const postOwnerPublicId =
-				typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-					? (postOwner as any).publicId
+				typeof postOwner === "object" && "publicId" in postOwner
+					? (postOwner as PopulatedPostUser).publicId
 					: undefined;
 			if (!postOwnerPublicId && postOwnerInternalId) {
 				const ownerDoc = await this.userReadRepository.findById(postOwnerInternalId);
@@ -92,7 +96,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			} else {
 				postOwnerId = postOwnerPublicId ?? "";
 			}
-			postPublicId = (effectivePost as any).publicId ?? comment.postId.toString();
+			postPublicId = effectivePost.publicId ?? comment.postId.toString();
 
 			// check if the comment has any replies
 			const hasReplies = await this.commentRepository.hasReplies(command.commentId);
@@ -126,7 +130,6 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 
 			logger.info(`Comment ${command.commentId} successfully deleted by user ${command.userPublicId}`);
 		} catch (error) {
-			console.error("DeleteCommentCommand execution failed:", error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";
 			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
 			throw createError(errorName, errorMessage, {

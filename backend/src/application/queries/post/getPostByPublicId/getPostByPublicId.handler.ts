@@ -32,7 +32,9 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 		// Check author community role
 		if (post.communityId) {
 			const communityInternalId =
-				post.communityId instanceof mongoose.Types.ObjectId ? post.communityId : (post.communityId as any)._id; // Handle populated field if necessary
+				post.communityId instanceof mongoose.Types.ObjectId
+					? post.communityId
+					: (post.communityId as { _id: mongoose.Types.ObjectId })._id; // Handle populated field if necessary
 
 			const authorInternalId = post.author?._id || post.user;
 
@@ -60,10 +62,12 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 				dto.isFavoritedByViewer = !!favoriteRecord;
 
 				// Check if viewer has reposted this post (or the original if viewing a repost)
-				const repostOfDoc = post.repostOf as any;
-				const repostCheckTargetId = repostOfDoc?._id
-					? repostOfDoc._id.toString()
-					: postInternalId;
+				const repostOfDoc = post.repostOf as unknown as mongoose.Types.ObjectId | { _id: mongoose.Types.ObjectId } | null;
+				const repostCheckTargetId = repostOfDoc instanceof mongoose.Types.ObjectId
+					? repostOfDoc.toString()
+					: repostOfDoc && "_id" in repostOfDoc
+						? (repostOfDoc as { _id: mongoose.Types.ObjectId })._id.toString()
+						: postInternalId;
 				const repostCount = await this.postReadRepository.countDocuments({
 					user: new mongoose.Types.ObjectId(viewerInternalId),
 					repostOf: new mongoose.Types.ObjectId(repostCheckTargetId),
@@ -77,7 +81,9 @@ export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPub
 
 				if (!canDelete && post.communityId) {
 					const communityInternalId =
-						post.communityId instanceof mongoose.Types.ObjectId ? post.communityId : (post.communityId as any)._id; // Handle populated field
+						post.communityId instanceof mongoose.Types.ObjectId
+							? post.communityId
+							: (post.communityId as { _id: mongoose.Types.ObjectId })._id; // Handle populated field
 
 					if (communityInternalId) {
 						const member = await this.communityMemberRepository.findByCommunityAndUser(

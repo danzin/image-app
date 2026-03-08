@@ -41,7 +41,7 @@ export class JoinCommunityCommandHandler implements ICommandHandler<JoinCommunit
 			// 1. Add Member
 			await this.communityMemberRepository.create(
 				{
-					communityId: communityId as any,
+					communityId: communityId,
 					userId: userId,
 					role: "member",
 				},
@@ -65,16 +65,14 @@ export class JoinCommunityCommandHandler implements ICommandHandler<JoinCommunit
 							$slice: 10,
 						},
 					},
-				} as any,
+				},
 				session
 			);
 
 			// 3. Increment Member Count
-			await this.communityRepository.update(
-				communityId.toString(),
-				{
-					$inc: { "stats.memberCount": 1 },
-				} as any,
+			await this.communityRepository.findOneAndUpdate(
+				{ _id: communityId },
+				{ $inc: { "stats.memberCount": 1 } },
 				session
 			);
 		});

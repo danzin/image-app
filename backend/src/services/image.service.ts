@@ -16,6 +16,7 @@ import {
 } from "@/types";
 import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
+import { generateSlug } from "@/utils/helpers";
 
 @injectable()
 export class ImageService {
@@ -55,7 +56,7 @@ export class ImageService {
 		session?: mongoose.ClientSession;
 	}): Promise<AttachmentCreationResult> {
 		try {
-			const slug = this.generateSlug(input.originalName);
+			const slug = `${generateSlug(input.originalName) || "image"}-${Date.now()}`;
 			const createdAt = new Date();
 
 			const imageDoc = (await this.imageRepository.create(
@@ -153,14 +154,6 @@ export class ImageService {
 		}
 
 		return undefined;
-	}
-
-	private generateSlug(originalName: string): string {
-		const base = originalName
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/(^-|-$)/g, "");
-		return `${base || "image"}-${Date.now()}`;
 	}
 
 	private wrapError(error: unknown, context: string): Error {

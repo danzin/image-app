@@ -198,11 +198,8 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 			// Remove user from trending sets if they are there (though trending is usually post-based)
 			
 		} catch (error) {
-			if (typeof error === "object" && error !== null && "name" in error && "message" in error) {
-				throw createError(
-					(error as { name: string; message: string }).name,
-					(error as { name: string; message: string }).message
-				);
+			if (error instanceof Error) {
+				throw createError(error.name, error.message);
 			}
 			throw createError("InternalServerError", "An unknown error occurred during user deletion");
 		}

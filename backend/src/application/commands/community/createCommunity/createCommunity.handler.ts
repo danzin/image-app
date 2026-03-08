@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { Types } from "mongoose";
+import { Types, UpdateQuery } from "mongoose";
 import * as fs from "fs";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { CreateCommunityCommand } from "./createCommunity.command";
@@ -8,7 +8,10 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { UserRepository } from "@/repositories/user.repository";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
-import { ICommunity, IImageStorageService } from "@/types";
+import { generateSlug } from "@/utils/helpers";
+import { logger } from "@/utils/winston";
+import { ICommunity, IImageStorageService, IUser } from "@/types";
+import { create } from "domain";
 
 @injectable()
 export class CreateCommunityCommandHandler implements ICommandHandler<CreateCommunityCommand, ICommunity> {
@@ -29,10 +32,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 		}
 		const userId = user._id as Types.ObjectId;
 
-		const slug = name
-			.toLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/(^-|-$)+/g, "");
+		const slug = generateSlug(name);
 
 		// Check if slug exists
 		const existing = await this.communityRepository.findBySlug(slug);
@@ -50,12 +50,16 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 				avatarUrl = uploadResult.url;
 				avatarPublicId = uploadResult.publicId;
 			} catch (error) {
-				console.error("Failed to upload community avatar:", error);
-			} finally {
+				logger.error("Failed to upload community avatar", { error });
+        throw createError("StorageError", error instanceof Error ? error.message : "Failed to upload community avatar");
+      } finally {
 				// Clean up temp file
 				if (fs.existsSync(avatarPath)) {
 					fs.unlink(avatarPath, (err) => {
-						if (err) console.error("Failed to delete temp file:", err);
+						if (err){
+              logger.error("Failed to delete temp file", { err });
+              throw createError("StorageError", err instanceof Error ? err.message : "Failed to delete temp avatar file");
+            } 
 					});
 				}
 			}
@@ -103,7 +107,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 								$slice: 10,
 							},
 						},
-					} as any,
+					} as UpdateQuery<IUser> ,
 					session
 				);
 
@@ -114,7 +118,8 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 				try {
 					await this.imageStorageService.deleteImage(avatarPublicId);
 				} catch (deleteError) {
-					console.error("Failed to rollback community avatar upload:", deleteError);
+					logger.error("Failed to rollback community avatar upload", { error: deleteError });
+          throw createError("StorageError", deleteError instanceof Error ? deleteError.message : "Failed to rollback community avatar upload");
 				}
 			}
 			throw error;

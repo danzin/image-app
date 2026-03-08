@@ -14,7 +14,7 @@ import { FeedInteractionHandler } from "@/application/events/user/feed-interacti
 import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
-import { IComment, TransformedComment } from "@/types";
+import { IComment, TransformedComment, PopulatedPostUser, PopulatedPostTag } from "@/types";
 import mongoose from "mongoose";
 import { logger } from "@/utils/winston";
 
@@ -63,7 +63,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 			throw createError("ValidationError", "Comment cannot exceed 280 characters");
 		}
 
-		let createdComment: any;
+		let createdComment!: IComment;
 		let postTags: string[] = [];
 		let postOwnerId: string;
 		let parentComment: IComment | null = null;
@@ -92,16 +92,20 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					throw createError("ValidationError", "Parent comment does not belong to the same post");
 				}
 
-				const parentDepth = (parentComment as any).depth ?? 0;
+				const parentDepth = parentComment.depth ?? 0;
 				depth = parentDepth + 1;
 			}
 
-			postTags = Array.isArray(post.tags) ? post.tags.map((t: any) => t.tag ?? t) : [];
-			const postOwner = (post as any).user;
+			postTags = Array.isArray(post.tags)
+				? (post.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[]).map(
+						(t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : t.toString())
+					)
+				: [];
+			const postOwner = post.user as mongoose.Types.ObjectId | PopulatedPostUser;
 			postOwnerId =
-				typeof postOwner === "object" && postOwner !== null && "publicId" in postOwner
-					? (postOwner as any).publicId
-					: (postOwner?.toString?.() ?? "");
+				typeof postOwner === "object" && "publicId" in postOwner
+					? (postOwner as PopulatedPostUser).publicId ?? ""
+					: (postOwner?.toString() ?? "");
 			const sanitizedPostId = post.publicId;
 
 			await this.unitOfWork.executeInTransaction(async (session) => {
@@ -151,7 +155,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				// Send notification to parent comment owner (for replies), but avoid double notifying post owner
 				if (command.parentId && parentComment) {
-					const parentOwnerId = (parentComment as any).userId?.toString?.();
+					const parentOwnerId = parentComment.userId?.toString();
 					if (parentOwnerId) {
 						const parentOwner = await this.userReadRepository.findById(parentOwnerId);
 						const parentOwnerPublicId = parentOwner?.publicId;
@@ -229,14 +233,16 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 				);
 			});
 
-			const populatedComment = await this.commentRepository.findByIdTransformed(createdComment._id.toString());
+			if (!createdComment) {
+				throw createError("InternalError", "Comment was not created");
+			}
+			const populatedComment = await this.commentRepository.findByIdTransformed((createdComment._id as mongoose.Types.ObjectId).toString());
 			if (!populatedComment) {
 				throw createError("InternalError", "Failed to retrieve created comment");
 			}
 
 			return populatedComment;
 		} catch (error) {
-			console.error("CreateCommentCommand execution failed:", error);
 			const errorName = error instanceof Error ? error.name : "UnknownError";
 			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
 			throw createError(errorName, errorMessage, {

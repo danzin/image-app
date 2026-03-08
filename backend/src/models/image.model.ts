@@ -1,6 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { IImage, ITag } from "@/types";
 import { v4 as uuidv4 } from "uuid";
+import { generateSlug } from "@/utils/helpers";
 
 const imageSchema = new Schema<IImage>({
 	url: { type: String, required: true },
@@ -33,13 +34,7 @@ const tagSchema = new Schema<ITag>({
 // Pre-save middleware to generate slug
 imageSchema.pre("save", function (next) {
 	if (this.isNew && this.originalName) {
-		this.slug =
-			this.originalName
-				.toLowerCase()
-				.replace(/[^a-z0-9]+/g, "-")
-				.replace(/(^-|-$)/g, "") +
-			"-" +
-			Date.now();
+		this.slug = `${generateSlug(this.originalName) || "image"}-${Date.now()}`;
 	}
 	next();
 });

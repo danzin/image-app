@@ -12,7 +12,7 @@ import { DTOService } from "@/services/dto.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
 import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "@/utils/sanitizers";
-import { IPost, IUser, PostDTO } from "@/types";
+import { IPost, IUser, PostDTO, PopulatedPostTag, PopulatedPostUser } from "@/types";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { PostUploadedEvent } from "@/application/events/post/post.event";
 import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
@@ -76,7 +76,11 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				slug: `${postPublicId}`,
 				type: "repost" as const,
 				repostOf: targetPost._id,
-				tags: Array.isArray(targetPost.tags) ? targetPost.tags.map((t: any) => t._id || t) : [],
+				tags: Array.isArray(targetPost.tags)
+					? (targetPost.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[]).map(
+							(t) => (typeof t === "object" && "_id" in t ? (t as PopulatedPostTag)._id || t : t)
+						)
+					: [],
 				likesCount: 0,
 				commentsCount: 0,
 				viewsCount: 0,
@@ -103,7 +107,11 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				);
 			}
 
-			const tagNames = Array.isArray(targetPost.tags) ? targetPost.tags.map((t: any) => t.tag).filter(Boolean) : [];
+			const tagNames = Array.isArray(targetPost.tags)
+				? (targetPost.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[])
+						.map((t) => (typeof t === "object" && "tag" in t ? (t as PopulatedPostTag).tag : undefined))
+						.filter((t): t is string => typeof t === "string")
+				: [];
 
 			this.eventBus.queueTransactional(
 				new PostUploadedEvent(newPost.publicId, user.publicId, Array.from(new Set(tagNames))),
@@ -140,9 +148,9 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 			return post.author.publicId;
 		}
 		// Fallback to populated user if available (rare in lean + populates setup)
-		const postUser = post.user as any;
-		if (postUser?.publicId) {
-			return postUser.publicId;
+		const postUser = post.user as mongoose.Types.ObjectId | PopulatedPostUser;
+		if (typeof postUser === "object" && "publicId" in postUser) {
+			return (postUser as PopulatedPostUser).publicId ?? "";
 		}
 		return "";
 	}
