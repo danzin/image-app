@@ -3,210 +3,244 @@ import { errorLogger } from "./winston";
 
 // type guard interfaces for error handling
 export interface ErrorWithStatusCode extends Error {
-	statusCode: number;
+  statusCode: number;
 }
 
 export interface MongoDBDuplicateKeyError extends Error {
-	code: number;
-	keyValue: Record<string, unknown>;
+  code: number;
+  keyValue: Record<string, unknown>;
 }
 
 // type guards for error checking
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error !== null && typeof error === "object" && "message" in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return String(error);
+}
+
+export function getErrorCode(error: unknown): number | string | undefined {
+  if (error !== null && typeof error === "object" && "code" in error) {
+    const code = (error as { code: unknown }).code;
+    if (typeof code === "number" || typeof code === "string") return code;
+  }
+  return undefined;
+}
+
+export function getErrorLabels(error: unknown): string[] | undefined {
+  if (error !== null && typeof error === "object" && "errorLabels" in error) {
+    const labels = (error as { errorLabels: unknown }).errorLabels;
+    if (Array.isArray(labels)) return labels as string[];
+  }
+  return undefined;
+}
+
+export function getErrorName(error: unknown): string | undefined {
+  if (error instanceof Error) return error.name;
+  if (error !== null && typeof error === "object" && "name" in error) {
+    const name = (error as { name: unknown }).name;
+    if (typeof name === "string") return name;
+  }
+  return undefined;
+}
+
 export function isAppError(error: unknown): error is AppError {
-	return error instanceof AppError;
+  return error instanceof AppError;
 }
 
 export function isErrorWithStatusCode(error: unknown): error is ErrorWithStatusCode {
-	return typeof error === "object" && error !== null && "statusCode" in error && error instanceof Error;
+  return typeof error === "object" && error !== null && "statusCode" in error && error instanceof Error;
 }
 
 export function isMongoDBDuplicateKeyError(error: unknown): error is MongoDBDuplicateKeyError {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as MongoDBDuplicateKeyError).code === 11000 &&
-		"keyValue" in error
-	);
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as MongoDBDuplicateKeyError).code === 11000 &&
+    "keyValue" in error
+  );
 }
 
 export function isNamedError(error: unknown): error is Error {
-	return error instanceof Error && "name" in error;
+  return error instanceof Error && "name" in error;
 }
 
 //improved err factory
 export class AppError extends Error {
-	public statusCode: number;
-	public context: any;
-	constructor(name: string, message: string, statusCode: number, context?: any) {
-		super(message);
-		this.name = name;
-		this.statusCode = statusCode;
-		this.context = context;
-	}
+  public statusCode: number;
+  public context: any;
+  constructor(name: string, message: string, statusCode: number, context?: any) {
+    super(message);
+    this.name = name;
+    this.statusCode = statusCode;
+    this.context = context;
+  }
 }
 
 class ValidationError extends AppError {
-	constructor(message: string) {
-		super("ValidationError", message, 400);
-	}
+  constructor(message: string) {
+    super("ValidationError", message, 400);
+  }
 }
 
 class UnauthorizedError extends AppError {
-	constructor(message: string) {
-		super("UnauthorizedError", message, 401);
-	}
+  constructor(message: string) {
+    super("UnauthorizedError", message, 401);
+  }
 }
 
 class AuthenticationError extends AppError {
-	constructor(message: string) {
-		super("AuthenticationError", message, 401);
-	}
+  constructor(message: string) {
+    super("AuthenticationError", message, 401);
+  }
 }
 
 class PathError extends AppError {
-	constructor(message: string) {
-		super("PathError", message, 404);
-	}
+  constructor(message: string) {
+    super("PathError", message, 404);
+  }
 }
 
 class NotFoundError extends AppError {
-	constructor(message: string) {
-		super("NotFoundError", message, 404);
-	}
+  constructor(message: string) {
+    super("NotFoundError", message, 404);
+  }
 }
 
 class ForbiddenError extends AppError {
-	constructor(message: string) {
-		super("ForbiddenError", message, 403);
-	}
+  constructor(message: string) {
+    super("ForbiddenError", message, 403);
+  }
 }
 
 class SecurityError extends AppError {
-	constructor(message: string) {
-		super("SecurityError", message, 403);
-	}
+  constructor(message: string) {
+    super("SecurityError", message, 403);
+  }
 }
 
 class DuplicateError extends AppError {
-	constructor(message: string) {
-		super("DuplicateError", message, 409);
-	}
+  constructor(message: string) {
+    super("DuplicateError", message, 409);
+  }
 }
 
 class InternalServerError extends AppError {
-	constructor(message: string) {
-		super("InternalServerError", message, 500);
-	}
+  constructor(message: string) {
+    super("InternalServerError", message, 500);
+  }
 }
 
 class UnknownError extends AppError {
-	constructor(message: string) {
-		super("UnknownError", message, 500);
-	}
+  constructor(message: string) {
+    super("UnknownError", message, 500);
+  }
 }
 
 class TransactionError extends AppError {
-	constructor(message: string) {
-		super("TransactionError", message, 500);
-	}
+  constructor(message: string) {
+    super("TransactionError", message, 500);
+  }
 }
 
 class DatabaseError extends AppError {
-	constructor(message: string) {
-		super("DatabaseError", message, 500);
-	}
+  constructor(message: string) {
+    super("DatabaseError", message, 500);
+  }
 }
 
 class UoWError extends AppError {
-	constructor(message: string) {
-		super("UoWError", message, 500);
-	}
+  constructor(message: string) {
+    super("UoWError", message, 500);
+  }
 }
 
 class StorageError extends AppError {
-	constructor(message: string) {
-		super("StorageError", message, 500);
-	}
+  constructor(message: string) {
+    super("StorageError", message, 500);
+  }
 }
 
 class InternalError extends AppError {
-	constructor(message: string) {
-		super("InternalError", message, 500);
-	}
+  constructor(message: string) {
+    super("InternalError", message, 500);
+  }
 }
 
 class ConfigError extends AppError {
-	constructor(message: string) {
-		super("ConfigError", message, 500);
-	}
+  constructor(message: string) {
+    super("ConfigError", message, 500);
+  }
 }
 
 class ConflictError extends AppError {
-	constructor(message: string) {
-		super("ConflictError", message, 409);
-	}
+  constructor(message: string) {
+    super("ConflictError", message, 409);
+  }
 }
 
 const errorMap: { [key: string]: new (message: string) => AppError } = {
-	ValidationError,
-	UnauthorizedError,
-	AuthenticationError,
-	PathError,
-	NotFoundError,
-	ForbiddenError,
-	DuplicateError,
-	InternalServerError,
-	InternalError,
-	StorageError,
-	UnknownError,
-	TransactionError,
-	UoWError,
-	DatabaseError,
-	SecurityError,
-	ConfigError,
-	ConflictError,
+  ValidationError,
+  UnauthorizedError,
+  AuthenticationError,
+  PathError,
+  NotFoundError,
+  ForbiddenError,
+  DuplicateError,
+  InternalServerError,
+  InternalError,
+  StorageError,
+  UnknownError,
+  TransactionError,
+  UoWError,
+  DatabaseError,
+  SecurityError,
+  ConfigError,
+  ConflictError,
 };
 
 export function createError(type: string, message: string, context?: any): AppError {
-	const ErrorClass = errorMap[type] || UnknownError;
-	const error = new ErrorClass(message);
-	if (context) {
-		error.context = context;
-	}
-	return error;
+  const ErrorClass = errorMap[type] || UnknownError;
+  const error = new ErrorClass(message);
+  if (context) {
+    error.context = context;
+  }
+  return error;
 }
 
 export class ErrorHandler {
-	static handleError(err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction): void {
-		const response: any = {
-			type: err.name,
-			message: err.message,
-			code: err.statusCode || 500,
-		};
+  static handleError(err: AppError, req: express.Request, res: express.Response, _next: express.NextFunction): void {
+    const response: any = {
+      type: err.name,
+      message: err.message,
+      code: err.statusCode || 500,
+    };
 
-		if (err.context) {
-			response.context = err.context;
-		}
+    if (err.context) {
+      response.context = err.context;
+    }
 
-		// Log all errors to winston
-		errorLogger.error({
-			type: err.name,
-			message: err.message,
-			statusCode: err.statusCode || 500,
-			context: err.context,
-			stack: err.stack,
-			method: req.method,
-			url: req.originalUrl,
-			ip: req.ip,
-			userAgent: req.get("user-agent"),
-			timestamp: new Date().toISOString(),
-		});
+    // Log all errors to winston
+    errorLogger.error({
+      type: err.name,
+      message: err.message,
+      statusCode: err.statusCode || 500,
+      context: err.context,
+      stack: err.stack,
+      method: req.method,
+      url: req.originalUrl,
+      ip: req.ip,
+      userAgent: req.get("user-agent"),
+      timestamp: new Date().toISOString(),
+    });
 
-		//Return stack trace when not in production
-		if (process.env.NODE_ENV !== "production") {
-			response.stack = err.stack;
-		}
-		res.status(err.statusCode || 500).json(response);
-	}
+    //Return stack trace when not in production
+    if (process.env.NODE_ENV !== "production") {
+      response.stack = err.stack;
+    }
+    res.status(err.statusCode || 500).json(response);
+  }
 }
