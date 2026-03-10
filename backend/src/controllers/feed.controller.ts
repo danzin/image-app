@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { FeedService } from "@/services/feed.service";
 import { inject, injectable } from "tsyringe";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
@@ -33,7 +33,7 @@ export class FeedController {
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
-        next(createError(error.name, error.message));
+        next(wrapError(error));
       } else {
         next(createError("UnknownError", "An unknown error occurred"));
       }
@@ -53,7 +53,7 @@ export class FeedController {
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
-        next(createError(error.name, error.message));
+        next(wrapError(error));
       } else {
         next(createError("UnknownError", "An unknown error occurred"));
       }
@@ -73,7 +73,7 @@ export class FeedController {
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
-        next(createError(error.name, error.message));
+        next(wrapError(error));
       } else {
         next(createError("UnknownError", "An unknown error occurred"));
       }
@@ -96,7 +96,7 @@ export class FeedController {
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
-        next(createError(error.name, error.message));
+        next(wrapError(error));
       } else {
         next(createError("UnknownError", "An unknown error occurred"));
       }
@@ -115,7 +115,7 @@ export class FeedController {
     } catch (error) {
       console.error(error);
       if (error instanceof Error) {
-        next(createError(error.name, error.message));
+        next(wrapError(error));
       } else {
         next(createError("UnknownError", "An unknown error occurred"));
       }

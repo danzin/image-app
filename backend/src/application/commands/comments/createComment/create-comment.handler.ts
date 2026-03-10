@@ -9,7 +9,7 @@ import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
@@ -243,12 +243,8 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 			return populatedComment;
 		} catch (error) {
-			const errorName = error instanceof Error ? error.name : "UnknownError";
-			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-			throw createError(errorName, errorMessage, {
-				operation: "CreateComment",
-				userPublicId: command.userPublicId,
-				postPublicId: command.postPublicId,
+			throw wrapError(error, "InternalServerError", {
+				context: { operation: "CreateComment", userPublicId: command.userPublicId, postPublicId: command.postPublicId },
 			});
 		}
 	}

@@ -20,7 +20,7 @@ export class GetCommunityMembersQueryHandler implements IQueryHandler<GetCommuni
 
 		const community = await this.communityRepository.findBySlug(communitySlug);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 
 		const skip = (page - 1) * limit;

@@ -42,54 +42,68 @@ import { FeedMetaService } from "@/services/feed/feed-meta.service";
 import { FeedFanoutService } from "@/services/feed/feed-fanout.service";
 
 export function registerServices(): void {
-	const isCloudinaryConfigured =
-		process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET;
+  const isCloudinaryConfigured =
+    process.env.CLOUDINARY_CLOUD_NAME &&
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET;
 
-	const ImageStorageService = isCloudinaryConfigured ? CloudinaryService : LocalStorageService;
-	if (!isCloudinaryConfigured) {
-		logger.info("No Cloudinary credentials detected. \r\nDefaulting to local storage.");
-	}
+  const ImageStorageService = isCloudinaryConfigured
+    ? CloudinaryService
+    : LocalStorageService;
+  if (!isCloudinaryConfigured) {
+    logger.info(
+      "No Cloudinary credentials detected. \r\nDefaulting to local storage.",
+    );
+  }
 
-	container.registerSingleton("MetricsService", MetricsService);
-	container.registerSingleton("TelemetryService", TelemetryService);
-	container.registerSingleton("SearchService", SearchService);
-	container.registerSingleton("AuthService", AuthService);
-	container.registerSingleton("AuthSessionService", AuthSessionService);
-	container.registerSingleton("BloomFilterService", BloomFilterService);
-	container.registerSingleton("ImageService", ImageService);
-	container.registerSingleton("CommentService", CommentService);
-	container.registerSingleton("FollowService", FollowService);
-	container.registerSingleton("NotificationService", NotificationService);
-	container.registerSingleton<IImageStorageService>("ImageStorageService", ImageStorageService);
-	container.registerSingleton("DTOService", DTOService);
-	container.registerSingleton("FeedEnrichmentService", FeedEnrichmentService);
-	container.registerSingleton("FeedCoreService", FeedCoreService);
-	container.registerSingleton("FeedReadService", FeedReadService);
-	container.registerSingleton("FeedInteractionService", FeedInteractionService);
-	container.registerSingleton("FeedMetaService", FeedMetaService);
-	container.registerSingleton("FeedFanoutService", FeedFanoutService);
-	container.registerSingleton("FeedService", FeedService);
-	container.registerSingleton("RedisService", RedisService);
-	container.registerSingleton("UserActionService", UserActionService);
-	container.registerSingleton("UserActivityService", UserActivityService);
-	container.registerSingleton("RetryService", RetryService);
-	container.registerSingleton("TransactionQueueService", TransactionQueueService);
-	container.registerSingleton("EmailService", EmailService);
+  container.registerSingleton("MetricsService", MetricsService);
+  container.registerSingleton("TelemetryService", TelemetryService);
+  container.registerSingleton("SearchService", SearchService);
+  container.registerSingleton("AuthService", AuthService);
+  container.registerSingleton("AuthSessionService", AuthSessionService);
+  container.registerSingleton("BloomFilterService", BloomFilterService);
+  container.registerSingleton("ImageService", ImageService);
+  container.registerSingleton("CommentService", CommentService);
+  container.registerSingleton("FollowService", FollowService);
+  container.registerSingleton("NotificationService", NotificationService);
+  container.registerSingleton<IImageStorageService>(
+    "ImageStorageService",
+    ImageStorageService,
+  );
+  container.registerSingleton("DTOService", DTOService);
+  container.registerSingleton("FeedEnrichmentService", FeedEnrichmentService);
+  container.registerSingleton("FeedCoreService", FeedCoreService);
+  container.registerSingleton("FeedReadService", FeedReadService);
+  container.registerSingleton("FeedInteractionService", FeedInteractionService);
+  container.registerSingleton("FeedMetaService", FeedMetaService);
+  container.registerSingleton("FeedFanoutService", FeedFanoutService);
+  container.registerSingleton("FeedService", FeedService);
+  container.registerSingleton("RedisService", RedisService);
+  container.registerSingleton("UserActionService", UserActionService);
+  container.registerSingleton("UserActivityService", UserActivityService);
+  container.registerSingleton("RetryService", RetryService);
+  container.registerSingleton(
+    "TransactionQueueService",
+    TransactionQueueService,
+  );
+  container.registerSingleton("EmailService", EmailService);
 
-	const realtimeHandlers = [
-		container.resolve(NewPostMessageHandler),
-		container.resolve(GlobalNewPostMessageHandler),
-		container.resolve(PostDeletedMessageHandler),
-		container.resolve(InteractionMessageHandler),
-		container.resolve(LikeUpdateMessageHandler),
-		container.resolve(AvatarUpdateMessageHandler),
-		container.resolve(RealtimeMessageSentHandler),
-		container.resolve(RealtimeMessageStatusUpdatedHandler),
-	];
-	container.register("RealtimeHandlers", { useValue: realtimeHandlers });
+  const realtimeHandlers = [
+    container.resolve(NewPostMessageHandler),
+    container.resolve(GlobalNewPostMessageHandler),
+    container.resolve(PostDeletedMessageHandler),
+    container.resolve(InteractionMessageHandler),
+    container.resolve(LikeUpdateMessageHandler),
+    container.resolve(AvatarUpdateMessageHandler),
+    container.resolve(RealtimeMessageSentHandler),
+    container.resolve(RealtimeMessageStatusUpdatedHandler),
+  ];
+  container.register("RealtimeHandlers", { useValue: realtimeHandlers });
 
-	container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
-	container.registerSingleton("FavoriteService", FavoriteService);
-	container.registerSingleton("MessagingService", MessagingService);
-	container.registerSingleton("TagService", TagService);
+  container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
+  container.registerSingleton("FavoriteService", FavoriteService);
+  container.registerSingleton("MessagingService", MessagingService);
+  container.registerSingleton("TagService", TagService);
+
+  logger.info("[di] Services registered");
 }

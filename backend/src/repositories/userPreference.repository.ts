@@ -2,7 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { ClientSession, Model } from "mongoose";
 import { IUser, IUserPreference } from "@/types";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { UserRepository } from "./user.repository";
 
 @injectable()
@@ -20,7 +20,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 		} catch (error) {
 			console.error(error);
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			} else {
 				throw createError("UnknownError", String(error));
 			}
@@ -40,7 +40,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 		} catch (error) {
 			console.error(error);
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			} else {
 				throw createError("UnknownError", String(error));
 			}
@@ -76,7 +76,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 				.exec();
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", String(error));
 		}
@@ -92,7 +92,7 @@ export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 		} catch (error) {
 			console.error(error);
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			} else {
 				throw createError("UnknownError", String(error));
 			}

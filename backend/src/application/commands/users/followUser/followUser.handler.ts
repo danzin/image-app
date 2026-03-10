@@ -94,9 +94,8 @@ export class FollowUserCommandHandler implements ICommandHandler<FollowUserComma
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			throw createError("TransactionError", errorMessage, {
-				function: "followUser",
-				additionalInfo: "Transaction failed",
-				originalError: error,
+				context: { function: "followUser", additionalInfo: "Transaction failed" },
+				cause: error,
 			});
 		}
 

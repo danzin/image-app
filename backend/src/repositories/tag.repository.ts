@@ -107,7 +107,7 @@ export class TagRepository extends BaseRepository<ITag> {
 			}
 			return await query.exec();
 		} catch (error) {
-			throw createError("DatabaseError", "Failed to find tags", error);
+			throw createError("DatabaseError", "Failed to find tags", { cause: error });
 		}
 	}
 }

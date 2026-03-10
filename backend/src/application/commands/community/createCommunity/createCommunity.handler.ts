@@ -28,7 +28,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 
 		const user = await this.userRepository.findByPublicId(creatorId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id as Types.ObjectId;
 
@@ -37,7 +37,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 		// Check if slug exists
 		const existing = await this.communityRepository.findBySlug(slug);
 		if (existing) {
-			throw createError("BadRequest", "Community with this name already exists");
+			throw createError("ValidationError", "Community with this name already exists");
 		}
 
 		let avatarUrl = "";

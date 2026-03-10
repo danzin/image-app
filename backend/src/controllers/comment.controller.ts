@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { CommentService } from "@/services/comment.service";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { CreateCommentCommand } from "@/application/commands/comments/createComment/createComment.command";
@@ -34,7 +34,7 @@ export class CommentController {
 			res.status(201).json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -55,7 +55,7 @@ export class CommentController {
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -76,7 +76,7 @@ export class CommentController {
 			res.json(comment);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -99,7 +99,7 @@ export class CommentController {
 			res.status(204).send(); // No content response
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -120,7 +120,7 @@ export class CommentController {
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -142,7 +142,7 @@ export class CommentController {
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -162,7 +162,7 @@ export class CommentController {
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -181,7 +181,7 @@ export class CommentController {
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}

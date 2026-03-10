@@ -23,7 +23,7 @@ export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserComm
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id;
 

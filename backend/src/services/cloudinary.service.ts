@@ -1,6 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
-import { createError, getErrorMessage } from "@/utils/errors";
+import { createError, getErrorMessage , wrapError } from "@/utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "@/types";
 import { injectable, inject } from "tsyringe";
 import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
@@ -66,9 +66,7 @@ export class CloudinaryService implements IImageStorageService {
           new Promise((resolve, reject) => {
             const uploadStream = cloudinary.uploader.upload_stream({ folder: folder || userId }, (error, result) => {
               if (error) {
-                const errorName = error.name || "StorageError";
-                const errorMessage = error.message || "Error uploading image";
-                return reject(createError(errorName, errorMessage));
+                return reject(wrapError(error, "StorageError"));
               }
               if (!result) {
                 return reject(createError("StorageError", "Upload failed, no result returned"));

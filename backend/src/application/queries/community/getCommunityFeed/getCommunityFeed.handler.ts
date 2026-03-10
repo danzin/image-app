@@ -30,7 +30,7 @@ export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityF
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 
 		const communityId = community._id.toString();

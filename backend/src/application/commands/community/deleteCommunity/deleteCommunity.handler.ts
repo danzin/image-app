@@ -22,20 +22,20 @@ export class DeleteCommunityCommandHandler implements ICommandHandler<DeleteComm
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 		const communityId = community._id as Types.ObjectId;
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id as Types.ObjectId;
 
 		// 1. Check permissions
 		const member = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
 		if (!member || member.role !== "admin") {
-			throw createError("Forbidden", "Only community admins can delete the community");
+			throw createError("ForbiddenError", "Only community admins can delete the community");
 		}
 
 		await this.uow.executeInTransaction(async (session) => {

@@ -25,20 +25,20 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 		const communityId = community._id as Types.ObjectId;
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id as Types.ObjectId;
 
 		// Check permissions (must be admin of the community)
 		const member = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
 		if (!member || member.role !== "admin") {
-			throw createError("Forbidden", "Only community admins can update settings");
+			throw createError("ForbiddenError", "Only community admins can update settings");
 		}
 
 		// Prepare updates
@@ -52,7 +52,7 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 			// check slug uniqueness if changed
 			const existing = await this.communityRepository.findBySlug(newSlug);
 			if (existing && existing._id.toString() !== communityId.toString()) {
-				throw createError("BadRequest", "Community name is already taken");
+				throw createError("ValidationError", "Community name is already taken");
 			}
 			updateData.slug = newSlug;
 		}
@@ -98,7 +98,7 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 		// Update
 		const updatedCommunity = await this.communityRepository.update(communityId.toString(), updateData);
 		if (!updatedCommunity) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 
 		return updatedCommunity;

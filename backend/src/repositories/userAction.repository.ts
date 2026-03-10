@@ -2,7 +2,7 @@ import { ClientSession, Model } from "mongoose";
 import { IUserAction, PaginationOptions, PaginationResult } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 
 @injectable()
 export class UserActionRepository extends BaseRepository<IUserAction> {
@@ -23,7 +23,7 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 			return await doc.save({ session });
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", String(error));
 		}
@@ -74,7 +74,7 @@ export class UserActionRepository extends BaseRepository<IUserAction> {
 			return result.deletedCount || 0;
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", String(error));
 		}

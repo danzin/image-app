@@ -2,7 +2,7 @@ import { EventBus } from "@/application/common/buses/event.bus";
 import mongoose, { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
-import { getErrorMessage, getErrorCode, getErrorLabels } from "@/utils/errors";
+import { createError, getErrorMessage, getErrorCode, getErrorLabels } from "@/utils/errors";
 
 /**
  * Configuration for transaction execution
@@ -89,7 +89,7 @@ export class UnitOfWork {
 
   constructor(@inject("EventBus") private readonly eventBus: EventBus) {
     if (!mongoose.connection.readyState) {
-      throw new Error("Database connection not established");
+      throw createError("DatabaseError", "Database connection not established");
     }
     // allow up to 50 concurrent transactions
     const maxConcurrent = parseInt(process.env.MAX_CONCURRENT_TRANSACTIONS || "50", 10);

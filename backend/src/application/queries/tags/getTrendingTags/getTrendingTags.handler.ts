@@ -5,7 +5,7 @@ import { RedisService } from "@/services/redis.service";
 import { TAG_ACTIVITY_METRICS_KEY, TagActivityMetrics } from "@/services/tag.service";
 import { IPostReadRepository } from "@/repositories/interfaces";
 import { AdaptiveTTL, ActivityThresholds } from "@/config/cacheConfig";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "@/types";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
@@ -81,7 +81,7 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 			return result;
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", "An unknown error occurred while fetching trending tags");
 		}

@@ -15,22 +15,25 @@ import Notification from "@/models/notification.model";
 import UserAction from "@/models/userAction.model";
 import { UserPreference } from "@/models/userPreference.model";
 import { WebSocketServer } from "../server/socketServer";
+import { logger } from "@/utils/winston";
 
 export function registerCoreComponents(): void {
-	container.register("UserModel", { useValue: User });
-	container.register("ImageModel", { useValue: Image });
-	container.register("PostModel", { useValue: Post });
-	container.register("PostLikeModel", { useValue: PostLike });
-	container.register("PostViewModel", { useValue: PostView });
-	container.register("TagModel", { useValue: Tag });
-	container.register("CommentModel", { useValue: Comment });
-	container.register("CommentLikeModel", { useValue: CommentLike });
-	container.register("FollowModel", { useValue: Follow });
-	container.register("NotificationModel", { useValue: Notification });
-	container.register("UserActionModel", { useValue: UserAction });
-	container.register("UserPreferenceModel", { useValue: UserPreference });
-	container.register("FavoriteModel", { useValue: Favorite });
-	container.register("ConversationModel", { useValue: Conversation });
-	container.register("MessageModel", { useValue: Message });
-	container.registerSingleton("WebSocketServer", WebSocketServer);
+  container.register("UserModel", { useValue: User });
+  container.register("ImageModel", { useValue: Image });
+  container.register("PostModel", { useValue: Post });
+  container.register("PostLikeModel", { useValue: PostLike });
+  container.register("PostViewModel", { useValue: PostView });
+  container.register("TagModel", { useValue: Tag });
+  container.register("CommentModel", { useValue: Comment });
+  container.register("CommentLikeModel", { useValue: CommentLike });
+  container.register("FollowModel", { useValue: Follow });
+  container.register("NotificationModel", { useValue: Notification });
+  container.register("UserActionModel", { useValue: UserAction });
+  container.register("UserPreferenceModel", { useValue: UserPreference });
+  container.register("FavoriteModel", { useValue: Favorite });
+  container.register("ConversationModel", { useValue: Conversation });
+  container.register("MessageModel", { useValue: Message });
+  container.registerSingleton("WebSocketServer", WebSocketServer);
+
+  logger.info("[di] CoreComponents registered");
 }

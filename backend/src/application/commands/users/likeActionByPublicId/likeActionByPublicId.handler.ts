@@ -12,7 +12,7 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { DTOService } from "@/services/dto.service";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
@@ -126,12 +126,8 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 
 			return this.dtoService.toPostDTO(updatedPost);
 		} catch (error) {
-			const errorName = error instanceof Error ? error.name : "UnknownError";
-			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-			throw createError(errorName, errorMessage, {
-				operation: "LikeActionByPublicId",
-				userId: command.userPublicId,
-				postPublicId: command.postPublicId,
+			throw wrapError(error, "InternalServerError", {
+				context: { operation: "LikeActionByPublicId", userId: command.userPublicId, postPublicId: command.postPublicId },
 			});
 		}
 	}

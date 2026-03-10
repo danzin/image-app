@@ -61,8 +61,7 @@ export class SearchService {
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			throw createError("InternalServerError", message, {
-				function: "searchAll",
-				query: query,
+				context: { function: "searchAll", query },
 			});
 		}
 	}

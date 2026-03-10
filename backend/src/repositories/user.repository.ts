@@ -37,10 +37,7 @@ export class UserRepository extends BaseRepository<IUser> {
 		} catch (error) {
 			if (isMongoDBDuplicateKeyError(error)) {
 				const field = Object.keys(error.keyValue)[0];
-				throw createError("DuplicateError", `${field} already exists`, {
-					function: "create",
-					context: "userRepository",
-				});
+				throw createError("DuplicateError", `${field} already exists`, { context: { operation: "create", repository: "userRepository" } });
 			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
@@ -67,10 +64,7 @@ export class UserRepository extends BaseRepository<IUser> {
 		} catch (error) {
 			if (isMongoDBDuplicateKeyError(error)) {
 				const field = Object.keys(error.keyValue)[0];
-				throw createError("DuplicateError", `${field} already exists`, {
-					function: "create",
-					context: "userRepository",
-				});
+				throw createError("DuplicateError", `${field} already exists`, { context: { operation: "create", repository: "userRepository" } });
 			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
@@ -84,10 +78,7 @@ export class UserRepository extends BaseRepository<IUser> {
 		} catch (error) {
 			if (isMongoDBDuplicateKeyError(error)) {
 				const field = Object.keys(error.keyValue)[0];
-				throw createError("DuplicateError", `${field} already exists`, {
-					function: "updateByPublicId",
-					context: "userRepository",
-				});
+				throw createError("DuplicateError", `${field} already exists`, { context: { operation: "updateByPublicId", repository: "userRepository" } });
 			}
 			throw createError("DatabaseError", (error as Error).message);
 		}
@@ -125,10 +116,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
 			return result;
 		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message, {
-				function: "getAll",
-				options: options,
-			});
+			throw createError("DatabaseError", (error as Error).message, { context: { operation: "getAll", options } });
 		}
 	}
 

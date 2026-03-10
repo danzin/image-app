@@ -22,19 +22,19 @@ export class LeaveCommunityCommandHandler implements ICommandHandler<LeaveCommun
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id as Types.ObjectId;
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 		const communityId = community._id as Types.ObjectId;
 
 		const member = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
 		if (!member) {
-			throw createError("BadRequest", "User is not a member of this community");
+			throw createError("ValidationError", "User is not a member of this community");
 		}
 
 		await this.uow.executeInTransaction(async (session) => {

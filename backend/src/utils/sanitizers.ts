@@ -1,6 +1,7 @@
 import { validate as uuidValidate, version as uuidVersion } from "uuid";
 import mongoose from "mongoose";
 import sanitizeHtml from "sanitize-html";
+import { createError } from "@/utils/errors";
 
 /**
  * Sanitizes objects for Mongo by removing dangerous keys that could enable NoSQL injection
@@ -77,23 +78,23 @@ export function sanitizeTextInput(input: unknown, options: { maxLength?: number;
 	const allowEmpty = typeof options === 'object' ? !!options.allowEmpty : false;
 
 	if (typeof input !== "string") {
-		throw new Error("Input must be a string");
+		throw createError("ValidationError", "Input must be a string");
 	}
 
 	const trimmed = input.trim();
 	if (trimmed.length === 0) {
 		if (allowEmpty) return "";
-		throw new Error("Input cannot be empty");
+		throw createError("ValidationError", "Input cannot be empty");
 	}
 
 	if (trimmed.length > maxLength) {
-		throw new Error(`Input cannot exceed ${maxLength} characters`);
+		throw createError("ValidationError", `Input cannot exceed ${maxLength} characters`);
 	}
 
 	const sanitized = sanitize(trimmed);
 	if (sanitized.length === 0) {
 		if (allowEmpty) return "";
-		throw new Error("Input is empty after sanitization");
+		throw createError("ValidationError", "Input is empty after sanitization");
 	}
 
 	return decodeHtmlEntities(sanitized);

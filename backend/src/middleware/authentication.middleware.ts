@@ -305,14 +305,14 @@ export const adminActionValidation = (requiredFields: string[] = []) => {
 export class AuthFactory {
   static bearerToken(): AuthenticationMiddleware {
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error("JWT_SECRET not configured");
+    if (!secret) throw createError("ConfigError", "JWT_SECRET not configured");
 
     return new AuthenticationMiddleware(new BearerTokenStrategy(secret));
   }
 
   static optionalBearerToken(): AuthenticationMiddleware {
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw new Error("JWT_SECRET not configured");
+    if (!secret) throw createError("ConfigError", "JWT_SECRET not configured");
 
     return new AuthenticationMiddleware(new BearerTokenStrategy(secret));
   }

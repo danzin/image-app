@@ -12,7 +12,10 @@ import { RedisService } from "@/services/redis.service";
 // track users who have a conversation open (userId -> conversationId)
 const activeConversations = new Map<string, string>();
 
-export function isUserViewingConversation(userPublicId: string, conversationPublicId: string): boolean {
+export function isUserViewingConversation(
+  userPublicId: string,
+  conversationPublicId: string,
+): boolean {
   return activeConversations.get(userPublicId) === conversationPublicId;
 }
 
@@ -20,14 +23,17 @@ export function isUserViewingConversation(userPublicId: string, conversationPubl
 export class WebSocketServer {
   private io: SocketIOServer | null = null; // Stores the socket.io server instance
 
-  constructor(@inject(RedisService) private readonly redisService: RedisService) { }
+  constructor(
+    @inject(RedisService) private readonly redisService: RedisService,
+  ) {}
 
   /**
    * Initializes the WebSocket server with authentication and event handling.
    * @param {HttpServer} server - The HTTP server instance to attach the WebSocket server to.
    */
   initialize(server: HttpServer): void {
-    const envOrigins = process.env.ALLOWED_ORIGINS?.split(/[,\s]+/).filter(Boolean) || [];
+    const envOrigins =
+      process.env.ALLOWED_ORIGINS?.split(/[,\s]+/).filter(Boolean) || [];
     const defaultOrigins = [
       "http://localhost:5173", // Vite dev
       "http://localhost:80", // Nginx in Docker
@@ -50,14 +56,22 @@ export class WebSocketServer {
     // Add Redis Adapter for horizontal scaling of Socket.io node processes
     const pubClient = this.redisService.clientInstance;
     const subClient = pubClient.duplicate();
-    subClient.connect().then(() => {
-      if (this.io) {
-        this.io.adapter(createAdapter(pubClient, subClient));
-        logger.info("Redis adapter for Socket.io configured successfully.");
-      }
-    }).catch(err => {
-      logger.error("Failed to connect Redis subClient for Socket.io adapter", err);
-    });
+    subClient
+      .connect()
+      .then(() => {
+        if (this.io) {
+          this.io.adapter(createAdapter(pubClient, subClient));
+          logger.info(
+            "[Websocket][Config] Redis adapter for Socket.io configured successfully.",
+          );
+        }
+      })
+      .catch((err) => {
+        logger.error(
+          "Failed to connect Redis subClient for Socket.io adapter",
+          err,
+        );
+      });
 
     /**
      * Middleware to parse cookies from incoming socket requests.
@@ -83,7 +97,9 @@ export class WebSocketServer {
         const handshakeAuth: any = (socket as any).handshake?.auth;
         if (handshakeAuth?.token && !req.headers.authorization) {
           req.headers.authorization = `Bearer ${handshakeAuth.token}`;
-          logger.info("[Socket][Auth] Applied bearer token from handshake auth");
+          logger.info(
+            "[Socket][Auth] Applied bearer token from handshake auth",
+          );
         }
 
         // Handle authentication using the bearer token strategy
@@ -105,7 +121,9 @@ export class WebSocketServer {
         });
       } catch (error) {
         console.error("WebSocket auth error:", error);
-        next(createError("AuthenticationError", "Socket authentication failed"));
+        next(
+          createError("AuthenticationError", "Socket authentication failed"),
+        );
       }
     });
 
@@ -203,7 +221,10 @@ export class WebSocketServer {
    */
   getIO(): SocketIOServer {
     if (!this.io) {
-      throw new Error("WebSocket server is not initialized.");
+      throw createError(
+        "InternalServerError",
+        "WebSocket server is not initialized.",
+      );
     }
     return this.io;
   }
