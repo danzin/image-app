@@ -1,317 +1,464 @@
-import { Model, ClientSession } from "mongoose";
+import { Model, ClientSession, FilterQuery } from "mongoose";
 import { BaseRepository } from "./base.repository";
 import { IComment, PopulatedCommentLean, TransformedComment } from "@/types";
 import { inject, injectable } from "tsyringe";
+import { handleMongoError } from "@/utils/errors";
 
 @injectable()
 export class CommentRepository extends BaseRepository<IComment> {
-	constructor(@inject("CommentModel") model: Model<IComment>) {
-		super(model);
-	}
+  /**
+   * Initialize the repository with the injected Mongoose Comment model.
+   */
+  constructor(@inject("CommentModel") model: Model<IComment>) {
+    super(model);
+  }
 
-	/**
-	 * Transform a populated comment to the frontend format
-	 * Handles deleted comments by hiding user info and showing deletion message
-	 */
-	private transformComment(comment: PopulatedCommentLean): TransformedComment {
-		if (comment.isDeleted) {
-			return {
-				id: comment._id.toString(),
-				content: comment.deletedBy === "admin" ? "[removed by moderator]" : "[deleted by user]",
-				postPublicId: comment.postId.publicId,
-				parentId: comment.parentId ? comment.parentId.toString() : null,
-				replyCount: comment.replyCount,
-				depth: comment.depth,
-				likesCount: 0,
-				user: null,
-				createdAt: comment.createdAt,
-				updatedAt: comment.updatedAt,
-				isEdited: false,
-				isDeleted: true,
-				deletedBy: comment.deletedBy,
-			};
-		}
+  /**
+   * Transform a populated comment to the frontend format
+   * Handles deleted comments by hiding user info and showing deletion message
+   */
+  private transformComment(comment: PopulatedCommentLean): TransformedComment {
+    if (comment.isDeleted) {
+      return {
+        id: comment._id.toString(),
+        content:
+          comment.deletedBy === "admin"
+            ? "[removed by moderator]"
+            : "[deleted by user]",
+        postPublicId: comment.postId?.publicId ?? "",
+        parentId: comment.parentId ? comment.parentId.toString() : null,
+        replyCount: comment.replyCount,
+        depth: comment.depth,
+        likesCount: 0,
+        user: null,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+        isEdited: false,
+        isDeleted: true,
+        deletedBy: comment.deletedBy,
+      };
+    }
 
-		return {
-			id: comment._id.toString(),
-			content: comment.content,
-			postPublicId: comment.postId.publicId,
-			parentId: comment.parentId ? comment.parentId.toString() : null,
-			replyCount: comment.replyCount,
-			depth: comment.depth,
-			likesCount: comment.likesCount,
-			user: comment.userId
-				? {
-						publicId: comment.userId.publicId,
-						handle: comment.userId.handle ?? "",
-						username: comment.userId.username,
-						avatar: comment.userId.avatar,
-					}
-				: null,
-			createdAt: comment.createdAt,
-			updatedAt: comment.updatedAt,
-			isEdited: comment.isEdited,
-			isDeleted: false,
-			deletedBy: null,
-		};
-	}
+    return {
+      id: comment._id.toString(),
+      content: comment.content,
+      postPublicId: comment.postId?.publicId ?? "",
+      parentId: comment.parentId ? comment.parentId.toString() : null,
+      replyCount: comment.replyCount,
+      depth: comment.depth,
+      likesCount: comment.likesCount,
+      user: comment.userId
+        ? {
+            publicId: comment.userId.publicId,
+            handle: comment.userId.handle ?? "",
+            username: comment.userId.username,
+            avatar: comment.userId.avatar,
+          }
+        : null,
+      createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
+      isEdited: comment.isEdited,
+      isDeleted: false,
+      deletedBy: null,
+    };
+  }
 
-	/**
-	 * Get comments for a specific post with pagination
-	 */
-	async getCommentsByPostId(
-		postId: string,
-		page: number = 1,
-		limit: number = 10,
-		parentId: string | null = null,
-	): Promise<{
-		comments: TransformedComment[];
-		total: number;
-		page: number;
-		limit: number;
-		totalPages: number;
-	}> {
-		const skip = (page - 1) * limit;
-		const filter: Record<string, unknown> = { postId };
-		filter.parentId = parentId ? parentId : null;
+  /**
+   * Fetch paginated comments for a post.
+   * Optionally filters by parent comment to support root comments or nested replies.
+   * Returns transformed comments and pagination metadata.
+   */
+  async getCommentsByPostId(
+    postId: string,
+    page: number = 1,
+    limit: number = 10,
+    parentId: string | null = null,
+  ): Promise<{
+    comments: TransformedComment[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const safePage = Math.max(1, page);
+      const safeLimit = Math.max(1, limit);
+      const skip = (safePage - 1) * safeLimit;
 
-		const [comments, total] = await Promise.all([
-			this.model
-				.find(filter)
-				.populate("userId", "publicId handle username avatar")
-				.populate("postId", "publicId")
-				.sort({ createdAt: -1 }) // Newest first
-				.skip(skip)
-				.limit(limit)
-				.lean<PopulatedCommentLean[]>(),
-			this.model.countDocuments(filter),
-		]);
+      // Use FilterQuery for type-safe mongo query objects
+      const filter: FilterQuery<IComment> = {
+        postId,
+        parentId: parentId || null,
+      };
 
-		// Transform the data to match frontend interface
-		const transformedComments = comments.map((comment) => this.transformComment(comment));
+      const [comments, total] = await Promise.all([
+        this.model
+          .find(filter)
+          .populate("userId", "publicId handle username avatar")
+          .populate("postId", "publicId")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(safeLimit)
+          .lean<PopulatedCommentLean[]>()
+          .exec(), // Always call exec() to get a real Promise
+        this.model.countDocuments(filter).exec(),
+      ]);
 
-		return {
-			comments: transformedComments,
-			total,
-			page,
-			limit,
-			totalPages: Math.ceil(total / limit),
-		};
-	}
+      return {
+        comments: comments.map((comment) => this.transformComment(comment)),
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+      };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async getCommentsByUserId(
-		userId: string,
-		page: number = 1,
-		limit: number = 10,
-		sortBy: string = "createdAt",
-		sortOrder: "asc" | "desc" = "desc",
-	): Promise<{
-		comments: TransformedComment[];
-		total: number;
-		page: number;
-		limit: number;
-		totalPages: number;
-	}> {
-		const skip = (page - 1) * limit;
-		// exclude deleted comments from user's comment history
-		const filter = { userId, isDeleted: { $ne: true } };
+  /**
+   * Fetch paginated, non-deleted comments authored by a specific user.
+   * Supports dynamic sorting direction and sort field.
+   * Returns transformed comments and pagination metadata.
+   */
+  async getCommentsByUserId(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    sortBy: string = "createdAt",
+    sortOrder: "asc" | "desc" = "desc",
+  ): Promise<{
+    comments: TransformedComment[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const safePage = Math.max(1, page);
+      const safeLimit = Math.max(1, limit);
+      const skip = (safePage - 1) * safeLimit;
 
-		const [comments, total] = await Promise.all([
-			this.model
-				.find(filter)
-				.populate("postId", "slug publicId")
-				.populate("userId", "publicId handle username avatar")
-				.sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
-				.skip(skip)
-				.limit(limit)
-				.lean<PopulatedCommentLean[]>(),
-			this.model.countDocuments(filter),
-		]);
+      const filter: FilterQuery<IComment> = {
+        userId,
+        isDeleted: { $ne: true },
+      };
 
-		// Transform the data to match frontend interface
-		const transformedComments = comments.map((comment) => this.transformComment(comment));
+      const [comments, total] = await Promise.all([
+        this.model
+          .find(filter)
+          .populate("postId", "slug publicId")
+          .populate("userId", "publicId handle username avatar")
+          .sort({ [sortBy]: sortOrder === "asc" ? 1 : -1 })
+          .skip(skip)
+          .limit(safeLimit)
+          .lean<PopulatedCommentLean[]>()
+          .exec(),
+        this.model.countDocuments(filter).exec(),
+      ]);
 
-		return {
-			comments: transformedComments,
-			total,
-			page,
-			limit,
-			totalPages: Math.ceil(total / limit),
-		};
-	}
+      return {
+        comments: comments.map((comment) => this.transformComment(comment)),
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+      };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	/**
-	 * Update comment content and mark as edited
-	 */
-	async updateComment(commentId: string, content: string, session?: ClientSession): Promise<TransformedComment | null> {
-		const comment = await this.model
-			.findByIdAndUpdate(
-				commentId,
-				{
-					content,
-					isEdited: true,
-				},
-				{ new: true, session },
-			)
-			.populate("userId", "publicId handle username avatar")
-			.populate("postId", "publicId")
-			.lean<PopulatedCommentLean>();
+  /**
+   * Update a comment's content and mark it as edited.
+   * Can run inside a transaction session when provided.
+   * Returns the updated comment in transformed frontend format.
+   */
+  async updateComment(
+    commentId: string,
+    content: string,
+    session?: ClientSession,
+  ): Promise<TransformedComment | null> {
+    try {
+      const comment = await this.model
+        .findByIdAndUpdate(
+          commentId,
+          { content, isEdited: true },
+          { new: true, session },
+        )
+        .populate("userId", "publicId handle username avatar")
+        .populate("postId", "publicId")
+        .lean<PopulatedCommentLean>()
+        .exec();
 
-		if (!comment) return null;
+      if (!comment) return null;
+      return this.transformComment(comment);
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-		// Transform the data to match frontend interface
-		return this.transformComment(comment);
-	}
+  /**
+   * Retrieve a single comment by id with populated relations.
+   * Maps the result into the frontend-friendly transformed shape.
+   */
+  async findByIdTransformed(
+    commentId: string,
+  ): Promise<TransformedComment | null> {
+    try {
+      const comment = await this.model
+        .findById(commentId)
+        .populate("userId", "publicId handle username avatar")
+        .populate("postId", "publicId")
+        .lean<PopulatedCommentLean>()
+        .exec();
 
-	/**
-	 * Find comment by ID with user population and transformation
-	 */
-	async findByIdTransformed(commentId: string): Promise<TransformedComment | null> {
-		const comment = await this.model
-			.findById(commentId)
-			.populate("userId", "publicId handle username avatar")
-			.populate("postId", "publicId")
-			.lean<PopulatedCommentLean>();
+      if (!comment) return null;
+      return this.transformComment(comment);
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-		if (!comment) return null;
+  /**
+   * Increment or decrement the reply count for a comment.
+   * Uses an atomic $inc operation and supports transactional sessions.
+   */
+  async updateReplyCount(
+    commentId: string,
+    delta: number,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.model
+        .updateOne(
+          { _id: commentId },
+          { $inc: { replyCount: delta } },
+          { session },
+        )
+        .exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-		return this.transformComment(comment);
-	}
+  /**
+   * Increment or decrement the likes count for a comment.
+   * Uses an atomic $inc operation and supports transactional sessions.
+   */
+  async updateLikesCount(
+    commentId: string,
+    delta: number,
+    session?: ClientSession,
+  ): Promise<void> {
+    try {
+      await this.model
+        .updateOne(
+          { _id: commentId },
+          { $inc: { likesCount: delta } },
+          { session },
+        )
+        .exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async updateReplyCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
-		await this.model.updateOne({ _id: commentId }, { $inc: { replyCount: delta } }, { session });
-	}
+  /**
+   * Permanently delete a comment document.
+   * Returns the removed comment when found, or null when it does not exist.
+   */
+  async deleteComment(
+    commentId: string,
+    session?: ClientSession,
+  ): Promise<IComment | null> {
+    try {
+      // Replaced 'as unknown as IComment' with native Mongoose generics
+      return await this.model
+        .findByIdAndDelete(commentId, { session })
+        .populate("userId", "handle username avatar")
+        .lean<IComment | null>()
+        .exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async updateLikesCount(commentId: string, delta: number, session?: ClientSession): Promise<void> {
-		await this.model.updateOne({ _id: commentId }, { $inc: { likesCount: delta } }, { session });
-	}
+  /**
+   * Soft-delete a comment by marking it as deleted and anonymizing sensitive fields.
+   * Preserves the record for thread integrity while hiding original author/content.
+   */
+  async softDeleteComment(
+    commentId: string,
+    deletedBy: "user" | "admin",
+    session?: ClientSession,
+  ): Promise<IComment | null> {
+    try {
+      return await this.model
+        .findByIdAndUpdate(
+          commentId,
+          {
+            $set: {
+              isDeleted: true,
+              deletedBy: deletedBy,
+              userId: null,
+              content:
+                deletedBy === "admin"
+                  ? "[removed by moderator]"
+                  : "[deleted by user]",
+              likesCount: 0,
+            },
+          },
+          { session, new: true },
+        )
+        .lean<IComment | null>()
+        .exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	/**
-	 * Hard delete a comment - removes it from the database entirely
-	 */
-	async deleteComment(commentId: string, session?: ClientSession): Promise<IComment | null> {
-		return (await this.model
-			.findByIdAndDelete(commentId, { session })
-			.populate("userId", "handle username avatar")
-			.lean()) as unknown as IComment | null;
-	}
+  /**
+   * Check whether a comment has at least one direct reply.
+   * Returns true if child comments exist, otherwise false.
+   */
+  async hasReplies(commentId: string): Promise<boolean> {
+    try {
+      const count = await this.model
+        .countDocuments({ parentId: commentId })
+        .exec();
+      return count > 0;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	/**
-	 * Soft delete a comment - marks it as deleted but preserves the record for reply chain integrity
-	 * Clears user association and content
-	 */
-	async softDeleteComment(
-		commentId: string,
-		deletedBy: "user" | "admin",
-		session?: ClientSession,
-	): Promise<IComment | null> {
-		return (await this.model
-			.findByIdAndUpdate(
-				commentId,
-				{
-					$set: {
-						isDeleted: true,
-						deletedBy: deletedBy,
-						userId: null,
-						content: deletedBy === "admin" ? "[removed by moderator]" : "[deleted by user]",
-						likesCount: 0,
-					},
-				},
-				{ session, new: true },
-			)
-			.lean()) as IComment | null;
-	}
+  /**
+   * Verify if the given user is the owner of the specified comment.
+   * Useful for authorization checks before update/delete operations.
+   */
+  async isCommentOwner(commentId: string, userId: string): Promise<boolean> {
+    try {
+      const comment = await this.model
+        .findById(commentId)
+        .lean<{ userId?: string }>()
+        .exec();
+      if (!comment || !comment.userId) return false;
+      return comment.userId.toString() === userId;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	/**
-	 * Check if a comment has any replies
-	 */
-	async hasReplies(commentId: string): Promise<boolean> {
-		const count = await this.model.countDocuments({ parentId: commentId });
-		return count > 0;
-	}
+  /**
+   * Hard-delete all comments associated with a post.
+   * Returns the number of documents removed.
+   */
+  async deleteCommentsByPostId(
+    postId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    try {
+      const result = await this.model
+        .deleteMany({ postId }, { session })
+        .exec();
+      return result.deletedCount || 0;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async isCommentOwner(commentId: string, userId: string): Promise<boolean> {
-		const comment = await this.model.findById(commentId).lean();
-		if (!comment || !comment.userId) return false;
-		return comment.userId.toString() === userId;
-	}
+  /**
+   * Hard-delete all comments authored by a user.
+   * Returns the number of documents removed.
+   */
+  async deleteCommentsByUserId(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    try {
+      const result = await this.model
+        .deleteMany({ userId }, { session })
+        .exec();
+      return result.deletedCount || 0;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async deleteCommentsByPostId(postId: string, session?: ClientSession): Promise<number> {
-		const result = await this.model.deleteMany({ postId }, { session });
-		return result.deletedCount || 0;
-	}
+  /**
+   * Retrieve a comment and its ancestor chain up to the root comment.
+   * Ancestors are returned in root-to-parent order for easier breadcrumb rendering.
+   */
+  async getCommentWithAncestors(commentId: string): Promise<{
+    comment: TransformedComment | null;
+    ancestors: TransformedComment[];
+  }> {
+    try {
+      const comment = await this.findByIdTransformed(commentId);
+      if (!comment) return { comment: null, ancestors: [] };
 
-	async deleteCommentsByUserId(userId: string, session?: ClientSession): Promise<number> {
-		const result = await this.model.deleteMany({ userId }, { session });
-		return result.deletedCount || 0;
-	}
+      const ancestors: TransformedComment[] = [];
+      let currentParentId = comment.parentId;
 
-	/**
-	 * Get a comment with its ancestor chain
-	 * Returns the focused comment and all parent comments up to the root
-	 */
-	async getCommentWithAncestors(commentId: string): Promise<{
-		comment: TransformedComment | null;
-		ancestors: TransformedComment[];
-	}> {
-		const comment = await this.findByIdTransformed(commentId);
-		if (!comment) {
-			return { comment: null, ancestors: [] };
-		}
+      // Note: If comments can be deeply nested, this N+1 query loop might become a bottleneck.
+      // Consider an aggregation pipeline with $graphLookup for production scale.
+      while (currentParentId) {
+        const parent = await this.findByIdTransformed(currentParentId);
+        if (!parent) break;
+        ancestors.push(parent);
+        currentParentId = parent.parentId;
+      }
 
-		const ancestors: TransformedComment[] = [];
-		let currentParentId = comment.parentId;
+      ancestors.reverse();
+      return { comment, ancestors };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-		// walk up the tree to collect ancestors
-		while (currentParentId) {
-			const parent = await this.findByIdTransformed(currentParentId);
-			if (!parent) break;
-			ancestors.push(parent);
-			currentParentId = parent.parentId;
-		}
+  /**
+   * Fetch paginated direct replies for a specific parent comment.
+   * Returns transformed replies and pagination metadata.
+   */
+  async getCommentReplies(
+    commentId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    comments: TransformedComment[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    try {
+      const safePage = Math.max(1, page);
+      const safeLimit = Math.max(1, limit);
+      const skip = (safePage - 1) * safeLimit;
 
-		// reverse so the root is first
-		ancestors.reverse();
+      const [comments, total] = await Promise.all([
+        this.model
+          .find({ parentId: commentId })
+          .populate("userId", "publicId handle username avatar")
+          .populate("postId", "publicId")
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(safeLimit)
+          .lean<PopulatedCommentLean[]>()
+          .exec(),
+        this.model.countDocuments({ parentId: commentId }).exec(),
+      ]);
 
-		return { comment, ancestors };
-	}
-
-	/**
-	 * Get direct replies to a comment with pagination
-	 */
-	async getCommentReplies(
-		commentId: string,
-		page: number = 1,
-		limit: number = 10,
-	): Promise<{
-		comments: TransformedComment[];
-		total: number;
-		page: number;
-		limit: number;
-		totalPages: number;
-	}> {
-		const skip = (page - 1) * limit;
-
-		const [comments, total] = await Promise.all([
-			this.model
-				.find({ parentId: commentId })
-				.populate("userId", "publicId handle username avatar")
-				.populate("postId", "publicId")
-				.sort({ createdAt: -1 })
-				.skip(skip)
-				.limit(limit)
-				.lean<PopulatedCommentLean[]>(),
-			this.model.countDocuments({ parentId: commentId }),
-		]);
-
-		const transformedComments = comments.map((comment) => this.transformComment(comment));
-
-		return {
-			comments: transformedComments,
-			total,
-			page,
-			limit,
-			totalPages: Math.ceil(total / limit),
-		};
-	}
+      return {
+        comments: comments.map((comment) => this.transformComment(comment)),
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
+      };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 }
