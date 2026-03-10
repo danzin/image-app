@@ -82,6 +82,7 @@ export interface ConversationSummaryDTO {
 }
 
 export interface PopulatedSender {
+	_id?: mongoose.Types.ObjectId;
 	publicId?: string;
 	handle?: string;
 	username?: string;

@@ -22,7 +22,7 @@ export class GetCommunityDetailsQueryHandler
 	async execute(query: GetCommunityDetailsQuery): Promise<CommunityDTO> {
 		const community = await this.communityRepository.findBySlug(query.slug);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 
 		const actualMemberCount = community.stats?.memberCount ?? 0;

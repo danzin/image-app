@@ -61,7 +61,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
 
           // Re-sort to match Redis order
           const postMap = new Map(posts.map(p => [p.publicId, p]));
-          const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter((p): p is IPost => p !== undefined);
+          const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter((p): p is FeedPost => p !== undefined);
 
           const transformedPosts = this.transformPosts(orderedPosts);
           const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
@@ -142,7 +142,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
     }
   }
 
-  private transformPosts(posts: (IPost | Record<string, unknown>)[]): FeedPost[] {
+  private transformPosts(posts: (IPost | FeedPost | Record<string, unknown>)[]): FeedPost[] {
     return posts.map((post) => {
       const plainPost =
         typeof (post as IPost).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);

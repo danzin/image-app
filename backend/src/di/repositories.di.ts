@@ -23,30 +23,39 @@ import { UserWriteRepository } from "@/repositories/write/UserWriteRepository";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { RequestLogRepository } from "@/repositories/requestLog.repository";
+import { logger } from "@/utils/winston";
 
 export function registerRepositories(): void {
-	container.registerSingleton("UnitOfWork", UnitOfWork);
-	container.registerSingleton("UserRepository", UserRepository);
-	container.registerSingleton("ImageRepository", ImageRepository);
-	container.registerSingleton("PostRepository", PostRepository);
-	container.registerSingleton("PostLikeRepository", PostLikeRepository);
-	container.registerSingleton("PostViewRepository", PostViewRepository);
-	container.registerSingleton("CommentRepository", CommentRepository);
-	container.registerSingleton("CommentLikeRepository", CommentLikeRepository);
-	container.registerSingleton("UserActionRepository", UserActionRepository);
-	container.registerSingleton("TagRepository", TagRepository);
-	container.registerSingleton("FollowRepository", FollowRepository);
-	container.registerSingleton("NotificationRepository", NotificationRepository);
-	container.registerSingleton("UserPreferenceRepository", UserPreferenceRepository);
-	container.registerSingleton("FavoriteRepository", FavoriteRepository);
-	container.registerSingleton("ConversationRepository", ConversationRepository);
-	container.registerSingleton("MessageRepository", MessageRepository);
-	container.registerSingleton("CommunityRepository", CommunityRepository);
-	container.registerSingleton("CommunityMemberRepository", CommunityMemberRepository);
-	container.registerSingleton("RequestLogRepository", RequestLogRepository);
+  container.registerSingleton("UnitOfWork", UnitOfWork);
+  container.registerSingleton("UserRepository", UserRepository);
+  container.registerSingleton("ImageRepository", ImageRepository);
+  container.registerSingleton("PostRepository", PostRepository);
+  container.registerSingleton("PostLikeRepository", PostLikeRepository);
+  container.registerSingleton("PostViewRepository", PostViewRepository);
+  container.registerSingleton("CommentRepository", CommentRepository);
+  container.registerSingleton("CommentLikeRepository", CommentLikeRepository);
+  container.registerSingleton("UserActionRepository", UserActionRepository);
+  container.registerSingleton("TagRepository", TagRepository);
+  container.registerSingleton("FollowRepository", FollowRepository);
+  container.registerSingleton("NotificationRepository", NotificationRepository);
+  container.registerSingleton(
+    "UserPreferenceRepository",
+    UserPreferenceRepository,
+  );
+  container.registerSingleton("FavoriteRepository", FavoriteRepository);
+  container.registerSingleton("ConversationRepository", ConversationRepository);
+  container.registerSingleton("MessageRepository", MessageRepository);
+  container.registerSingleton("CommunityRepository", CommunityRepository);
+  container.registerSingleton(
+    "CommunityMemberRepository",
+    CommunityMemberRepository,
+  );
+  container.registerSingleton("RequestLogRepository", RequestLogRepository);
 
-	container.registerSingleton("PostReadRepository", PostReadRepository);
-	container.registerSingleton("UserReadRepository", UserReadRepository);
-	container.registerSingleton("PostWriteRepository", PostWriteRepository);
-	container.registerSingleton("UserWriteRepository", UserWriteRepository);
+  container.registerSingleton("PostReadRepository", PostReadRepository);
+  container.registerSingleton("UserReadRepository", UserReadRepository);
+  container.registerSingleton("PostWriteRepository", PostWriteRepository);
+  container.registerSingleton("UserWriteRepository", UserWriteRepository);
+
+  logger.info("[di] Repositories registered");
 }

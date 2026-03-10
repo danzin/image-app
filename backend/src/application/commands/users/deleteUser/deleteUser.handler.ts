@@ -20,7 +20,7 @@ import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { IImageStorageService, IUser } from "@/types";
 import { UnitOfWork } from "@/database/UnitOfWork";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { RedisService } from "@/services/redis.service";
@@ -199,7 +199,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 			
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("InternalServerError", "An unknown error occurred during user deletion");
 		}

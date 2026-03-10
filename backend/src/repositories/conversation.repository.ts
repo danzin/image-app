@@ -1,7 +1,7 @@
 import mongoose, { ClientSession, Model } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IConversation } from "@/types";
+import { IConversation, HydratedConversation, PaginationResult } from "@/types";
 import { createError } from "@/utils/errors";
 
 /*
@@ -61,7 +61,7 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 		userId: string,
 		page: number,
 		limit: number
-	): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> {
+	): Promise<PaginationResult<HydratedConversation>> {
 		try {
 			const objectId = new mongoose.Types.ObjectId(userId);
 			const skip = (page - 1) * limit;

@@ -4,7 +4,7 @@ import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "@/repositories/interfaces";
 import { RedisService } from "@/services/redis.service";
 import { UserActivityService, PlatformActivityLevel } from "@/services/user-activity.service";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 
 export interface SuggestedUser {
@@ -91,7 +91,7 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQ
 			return result;
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", "Failed to get user suggestions");
 		}

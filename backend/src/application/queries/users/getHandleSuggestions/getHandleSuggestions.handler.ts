@@ -3,7 +3,7 @@ import { GetHandleSuggestionsQuery } from "./getHandleSuggestions.query";
 import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "@/repositories/interfaces";
 import { DTOService, HandleSuggestionDTO } from "@/services/dto.service";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { escapeRegex } from "@/utils/sanitizers";
@@ -38,7 +38,7 @@ export class GetHandleSuggestionsQueryHandler
 		} catch (error) {
 			logger.error("[HandleSuggestions] Failed to fetch suggestions", error);
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", "Failed to fetch handle suggestions");
 		}

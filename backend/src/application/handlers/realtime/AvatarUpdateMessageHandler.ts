@@ -1,3 +1,4 @@
+import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "@/services/real-time-feed.service";
@@ -7,7 +8,7 @@ import { logger } from "@/utils/winston";
 export class AvatarUpdateMessageHandler implements IRealtimeMessageHandler {
 	readonly messageType = "avatar_changed";
 
-	async handle(io: any, message: FeedUpdateMessage): Promise<void> {
+	async handle(io: SocketIOServer, message: FeedUpdateMessage): Promise<void> {
 		if (!message.userId) return;
 
 		// notify all users about avatar change (since avatars appear in feeds)
@@ -22,3 +23,5 @@ export class AvatarUpdateMessageHandler implements IRealtimeMessageHandler {
 		logger.info(`Real-time avatar update sent for user ${message.userId}`);
 	}
 }
+
+

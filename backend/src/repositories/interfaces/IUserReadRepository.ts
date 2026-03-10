@@ -1,5 +1,5 @@
 import { ClientSession } from "mongoose";
-import { IUser, PaginationOptions, PaginationResult } from "@/types";
+import { IUser, PaginationOptions, PaginationResult, UserSuggestion } from "@/types";
 
 /**
  * Read-only repository interface for user queries
@@ -30,11 +30,11 @@ export interface IUserReadRepository {
 	countDocuments(filter: Record<string, unknown>): Promise<number>;
 
 	// suggestions and recommendations
-	getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<any[]>;
+	getSuggestedUsersToFollow(currentUserId: string, limit?: number): Promise<UserSuggestion[]>;
 	getSuggestedUsersLowTraffic(
 		currentUserId: string,
 		limit?: number,
 		recentlyActiveUserPublicIds?: string[],
-	): Promise<any[]>;
-	getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<any[]>;
+	): Promise<UserSuggestion[]>;
+	getSuggestedUsersHighTraffic(currentUserId: string, limit?: number): Promise<UserSuggestion[]>;
 }

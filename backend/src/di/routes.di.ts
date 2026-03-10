@@ -13,19 +13,22 @@ import { MessagingRoutes } from "../routes/messaging.routes";
 import { MetricsRoutes } from "../routes/metrics.routes";
 import { CommunityRoutes } from "../routes/community.routes";
 import { TelemetryRoutes } from "../routes/telemetry.routes";
+import { logger } from "@/utils/winston";
 
 export function registerRoutes(): void {
-	container.registerSingleton("UserRoutes", UserRoutes);
-	container.registerSingleton("ImageRoutes", ImageRoutes);
-	container.registerSingleton("PostRoutes", PostRoutes);
-	container.registerSingleton("CommentRoutes", CommentRoutes);
-	container.registerSingleton("SearchRoutes", SearchRoutes);
-	container.registerSingleton("AdminUserRoutes", AdminUserRoutes);
-	container.registerSingleton("NotificationRoutes", NotificationRoutes);
-	container.registerSingleton("FeedRoutes", FeedRoutes);
-	container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
-	container.registerSingleton("MessagingRoutes", MessagingRoutes);
-	container.registerSingleton("MetricsRoutes", MetricsRoutes);
-	container.registerSingleton("CommunityRoutes", CommunityRoutes);
-	container.registerSingleton("TelemetryRoutes", TelemetryRoutes);
+  container.registerSingleton("UserRoutes", UserRoutes);
+  container.registerSingleton("ImageRoutes", ImageRoutes);
+  container.registerSingleton("PostRoutes", PostRoutes);
+  container.registerSingleton("CommentRoutes", CommentRoutes);
+  container.registerSingleton("SearchRoutes", SearchRoutes);
+  container.registerSingleton("AdminUserRoutes", AdminUserRoutes);
+  container.registerSingleton("NotificationRoutes", NotificationRoutes);
+  container.registerSingleton("FeedRoutes", FeedRoutes);
+  container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
+  container.registerSingleton("MessagingRoutes", MessagingRoutes);
+  container.registerSingleton("MetricsRoutes", MetricsRoutes);
+  container.registerSingleton("CommunityRoutes", CommunityRoutes);
+  container.registerSingleton("TelemetryRoutes", TelemetryRoutes);
+
+  logger.info("[di] Routes registered");
 }

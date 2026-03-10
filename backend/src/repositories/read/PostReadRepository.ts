@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import {
   CursorPaginationOptions,
   CursorPaginationResult,
+  FeedPost,
   IPost,
   PaginationOptions,
   PaginationResult,
@@ -44,15 +45,15 @@ export class PostReadRepository implements IPostReadRepository {
     return this.postRepository.findBySlug(slug, session);
   }
 
-  async findPostsByIds(ids: string[], viewerPublicId?: string): Promise<IPost[]> {
+  async findPostsByIds(ids: string[], viewerPublicId?: string): Promise<FeedPost[]> {
     return this.postRepository.findPostsByIds(ids, viewerPublicId);
   }
 
-  async findPostsByPublicIds(publicIds: string[]): Promise<IPost[]> {
+  async findPostsByPublicIds(publicIds: string[]): Promise<FeedPost[]> {
     return this.postRepository.findPostsByPublicIds(publicIds);
   }
 
-  async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>> {
+  async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.findByUserPublicId(userPublicId, options);
   }
 
@@ -67,7 +68,7 @@ export class PostReadRepository implements IPostReadRepository {
     return this.postRepository.findByTags(tagIds, options);
   }
 
-  async findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<IPost>> {
+  async findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.findWithPagination(options, session);
   }
 
@@ -77,11 +78,11 @@ export class PostReadRepository implements IPostReadRepository {
     followingIds: string[],
     favoriteTags: string[],
     options: CursorPaginationOptions
-  ): Promise<CursorPaginationResult<any>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     return this.postRepository.getFeedForUserCoreWithCursor(followingIds, favoriteTags, options);
   }
 
-  async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
+  async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
   }
 
@@ -93,7 +94,7 @@ export class PostReadRepository implements IPostReadRepository {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     },
-  ): Promise<PaginationResult<any>> {
+  ): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.getTrendingFeed(limit, skip, options);
   }
 
@@ -105,11 +106,11 @@ export class PostReadRepository implements IPostReadRepository {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     }
-  ): Promise<PaginationResult<any>> {
+  ): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.getTrendingFeedWithFacet(limit, skip, options);
   }
 
-  async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<IPost>> {
+  async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<FeedPost>> {
     return this.postRepository.getNewFeedWithCursor(options);
   }
 
@@ -119,7 +120,7 @@ export class PostReadRepository implements IPostReadRepository {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     }
-  ): Promise<CursorPaginationResult<IPost>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     return this.postRepository.getTrendingFeedWithCursor(options);
   }
 
@@ -128,11 +129,11 @@ export class PostReadRepository implements IPostReadRepository {
     options: CursorPaginationOptions & {
       weights?: { recency?: number; popularity?: number; tagMatch?: number };
     }
-  ): Promise<CursorPaginationResult<IPost>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     return this.postRepository.getRankedFeedWithCursor(favoriteTags, options);
   }
 
-  async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
+  async getNewFeed(limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     return this.postRepository.getNewFeed(limit, skip);
   }
 
@@ -152,3 +153,4 @@ export class PostReadRepository implements IPostReadRepository {
     return this.postRepository.getTrendingTags(limit, timeWindowHours);
   }
 }
+

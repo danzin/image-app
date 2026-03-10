@@ -2,6 +2,7 @@ import { injectable, inject } from "tsyringe";
 import { ClientSession } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
+import { createError } from "@/utils/errors";
 
 /**
  * Priority levels for queued transactions
@@ -16,7 +17,7 @@ interface QueuedTransaction<T = any> {
 	priority: TransactionPriority;
 	work: (session: ClientSession) => Promise<T>;
 	resolve: (value: T) => void;
-	reject: (error: any) => void;
+	reject: (error: unknown) => void;
 	createdAt: number;
 	attempts: number;
 	maxAttempts: number;
@@ -73,7 +74,7 @@ export class TransactionQueueService {
 		// check queue size limits
 		if (this.getTotalQueueSize() >= this.maxQueueSize) {
 			this.metrics.totalDropped++;
-			throw new Error("Transaction queue is full, please try again later");
+			throw createError("InternalError", "Transaction queue is full, please try again later");
 		}
 
 		return new Promise<T>((resolve, reject) => {

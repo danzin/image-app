@@ -22,35 +22,35 @@ export class KickMemberCommandHandler implements ICommandHandler<KickMemberComma
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 		const communityId = community._id as Types.ObjectId;
 
 		const adminUser = await this.userRepository.findByPublicId(adminPublicId);
 		if (!adminUser) {
-			throw createError("NotFound", "Admin user not found");
+			throw createError("NotFoundError", "Admin user not found");
 		}
 		const adminId = adminUser._id as Types.ObjectId;
 
 		const targetUser = await this.userRepository.findByPublicId(targetUserPublicId);
 		if (!targetUser) {
-			throw createError("NotFound", "Target user not found");
+			throw createError("NotFoundError", "Target user not found");
 		}
 		const targetUserId = targetUser._id as Types.ObjectId;
 
 		// 1. Verify Admin Permissions
 		const adminMember = await this.communityMemberRepository.findByCommunityAndUser(communityId, adminId);
 		if (!adminMember || (adminMember.role !== "admin" && adminMember.role !== "moderator")) {
-			throw createError("Forbidden", "Only admins or moderators can kick members");
+			throw createError("ForbiddenError", "Only admins or moderators can kick members");
 		}
 
 		// 2. Verify Target exists and is not an admin
 		const targetMember = await this.communityMemberRepository.findByCommunityAndUser(communityId, targetUserId);
 		if (!targetMember) {
-			throw createError("NotFound", "User is not a member of this community");
+			throw createError("NotFoundError", "User is not a member of this community");
 		}
 		if (targetMember.role === "admin") {
-			throw createError("Forbidden", "Cannot kick an admin");
+			throw createError("ForbiddenError", "Cannot kick an admin");
 		}
 
 		await this.uow.executeInTransaction(async (session) => {

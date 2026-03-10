@@ -1,7 +1,7 @@
 import { ClientSession } from "mongoose";
 import { NotificationRepository } from "@/repositories/notification.respository";
 import { INotification, NotificationPlain } from "@/types";
-import { createError, isErrorWithStatusCode } from "@/utils/errors";
+import { createError, isErrorWithStatusCode , wrapError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
@@ -45,11 +45,7 @@ export class NotificationService {
 			logger.info("Notification sent successfully");
 		} catch (error) {
 			logger.error("Error sending notification:", { error });
-			if (error instanceof Error) {
-				throw createError(error.name, error.message);
-			} else {
-				throw createError("UnknownError", String(error));
-			}
+			throw wrapError(error);
 		}
 	}
 
@@ -69,11 +65,7 @@ export class NotificationService {
 			logger.info("Notification read event sent successfully");
 		} catch (error) {
 			logger.error("Error sending notification read event:", { error });
-			if (error instanceof Error) {
-				throw createError(error.name, error.message);
-			} else {
-				throw createError("UnknownError", String(error));
-			}
+			throw wrapError(error);
 		}
 	}
 
@@ -248,8 +240,7 @@ export class NotificationService {
 		} catch (error) {
 			// if already an AppError with statuscode then rethrow
 			if (isErrorWithStatusCode(error)) throw error;
-			if (error instanceof Error) throw createError(error.name, error.message);
-			throw createError("UnknownError", String(error));
+			throw wrapError(error);
 		}
 	}
 
@@ -278,11 +269,9 @@ export class NotificationService {
 			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);
 
 			if (modifiedCount > 0) {
-				// update all notification hashes in Redis
-				// fetch the list and update each one
-				const notificationIds = await this.redisService.get(`notifications:user:${userPublicId}`);
-				if (Array.isArray(notificationIds)) {
-					await Promise.all(notificationIds.map((id: string) => this.redisService.markNotificationRead(id)));
+				const notificationIds = await this.redisService.getUserNotificationIds(userPublicId);
+				if (notificationIds.length > 0) {
+					await this.redisService.markNotificationsRead(notificationIds);
 				}
 
 				// emit WebSocket event

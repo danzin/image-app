@@ -2,7 +2,7 @@ import { IQueryHandler } from "@/application/common/interfaces/query-handler.int
 import { GetMeQuery } from "@/application/queries/users/getMe/getMe.query";
 import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "@/repositories/interfaces";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "@/services/dto.service";
 
 export interface GetMeResult {
@@ -29,7 +29,7 @@ export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult>
 			return { user: userDTO };
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("UnknownError", "An unknown error occurred");
 		}

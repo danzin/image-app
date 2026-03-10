@@ -11,17 +11,20 @@ import { FeedController } from "../controllers/feed.controller";
 import { FavoriteController } from "../controllers/favorite.controller";
 import { MessagingController } from "../controllers/messaging.controller";
 import { CommunityController } from "../controllers/community.controller";
+import { logger } from "@/utils/winston";
 
 export function registerControllers(): void {
-	container.registerSingleton("SearchController", SearchController);
-	container.registerSingleton("UserController", UserController);
-	container.registerSingleton("ImageController", ImageController);
-	container.registerSingleton("PostController", PostController);
-	container.registerSingleton("CommentController", CommentController);
-	container.registerSingleton("NotificationController", NotificationController);
-	container.registerSingleton("AdminUserController", AdminUserController);
-	container.registerSingleton("FeedController", FeedController);
-	container.registerSingleton("FavoriteController", FavoriteController);
-	container.registerSingleton("MessagingController", MessagingController);
-	container.registerSingleton("CommunityController", CommunityController);
+  container.registerSingleton("SearchController", SearchController);
+  container.registerSingleton("UserController", UserController);
+  container.registerSingleton("ImageController", ImageController);
+  container.registerSingleton("PostController", PostController);
+  container.registerSingleton("CommentController", CommentController);
+  container.registerSingleton("NotificationController", NotificationController);
+  container.registerSingleton("AdminUserController", AdminUserController);
+  container.registerSingleton("FeedController", FeedController);
+  container.registerSingleton("FavoriteController", FavoriteController);
+  container.registerSingleton("MessagingController", MessagingController);
+  container.registerSingleton("CommunityController", CommunityController);
+
+  logger.info("[di] Controllers registered");
 }

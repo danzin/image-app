@@ -2,7 +2,7 @@ import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DTOService, AuthenticatedUserDTO } from "@/services/dto.service";
 import { EmailService } from "@/services/email.service";
@@ -77,7 +77,7 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
       return { user: userDTO };
     } catch (error) {
       if (error instanceof Error) {
-        throw createError(error.name, error.message);
+        throw wrapError(error);
       }
       throw createError("UnknownError", "An unknown error occurred");
     }

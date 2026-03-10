@@ -7,7 +7,7 @@ import { IPostReadRepository } from "@/repositories/interfaces/IPostReadReposito
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
@@ -97,12 +97,8 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			logger.info(`Comment ${command.commentId} successfully deleted by user ${command.userPublicId}`);
 		} catch (error) {
 			console.error("DeleteCommentCommand execution failed:", error);
-			const errorName = error instanceof Error ? error.name : "UnknownError";
-			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-			throw createError(errorName, errorMessage, {
-				operation: "DeleteComment",
-				commentId: command.commentId,
-				userPublicId: command.userPublicId,
+			throw wrapError(error, "InternalServerError", {
+				context: { operation: "DeleteComment", commentId: command.commentId, userPublicId: command.userPublicId },
 			});
 		}
 	}

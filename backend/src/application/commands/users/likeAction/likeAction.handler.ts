@@ -11,7 +11,7 @@ import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { FeedService } from "@/services/feed.service";
 import { ClientSession, Types } from "mongoose";
@@ -101,12 +101,8 @@ export class LikeActionCommandHandler implements ICommandHandler<LikeActionComma
 			}
 			return updatedPost;
 		} catch (error) {
-			const errorName = error instanceof Error ? error.name : "UnknownError";
-			const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
-			throw createError(errorName, errorMessage, {
-				operation: "LikeAction",
-				userId: command.userId,
-				postId: command.postId,
+			throw wrapError(error, "InternalServerError", {
+				context: { operation: "LikeAction", userId: command.userId, postId: command.postId },
 			});
 		}
 	}

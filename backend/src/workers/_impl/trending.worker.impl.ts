@@ -4,6 +4,7 @@ import { performance } from "perf_hooks";
 import type { RedisClientType } from "redis";
 import { RedisService } from "@/services/redis.service";
 import { PostRepository } from "@/repositories/post.repository";
+import { FeedPost } from "@/types";
 import { logger } from "@/utils/winston";
 
 /** Handles trending feed updates and calculations
@@ -28,6 +29,7 @@ type PendingDeltas = {
 	commentsDelta: number;
 	likesDelta: number;
 	lastSeen: number;
+	messageIds: string[];
 };
 
 export class TrendingWorker {
@@ -128,8 +130,9 @@ export class TrendingWorker {
 
 				for (const streamRes of responses) {
 					for (const message of streamRes.messages) {
-						// handle each message asynchronously (coalesce is sync-ish)
-						this.handleStreamMessage(message.id, message.message).catch((err) => logger.error("[c", { error: err }));
+						this.handleStreamMessage(message.id, message.message).catch((err) =>
+							logger.error("[trending] failed to stage stream message", { id: message.id, error: err }),
+						);
 					}
 				}
 			} catch (err) {
@@ -141,7 +144,7 @@ export class TrendingWorker {
 		}
 	}
 
-	/** handle a single stream message: coalesce into pending map and ACK via helper */
+	/** handle a single stream message: coalesce it for the next flush */
 	private async handleStreamMessage(id: string, fields: Record<string, string>): Promise<void> {
 		const postId = fields.postId ?? fields.postPublicId ?? fields.post;
 
@@ -152,13 +155,33 @@ export class TrendingWorker {
 		}
 
 		const now = Date.now();
-		// mark this post as needing recalculation (don't track deltas, MongoDB is source of truth)
-		const existing = this.pending.get(postId) ?? { commentsDelta: 0, likesDelta: 0, lastSeen: now };
+		const existing = this.pending.get(postId) ?? { commentsDelta: 0, likesDelta: 0, lastSeen: now, messageIds: [] };
 		existing.lastSeen = now;
+		if (!existing.messageIds.includes(id)) {
+			existing.messageIds.push(id);
+		}
 		this.pending.set(postId, existing);
+	}
 
-		// ACK via RedisService helper
-		await this.redisService.ackStreamMessages(this.STREAM, this.GROUP, id);
+	private requeueEntries(entries: Array<[string, PendingDeltas]>): void {
+		for (const [postId, entry] of entries) {
+			const existing = this.pending.get(postId);
+			if (!existing) {
+				this.pending.set(postId, {
+					...entry,
+					messageIds: [...entry.messageIds],
+				});
+				continue;
+			}
+
+			existing.lastSeen = Math.max(existing.lastSeen, entry.lastSeen);
+			for (const messageId of entry.messageIds) {
+				if (!existing.messageIds.includes(messageId)) {
+					existing.messageIds.push(messageId);
+				}
+			}
+			this.pending.set(postId, existing);
+		}
 	}
 
 	/** Flush pending map: compute score per post and update ZSET via helper */
@@ -174,76 +197,75 @@ export class TrendingWorker {
 
 			for (let i = 0; i < entries.length; i += this.CHUNK_SIZE) {
 				const chunk = entries.slice(i, i + this.CHUNK_SIZE);
-				const postIds = chunk.map(([postId]) => postId);
+				try {
+					const postIds = chunk.map(([postId]) => postId);
 
-				let posts: any[] = [];
-				// prefer batch method if available
-				if (typeof (this.postRepo as any).findByPublicIds === "function") {
-					// @ts-ignore
-					posts = await (this.postRepo as any).findByPublicIds(postIds);
-				} else {
-					// fallback to parallel fetch (bounded by chunk size)
-					posts = await Promise.all(
-						postIds.map((id) =>
-							this.postRepo.findByPublicId ? this.postRepo.findByPublicId(id) : Promise.resolve(null),
-						),
-					);
+					const posts: FeedPost[] = await this.postRepo.findPostsByPublicIds(postIds);
+					const postMap = new Map<string, FeedPost>();
+					for (const p of posts) {
+						postMap.set(p.publicId, p);
+					}
+
+					const updates: Promise<unknown>[] = [];
+					const messageIdsToAck: string[] = [];
+
+					for (const [postId, pendingEntry] of chunk) {
+						messageIdsToAck.push(...pendingEntry.messageIds);
+						const post = postMap.get(postId);
+						if (!post) {
+							logger.warn(`[trending] post ${postId} missing during flush; acknowledging pending messages`);
+							continue;
+						}
+
+						// use MongoDB as source of truth (it's already updated by like/comment handlers)
+						const likes = post.likes || 0;
+						const comments = post.commentsCount || 0;
+						const views = post.viewsCount || 0;
+
+						const ageDays = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+						const recencyScore = 1 / (1 + ageDays);
+						const popularityScore = Math.log(likes + 1);
+						const commentsScore = Math.log(comments + 1);
+
+						const score =
+							this.WEIGHTS.recency * recencyScore +
+							this.WEIGHTS.popularity * popularityScore +
+							this.WEIGHTS.comments * commentsScore;
+
+						logger.info(
+							`[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
+								`recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`,
+						);
+
+						// update trending score in sorted set (use "trending:posts" key to match handler)
+						updates.push(this.redisService.updateTrendingScore(postId, Number(score), "trending:posts"));
+
+						// store computed counts in post_meta cache for handler enrichment
+						const metaKey = `post_meta:${postId}`;
+						const metaTags = [`post_meta:${postId}`, `post_likes:${postId}`, `post_comments:${postId}`];
+						updates.push(
+							this.redisService.setWithTags(
+								metaKey,
+								{
+									likes,
+									commentsCount: comments,
+									viewsCount: views,
+									lastUpdated: Date.now(),
+								},
+								metaTags,
+								300, // 5 min TTL
+							),
+						);
+					}
+
+					await Promise.all(updates);
+					if (messageIdsToAck.length > 0) {
+						await this.redisService.ackStreamMessages(this.STREAM, this.GROUP, ...messageIdsToAck);
+					}
+				} catch (err) {
+					this.requeueEntries(chunk);
+					throw err;
 				}
-
-				const postMap = new Map<string, any>();
-				for (const p of posts.filter(Boolean)) {
-					const key = p.publicId ?? p.publicId?.toString?.() ?? p._id?.toString?.();
-					postMap.set(key, p);
-				}
-
-				const updates: Promise<unknown>[] = [];
-
-				for (const [postId] of chunk) {
-					const post = postMap.get(postId);
-					if (!post) continue;
-
-					// use MongoDB as source of truth (it's already updated by like/comment handlers)
-					const likes = post.likesCount || 0;
-					const comments = post.commentsCount || 0;
-					const views = post.viewsCount || 0;
-
-					const ageDays = (Date.now() - new Date(post.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-					const recencyScore = 1 / (1 + ageDays);
-					const popularityScore = Math.log(likes + 1);
-					const commentsScore = Math.log(comments + 1);
-
-					const score =
-						this.WEIGHTS.recency * recencyScore +
-						this.WEIGHTS.popularity * popularityScore +
-						this.WEIGHTS.comments * commentsScore;
-
-					logger.info(
-						`[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
-							`recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`,
-					);
-
-					// update trending score in sorted set (use "trending:posts" key to match handler)
-					updates.push(this.redisService.updateTrendingScore(postId, Number(score), "trending:posts"));
-
-					// store computed counts in post_meta cache for handler enrichment
-					const metaKey = `post_meta:${postId}`;
-					const metaTags = [`post_meta:${postId}`, `post_likes:${postId}`, `post_comments:${postId}`];
-					updates.push(
-						this.redisService.setWithTags(
-							metaKey,
-							{
-								likes,
-								commentsCount: comments,
-								viewsCount: views,
-								lastUpdated: Date.now(),
-							},
-							metaTags,
-							300, // 5 min TTL
-						),
-					);
-				}
-
-				await Promise.all(updates);
 			}
 		} catch (err) {
 			logger.error("[trending] flushPending failed", { error: err });

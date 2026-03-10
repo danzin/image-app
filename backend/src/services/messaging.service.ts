@@ -11,6 +11,7 @@ import {
 	IMessageWithPopulatedSender,
 	MaybePopulatedParticipant,
 	MessageDTO,
+	PopulatedSender,
 	SendMessagePayload,
 	UserPublicIdLean,
 } from "@/types";
@@ -473,10 +474,13 @@ export class MessagingService {
 			throw createError("NotFoundError", "Message not found");
 		}
 
-		if (message.sender.toString() !== userInternalId && (message.sender as any).publicId !== userPublicId) {
-			// Check if sender is populated or not.
-			// If not populated, it's ObjectId. If populated, it has publicId.
-			const senderId = (message.sender as any)._id ? (message.sender as any)._id.toString() : message.sender.toString();
+		const populatedSender = message.sender as mongoose.Types.ObjectId | PopulatedSender;
+		if ((populatedSender as PopulatedSender).publicId !== undefined && (populatedSender as PopulatedSender).publicId !== userPublicId) {
+			// sender is populated and doesn't match
+		} else if (message.sender.toString() !== userInternalId) {
+			const senderId = (populatedSender as PopulatedSender)._id
+				? (populatedSender as PopulatedSender)._id!.toString()
+				: message.sender.toString();
 			if (senderId !== userInternalId) {
 				throw createError("ForbiddenError", "You can only edit your own messages");
 			}
@@ -498,7 +502,7 @@ export class MessagingService {
 			throw createError("InternalError", "Failed to update message");
 		}
 
-		const conversation = await this.conversationRepository.findById((updatedMessage.conversation as any).toString());
+		const conversation = await this.conversationRepository.findById(updatedMessage.conversation.toString());
 		if (!conversation) {
 			throw createError("InternalError", "Conversation not found");
 		}
@@ -520,7 +524,10 @@ export class MessagingService {
 			throw createError("NotFoundError", "Message not found");
 		}
 
-		const senderId = (message.sender as any)._id ? (message.sender as any)._id.toString() : message.sender.toString();
+		const populatedSender2 = message.sender as mongoose.Types.ObjectId | PopulatedSender;
+		const senderId = (populatedSender2 as PopulatedSender)._id
+			? (populatedSender2 as PopulatedSender)._id!.toString()
+			: message.sender.toString();
 		if (senderId !== userInternalId) {
 			throw createError("ForbiddenError", "You can only delete your own messages");
 		}

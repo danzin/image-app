@@ -14,7 +14,7 @@ import {
 	RemoveAttachmentInput,
 	RemoveAttachmentResult,
 } from "@/types";
-import { createError } from "@/utils/errors";
+import { AppError, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { generateSlug } from "@/utils/helpers";
 
@@ -40,7 +40,7 @@ export class ImageService {
 			if (uploaded) {
 				await this.rollbackUpload(uploaded.publicId);
 			}
-			throw this.wrapError(error, "createPostAttachment");
+			throw this.buildContextError(error, "createPostAttachment");
 		}
 	}
 
@@ -82,7 +82,7 @@ export class ImageService {
 				},
 			};
 		} catch (error) {
-			throw this.wrapError(error, "createImageRecord");
+			throw this.buildContextError(error, "createImageRecord");
 		}
 	}
 
@@ -116,7 +116,7 @@ export class ImageService {
 				removedUrl: imageDoc.url,
 			};
 		} catch (error) {
-			throw this.wrapError(error, "removePostAttachment");
+			throw this.buildContextError(error, "removePostAttachment");
 		}
 	}
 
@@ -135,7 +135,7 @@ export class ImageService {
 				removedUrl: imageDoc.url,
 			};
 		} catch (error) {
-			throw this.wrapError(error, "removePostAttachmentRecord");
+			throw this.buildContextError(error, "removePostAttachmentRecord");
 		}
 	}
 
@@ -156,17 +156,9 @@ export class ImageService {
 		return undefined;
 	}
 
-	private wrapError(error: unknown, context: string): Error {
-		if (error instanceof Error) {
-			return createError(error.name, error.message, {
-				context,
-				file: "image.service.ts",
-			});
-		}
-
-		return createError("UnknownError", String(error), {
-			context,
-			file: "image.service.ts",
+	private buildContextError(error: unknown, context: string): AppError {
+		return wrapError(error, "InternalServerError", {
+			context: { operation: context, file: "image.service.ts" },
 		});
 	}
 }

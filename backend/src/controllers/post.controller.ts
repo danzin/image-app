@@ -15,7 +15,7 @@ import { GetLikedPostsByUserQuery } from "@/application/queries/post/getLikedPos
 import { SearchPostsByTagsQuery } from "@/application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTags.query";
 import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { errorLogger } from "@/utils/winston";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
 import { safeFireAndForget } from "@/utils/helpers";
@@ -58,7 +58,7 @@ export class PostController {
 			res.status(201).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -77,7 +77,7 @@ export class PostController {
 			res.json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -142,7 +142,7 @@ export class PostController {
 			res.status(200).json(posts);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", String(error)));
 			}
@@ -167,7 +167,7 @@ export class PostController {
 			res.status(200).json(post);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", String(error)));
 			}
@@ -191,7 +191,7 @@ export class PostController {
 			res.status(200).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", String(error)));
 			}
@@ -220,7 +220,7 @@ export class PostController {
 			res.json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -242,7 +242,7 @@ export class PostController {
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -265,7 +265,7 @@ export class PostController {
 			res.status(201).json(postDTO);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}
@@ -287,7 +287,7 @@ export class PostController {
 			res.status(200).json(result);
 		} catch (error) {
 			if (error instanceof Error) {
-				next(createError(error.name, error.message));
+				next(wrapError(error));
 			} else {
 				next(createError("UnknownError", "An unknown error occurred"));
 			}

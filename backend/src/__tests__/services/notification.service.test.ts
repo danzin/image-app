@@ -1,6 +1,6 @@
 import "reflect-metadata";
 import { expect } from "chai";
-import sinon, { SinonStubbedInstance } from "sinon";
+import sinon, { SinonStub, SinonStubbedInstance } from "sinon";
 import { NotificationService } from "@/services/notification.service";
 import { NotificationRepository } from "@/repositories/notification.respository";
 import { RedisService } from "@/services/redis.service";
@@ -15,6 +15,8 @@ describe("NotificationService", () => {
 	let mockWebSocketServer: SinonStubbedInstance<WebSocketServer>;
 	let mockUserRepository: SinonStubbedInstance<UserRepository>;
 	let mockImageRepository: SinonStubbedInstance<ImageRepository>;
+	let emitSpy: SinonStub;
+	let roomSpy: SinonStub;
 
 	beforeEach(() => {
 		mockNotificationRepository = sinon.createStubInstance(NotificationRepository);
@@ -22,12 +24,16 @@ describe("NotificationService", () => {
 		mockWebSocketServer = sinon.createStubInstance(WebSocketServer);
 		mockUserRepository = sinon.createStubInstance(UserRepository);
 		mockImageRepository = sinon.createStubInstance(ImageRepository);
+		emitSpy = sinon.stub();
+		roomSpy = sinon.stub().returns({ emit: emitSpy });
 
 		// Mock WebSocketServer.getIO
-		mockWebSocketServer.getIO.returns({ to: () => ({ emit: () => {} }) } as any);
+		mockWebSocketServer.getIO.returns({ to: roomSpy } as any);
 
 		// ensure backfillNotifications returns a promise (resolves to void)
 		mockRedisService.backfillNotifications.resolves();
+		mockRedisService.getUserNotificationIds.resolves([]);
+		mockRedisService.markNotificationsRead.resolves();
 
 		notificationService = new NotificationService(
 			mockWebSocketServer as any,
@@ -50,14 +56,15 @@ describe("NotificationService", () => {
 			const cachedNotifications = [{ _id: "notif1", text: "New notification" }];
 			mockRedisService.getUserNotifications.resolves(cachedNotifications as any);
 
-			const dbNotifications = new Array(15).fill({ _id: "notifX" });
+			const dbNotifications = Array.from({ length: 25 }, (_, index) => ({ _id: `notif-${index}` }));
 			mockNotificationRepository.getNotifications.resolves(dbNotifications as any);
 
 			const result = await notificationService.getNotifications(userId, limit);
 
 			expect(mockRedisService.getUserNotifications.calledOnceWith(userId, 1, limit)).to.be.true;
-			expect(mockNotificationRepository.getNotifications.calledOnce).to.be.true; // Should be called!
-			expect(result).to.equal(dbNotifications);
+			expect(mockNotificationRepository.getNotifications.calledOnceWith(userId, 200, 0)).to.be.true;
+			expect(mockRedisService.backfillNotifications.calledOnceWith(userId, dbNotifications, 200)).to.be.true;
+			expect(result).to.deep.equal(dbNotifications.slice(0, limit));
 		});
 
 		it("should return cached notifications if count >= limit (Full Cache Hit)", async () => {
@@ -89,7 +96,23 @@ describe("NotificationService", () => {
 
 			expect(mockRedisService.getUserNotifications.calledOnce).to.be.true;
 			expect(mockNotificationRepository.getNotifications.calledOnce).to.be.true;
-			expect(result).to.equal(dbNotifications);
+			expect(result).to.deep.equal(dbNotifications);
+		});
+	});
+
+	describe("markAllAsRead", () => {
+		it("updates cached notification hashes using the Redis list structure", async () => {
+			mockNotificationRepository.markAllAsRead.resolves(2);
+			mockRedisService.getUserNotificationIds.resolves(["notif-1", "notif-2"]);
+
+			const result = await notificationService.markAllAsRead("user123");
+
+			expect(result).to.equal(2);
+			expect(mockRedisService.get.called).to.be.false;
+			expect(mockRedisService.getUserNotificationIds.calledOnceWith("user123")).to.be.true;
+			expect(mockRedisService.markNotificationsRead.calledOnceWith(["notif-1", "notif-2"])).to.be.true;
+			expect(roomSpy.calledOnceWith("user123")).to.be.true;
+			expect(emitSpy.calledOnceWith("all_notifications_read")).to.be.true;
 		});
 	});
 });

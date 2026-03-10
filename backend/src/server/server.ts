@@ -14,7 +14,10 @@ import { CommentRoutes } from "../routes/comment.routes";
 import { ErrorHandler } from "@/utils/errors";
 import { SearchRoutes } from "../routes/search.routes";
 import { AdminUserRoutes } from "../routes/admin.routes";
-import { detailedRequestLogging, logBehaviour } from "../middleware/logMiddleware";
+import {
+  detailedRequestLogging,
+  logBehaviour,
+} from "../middleware/logMiddleware";
 import { requestLogger } from "../middleware/requestLogger";
 import { NotificationRoutes } from "../routes/notification.routes";
 import { FeedRoutes } from "../routes/feed.routes";
@@ -59,7 +62,8 @@ export class Server {
     @inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
     @inject("MetricsService") private readonly metricsService: MetricsService,
     @inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
-    @inject("TelemetryRoutes") private readonly telemetryRoutes: TelemetryRoutes,
+    @inject("TelemetryRoutes")
+    private readonly telemetryRoutes: TelemetryRoutes,
   ) {
     this.app = express();
     this.initializeMiddlewares();
@@ -89,7 +93,10 @@ export class Server {
     ];
 
     const corsOptions: cors.CorsOptions = {
-      origin: (origin: string | undefined, callback: (err: Error | null, allow?: string | boolean) => void) => {
+      origin: (
+        origin: string | undefined,
+        callback: (err: Error | null, allow?: string | boolean) => void,
+      ) => {
         if (!origin) {
           return callback(null, true);
         }
@@ -97,7 +104,9 @@ export class Server {
           return callback(null, origin);
         }
         logger.warn(`[Backend CORS] Blocked origin: ${origin}`);
-        callback(new Error("Request from this origin is blocked by CORS policy"));
+        callback(
+          new Error("Request from this origin is blocked by CORS policy"),
+        );
       },
       credentials: true,
       methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
@@ -131,15 +140,21 @@ export class Server {
       const cfIp = req.headers["cf-connecting-ip"];
       if (typeof cfIp === "string" && cfIp.trim()) {
         const normalizedCfIp = stripPort(cfIp);
-        if (firstForwardedIp && firstForwardedIp !== normalizedCfIp && forwardedIps.includes(normalizedCfIp)) {
+        if (
+          firstForwardedIp &&
+          firstForwardedIp !== normalizedCfIp &&
+          forwardedIps.includes(normalizedCfIp)
+        ) {
           return firstForwardedIp;
         }
         return normalizedCfIp;
       }
       const trueClientIp = req.headers["true-client-ip"];
-      if (typeof trueClientIp === "string" && trueClientIp.trim()) return stripPort(trueClientIp);
+      if (typeof trueClientIp === "string" && trueClientIp.trim())
+        return stripPort(trueClientIp);
       const xRealIp = req.headers["x-real-ip"];
-      if (typeof xRealIp === "string" && xRealIp.trim()) return stripPort(xRealIp);
+      if (typeof xRealIp === "string" && xRealIp.trim())
+        return stripPort(xRealIp);
       if (firstForwardedIp) return firstForwardedIp;
       return stripPort(req.ip || req.socket.remoteAddress || "unknown");
     };
@@ -157,7 +172,9 @@ export class Server {
 
     this.app.use(this.metricsService.httpMetricsMiddleware());
     this.app.use((req, res, next) => {
-      logger.info(`[Backend] ${req.method} ${(req.originalUrl || req.url).split("?")[0]}`);
+      logger.info(
+        `[Backend] ${req.method} ${(req.originalUrl || req.url).split("?")[0]}`,
+      );
       next();
     });
 
@@ -255,7 +272,7 @@ export class Server {
    */
   public start(server: http.Server, port: number): void {
     server.listen(port, () => {
-      logger.info(`Server running on port ${port}`);
+      logger.info(`[Server] Server running on port ${port}`);
     });
   }
 }

@@ -1,3 +1,4 @@
+import { Server as SocketIOServer } from "socket.io";
 import { injectable } from "tsyringe";
 import { IRealtimeMessageHandler } from "./IRealtimeMessageHandler.interface";
 import { FeedUpdateMessage } from "@/services/real-time-feed.service";
@@ -7,7 +8,7 @@ import { logger } from "@/utils/winston";
 export class InteractionMessageHandler implements IRealtimeMessageHandler {
 	readonly messageType = "interaction";
 
-	async handle(io: any, message: FeedUpdateMessage): Promise<void> {
+	async handle(io: SocketIOServer, message: FeedUpdateMessage): Promise<void> {
 		if (!message.userId || !message.targetId) return;
 
 		// notify the content owner about the interaction
@@ -25,3 +26,5 @@ export class InteractionMessageHandler implements IRealtimeMessageHandler {
 		logger.info(`Real-time interaction notification sent for ${message.actionType} on ${message.targetId}`);
 	}
 }
+
+

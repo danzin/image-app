@@ -3,7 +3,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { IImageStorageService } from "@/types";
 import { injectable } from "tsyringe";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 
 @injectable()
@@ -62,11 +62,7 @@ export class LocalStorageService implements IImageStorageService {
 			return { url, publicId: `${publicIdPrefix}/${filename}` };
 		} catch (error) {
 			logger.error("Failed to upload image", { error });
-			if (error instanceof Error) {
-				throw createError(error.name, error.message);
-			} else {
-				throw createError("UnknownError", String(error));
-			}
+			throw wrapError(error, "StorageError");
 		}
 	}
 
@@ -94,11 +90,7 @@ export class LocalStorageService implements IImageStorageService {
 			}
 		} catch (error) {
 			logger.error("Error deleting asset", { error });
-			if (error instanceof Error) {
-				throw createError(error.name, error.message);
-			} else {
-				throw createError("UnknownError", String(error));
-			}
+			throw wrapError(error, "StorageError");
 		}
 	}
 

@@ -1,4 +1,4 @@
-import { ClientSession } from "mongoose";
+import { ClientSession, UpdateQuery } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { IUser } from "@/types";
 import { IUserWriteRepository } from "../interfaces/IUserWriteRepository";
@@ -17,11 +17,11 @@ export class UserWriteRepository implements IUserWriteRepository {
 		return this.userRepository.create(userData, session);
 	}
 
-	async update(id: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+	async update(id: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
 		return this.userRepository.update(id, updateData, session);
 	}
 
-	async updateByPublicId(publicId: string, updateData: any, session?: ClientSession): Promise<IUser | null> {
+	async updateByPublicId(publicId: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
 		return this.userRepository.updateByPublicId(publicId, updateData, session);
 	}
 

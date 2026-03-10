@@ -19,11 +19,12 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 		try {
 			await this.model.create([payload], { session });
 			return true;
-		} catch (error: any) {
-			if (error?.code === 11000) {
+		} catch (error: unknown) {
+			const err = error as Record<string, unknown>;
+			if (err?.code === 11000) {
 				return false;
 			}
-			throw createError("DatabaseError", error?.message ?? "failed to persist post like");
+			throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to persist post like");
 		}
 	}
 
@@ -114,3 +115,6 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 		}
 	}
 }
+
+
+

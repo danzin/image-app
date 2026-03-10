@@ -1,4 +1,4 @@
-import mongoose, { ClientSession, Model, PipelineStage, SortOrder } from "mongoose";
+import mongoose, { ClientSession, Model, PipelineStage } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import {
@@ -8,10 +8,34 @@ import {
   TrendingTag,
   CursorPaginationOptions,
   CursorPaginationResult,
+  FeedPost,
 } from "@/types";
 import { createError } from "@/utils/errors";
 import { TagRepository } from "./tag.repository";
 import { decodeCursor, encodeCursor } from "@/utils/cursorCodec";
+
+type ProjectedFeedPost = FeedPost & {
+  _id?: mongoose.Types.ObjectId;
+  isPersonalized?: boolean;
+};
+
+type CountFacetResult = {
+  count: number;
+};
+
+type TotalFacetResult = {
+  total: number;
+};
+
+type PaginationFacetResult<T> = {
+  data: T[];
+  totalCount: CountFacetResult[];
+};
+
+type MetadataFacetResult<T> = {
+  data: T[];
+  metadata: TotalFacetResult[];
+};
 
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {
@@ -22,7 +46,7 @@ export class PostRepository extends BaseRepository<IPost> {
     super(model);
   }
 
-  async searchByText(terms: string[], limit: number = 20): Promise<IPost[]> {
+  async searchByText(terms: string[], limit: number = 20): Promise<FeedPost[]> {
     try {
       if (!terms.length) return [];
 
@@ -31,18 +55,18 @@ export class PostRepository extends BaseRepository<IPost> {
 
       const pipeline: PipelineStage[] = [
         { $match: { $text: { $search: searchString } } },
-        { $limit: limit },
-        // Sort by text relevance score
         { $addFields: { score: { $meta: "textScore" } } },
+        // Sort by text relevance score before trimming the result window
         { $sort: { score: { $meta: "textScore" } } },
+        { $limit: limit },
         ...this.getStandardLookups(),
         this.getStandardProjection(),
       ];
 
-      const results = await this.model.aggregate(pipeline).exec();
+      const results = await this.model.aggregate<FeedPost>(pipeline).exec();
       return results;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to search posts by text");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to search posts by text");
     }
   }
 
@@ -62,7 +86,7 @@ export class PostRepository extends BaseRepository<IPost> {
     }
 
     const tagDocs = await this.tagRepository.findByTags(tagNames);
-    const ids = tagDocs.map((doc: any) => new mongoose.Types.ObjectId(doc._id));
+    const ids = tagDocs.map((doc) => this.normalizeObjectId(doc._id, "tag._id"));
     this.tagIdCacheStore.set(cacheKey, { ids, expiresAt: Date.now() + this.TAG_ID_CACHE_TTL_MS });
     return ids;
   }
@@ -77,16 +101,16 @@ export class PostRepository extends BaseRepository<IPost> {
       const query = this.model.findOne({ publicId });
       if (session) query.session(session);
       return await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to find post by publicId");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to find post by publicId");
     }
   }
 
   async findOneByFilter(filter: Record<string, unknown>): Promise<IPost | null> {
     try {
       return await this.model.findOne(filter).exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to find post by filter");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to find post by filter");
     }
   }
 
@@ -104,8 +128,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const query = this.model.findOneAndUpdate({ _id: postId }, { $inc: { viewsCount: 1 } }, { new: true });
       if (session) query.session(session);
       await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to increment post view count");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to increment post view count");
     }
   }
 
@@ -114,15 +138,15 @@ export class PostRepository extends BaseRepository<IPost> {
       const query = this.model.updateOne({ _id: postId }, { $inc: { repostCount: increment } });
       if (session) query.session(session);
       await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to update repost count");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update repost count");
     }
   }
 
   /**
    * returns standard $lookup stages for populating post relationships
    */
-  private getStandardLookups(): PipelineStage[] {
+  private getStandardLookups(): PipelineStage.FacetPipelineStage[] {
     return [
       { $lookup: { from: "tags", localField: "tags", foreignField: "_id", as: "tagObjects" } },
       { $lookup: { from: "images", localField: "image", foreignField: "_id", as: "imageDoc" } },
@@ -159,7 +183,7 @@ export class PostRepository extends BaseRepository<IPost> {
   /**
    * returns standard projection fields for shaping post output
    */
-  private getStandardProjectionFields() {
+  private getStandardProjectionFields(): Record<string, unknown> {
     return {
       _id: 0,
       publicId: 1,
@@ -256,9 +280,19 @@ export class PostRepository extends BaseRepository<IPost> {
   /**
    * returns standard $project stage for shaping post output
    */
-  private getStandardProjection(): PipelineStage {
+  private getStandardProjection(): PipelineStage.Project {
     return {
       $project: this.getStandardProjectionFields(),
+    };
+  }
+
+  private buildFacetPipeline(...stages: PipelineStage.FacetPipelineStage[]): PipelineStage.FacetPipelineStage[] {
+    return stages;
+  }
+
+  private buildSort(sortBy: string, sortOrder: string): Record<string, 1 | -1> {
+    return {
+      [sortBy]: sortOrder === "asc" ? 1 : -1,
     };
   }
 
@@ -271,12 +305,12 @@ export class PostRepository extends BaseRepository<IPost> {
 
       if (session) query.session(session);
       return await query.exec();
-    } catch (err: any) {
-      throw createError("DatabaseError", err.message ?? "failed to load post by id");
+    } catch (err: unknown) {
+      throw createError("DatabaseError", (err instanceof Error ? err.message : String(err)) ?? "failed to load post by id");
     }
   }
 
-  async findPostsByIds(ids: string[], _viewerPublicId?: string): Promise<IPost[]> {
+  async findPostsByIds(ids: string[], _viewerPublicId?: string): Promise<FeedPost[]> {
     try {
       const objectIds = ids.map((id) => this.normalizeObjectId(id, "id"));
 
@@ -290,14 +324,14 @@ export class PostRepository extends BaseRepository<IPost> {
       // but that logic is usually handled in the service/DTO layer or via separate lookups.
       // For now, just return the posts.
 
-      const results = await this.model.aggregate(pipeline).exec();
+      const results = await this.model.aggregate<FeedPost>(pipeline).exec();
       return results;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to find posts by ids");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to find posts by ids");
     }
   }
 
-  async findPostsByPublicIds(publicIds: string[]): Promise<IPost[]> {
+  async findPostsByPublicIds(publicIds: string[]): Promise<FeedPost[]> {
     try {
       const uniqueIds = Array.from(new Set(publicIds.filter((id) => typeof id === "string" && id.length > 0)));
       if (uniqueIds.length === 0) {
@@ -310,10 +344,10 @@ export class PostRepository extends BaseRepository<IPost> {
         this.getStandardProjection(),
       ];
 
-      const results = await this.model.aggregate(pipeline).exec();
+      const results = await this.model.aggregate<FeedPost>(pipeline).exec();
       return results;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to find posts by public ids");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to find posts by public ids");
     }
   }
 
@@ -332,13 +366,12 @@ export class PostRepository extends BaseRepository<IPost> {
             { path: "tags", select: "tag" },
             { path: "user", select: "publicId handle username avatar profile displayName" },
           ],
-        })
-        .lean();
+        });
 
       if (session) query.session(session);
-      return (await query.exec()) as IPost | null;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to load post");
+      return await query.exec();
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to load post");
     }
   }
 
@@ -351,16 +384,16 @@ export class PostRepository extends BaseRepository<IPost> {
 
       if (session) query.session(session);
       return await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to load post by slug");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to load post by slug");
     }
   }
 
-  async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<IPost>> {
+  async findByUserPublicId(userPublicId: string, options: PaginationOptions): Promise<PaginationResult<FeedPost>> {
     try {
       const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
       const skip = (page - 1) * limit;
-      const sort: Record<string, 1 | -1> = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
+      const sort = this.buildSort(sortBy, sortOrder);
 
       const userDoc = await this.model.db
         .collection("users")
@@ -369,27 +402,27 @@ export class PostRepository extends BaseRepository<IPost> {
         throw createError("NotFoundError", "User not found");
       }
 
-      const userId = new mongoose.Types.ObjectId(userDoc._id);
+      const userId = this.normalizeObjectId(userDoc._id, "user._id");
 
       const pipeline: PipelineStage[] = [
         { $match: { user: userId } },
         { $sort: sort },
         {
           $facet: {
-            data: [
+            data: this.buildFacetPipeline(
               { $skip: skip },
               { $limit: limit },
               ...this.getStandardLookups(),
               { $project: this.getStandardProjectionFields() }
-            ] as unknown as PipelineStage.FacetPipelineStage[],
-            totalCount: [{ $count: "count" }] as unknown as PipelineStage.FacetPipelineStage[]
+            ),
+            totalCount: this.buildFacetPipeline({ $count: "count" }),
           }
         }
       ];
 
-      const [result] = await this.model.aggregate(pipeline).exec();
-      const data = result.data;
-      const total = result.totalCount.length > 0 ? result.totalCount[0].count : 0;
+      const [result] = await this.model.aggregate<PaginationFacetResult<FeedPost>>(pipeline).exec();
+      const data = result?.data ?? [];
+      const total = result?.totalCount[0]?.count ?? 0;
 
       return {
         data,
@@ -398,38 +431,38 @@ export class PostRepository extends BaseRepository<IPost> {
         limit,
         totalPages: Math.ceil(total / limit),
       };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to load posts by user");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to load posts by user");
     }
   }
 
-  async findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<IPost>> {
+  async findWithPagination(options: PaginationOptions, session?: ClientSession): Promise<PaginationResult<FeedPost>> {
     try {
       const { page = 1, limit = 20, sortBy = "createdAt", sortOrder = "desc" } = options;
       const skip = (page - 1) * limit;
-      const sort: Record<string, 1 | -1> = { [sortBy]: sortOrder === "desc" ? -1 : 1 };
+      const sort = this.buildSort(sortBy, sortOrder);
 
       const pipeline: PipelineStage[] = [
         { $sort: sort },
         {
           $facet: {
-            data: [
+            data: this.buildFacetPipeline(
               { $skip: skip },
               { $limit: limit },
               ...this.getStandardLookups(),
               this.getStandardProjection()
-            ] as unknown as PipelineStage.FacetPipelineStage[],
-            totalCount: [{ $count: "count" }] as unknown as PipelineStage.FacetPipelineStage[]
+            ),
+            totalCount: this.buildFacetPipeline({ $count: "count" }),
           }
         }
       ];
 
-      const aggregate = this.model.aggregate(pipeline);
+      const aggregate = this.model.aggregate<PaginationFacetResult<FeedPost>>(pipeline);
       if (session) aggregate.session(session);
 
       const [result] = await aggregate.exec();
-      const results = result.data;
-      const total = result.totalCount.length > 0 ? result.totalCount[0].count : 0;
+      const results = result?.data ?? [];
+      const total = result?.totalCount[0]?.count ?? 0;
 
       return {
         data: results,
@@ -438,8 +471,8 @@ export class PostRepository extends BaseRepository<IPost> {
         limit,
         totalPages: Math.ceil(total / limit),
       };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to paginate posts");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to paginate posts");
     }
   }
 
@@ -453,7 +486,7 @@ export class PostRepository extends BaseRepository<IPost> {
       const sortOrder = options?.sortOrder || "desc";
       const sortBy = options?.sortBy || "createdAt";
       const skip = (page - 1) * limit;
-      const sort = { [sortBy]: sortOrder as SortOrder };
+      const sort = this.buildSort(sortBy, sortOrder);
 
       const [data, total] = await Promise.all([
         this.model
@@ -474,8 +507,8 @@ export class PostRepository extends BaseRepository<IPost> {
         limit,
         totalPages: Math.ceil(total / limit),
       };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to load posts by tags");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to load posts by tags");
     }
   }
 
@@ -483,7 +516,7 @@ export class PostRepository extends BaseRepository<IPost> {
     followingIds: string[],
     favoriteTags: string[],
     options: CursorPaginationOptions
-  ): Promise<CursorPaginationResult<any>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     try {
       const limit = options.limit ?? 20;
       const followingObjectIds = followingIds.map((id) => new mongoose.Types.ObjectId(id));
@@ -512,10 +545,12 @@ export class PostRepository extends BaseRepository<IPost> {
         } catch { } // ignore invalid
       }
 
-      let results: any[] = [];
-      let nextPhase: "personalized" | "backfill" = phase;
+      let results: ProjectedFeedPost[] = [];
 
-      const feedProjection = this.getStandardProjectionFields();
+      const feedProjection = {
+        ...this.getStandardProjectionFields(),
+        _id: 1,
+      };
 
       if (phase === "personalized" && orConditions.length > 0) {
         const pipeline: PipelineStage[] = [
@@ -539,12 +574,11 @@ export class PostRepository extends BaseRepository<IPost> {
           { $project: feedProjection }
         );
 
-        results = await this.model.aggregate(pipeline).exec();
+        results = await this.model.aggregate<ProjectedFeedPost>(pipeline).exec();
       }
 
       // Transition to backfill if personalized results dry up
       if (phase === "personalized" && results.length <= limit) {
-        nextPhase = "backfill";
         const needed = limit + 1 - results.length;
 
         // We only backfill if there's space left on this page.
@@ -565,12 +599,13 @@ export class PostRepository extends BaseRepository<IPost> {
         // the backfill cursor starts from the VERY BEGINNING of the backfill collection.
         // So we don't apply the personalized cursorFilter to the backfill!
 
-        const backfillResults = await this.model.aggregate(backfillPipeline).exec();
+        const backfillResults = await this.model.aggregate<ProjectedFeedPost>(backfillPipeline).exec();
 
         // Filter out any duplicates (posts that were personalized but also naturally fall in this backfill window)
-        const existingIds = new Set(results.map(r => r._id.toString()));
+        const existingIds = new Set(results.map(r => r._id?.toString()).filter(Boolean));
         for (const bp of backfillResults) {
-          if (!existingIds.has(bp._id.toString())) {
+          const backfillId = bp._id?.toString();
+          if (backfillId && !existingIds.has(backfillId)) {
             results.push(bp);
           }
         }
@@ -586,7 +621,7 @@ export class PostRepository extends BaseRepository<IPost> {
           { $addFields: { isPersonalized: false } },
           { $project: feedProjection }
         );
-        results = await this.model.aggregate(backfillPipeline).exec();
+        results = await this.model.aggregate<ProjectedFeedPost>(backfillPipeline).exec();
       }
 
       const hasMore = results.length > limit;
@@ -606,8 +641,8 @@ export class PostRepository extends BaseRepository<IPost> {
       // We don't strictly support prevCursor for this hybrid feed easily, so we omit for now
       const data = results.map(({ _id, ...rest }) => rest);
       return { data, hasMore, nextCursor };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to generate cursor feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to generate cursor feed");
     }
   }
 
@@ -622,10 +657,10 @@ export class PostRepository extends BaseRepository<IPost> {
    * @param favoriteTags - Array of tag names for tag-match scoring
    * @param limit - Number of posts per page
    * @param skip - Number of posts to skip (use cursor pagination for deep pages)
-   * @returns {Promise<PaginationResult<any>>} Ranked posts with computed scores
+   * @returns {Promise<PaginationResult<FeedPost>>} Ranked posts with computed scores
    * @throws {DatabaseError} if score computation or aggregation fails
    */
-  async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<any>> {
+  async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     try {
       const weights = { recency: 0.5, popularity: 0.3, tagMatch: 0.2 };
       const favoriteTagIds = await this.loadFavoriteTagIds(favoriteTags);
@@ -684,8 +719,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const totalPages = Math.ceil(total / limit);
       const currentPage = Math.floor(skip / limit) + 1;
       return { data: results, total, page: currentPage, limit, totalPages };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build ranked feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build ranked feed");
     }
   }
 
@@ -700,7 +735,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * @param limit - Number of posts per page
    * @param skip - Number of posts to skip (avoid deep pagination with this method)
    * @param options - Configuration for time window, minimum likes, and score weights
-   * @returns {Promise<PaginationResult<any>>} Trending posts with computed trend scores
+   * @returns {Promise<PaginationResult<FeedPost>>} Trending posts with computed trend scores
    * @throws {DatabaseError} if score computation or aggregation fails
    */
   async getTrendingFeed(
@@ -711,7 +746,7 @@ export class PostRepository extends BaseRepository<IPost> {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     },
-  ): Promise<PaginationResult<any>> {
+  ): Promise<PaginationResult<FeedPost>> {
     try {
       const timeWindowDays = options?.timeWindowDays ?? 14;
       const minLikes = options?.minLikes ?? 0;
@@ -773,8 +808,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const currentPage = Math.floor(skip / limit) + 1;
 
       return { data: results, total, page: currentPage, limit, totalPages };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build trending feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build trending feed");
     }
   }
 
@@ -788,10 +823,10 @@ export class PostRepository extends BaseRepository<IPost> {
    * @note This feed moves extremely fast, consider short cache TTLs (60s) and cursor pagination
    * @param limit - Number of posts per page
    * @param skip - Number of posts to skip (avoid deep pagination with this method)
-   * @returns {Promise<PaginationResult<any>>} Newest posts in reverse chronological order
+   * @returns {Promise<PaginationResult<FeedPost>>} Newest posts in reverse chronological order
    * @throws {DatabaseError} if aggregation pipeline fails
    */
-  async getNewFeed(limit: number, skip: number): Promise<PaginationResult<any>> {
+  async getNewFeed(limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     try {
       const pipeline: PipelineStage[] = [
         { $sort: { createdAt: -1 } },
@@ -809,8 +844,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const currentPage = Math.floor(skip / limit) + 1;
       console.info(`New feed generated with ${results.length} results`);
       return { data: results, total, page: currentPage, limit, totalPages };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build new feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build new feed");
     }
   }
 
@@ -867,8 +902,8 @@ export class PostRepository extends BaseRepository<IPost> {
       ];
 
       return await this.runAggregation<TrendingTag>(pipeline);
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to compute trending tags");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to compute trending tags");
     }
   }
 
@@ -876,8 +911,8 @@ export class PostRepository extends BaseRepository<IPost> {
     try {
       const query = this.model.findByIdAndUpdate(postId, { $inc: { commentsCount: increment } }, { session });
       await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to update post comment count");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update post comment count");
     }
   }
 
@@ -885,8 +920,8 @@ export class PostRepository extends BaseRepository<IPost> {
     try {
       const query = this.model.findByIdAndUpdate(postId, { $inc: { likesCount: increment } }, { session });
       await query.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to update post like count");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update post like count");
     }
   }
 
@@ -895,8 +930,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const aggregation = this.model.aggregate(pipeline);
       if (session) aggregation.session(session);
       return await aggregation.exec();
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to execute aggregation");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to execute aggregation");
     }
   }
 
@@ -906,8 +941,8 @@ export class PostRepository extends BaseRepository<IPost> {
       if (session) query.session(session);
       const result = await query.exec();
       return result.deletedCount || 0;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to delete posts by user");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to delete posts by user");
     }
   }
 
@@ -950,8 +985,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const result = await this.model.updateMany({ "author._id": userObjectId }, { $set: setFields }).exec();
 
       return result.modifiedCount || 0;
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to update author snapshot");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to update author snapshot");
     }
   }
 
@@ -968,7 +1003,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * @complexity O(1) lookup using index-backed cursor filtering instead of O(skip) scan
    * @performance ~1ms per page vs ~100ms+ for skip-based pagination on deep pages
    * @param options - Cursor options including cursor token, limit, and navigation direction
-   * @returns {Promise<CursorPaginationResult<any>>} Posts with hasMore flag and next/prev cursors
+   * @returns {Promise<CursorPaginationResult<FeedPost>>} Posts with hasMore flag and next/prev cursors
    * @throws {DatabaseError} if cursor decoding or aggregation fails
    * @example
    * // First page
@@ -976,7 +1011,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * // Next page using cursor
    * const result2 = await repo.getNewFeedWithCursor({ limit: 20, cursor: result1.nextCursor });
    */
-  async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<any>> {
+  async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<FeedPost>> {
     try {
       const limit = options.limit ?? 20;
       const direction = options.direction ?? "forward";
@@ -1053,8 +1088,8 @@ export class PostRepository extends BaseRepository<IPost> {
       const data = results.map(({ _id, ...rest }) => rest);
 
       return { data, hasMore, nextCursor, prevCursor };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build cursor-paginated feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build cursor-paginated feed");
     }
   }
 
@@ -1070,7 +1105,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * @complexity O(1) cursor lookup vs O(skip) scan in getTrendingFeed
    * @performance Ideal for deep pagination (page 100+) where skip becomes expensive
    * @param options - Cursor options with time window, min likes, weights, and cursor navigation
-   * @returns {Promise<CursorPaginationResult<any>>} Trending posts with trend scores and cursors
+   * @returns {Promise<CursorPaginationResult<FeedPost>>} Trending posts with trend scores and cursors
    * @throws {DatabaseError} if cursor decoding or score computation fails
    */
   async getTrendingFeedWithCursor(
@@ -1079,7 +1114,7 @@ export class PostRepository extends BaseRepository<IPost> {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     },
-  ): Promise<CursorPaginationResult<any>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     try {
       const limit = options.limit ?? 20;
       const direction = options.direction ?? "forward";
@@ -1190,8 +1225,8 @@ export class PostRepository extends BaseRepository<IPost> {
 
       const data = results.map(({ _id, ...rest }) => rest);
       return { data, hasMore, nextCursor, prevCursor };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build cursor-paginated trending feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build cursor-paginated trending feed");
     }
   }
 
@@ -1208,7 +1243,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * @performance Handles deep pagination efficiently without O(skip) overhead
    * @param favoriteTags - Tag names for tag-match scoring component
    * @param options - Cursor navigation with custom score weights
-   * @returns {Promise<CursorPaginationResult<any>>} Ranked posts with rank scores and cursors
+   * @returns {Promise<CursorPaginationResult<FeedPost>>} Ranked posts with rank scores and cursors
    * @throws {DatabaseError} if cursor decoding or ranking fails
    */
   async getRankedFeedWithCursor(
@@ -1216,7 +1251,7 @@ export class PostRepository extends BaseRepository<IPost> {
     options: CursorPaginationOptions & {
       weights?: { recency?: number; popularity?: number; tagMatch?: number };
     },
-  ): Promise<CursorPaginationResult<any>> {
+  ): Promise<CursorPaginationResult<FeedPost>> {
     try {
       const limit = options.limit ?? 20;
       const direction = options.direction ?? "forward";
@@ -1323,8 +1358,8 @@ export class PostRepository extends BaseRepository<IPost> {
 
       const data = results.map(({ _id, ...rest }) => rest);
       return { data, hasMore, nextCursor, prevCursor };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to build cursor-paginated ranked feed");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to build cursor-paginated ranked feed");
     }
   }
 
@@ -1343,10 +1378,10 @@ export class PostRepository extends BaseRepository<IPost> {
    * @limitation $facet has 16MB memory limit; use cursor pagination for very large result sets
    * @param limit - Number of posts per page
    * @param skip - Number of posts to skip
-   * @returns {Promise<PaginationResult<any>>} Posts with total count computed in same query
+   * @returns {Promise<PaginationResult<FeedPost>>} Posts with total count computed in same query
    * @throws {DatabaseError} if facet aggregation fails
    */
-  async getNewFeedWithFacet(limit: number, skip: number): Promise<PaginationResult<any>> {
+  async getNewFeedWithFacet(limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     try {
       const lookups = this.getStandardLookups();
       const pipeline: PipelineStage[] = [
@@ -1354,9 +1389,9 @@ export class PostRepository extends BaseRepository<IPost> {
         {
           $facet: {
             // metadata facet for count
-            metadata: [{ $count: "total" }] as unknown as PipelineStage.FacetPipelineStage[],
+            metadata: this.buildFacetPipeline({ $count: "total" }),
             // data facet for paginated results
-            data: [
+            data: this.buildFacetPipeline(
               { $skip: skip },
               { $limit: limit },
               ...lookups,
@@ -1366,21 +1401,21 @@ export class PostRepository extends BaseRepository<IPost> {
                   viewsCount: { $ifNull: ["$viewsCount", 0] },
                 },
               },
-            ] as unknown as PipelineStage.FacetPipelineStage[],
+            ),
           },
         },
       ];
 
-      const [result] = await this.model.aggregate(pipeline).exec();
+      const [result] = await this.model.aggregate<MetadataFacetResult<FeedPost>>(pipeline).exec();
 
-      const total = result.metadata[0]?.total ?? 0;
-      const data = result.data ?? [];
+      const total = result?.metadata[0]?.total ?? 0;
+      const data = result?.data ?? [];
       const page = Math.floor(skip / limit) + 1;
       const totalPages = Math.ceil(total / limit);
 
       return { data, total, page, limit, totalPages };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to fetch feed with facet");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to fetch feed with facet");
     }
   }
 
@@ -1398,7 +1433,7 @@ export class PostRepository extends BaseRepository<IPost> {
    * @param limit - Number of posts per page
    * @param skip - Number of posts to skip
    * @param options - Time window, minimum likes, and score weights configuration
-   * @returns {Promise<PaginationResult<any>>} Trending posts with total count and pagination metadata
+   * @returns {Promise<PaginationResult<FeedPost>>} Trending posts with total count and pagination metadata
    * @throws {DatabaseError} if facet aggregation fails
    */
   async getTrendingFeedWithFacet(
@@ -1409,7 +1444,7 @@ export class PostRepository extends BaseRepository<IPost> {
       minLikes?: number;
       weights?: { recency?: number; popularity?: number; comments?: number };
     },
-  ): Promise<PaginationResult<any>> {
+  ): Promise<PaginationResult<FeedPost>> {
     try {
       const timeWindowDays = options?.timeWindowDays ?? 14;
       const minLikes = options?.minLikes ?? 0;
@@ -1451,9 +1486,9 @@ export class PostRepository extends BaseRepository<IPost> {
         {
           $facet: {
             // metadata facet
-            metadata: [{ $count: "total" }] as unknown as PipelineStage.FacetPipelineStage[],
+            metadata: this.buildFacetPipeline({ $count: "total" }),
             // data facet
-            data: [
+            data: this.buildFacetPipeline(
               { $sort: { trendScore: -1 } },
               { $skip: skip },
               { $limit: limit },
@@ -1465,32 +1500,40 @@ export class PostRepository extends BaseRepository<IPost> {
                   trendScore: 1,
                 },
               },
-            ] as unknown as PipelineStage.FacetPipelineStage[],
+            ),
           },
         },
       ];
 
-      const [result] = await this.model.aggregate(pipeline).exec();
+      const [result] = await this.model.aggregate<MetadataFacetResult<FeedPost>>(pipeline).exec();
 
-      const total = result.metadata[0]?.total ?? 0;
-      const data = result.data ?? [];
+      const total = result?.metadata[0]?.total ?? 0;
+      const data = result?.data ?? [];
       const page = Math.floor(skip / limit) + 1;
       const totalPages = Math.ceil(total / limit);
 
       return { data, total, page, limit, totalPages };
-    } catch (error: any) {
-      throw createError("DatabaseError", error.message ?? "failed to fetch trending feed with facet");
+    } catch (error: unknown) {
+      throw createError("DatabaseError", (error instanceof Error ? error.message : String(error)) ?? "failed to fetch trending feed with facet");
     }
   }
 
-  private normalizeObjectId(id: string | mongoose.Types.ObjectId, field: string): mongoose.Types.ObjectId {
+  private normalizeObjectId(id: unknown, field: string): mongoose.Types.ObjectId {
     if (id instanceof mongoose.Types.ObjectId) {
       return id;
     }
+
+    if (typeof id !== "string" || id.length === 0) {
+      throw createError("ValidationError", `${field} is not a valid ObjectId`);
+    }
+
     try {
-      return new mongoose.Types.ObjectId(String(id));
+      return new mongoose.Types.ObjectId(id);
     } catch {
       throw createError("ValidationError", `${field} is not a valid ObjectId`);
     }
   }
 }
+
+
+

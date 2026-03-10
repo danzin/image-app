@@ -11,7 +11,7 @@ import { EventBus } from "@/application/common/buses/event.bus";
 import { RedisService } from "@/services/redis.service";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { RetryPresets, RetryService } from "@/services/retry.service";
-import { createError } from "@/utils/errors";
+import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { UserCoverChangedEvent } from "@/application/events/user/user-interaction.event";
 
@@ -95,7 +95,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			}
 
 			if (error instanceof Error) {
-				throw createError(error.name, error.message);
+				throw wrapError(error);
 			}
 			throw createError("InternalServerError", "An unknown error occurred");
 		} finally {

@@ -25,23 +25,23 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 
 		const community = await this.communityRepository.findByPublicId(communityPublicId);
 		if (!community) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 		const communityId = community._id as Types.ObjectId;
 
 		const user = await this.userRepository.findByPublicId(userPublicId);
 		if (!user) {
-			throw createError("NotFound", "User not found");
+			throw createError("NotFoundError", "User not found");
 		}
 		const userId = user._id as Types.ObjectId;
 
-		// 1. Check permissions (must be admin of the community)
+		// Check permissions (must be admin of the community)
 		const member = await this.communityMemberRepository.findByCommunityAndUser(communityId, userId);
 		if (!member || member.role !== "admin") {
-			throw createError("Forbidden", "Only community admins can update settings");
+			throw createError("ForbiddenError", "Only community admins can update settings");
 		}
 
-		// 2. Prepare updates
+		// Prepare updates
 		const updateData: Partial<ICommunity> = {};
 		if (updates.description !== undefined) updateData.description = updates.description;
 
@@ -52,12 +52,12 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 			// check slug uniqueness if changed
 			const existing = await this.communityRepository.findBySlug(newSlug);
 			if (existing && existing._id.toString() !== communityId.toString()) {
-				throw createError("BadRequest", "Community name is already taken");
+				throw createError("ValidationError", "Community name is already taken");
 			}
 			updateData.slug = newSlug;
 		}
 
-		// 3. Handle avatar upload
+		// Handle avatar upload
 		if (updates.avatarPath) {
 			try {
 				const uploadResult = await this.imageStorageService.uploadImage(
@@ -76,7 +76,7 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 			}
 		}
 
-		// 4. Handle cover photo upload
+		// Handle cover photo upload
 		if (updates.coverPhotoPath) {
 			try {
 				const uploadResult = await this.imageStorageService.uploadImage(
@@ -95,10 +95,10 @@ export class UpdateCommunityCommandHandler implements ICommandHandler<UpdateComm
 			}
 		}
 
-		// 5. Update
+		// Update
 		const updatedCommunity = await this.communityRepository.update(communityId.toString(), updateData);
 		if (!updatedCommunity) {
-			throw createError("NotFound", "Community not found");
+			throw createError("NotFoundError", "Community not found");
 		}
 
 		return updatedCommunity;

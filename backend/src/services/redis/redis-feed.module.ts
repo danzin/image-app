@@ -76,7 +76,7 @@ export class RedisFeedModule {
 			BY: "SCORE",
 			REV: true,
 			LIMIT: { offset: 0, count: limit + 10 },
-		} as any);
+		} as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } });
 
 		let filtered = rawResults;
 		if (cursor && maxId) {
@@ -160,7 +160,7 @@ export class RedisFeedModule {
 			BY: "SCORE",
 			REV: true,
 			LIMIT: { offset: 0, count: limit + 10 },
-		} as any);
+		} as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } });
 
 		let filtered = rawResults;
 		if (cursor && maxId) {
@@ -191,6 +191,10 @@ export class RedisFeedModule {
 		return await this.client.zAdd(key, { score, value: member });
 	}
 
+	async zrem(key: string, member: string): Promise<number> {
+		return await this.client.zRem(key, member);
+	}
+
 	async zrangeByScore(key: string, min: string, max: string): Promise<string[]> {
 		return await this.client.zRangeByScore(key, min, max);
 	}
@@ -203,3 +207,4 @@ export class RedisFeedModule {
 		return await this.client.expire(key, seconds);
 	}
 }
+

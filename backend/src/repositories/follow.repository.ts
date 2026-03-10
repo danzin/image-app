@@ -1,319 +1,404 @@
 import mongoose, { Model, ClientSession } from "mongoose";
-import { createError } from "@/utils/errors";
+import { createError, handleMongoError } from "@/utils/errors";
 import { IFollow } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 
 @injectable()
 export class FollowRepository extends BaseRepository<IFollow> {
-	constructor(@inject("FollowModel") model: Model<IFollow>) {
-		super(model);
-	}
+  constructor(@inject("FollowModel") model: Model<IFollow>) {
+    super(model);
+  }
 
-	/**
-	 * Checks if a user is following another user.
-	 *
-	 * @param {string} followerId - The internal MongoDB ID of the user who follows.
-	 * @param {string} followeeId - The internal MongoDB ID of the user being followed.
-	 * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
-	 */
-	async isFollowing(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<boolean> {
-		const query = this.model.findOne({ followerId, followeeId });
-		if (session && typeof (query as unknown as { session?: (s: mongoose.ClientSession) => unknown }).session === "function") {
-			(query as unknown as { session: (s: mongoose.ClientSession) => unknown }).session(session);
-		}
-		const existingFollow = await query;
-		return !!existingFollow;
-	}
+  /**
+   * Checks if a user is following another user.
+   *
+   * @param {string} followerId - The internal MongoDB ID of the user who follows.
+   * @param {string} followeeId - The internal MongoDB ID of the user being followed.
+   * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
+   */
+  async isFollowing(
+    followerId: string,
+    followeeId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<boolean> {
+    try {
+      const query = this.model.findOne({ followerId, followeeId });
+      if (session) query.session(session);
 
-	/**
-	 * Checks if a user is following another user using public IDs.
-	 *
-	 * @param {string} followerPublicId - The public ID of the user who follows.
-	 * @param {string} followeePublicId - The public ID of the user being followed.
-	 * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
-	 */
-	async isFollowingByPublicId(
-		followerPublicId: string,
-		followeePublicId: string,
-		session?: mongoose.ClientSession,
-	): Promise<boolean> {
-		try {
-			// First, get the internal IDs from public IDs
-			const [followerUser, followeeUser] = await Promise.all([
-				this.model.db.collection("users").findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
-				this.model.db.collection("users").findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
-			]);
+      const existingFollow = await query.exec();
+      return !!existingFollow;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
+  /**
+   * Checks if a user is following another user using public IDs.
+   *
+   * @param {string} followerPublicId - The public ID of the user who follows.
+   * @param {string} followeePublicId - The public ID of the user being followed.
+   * @returns {Promise<boolean>} - Returns `true` if the user is following, otherwise `false`.
+   */
+  async isFollowingByPublicId(
+    followerPublicId: string,
+    followeePublicId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<boolean> {
+    try {
+      const [followerUser, followeeUser] = await Promise.all([
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
+      ]);
 
-			if (!followerUser || !followeeUser) {
-				return false; // One or both users don't exist
-			}
+      if (!followerUser || !followeeUser) return false;
 
-			// Now check the follow relationship using internal IDs
-			const query = this.model.findOne({
-				followerId: followerUser._id,
-				followeeId: followeeUser._id,
-			});
-			if (
-				session &&
-				typeof (query as unknown as { session?: (s: mongoose.ClientSession) => unknown }).session === "function"
-			) {
-				(query as unknown as { session: (s: mongoose.ClientSession) => unknown }).session(session);
-			}
+      const query = this.model.findOne({
+        followerId: followerUser._id,
+        followeeId: followeeUser._id,
+      });
+      if (session) query.session(session);
 
-			const existingFollow = await query;
+      return !!(await query.exec());
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-			return !!existingFollow;
-		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
-		}
-	}
+  /**
+   * Creates a follow relationship between two users.
+   *
+   * @param {string} followerId - The internal MongoDB ID of the user who is following.
+   * @param {string} followeeId - The internal MongoDB ID of the user being followed.
+   * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<IFollow>} - The newly created follow record.
+   * @throws {Error} - Throws a "DuplicateError" if the follow relationship already exists.
+   */
+  async addFollow(
+    followerId: string,
+    followeeId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<IFollow> {
+    try {
+      // Note: Ensure your schema has a compound unique index on {followerId, followeeId}
+      // Mongoose will naturally reject duplicates and throw our typed DuplicateError
+      const follow = await this.model.create([{ followerId, followeeId }], {
+        session,
+      });
+      return follow[0];
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
+  /**
+   * Creates a follow relationship between two users using public IDs.
+   *
+   * @param {string} followerPublicId - The public ID of the user who is following.
+   * @param {string} followeePublicId - The public ID of the user being followed.
+   * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<IFollow>} - The newly created follow record.
+   * @throws {Error} - Throws a "DuplicateError" if the follow relationship already exists.
+   */
+  async addFollowByPublicId(
+    followerPublicId: string,
+    followeePublicId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<IFollow> {
+    try {
+      const [followerUser, followeeUser] = await Promise.all([
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
+      ]);
 
-	/**
-	 * Creates a follow relationship between two users.
-	 *
-	 * @param {string} followerId - The internal MongoDB ID of the user who is following.
-	 * @param {string} followeeId - The internal MongoDB ID of the user being followed.
-	 * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
-	 * @returns {Promise<IFollow>} - The newly created follow record.
-	 * @throws {Error} - Throws a "DuplicateError" if the follow relationship already exists.
-	 */
-	async addFollow(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<IFollow> {
-		// Prevent duplicate follow relationships
-		if (await this.isFollowing(followerId, followeeId, session)) {
-			throw createError("DuplicateError", "Already following this user");
-		}
+      if (!followerUser || !followeeUser) {
+        throw createError("NotFoundError", "One or both users not found");
+      }
 
-		const follow = await this.model.create([{ followerId, followeeId }], { session });
-		return follow[0];
-	}
+      const follow = await this.model.create(
+        [
+          {
+            followerId: followerUser._id,
+            followeeId: followeeUser._id,
+          },
+        ],
+        { session },
+      );
 
-	/**
-	 * Creates a follow relationship between two users using public IDs.
-	 *
-	 * @param {string} followerPublicId - The public ID of the user who is following.
-	 * @param {string} followeePublicId - The public ID of the user being followed.
-	 * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
-	 * @returns {Promise<IFollow>} - The newly created follow record.
-	 * @throws {Error} - Throws a "DuplicateError" if the follow relationship already exists.
-	 */
-	async addFollowByPublicId(
-		followerPublicId: string,
-		followeePublicId: string,
-		session?: mongoose.ClientSession
-	): Promise<IFollow> {
-		try {
-			// First, get the internal IDs from public IDs
-			const [followerUser, followeeUser] = await Promise.all([
-				// projection _id : 1  tells mongo to only return the _id field, everything else is exculded by default
-				this.model.db.collection("users").findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
-				this.model.db.collection("users").findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
-			]);
+      return follow[0];
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
+  /**
+   * Removes a follow relationship between two users.
+   *
+   * @param {string} followerId - The internal MongoDB ID of the user who is following.
+   * @param {string} followeeId - The internal MongoDB ID of the user being followed.
+   * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<void>} - Resolves when the follow relationship is removed.
+   * @throws {Error} - Throws a "NotFoundError" if the follow relationship does not exist.
+   */
+  async removeFollow(
+    followerId: string,
+    followeeId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<void> {
+    try {
+      const query = this.model.findOneAndDelete({ followerId, followeeId });
+      if (session) query.session(session);
 
-			if (!followerUser || !followeeUser) {
-				throw createError("NotFoundError", "One or both users not found");
-			}
+      const result = await query.exec();
+      if (!result) {
+        throw createError("NotFoundError", "Not following this user");
+      }
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-			const followerId = followerUser._id.toString();
-			const followeeId = followeeUser._id.toString();
+  /**
+   * Removes a follow relationship between two users using public IDs.
+   *
+   * @param {string} followerPublicId - The public ID of the user who is following.
+   * @param {string} followeePublicId - The public ID of the user being followed.
+   * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
+   * @returns {Promise<void>} - Resolves when the follow relationship is removed.
+   * @throws {Error} - Throws a "NotFoundError" if the follow relationship does not exist.
+   */
+  async removeFollowByPublicId(
+    followerPublicId: string,
+    followeePublicId: string,
+    session?: mongoose.ClientSession,
+  ): Promise<void> {
+    try {
+      // First, get the internal IDs from public IDs
+      const [followerUser, followeeUser] = await Promise.all([
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
+        this.model.db
+          .collection("users")
+          .findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
+      ]);
 
-			// Prevent duplicate follow relationships
-			if (await this.isFollowing(followerId, followeeId, session)) {
-				throw createError("DuplicateError", "Already following this user");
-			}
+      if (!followerUser || !followeeUser) {
+        throw createError("NotFoundError", "One or both users not found");
+      }
 
-			const follow = await this.model.create([{ followerId, followeeId }], { session });
-			return follow[0];
-		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
-		}
-	}
+      const followerId = followerUser._id.toString();
+      const followeeId = followeeUser._id.toString();
 
-	/**
-	 * Removes a follow relationship between two users.
-	 *
-	 * @param {string} followerId - The internal MongoDB ID of the user who is following.
-	 * @param {string} followeeId - The internal MongoDB ID of the user being followed.
-	 * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
-	 * @returns {Promise<void>} - Resolves when the follow relationship is removed.
-	 * @throws {Error} - Throws a "NotFoundError" if the follow relationship does not exist.
-	 */
-	async removeFollow(followerId: string, followeeId: string, session?: mongoose.ClientSession): Promise<void> {
-		// Ensure that the follow relationship exists before attempting to remove it
-		if (!(await this.isFollowing(followerId, followeeId, session))) {
-			throw createError("NotFoundError", "Not following this user");
-		}
+      // Ensure that the follow relationship exists before attempting to remove it
+      if (!(await this.isFollowing(followerId, followeeId, session))) {
+        throw createError("NotFoundError", "Not following this user");
+      }
 
-		// Remove the follow relationship, optionally within a transaction
-		await this.model.deleteOne({ followerId, followeeId }, { session });
-	}
+      // Remove the follow relationship, optionally within a transaction
+      await this.model.deleteOne({ followerId, followeeId }, { session });
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	/**
-	 * Removes a follow relationship between two users using public IDs.
-	 *
-	 * @param {string} followerPublicId - The public ID of the user who is following.
-	 * @param {string} followeePublicId - The public ID of the user being followed.
-	 * @param {mongoose.ClientSession} [session] - Optional MongoDB transaction session.
-	 * @returns {Promise<void>} - Resolves when the follow relationship is removed.
-	 * @throws {Error} - Throws a "NotFoundError" if the follow relationship does not exist.
-	 */
-	async removeFollowByPublicId(
-		followerPublicId: string,
-		followeePublicId: string,
-		session?: mongoose.ClientSession
-	): Promise<void> {
-		try {
-			// First, get the internal IDs from public IDs
-			const [followerUser, followeeUser] = await Promise.all([
-				this.model.db.collection("users").findOne({ publicId: followerPublicId }, { projection: { _id: 1 } }),
-				this.model.db.collection("users").findOne({ publicId: followeePublicId }, { projection: { _id: 1 } }),
-			]);
+  private normalizeId(
+    id: string | mongoose.Types.ObjectId,
+  ): mongoose.Types.ObjectId {
+    if (id instanceof mongoose.Types.ObjectId) {
+      return id;
+    }
+    return new mongoose.Types.ObjectId(id);
+  }
 
-			if (!followerUser || !followeeUser) {
-				throw createError("NotFoundError", "One or both users not found");
-			}
+  async countFollowersByUserId(
+    userId: string | mongoose.Types.ObjectId,
+    session?: mongoose.ClientSession,
+  ): Promise<number> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const query = this.model.countDocuments({ followeeId: normalized });
+      if (session) query.session(session);
+      return await query.exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-			const followerId = followerUser._id.toString();
-			const followeeId = followeeUser._id.toString();
+  async countFollowingByUserId(
+    userId: string | mongoose.Types.ObjectId,
+    session?: mongoose.ClientSession,
+  ): Promise<number> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const query = this.model.countDocuments({ followerId: normalized });
+      if (session) query.session(session);
+      return await query.exec();
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-			// Ensure that the follow relationship exists before attempting to remove it
-			if (!(await this.isFollowing(followerId, followeeId, session))) {
-				throw createError("NotFoundError", "Not following this user");
-			}
+  async getFollowerObjectIds(
+    userId: string | mongoose.Types.ObjectId,
+  ): Promise<string[]> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const followers = await this.model
+        .find({ followeeId: normalized })
+        .select("followerId")
+        .lean<{ followerId?: mongoose.Types.ObjectId }[]>()
+        .exec();
+      return followers
+        .map((doc) => doc?.followerId)
+        .filter((id): id is mongoose.Types.ObjectId => id != null)
+        .map((id) => id.toString());
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-			// Remove the follow relationship, optionally within a transaction
-			await this.model.deleteOne({ followerId, followeeId }, { session });
-		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
-		}
-	}
+  async getFollowerObjectIdsPaginated(
+    userId: string | mongoose.Types.ObjectId,
+    page: number,
+    limit: number,
+  ): Promise<{ ids: string[]; total: number }> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const safePage = Math.max(1, Math.floor(page || 1));
+      const safeLimit = Math.max(1, Math.floor(limit || 20));
+      const skip = (safePage - 1) * safeLimit;
 
-	private normalizeId(id: string | mongoose.Types.ObjectId): mongoose.Types.ObjectId {
-		if (id instanceof mongoose.Types.ObjectId) {
-			return id;
-		}
-		return new mongoose.Types.ObjectId(id);
-	}
+      const [followers, total] = await Promise.all([
+        this.model
+          .find({ followeeId: normalized })
+          .select("followerId")
+          .skip(skip)
+          .limit(safeLimit)
+          .lean<{ followerId?: mongoose.Types.ObjectId }[]>()
+          .exec(),
+        this.model.countDocuments({ followeeId: normalized }).exec(),
+      ]);
 
-	async countFollowersByUserId(
-		userId: string | mongoose.Types.ObjectId,
-		session?: mongoose.ClientSession
-	): Promise<number> {
-		const normalized = this.normalizeId(userId);
-		const query = this.model.countDocuments({ followeeId: normalized });
-		if (session) query.session(session);
-		return await query.exec();
-	}
+      const ids = followers
+        .map((doc) => doc?.followerId)
+        .filter((id): id is mongoose.Types.ObjectId => id != null)
+        .map((id) => id.toString());
 
-	async countFollowingByUserId(
-		userId: string | mongoose.Types.ObjectId,
-		session?: mongoose.ClientSession
-	): Promise<number> {
-		const normalized = this.normalizeId(userId);
-		const query = this.model.countDocuments({ followerId: normalized });
-		if (session) query.session(session);
-		return await query.exec();
-	}
+      return { ids, total };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async getFollowerObjectIds(userId: string | mongoose.Types.ObjectId): Promise<string[]> {
-		const normalized = this.normalizeId(userId);
-		const followers = await this.model.find({ followeeId: normalized }).select("followerId").lean().exec();
-		return followers
-			.map((doc: any) => doc?.followerId)
-			.filter(Boolean)
-			.map((id: mongoose.Types.ObjectId) => id.toString());
-	}
+  async getFollowingObjectIds(
+    userId: string | mongoose.Types.ObjectId,
+  ): Promise<string[]> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const following = await this.model
+        .find({ followerId: normalized })
+        .select("followeeId")
+        .lean<{ followeeId?: mongoose.Types.ObjectId }[]>()
+        .exec();
+      return following
+        .map((doc) => doc?.followeeId)
+        .filter((id): id is mongoose.Types.ObjectId => id != null)
+        .map((id) => id.toString());
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async getFollowerObjectIdsPaginated(
-		userId: string | mongoose.Types.ObjectId,
-		page: number,
-		limit: number,
-	): Promise<{ ids: string[]; total: number }> {
-		const normalized = this.normalizeId(userId);
-		const safePage = Math.max(1, Math.floor(page || 1));
-		const safeLimit = Math.max(1, Math.floor(limit || 20));
-		const skip = (safePage - 1) * safeLimit;
+  async getFollowingObjectIdsPaginated(
+    userId: string | mongoose.Types.ObjectId,
+    page: number,
+    limit: number,
+  ): Promise<{ ids: string[]; total: number }> {
+    try {
+      const normalized = this.normalizeId(userId);
+      const safePage = Math.max(1, Math.floor(page || 1));
+      const safeLimit = Math.max(1, Math.floor(limit || 20));
+      const skip = (safePage - 1) * safeLimit;
 
-		const [followers, total] = await Promise.all([
-			this.model.find({ followeeId: normalized }).select("followerId").skip(skip).limit(safeLimit).lean().exec(),
-			this.model.countDocuments({ followeeId: normalized }).exec(),
-		]);
+      const [following, total] = await Promise.all([
+        this.model
+          .find({ followerId: normalized })
+          .select("followeeId")
+          .skip(skip)
+          .limit(safeLimit)
+          .lean<{ followeeId?: mongoose.Types.ObjectId }[]>()
+          .exec(),
+        this.model.countDocuments({ followerId: normalized }).exec(),
+      ]);
 
-		const ids = followers
-			.map((doc: any) => doc?.followerId)
-			.filter(Boolean)
-			.map((id: mongoose.Types.ObjectId) => id.toString());
+      const ids = following
+        .map((doc) => doc?.followeeId)
+        .filter((id): id is mongoose.Types.ObjectId => id != null)
+        .map((id) => id.toString());
 
-		return { ids, total };
-	}
+      return { ids, total };
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-	async getFollowingObjectIds(userId: string | mongoose.Types.ObjectId): Promise<string[]> {
-		const normalized = this.normalizeId(userId);
-		const following = await this.model.find({ followerId: normalized }).select("followeeId").lean().exec();
-		return following
-			.map((doc: any) => doc?.followeeId)
-			.filter(Boolean)
-			.map((id: mongoose.Types.ObjectId) => id.toString());
-	}
+  async getFollowerPublicIdsByPublicId(
+    userPublicId: string,
+  ): Promise<string[]> {
+    try {
+      const user = await this.model.db
+        .collection("users")
+        .findOne({ publicId: userPublicId }, { projection: { _id: 1 } });
+      if (!user?._id) return [];
 
-	async getFollowingObjectIdsPaginated(
-		userId: string | mongoose.Types.ObjectId,
-		page: number,
-		limit: number,
-	): Promise<{ ids: string[]; total: number }> {
-		const normalized = this.normalizeId(userId);
-		const safePage = Math.max(1, Math.floor(page || 1));
-		const safeLimit = Math.max(1, Math.floor(limit || 20));
-		const skip = (safePage - 1) * safeLimit;
+      const followers = await this.model
+        .aggregate<{ publicId?: string }>([
+          { $match: { followeeId: user._id } },
+          {
+            $lookup: {
+              from: "users",
+              localField: "followerId",
+              foreignField: "_id",
+              as: "follower",
+            },
+          },
+          { $unwind: "$follower" },
+          { $project: { publicId: "$follower.publicId" } },
+        ])
+        .exec();
 
-		const [following, total] = await Promise.all([
-			this.model.find({ followerId: normalized }).select("followeeId").skip(skip).limit(safeLimit).lean().exec(),
-			this.model.countDocuments({ followerId: normalized }).exec(),
-		]);
+      return followers
+        .map((doc) => doc?.publicId)
+        .filter(
+          (value): value is string =>
+            typeof value === "string" && value.length > 0,
+        );
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 
-		const ids = following
-			.map((doc: any) => doc?.followeeId)
-			.filter(Boolean)
-			.map((id: mongoose.Types.ObjectId) => id.toString());
-
-		return { ids, total };
-	}
-
-	async getFollowerPublicIdsByPublicId(userPublicId: string): Promise<string[]> {
-		const user = await this.model.db
-			.collection("users")
-			.findOne({ publicId: userPublicId }, { projection: { _id: 1 } });
-		if (!user?._id) return [];
-
-		const followers = await this.model
-			.aggregate([
-				{ $match: { followeeId: user._id } },
-				{
-					$lookup: {
-						from: "users",
-						localField: "followerId",
-						foreignField: "_id",
-						as: "follower",
-					},
-				},
-				{ $unwind: "$follower" },
-				{ $project: { publicId: "$follower.publicId" } },
-			])
-			.exec();
-
-		return followers
-			.map((doc: any) => doc?.publicId)
-			.filter((value: unknown): value is string => typeof value === "string" && value.length > 0);
-	}
-
-	async deleteAllFollowsByUserId(userId: string, session?: ClientSession): Promise<number> {
-		const userObjectId = this.normalizeId(userId);
-		const result = await this.model
-			.deleteMany({
-				$or: [{ followerId: userObjectId }, { followeeId: userObjectId }],
-			})
-			.session(session || null)
-			.exec();
-		return result.deletedCount || 0;
-	}
+  async deleteAllFollowsByUserId(
+    userId: string,
+    session?: ClientSession,
+  ): Promise<number> {
+    try {
+      const userObjectId = this.normalizeId(userId);
+      const result = await this.model
+        .deleteMany({
+          $or: [{ followerId: userObjectId }, { followeeId: userObjectId }],
+        })
+        .session(session || null)
+        .exec();
+      return result.deletedCount || 0;
+    } catch (error) {
+      handleMongoError(error);
+    }
+  }
 }
