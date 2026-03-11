@@ -87,9 +87,7 @@ async function bootstrap(): Promise<void> {
     webSocketServer.initialize(server);
 
     // Initialize real-time feed service
-    const realTimeFeedService = container.resolve<RealTimeFeedService>(
-      "RealTimeFeedService",
-    );
+    container.resolve<RealTimeFeedService>("RealTimeFeedService");
     logger.info("Real-time feed service initialized");
 
     // Start the HTTP server last
