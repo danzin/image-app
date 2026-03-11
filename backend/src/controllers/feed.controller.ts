@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import { FeedService } from "@/services/feed.service";
+import { FeedService } from "@/services/feed/feed.service";
 import { inject, injectable } from "tsyringe";
-import { createError , wrapError } from "@/utils/errors";
+import { createError, wrapError } from "@/utils/errors";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
@@ -11,8 +11,8 @@ import { GetTrendingFeedQuery } from "@/application/queries/feed/getTrendingFeed
 export class FeedController {
   constructor(
     @inject("FeedService") private readonly feedService: FeedService,
-    @inject("QueryBus") private readonly queryBus: QueryBus
-  ) { }
+    @inject("QueryBus") private readonly queryBus: QueryBus,
+  ) {}
 
   getFeed = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -26,7 +26,7 @@ export class FeedController {
         req.decodedUser.publicId,
         Number(page) || 1,
         Number(limit) || 20,
-        cursor
+        cursor,
       );
       const feed = await this.queryBus.execute(query);
       res.json(feed);
@@ -47,7 +47,12 @@ export class FeedController {
       if (!req.decodedUser || !req.decodedUser.publicId) {
         throw createError("ValidationError", "User public ID is required");
       }
-      const query = new GetForYouFeedQuery(req.decodedUser.publicId, Number(page) || 1, Number(limit) || 20, cursor);
+      const query = new GetForYouFeedQuery(
+        req.decodedUser.publicId,
+        Number(page) || 1,
+        Number(limit) || 20,
+        cursor,
+      );
       const feed = await this.queryBus.execute(query);
       res.json(feed);
     } catch (error) {
@@ -91,7 +96,12 @@ export class FeedController {
       // only allow cache bypass for authenticated users requesting a refresh
       const forceRefresh = refresh && isAuthenticated;
 
-      const feed = await this.feedService.getNewFeed(page, limit, forceRefresh, cursor);
+      const feed = await this.feedService.getNewFeed(
+        page,
+        limit,
+        forceRefresh,
+        cursor,
+      );
       res.json(feed);
     } catch (error) {
       console.error(error);

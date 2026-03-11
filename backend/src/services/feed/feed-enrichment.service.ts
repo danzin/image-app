@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import { RedisService } from "./redis.service";
+import { RedisService } from "../redis.service";
 import { IUserReadRepository } from "@/repositories/interfaces";
 import { FeedPost, UserLookupData } from "@/types";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
@@ -9,8 +9,9 @@ import { CacheConfig } from "@/config/cacheConfig";
 export class FeedEnrichmentService {
   constructor(
     @inject("RedisService") private readonly redisService: RedisService,
-    @inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-  ) { }
+    @inject("UserReadRepository")
+    private readonly userReadRepository: IUserReadRepository,
+  ) {}
 
   /**
    * Hydrates a list of FeedPosts with fresh User and Meta data.
@@ -28,20 +29,28 @@ export class FeedEnrichmentService {
   ): Promise<FeedPost[]> {
     if (!coreFeedData || coreFeedData.length === 0) return [];
 
-    const postPublicIds = [...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean))];
+    const postPublicIds = [
+      ...new Set(coreFeedData.map((item) => item.publicId).filter(Boolean)),
+    ];
     let userMap = new Map<string, UserLookupData>();
 
     if (options.refreshUserData) {
       // Extract unique user publicIds from feed items
-      const userPublicIds = [...new Set(coreFeedData.map((item) => item.userPublicId))];
+      const userPublicIds = [
+        ...new Set(coreFeedData.map((item) => item.userPublicId)),
+      ];
 
       const userData = await this.getUsersWithCache(userPublicIds);
-      userMap = new Map<string, UserLookupData>(userData.map((user: UserLookupData) => [user.publicId, user]));
+      userMap = new Map<string, UserLookupData>(
+        userData.map((user: UserLookupData) => [user.publicId, user]),
+      );
     }
 
     // attempt to load per-post metadata with tag-based caching
     // Assuming granular key is better: post_meta:{id}
-    const postMetaKeys = postPublicIds.map((id) => CacheKeyBuilder.getPostMetaKey(id));
+    const postMetaKeys = postPublicIds.map((id) =>
+      CacheKeyBuilder.getPostMetaKey(id),
+    );
 
     // single MGET round-trip instead of N individual GET calls
     const metaResults = await this.redisService.mGet<any>(postMetaKeys);
@@ -62,11 +71,11 @@ export class FeedEnrichmentService {
         viewsCount: meta?.viewsCount ?? item.viewsCount,
         user: user
           ? {
-            publicId: user.publicId,
-            handle: user.handle ?? "",
-            username: user.username,
-            avatar: user.avatar ?? "",
-          }
+              publicId: user.publicId,
+              handle: user.handle ?? "",
+              username: user.username,
+              avatar: user.avatar ?? "",
+            }
           : item.user,
       };
     });
@@ -76,7 +85,9 @@ export class FeedEnrichmentService {
    * Fetches users with granular caching strategy.
    * Prevents duplication of cache keys for overlapping sets of users.
    */
-  private async getUsersWithCache(userPublicIds: string[]): Promise<UserLookupData[]> {
+  private async getUsersWithCache(
+    userPublicIds: string[],
+  ): Promise<UserLookupData[]> {
     if (userPublicIds.length === 0) return [];
 
     const keys = userPublicIds.map((id) => CacheKeyBuilder.getUserDataKey(id));
@@ -96,7 +107,8 @@ export class FeedEnrichmentService {
     }
 
     if (missingIds.length > 0) {
-      const fetchedUsers = await this.userReadRepository.findUsersByPublicIds(missingIds);
+      const fetchedUsers =
+        await this.userReadRepository.findUsersByPublicIds(missingIds);
 
       // Store missing back to cache using a pipeline to batch the operations
       if (fetchedUsers.length > 0) {
@@ -117,7 +129,10 @@ export class FeedEnrichmentService {
         });
 
         await pipeline.exec();
-        this.redisService.clientInstance.emit("info", `Pipeline batch set completed for ${fetchedUsers.length} users.`);
+        this.redisService.clientInstance.emit(
+          "info",
+          `Pipeline batch set completed for ${fetchedUsers.length} users.`,
+        );
       }
 
       results.push(...fetchedUsers);
