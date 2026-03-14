@@ -1,27 +1,48 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetTrendingFeedQuery } from "./getTrendingFeed.query";
-import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import {
+  IPostReadRepository,
+  IUserReadRepository,
+} from "@/repositories/interfaces";
 import { RedisService } from "@/services/redis.service";
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { redisLogger } from "@/utils/winston";
-import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag, UserLookupData, PostMeta } from "@/types";
-import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
+import {
+  FeedPost,
+  PaginatedFeedResult,
+  IPost,
+  IImage,
+  ITag,
+  UserLookupData,
+  PostMeta,
+} from "@/types";
+import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
 
 @injectable()
-export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFeedQuery, PaginatedFeedResult> {
+export class GetTrendingFeedQueryHandler implements IQueryHandler<
+  GetTrendingFeedQuery,
+  PaginatedFeedResult
+> {
   constructor(
-    @inject("PostReadRepository") private postReadRepository: IPostReadRepository,
-    @inject("UserReadRepository") private userReadRepository: IUserReadRepository,
+    @inject("PostReadRepository")
+    private postReadRepository: IPostReadRepository,
+    @inject("UserReadRepository")
+    private userReadRepository: IUserReadRepository,
     @inject("RedisService") private redisService: RedisService,
     @inject("DTOService") private dtoService: DTOService,
-    @inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
-  ) { }
+    @inject("FeedEnrichmentService")
+    private feedEnrichmentService: FeedEnrichmentService,
+  ) {}
 
   async execute(query: GetTrendingFeedQuery): Promise<PaginatedFeedResult> {
     const { page, limit, cursor } = query;
-    redisLogger.info(`getTrendingFeed called`, { page, limit, hasCursor: !!cursor });
+    redisLogger.info(`getTrendingFeed called`, {
+      page,
+      limit,
+      hasCursor: !!cursor,
+    });
 
     try {
       // Always try cursor-based pagination (Redis or DB)
@@ -36,9 +57,15 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
       }
 
       if (isNewPhase) {
-        const result = await this.postReadRepository.getNewFeedWithCursor({ limit, cursor: actualCursor });
+        const result = await this.postReadRepository.getNewFeedWithCursor({
+          limit,
+          cursor: actualCursor,
+        });
         const transformedPosts = this.transformPosts(result.data);
-        const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
+        const enriched =
+          await this.feedEnrichmentService.enrichFeedWithCurrentData(
+            transformedPosts,
+          );
 
         return {
           data: enriched,
@@ -46,25 +73,38 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
           limit,
           total: 0,
           totalPages: 0,
-          nextCursor: result.nextCursor ? `new_phase:${result.nextCursor}` : undefined,
-          hasMore: result.hasMore
+          nextCursor: result.nextCursor
+            ? `new_phase:${result.nextCursor}`
+            : undefined,
+          hasMore: result.hasMore,
         };
       }
 
-
       // Try Redis ZSET first
       try {
-        const redisResult = await this.redisService.getTrendingFeedWithCursor(limit, cursor);
+        const redisResult = await this.redisService.getTrendingFeedWithCursor(
+          limit,
+          cursor,
+        );
         if (redisResult.ids.length > 0) {
-          redisLogger.info(`Trending feed ZSET HIT`, { count: redisResult.ids.length });
-          const posts = await this.postReadRepository.findPostsByPublicIds(redisResult.ids);
+          redisLogger.info(`Trending feed ZSET HIT`, {
+            count: redisResult.ids.length,
+          });
+          const posts = await this.postReadRepository.findPostsByPublicIds(
+            redisResult.ids,
+          );
 
           // Re-sort to match Redis order
-          const postMap = new Map(posts.map(p => [p.publicId, p]));
-          const orderedPosts = redisResult.ids.map(id => postMap.get(id)).filter((p): p is FeedPost => p !== undefined);
+          const postMap = new Map(posts.map((p) => [p.publicId, p]));
+          const orderedPosts = redisResult.ids
+            .map((id) => postMap.get(id))
+            .filter((p): p is FeedPost => p !== undefined);
 
           const transformedPosts = this.transformPosts(orderedPosts);
-          const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
+          const enriched =
+            await this.feedEnrichmentService.enrichFeedWithCurrentData(
+              transformedPosts,
+            );
 
           return {
             data: enriched,
@@ -73,15 +113,20 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
             total: 0,
             totalPages: 0,
             nextCursor: redisResult.nextCursor,
-            hasMore: redisResult.hasMore
+            hasMore: redisResult.hasMore,
           };
         }
       } catch (err) {
-        redisLogger.warn("Failed to get trending feed from Redis, falling back to DB", { error: err });
+        redisLogger.warn(
+          "Failed to get trending feed from Redis, falling back to DB",
+          { error: err },
+        );
       }
 
       // Fallback to DB cursor pagination
-      redisLogger.info("Falling back to DB cursor pagination for trending feed");
+      redisLogger.info(
+        "Falling back to DB cursor pagination for trending feed",
+      );
       let result = await this.postReadRepository.getTrendingFeedWithCursor({
         limit,
         cursor: actualCursor,
@@ -98,20 +143,30 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         const needed = limit - transformedPosts.length;
         if (needed > 0) {
           // Current page isn't full backfill the remainder with new posts
-          const backfill = await this.postReadRepository.getNewFeedWithCursor({ limit: needed + 1 });
-          const existingIds = new Set(transformedPosts.map(p => p.publicId));
+          const backfill = await this.postReadRepository.getNewFeedWithCursor({
+            limit: needed + 1,
+          });
+          const existingIds = new Set(transformedPosts.map((p) => p.publicId));
 
-          const uniqueBackfill = backfill.data.filter(p => !existingIds.has(p.publicId));
+          const uniqueBackfill = backfill.data.filter(
+            (p) => !existingIds.has(p.publicId),
+          );
           const mappedBackfill = this.transformPosts(uniqueBackfill);
 
           transformedPosts = [...transformedPosts, ...mappedBackfill];
-          nextCursor = backfill.nextCursor ? `new_phase:${backfill.nextCursor}` : undefined;
+          nextCursor = backfill.nextCursor
+            ? `new_phase:${backfill.nextCursor}`
+            : undefined;
           hasMore = backfill.hasMore;
         } else {
           // Current page is full with trending posts, but there are no more trending posts.
           // Fetch a single new feed page so we can generate the new_phase cursor for the NEXT request.
-          const backfill = await this.postReadRepository.getNewFeedWithCursor({ limit: limit + 1 });
-          nextCursor = backfill.nextCursor ? `new_phase:${backfill.nextCursor}` : undefined;
+          const backfill = await this.postReadRepository.getNewFeedWithCursor({
+            limit: limit + 1,
+          });
+          nextCursor = backfill.nextCursor
+            ? `new_phase:${backfill.nextCursor}`
+            : undefined;
           hasMore = backfill.data.length > 0;
         }
       }
@@ -122,7 +177,10 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         hasMore = true;
       }
 
-      const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(transformedPosts);
+      const enriched =
+        await this.feedEnrichmentService.enrichFeedWithCurrentData(
+          transformedPosts,
+        );
 
       return {
         data: enriched,
@@ -131,9 +189,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         total: 0,
         totalPages: 0,
         nextCursor,
-        hasMore
+        hasMore,
       };
-
     } catch (error) {
       redisLogger.error("Trending feed error", {
         error: error instanceof Error ? error.message : String(error),
@@ -142,15 +199,29 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
     }
   }
 
-  private transformPosts(posts: (IPost | FeedPost | Record<string, unknown>)[]): FeedPost[] {
+  private transformPosts(
+    posts: (IPost | FeedPost | Record<string, unknown>)[],
+  ): FeedPost[] {
     return posts.map((post) => {
       const plainPost =
-        typeof (post as IPost).toObject === "function" ? (post as IPost).toObject() : (post as Record<string, unknown>);
+        typeof (post as IPost).toObject === "function"
+          ? (post as IPost).toObject()
+          : (post as Record<string, unknown>);
       const userDoc = this.getUserSnapshot(plainPost);
-      const imageDoc = plainPost.image as IImage | Record<string, unknown> | undefined;
-      const repostOfDoc = plainPost.repostOf as IPost | Record<string, unknown> | undefined;
-      const tagsArray = (Array.isArray(plainPost.tags) ? plainPost.tags : []) as unknown[];
-      const normalizedTags = tagsArray.reduce<{ tag: string; publicId?: string }[]>((acc, tag) => {
+      const imageDoc = plainPost.image as
+        | IImage
+        | Record<string, unknown>
+        | undefined;
+      const repostOfDoc = plainPost.repostOf as
+        | IPost
+        | Record<string, unknown>
+        | undefined;
+      const tagsArray = (
+        Array.isArray(plainPost.tags) ? plainPost.tags : []
+      ) as unknown[];
+      const normalizedTags = tagsArray.reduce<
+        { tag: string; publicId?: string }[]
+      >((acc, tag) => {
         if (tag && typeof tag === "object") {
           if ("tag" in tag) {
             acc.push({
@@ -182,10 +253,10 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         },
         image: imageDoc
           ? {
-            publicId: (imageDoc as IImage).publicId,
-            url: (imageDoc as IImage).url,
-            slug: (imageDoc as IImage).slug,
-          }
+              publicId: (imageDoc as IImage).publicId,
+              url: (imageDoc as IImage).url,
+              slug: (imageDoc as IImage).slug,
+            }
           : undefined,
         repostOf: repostOfDoc ? this.transformRepostOf(repostOfDoc) : undefined,
         rankScore: plainPost.rankScore as number | undefined,
@@ -194,28 +265,34 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
     });
   }
 
-  private transformRepostOf(repostOf: IPost | Record<string, unknown>): Partial<FeedPost> | undefined {
+  private transformRepostOf(
+    repostOf: IPost | Record<string, unknown>,
+  ): Partial<FeedPost> | undefined {
     if (!repostOf) return undefined;
 
     const originalUserDoc = this.getUserSnapshot(repostOf);
-    const originalImageDoc = repostOf.image as IImage | Record<string, unknown> | undefined;
-    const originalTagsArray = (Array.isArray(repostOf.tags) ? repostOf.tags : []) as unknown[];
-    const normalizedOriginalTags = originalTagsArray.reduce<{ tag: string; publicId?: string }[]>(
-      (acc, tag: unknown) => {
-        if (tag && typeof tag === "object") {
-          if ("tag" in tag) {
-            acc.push({
-              tag: (tag as { tag: string }).tag,
-              publicId: (tag as { publicId?: string }).publicId,
-            });
-          } else {
-            acc.push({ tag: (tag as ITag).tag });
-          }
+    const originalImageDoc = repostOf.image as
+      | IImage
+      | Record<string, unknown>
+      | undefined;
+    const originalTagsArray = (
+      Array.isArray(repostOf.tags) ? repostOf.tags : []
+    ) as unknown[];
+    const normalizedOriginalTags = originalTagsArray.reduce<
+      { tag: string; publicId?: string }[]
+    >((acc, tag: unknown) => {
+      if (tag && typeof tag === "object") {
+        if ("tag" in tag) {
+          acc.push({
+            tag: (tag as { tag: string }).tag,
+            publicId: (tag as { publicId?: string }).publicId,
+          });
+        } else {
+          acc.push({ tag: (tag as ITag).tag });
         }
-        return acc;
-      },
-      [],
-    );
+      }
+      return acc;
+    }, []);
 
     return {
       publicId: repostOf.publicId as string,
@@ -232,7 +309,11 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         avatar: originalUserDoc?.avatar ?? originalUserDoc?.avatarUrl ?? "",
       },
       image: originalImageDoc
-        ? ({ publicId: originalImageDoc.publicId, url: originalImageDoc.url, slug: originalImageDoc.slug } as IImage)
+        ? ({
+            publicId: originalImageDoc.publicId,
+            url: originalImageDoc.url,
+            slug: originalImageDoc.slug,
+          } as IImage)
         : undefined,
     };
   }
@@ -244,8 +325,13 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
     avatar?: string;
     avatarUrl?: string;
   } {
-    const rawUser = "user" in post ? (post as Record<string, unknown>).user : undefined;
-    if (rawUser && typeof rawUser === "object" && ("publicId" in rawUser || "username" in rawUser)) {
+    const rawUser =
+      "user" in post ? (post as Record<string, unknown>).user : undefined;
+    if (
+      rawUser &&
+      typeof rawUser === "object" &&
+      ("publicId" in rawUser || "username" in rawUser)
+    ) {
       return rawUser as {
         publicId?: string;
         handle?: string;
@@ -254,7 +340,16 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<GetTrendingFee
         avatarUrl?: string;
       };
     }
-    const author = "author" in post ? (post as Record<string, unknown>).author : undefined;
-    return (author as { publicId?: string; handle?: string; username?: string; avatar?: string; avatarUrl?: string }) ?? {};
+    const author =
+      "author" in post ? (post as Record<string, unknown>).author : undefined;
+    return (
+      (author as {
+        publicId?: string;
+        handle?: string;
+        username?: string;
+        avatar?: string;
+        avatarUrl?: string;
+      }) ?? {}
+    );
   }
 }

@@ -2,8 +2,8 @@ import { inject, injectable } from "tsyringe";
 import { PostRepository } from "@/repositories/post.repository";
 import { RedisService } from "../redis.service";
 import { DTOService } from "../dto.service";
-import { FeedEnrichmentService } from "../feed-enrichment.service";
-import { FeedCoreService } from "../feed-core.service";
+import { FeedEnrichmentService } from "./feed-enrichment.service";
+import { FeedCoreService } from "./feed-core.service";
 import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { CacheConfig } from "@/config/cacheConfig";
@@ -16,23 +16,39 @@ export class FeedReadService {
     @inject("PostRepository") private postRepository: PostRepository,
     @inject("RedisService") private redisService: RedisService,
     @inject("DTOService") private readonly dtoService: DTOService,
-    @inject("FeedEnrichmentService") private readonly feedEnrichmentService: FeedEnrichmentService,
-    @inject("FeedCoreService") private readonly feedCoreService: FeedCoreService,
-  ) { }
+    @inject("FeedEnrichmentService")
+    private readonly feedEnrichmentService: FeedEnrichmentService,
+    @inject("FeedCoreService")
+    private readonly feedCoreService: FeedCoreService,
+  ) {}
 
-  public async getPersonalizedFeed(userId: string, page: number, limit: number): Promise<PaginationResult<PostDTO>> {
-    logger.info(`Running partitioned getPersonalizedFeed for userId: ${userId}`);
+  public async getPersonalizedFeed(
+    userId: string,
+    page: number,
+    limit: number,
+  ): Promise<PaginationResult<PostDTO>> {
+    logger.info(
+      `Running partitioned getPersonalizedFeed for userId: ${userId}`,
+    );
     const safePage = Math.max(1, Math.floor(page || 1));
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit || 20)));
 
     try {
-      const coreFeedKey = CacheKeyBuilder.getCoreFeedKey(userId, safePage, safeLimit);
+      const coreFeedKey = CacheKeyBuilder.getCoreFeedKey(
+        userId,
+        safePage,
+        safeLimit,
+      );
       let coreFeed = await this.redisService.getWithTags<CoreFeed>(coreFeedKey);
       const isCacheHit = !!coreFeed;
 
       if (!coreFeed) {
         logger.info("Core feed cache miss, generating...");
-        const cursorFeed = await this.feedCoreService.generatePersonalizedCoreFeed(userId, safeLimit);
+        const cursorFeed =
+          await this.feedCoreService.generatePersonalizedCoreFeed(
+            userId,
+            safeLimit,
+          );
         coreFeed = {
           data: cursorFeed.data,
           limit: safeLimit,
@@ -54,9 +70,13 @@ export class FeedReadService {
         logger.info("Core feed cache hit");
       }
 
-      const enrichedFeed = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed!.data, {
-        refreshUserData: isCacheHit,
-      });
+      const enrichedFeed =
+        await this.feedEnrichmentService.enrichFeedWithCurrentData(
+          coreFeed!.data,
+          {
+            refreshUserData: isCacheHit,
+          },
+        );
 
       return {
         ...coreFeed,
@@ -75,7 +95,10 @@ export class FeedReadService {
     }
   }
 
-  public async getTrendingFeed(page: number, limit: number): Promise<PaginationResult<PostDTO>> {
+  public async getTrendingFeed(
+    page: number,
+    limit: number,
+  ): Promise<PaginationResult<PostDTO>> {
     const safePage = Math.max(1, Math.floor(page || 1));
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit || 20)));
     const cacheKey = CacheKeyBuilder.getTrendingFeedKey(safePage, safeLimit);
@@ -84,10 +107,14 @@ export class FeedReadService {
     const isCacheHit = !!cached;
     if (!cached) {
       const skip = (safePage - 1) * safeLimit;
-      const core = await this.postRepository.getTrendingFeedWithFacet(safeLimit, skip, {
-        timeWindowDays: 14,
-        minLikes: 1,
-      });
+      const core = await this.postRepository.getTrendingFeedWithFacet(
+        safeLimit,
+        skip,
+        {
+          timeWindowDays: 14,
+          minLikes: 1,
+        },
+      );
       await this.redisService.setWithTags(
         cacheKey,
         core,
@@ -101,9 +128,12 @@ export class FeedReadService {
       cached = core as CoreFeed;
     }
 
-    const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
-      refreshUserData: isCacheHit,
-    });
+    const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(
+      cached.data,
+      {
+        refreshUserData: isCacheHit,
+      },
+    );
 
     return {
       ...cached,
@@ -137,7 +167,10 @@ export class FeedReadService {
       const useCursorFlow = Boolean(cursor) || safePage === 1;
 
       if (useCursorFlow) {
-        const coreCursor = await this.postRepository.getNewFeedWithCursor({ limit: safeLimit, cursor });
+        const coreCursor = await this.postRepository.getNewFeedWithCursor({
+          limit: safeLimit,
+          cursor,
+        });
         core = {
           data: coreCursor.data as FeedPost[],
           limit: safeLimit,
@@ -165,16 +198,24 @@ export class FeedReadService {
         core,
         [
           CacheKeyBuilder.getNewFeedTag(),
-          ...(cursor ? [] : [CacheKeyBuilder.getFeedPageTag(safePage), CacheKeyBuilder.getFeedLimitTag(safeLimit)]),
+          ...(cursor
+            ? []
+            : [
+                CacheKeyBuilder.getFeedPageTag(safePage),
+                CacheKeyBuilder.getFeedLimitTag(safeLimit),
+              ]),
         ],
         CacheConfig.FEED.NEW_FEED,
       );
       cached = core;
     }
 
-    const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(cached.data, {
-      refreshUserData: isCacheHit,
-    });
+    const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(
+      cached.data,
+      {
+        refreshUserData: isCacheHit,
+      },
+    );
 
     return {
       ...cached,
@@ -186,11 +227,17 @@ export class FeedReadService {
   }
 
   private mapToPostDTOArray(entries: FeedPost[]): PostDTO[] {
-    return entries.map((entry) => this.dtoService.toPostDTO(this.ensurePlain(entry) as FeedPost));
+    return entries.map((entry) =>
+      this.dtoService.toPostDTO(this.ensurePlain(entry) as FeedPost),
+    );
   }
 
   private ensurePlain(entry: FeedPost): FeedPost {
-    if (entry && typeof (entry as FeedPost & { toObject?: () => FeedPost }).toObject === "function") {
+    if (
+      entry &&
+      typeof (entry as FeedPost & { toObject?: () => FeedPost }).toObject ===
+        "function"
+    ) {
       return (entry as FeedPost & { toObject: () => FeedPost }).toObject();
     }
     return entry;

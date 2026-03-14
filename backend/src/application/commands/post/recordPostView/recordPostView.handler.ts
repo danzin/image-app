@@ -6,7 +6,7 @@ import { IPostReadRepository } from "@/repositories/interfaces/IPostReadReposito
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { PostViewRepository } from "@/repositories/postView.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { FeedService } from "@/services/feed.service";
+import { FeedService } from "@/services/feed/feed.service";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { BloomFilterService } from "@/services/bloom-filter.service";
 import { createError } from "@/utils/errors";
@@ -19,19 +19,32 @@ import {
 } from "@/application/errors/post.errors";
 import { logger } from "@/utils/winston";
 import { IPost, IUser } from "@/types";
-import { getPostViewBloomKey, POST_VIEW_BLOOM_OPTIONS, POST_VIEW_BLOOM_TTL_SECONDS } from "@/config/bloomConfig";
+import {
+  getPostViewBloomKey,
+  POST_VIEW_BLOOM_OPTIONS,
+  POST_VIEW_BLOOM_TTL_SECONDS,
+} from "@/config/bloomConfig";
 
 @injectable()
-export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostViewCommand, boolean> {
+export class RecordPostViewCommandHandler implements ICommandHandler<
+  RecordPostViewCommand,
+  boolean
+> {
   constructor(
-    @inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-    @inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-    @inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
-    @inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+    @inject("PostReadRepository")
+    private readonly postReadRepository: IPostReadRepository,
+    @inject("PostWriteRepository")
+    private readonly postWriteRepository: IPostWriteRepository,
+    @inject("PostViewRepository")
+    private readonly postViewRepository: PostViewRepository,
+    @inject("UserReadRepository")
+    private readonly userReadRepository: IUserReadRepository,
     @inject("FeedService") private readonly feedService: FeedService,
-    @inject("TransactionQueueService") private readonly transactionQueue: TransactionQueueService,
-    @inject("BloomFilterService") private readonly bloomFilterService: BloomFilterService,
-  ) { }
+    @inject("TransactionQueueService")
+    private readonly transactionQueue: TransactionQueueService,
+    @inject("BloomFilterService")
+    private readonly bloomFilterService: BloomFilterService,
+  ) {}
 
   async execute(command: RecordPostViewCommand): Promise<boolean> {
     try {
@@ -43,7 +56,9 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
         throw createError("ValidationError", "Invalid userPublicId format");
       }
 
-      const post = await this.postReadRepository.findOneByPublicId(command.postPublicId);
+      const post = await this.postReadRepository.findOneByPublicId(
+        command.postPublicId,
+      );
 
       if (!post) {
         throw new PostNotFoundError();
@@ -51,7 +66,9 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
 
       const postId = post._id as mongoose.Types.ObjectId;
 
-      const user = await this.userReadRepository.findByPublicId(command.userPublicId);
+      const user = await this.userReadRepository.findByPublicId(
+        command.userPublicId,
+      );
 
       if (!user) {
         throw new UserNotFoundError();
@@ -67,16 +84,25 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
         return false;
       }
 
-      if (typeof (user as IUser).canViewPost === "function" && !(user as IUser).canViewPost(post)) {
+      if (
+        typeof (user as IUser).canViewPost === "function" &&
+        !(user as IUser).canViewPost(post)
+      ) {
         throw new PostAuthorizationError("User cannot view this post");
       }
 
-      if (typeof (post as IPost).canBeViewedBy === "function" && !(post as IPost).canBeViewedBy(user)) {
+      if (
+        typeof (post as IPost).canBeViewedBy === "function" &&
+        !(post as IPost).canBeViewedBy(user)
+      ) {
         throw new PostAuthorizationError("User cannot view this post");
       }
 
       const bloomKey = getPostViewBloomKey(command.postPublicId);
-      const alreadyViewed = await this.wasLikelyAlreadyViewedByUser(bloomKey, command.userPublicId);
+      const alreadyViewed = await this.wasLikelyAlreadyViewedByUser(
+        bloomKey,
+        command.userPublicId,
+      );
       if (alreadyViewed) {
         return false;
       }
@@ -85,7 +111,11 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
       session.startTransaction();
       let isNewView = false;
       try {
-        isNewView = await this.postViewRepository.recordView(postId, userId, session);
+        isNewView = await this.postViewRepository.recordView(
+          postId,
+          userId,
+          session,
+        );
 
         if (isNewView) {
           await this.postWriteRepository.incrementViewCount(postId, session);
@@ -106,18 +136,27 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
         this.transactionQueue
           .executeOrQueue(
             async () => {
-              const updatedPost = await this.postReadRepository.findOneByPublicId(command.postPublicId);
+              const updatedPost =
+                await this.postReadRepository.findOneByPublicId(
+                  command.postPublicId,
+                );
               if (updatedPost?.viewsCount !== undefined) {
-                await this.feedService.updatePostViewMeta(command.postPublicId, updatedPost.viewsCount);
+                await this.feedService.updatePostViewMeta(
+                  command.postPublicId,
+                  updatedPost.viewsCount,
+                );
               }
             },
             { priority: "low", loadThreshold: 30 },
           )
           .catch((err) => {
-            logger.warn("[RecordPostView] Failed to update view count metadata in feed (non-critical)", {
-              postPublicId: command.postPublicId,
-              error: err instanceof Error ? err.message : String(err),
-            });
+            logger.warn(
+              "[RecordPostView] Failed to update view count metadata in feed (non-critical)",
+              {
+                postPublicId: command.postPublicId,
+                error: err instanceof Error ? err.message : String(err),
+              },
+            );
           });
       }
 
@@ -131,28 +170,49 @@ export class RecordPostViewCommandHandler implements ICommandHandler<RecordPostV
     }
   }
 
-  private async wasLikelyAlreadyViewedByUser(bloomKey: string, userPublicId: string): Promise<boolean> {
+  private async wasLikelyAlreadyViewedByUser(
+    bloomKey: string,
+    userPublicId: string,
+  ): Promise<boolean> {
     try {
-      return await this.bloomFilterService.mightContain(bloomKey, userPublicId, POST_VIEW_BLOOM_OPTIONS);
-    } catch (error) {
-      logger.warn("[Bloom][post-view] read failed; falling back to DB uniqueness check", {
+      return await this.bloomFilterService.mightContain(
         bloomKey,
         userPublicId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        POST_VIEW_BLOOM_OPTIONS,
+      );
+    } catch (error) {
+      logger.warn(
+        "[Bloom][post-view] read failed; falling back to DB uniqueness check",
+        {
+          bloomKey,
+          userPublicId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       return false;
     }
   }
 
-  private async markViewSeenInBloom(bloomKey: string, userPublicId: string): Promise<void> {
+  private async markViewSeenInBloom(
+    bloomKey: string,
+    userPublicId: string,
+  ): Promise<void> {
     try {
-      await this.bloomFilterService.add(bloomKey, userPublicId, POST_VIEW_BLOOM_OPTIONS, POST_VIEW_BLOOM_TTL_SECONDS);
-    } catch (error) {
-      logger.warn("[Bloom][post-view] failed to seed bloom filter after view write", {
+      await this.bloomFilterService.add(
         bloomKey,
         userPublicId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        POST_VIEW_BLOOM_OPTIONS,
+        POST_VIEW_BLOOM_TTL_SECONDS,
+      );
+    } catch (error) {
+      logger.warn(
+        "[Bloom][post-view] failed to seed bloom filter after view write",
+        {
+          bloomKey,
+          userPublicId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
   }
 }

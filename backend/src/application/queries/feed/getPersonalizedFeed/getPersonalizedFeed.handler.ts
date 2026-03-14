@@ -5,33 +5,48 @@ import { RedisService } from "@/services/redis.service";
 import { createError } from "@/utils/errors";
 import { CursorPaginationResult, FeedPost } from "@/types";
 import { logger } from "@/utils/winston";
-import { FeedEnrichmentService } from "@/services/feed-enrichment.service";
-import { FeedCoreService } from "@/services/feed-core.service";
+import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
+import { FeedCoreService } from "@/services/feed/feed-core.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 
 @injectable()
-export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersonalizedFeedQuery, any> {
+export class GetPersonalizedFeedQueryHandler implements IQueryHandler<
+  GetPersonalizedFeedQuery,
+  any
+> {
   constructor(
     @inject("RedisService") private redisService: RedisService,
-    @inject("FeedEnrichmentService") private feedEnrichmentService: FeedEnrichmentService,
-    @inject("FeedCoreService") private readonly feedCoreService: FeedCoreService,
-  ) { }
+    @inject("FeedEnrichmentService")
+    private feedEnrichmentService: FeedEnrichmentService,
+    @inject("FeedCoreService")
+    private readonly feedCoreService: FeedCoreService,
+  ) {}
 
-  async execute(query: GetPersonalizedFeedQuery): Promise<CursorPaginationResult<FeedPost>> {
+  async execute(
+    query: GetPersonalizedFeedQuery,
+  ): Promise<CursorPaginationResult<FeedPost>> {
     const { userId, limit, cursor } = query;
-    logger.info(`Running cursor-based getPersonalizedFeed for userId: ${userId}`);
+    logger.info(
+      `Running cursor-based getPersonalizedFeed for userId: ${userId}`,
+    );
     const safeLimit = Math.min(100, Math.max(1, Math.floor(limit || 20)));
 
     try {
       // Get core feed structure (post IDs and order)
       let cacheKeyArgs = cursor ? cursor : "first_page";
       const coreFeedKey = `${CacheKeyBuilder.PREFIXES.CORE_FEED}:cursor:${userId}:${cacheKeyArgs}:${safeLimit}`;
-      let coreFeed = (await this.redisService.getWithTags(coreFeedKey)) as CursorPaginationResult<any> | null;
+      let coreFeed = (await this.redisService.getWithTags(
+        coreFeedKey,
+      )) as CursorPaginationResult<any> | null;
 
       if (!coreFeed) {
         // cache miss - generate core feed
         logger.info("Core feed cache miss, generating...");
-        coreFeed = await this.feedCoreService.generatePersonalizedCoreFeed(userId, safeLimit, cursor);
+        coreFeed = await this.feedCoreService.generatePersonalizedCoreFeed(
+          userId,
+          safeLimit,
+          cursor,
+        );
 
         // store in redis with tags for smart invalidation
         const tags = [
@@ -44,7 +59,10 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<GetPersona
       }
 
       // Enrich core feed with fresh user data
-      const enrichedData: FeedPost[] = await this.feedEnrichmentService.enrichFeedWithCurrentData(coreFeed.data);
+      const enrichedData: FeedPost[] =
+        await this.feedEnrichmentService.enrichFeedWithCurrentData(
+          coreFeed.data,
+        );
 
       return {
         data: enrichedData,

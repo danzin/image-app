@@ -24,7 +24,7 @@ import { DatabaseConfig } from "./config/dbConfig";
 import { Server } from "./server/server";
 import { setupContainerCore, registerCQRS, initCQRS } from "./di/container";
 import { WebSocketServer } from "./server/socketServer";
-import { RealTimeFeedService } from "./services/real-time-feed.service";
+import { RealTimeFeedService } from "./services/feed/real-time-feed.service";
 import { MetricsService } from "./metrics/metrics.service";
 import { TrendingWorker } from "./workers/_impl/trending.worker.impl";
 import { ProfileSyncWorker } from "./workers/_impl/profile-sync.worker.impl";
@@ -87,9 +87,7 @@ async function bootstrap(): Promise<void> {
     webSocketServer.initialize(server);
 
     // Initialize real-time feed service
-    const realTimeFeedService = container.resolve<RealTimeFeedService>(
-      "RealTimeFeedService",
-    );
+    container.resolve<RealTimeFeedService>("RealTimeFeedService");
     logger.info("Real-time feed service initialized");
 
     // Start the HTTP server last
