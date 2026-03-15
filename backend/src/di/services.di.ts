@@ -34,7 +34,7 @@ import { TelemetryService } from "@/services/telemetry.service";
 import { EmailService } from "@/services/email.service";
 import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
 import { AuthSessionService } from "@/services/auth-session.service";
-import { BloomFilterService } from "@/services/bloom-filter.service";
+import { BloomFilterService } from "@/services/redis/bloom-filter.service";
 import { FeedCoreService } from "@/services/feed/feed-core.service";
 import { FeedReadService } from "@/services/feed/feed-read.service";
 import { FeedInteractionService } from "@/services/feed/feed-interaction.service";

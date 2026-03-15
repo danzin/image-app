@@ -2,12 +2,15 @@ import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { createError , wrapError } from "@/utils/errors";
+import { createError, wrapError } from "@/utils/errors";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DTOService, AuthenticatedUserDTO } from "@/services/dto.service";
 import { EmailService } from "@/services/email.service";
-import { BloomFilterService } from "@/services/bloom-filter.service";
-import { USERNAME_BLOOM_KEY, USERNAME_BLOOM_OPTIONS } from "@/config/bloomConfig";
+import { BloomFilterService } from "@/services/redis/bloom-filter.service";
+import {
+  USERNAME_BLOOM_KEY,
+  USERNAME_BLOOM_OPTIONS,
+} from "@/config/bloomConfig";
 import { logger } from "@/utils/winston";
 import crypto from "crypto";
 import mongoose from "mongoose";
@@ -17,14 +20,20 @@ export interface RegisterUserResult {
 }
 
 @injectable()
-export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserCommand, RegisterUserResult> {
+export class RegisterUserCommandHandler implements ICommandHandler<
+  RegisterUserCommand,
+  RegisterUserResult
+> {
   constructor(
-    @inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-    @inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
+    @inject("UserWriteRepository")
+    private readonly userWriteRepository: IUserWriteRepository,
+    @inject("UserReadRepository")
+    private readonly userReadRepository: IUserReadRepository,
     @inject("DTOService") private readonly dtoService: DTOService,
     @inject("EmailService") private readonly emailService: EmailService,
-    @inject("BloomFilterService") private readonly bloomFilterService: BloomFilterService,
-  ) { }
+    @inject("BloomFilterService")
+    private readonly bloomFilterService: BloomFilterService,
+  ) {}
   // Trying and keeping the logic from my current userservice method, see how it goes
 
   async execute(command: RegisterUserCommand): Promise<RegisterUserResult> {
@@ -34,7 +43,8 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
       const usernameTrimmed = command.username.trim();
       const usernameMayExist = await this.usernameMayExist(usernameTrimmed);
       if (usernameMayExist) {
-        const existingUser = await this.userReadRepository.findByUsername(usernameTrimmed);
+        const existingUser =
+          await this.userReadRepository.findByUsername(usernameTrimmed);
         if (existingUser) {
           throw createError("ValidationError", "Username is already taken");
         }
@@ -46,21 +56,24 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
       session.startTransaction();
       let user;
       try {
-        user = await this.userWriteRepository.create({
-          handle: handleTrimmed,
-          handleNormalized: handleTrimmed.toLowerCase(),
-          username: usernameTrimmed,
-          email: command.email,
-          password: command.password,
-          avatar: command.avatar || "",
-          cover: command.cover || "",
-          registrationIp: command.ip,
-          lastIp: command.ip,
-          lastActive: new Date(),
-          isEmailVerified: false,
-          emailVerificationToken,
-          emailVerificationExpires,
-        }, session);
+        user = await this.userWriteRepository.create(
+          {
+            handle: handleTrimmed,
+            handleNormalized: handleTrimmed.toLowerCase(),
+            username: usernameTrimmed,
+            email: command.email,
+            password: command.password,
+            avatar: command.avatar || "",
+            cover: command.cover || "",
+            registrationIp: command.ip,
+            lastIp: command.ip,
+            lastActive: new Date(),
+            isEmailVerified: false,
+            emailVerificationToken,
+            emailVerificationExpires,
+          },
+          session,
+        );
 
         await session.commitTransaction();
       } catch (error) {
@@ -70,7 +83,10 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
         session.endSession();
       }
 
-      await this.emailService.sendEmailVerification(user.email, emailVerificationToken);
+      await this.emailService.sendEmailVerification(
+        user.email,
+        emailVerificationToken,
+      );
       await this.seedUsernameBloom(usernameTrimmed);
 
       const userDTO = this.dtoService.toAuthenticatedUserDTO(user);
@@ -89,30 +105,45 @@ export class RegisterUserCommandHandler implements ICommandHandler<RegisterUserC
   }
 
   private getVerificationExpiry(): Date {
-    const ttlMinutes = Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES) || 60;
+    const ttlMinutes =
+      Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES) || 60;
     return new Date(Date.now() + ttlMinutes * 60 * 1000);
   }
 
   private async usernameMayExist(username: string): Promise<boolean> {
     try {
-      return await this.bloomFilterService.mightContain(USERNAME_BLOOM_KEY, username, USERNAME_BLOOM_OPTIONS);
-    } catch (error) {
-      logger.warn("[Bloom][username] availability pre-check failed; falling back to DB path", {
+      return await this.bloomFilterService.mightContain(
+        USERNAME_BLOOM_KEY,
         username,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        USERNAME_BLOOM_OPTIONS,
+      );
+    } catch (error) {
+      logger.warn(
+        "[Bloom][username] availability pre-check failed; falling back to DB path",
+        {
+          username,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       return true;
     }
   }
 
   private async seedUsernameBloom(username: string): Promise<void> {
     try {
-      await this.bloomFilterService.add(USERNAME_BLOOM_KEY, username, USERNAME_BLOOM_OPTIONS);
-    } catch (error) {
-      logger.warn("[Bloom][username] failed to seed bloom filter after registration", {
+      await this.bloomFilterService.add(
+        USERNAME_BLOOM_KEY,
         username,
-        error: error instanceof Error ? error.message : String(error),
-      });
+        USERNAME_BLOOM_OPTIONS,
+      );
+    } catch (error) {
+      logger.warn(
+        "[Bloom][username] failed to seed bloom filter after registration",
+        {
+          username,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
     }
   }
 }

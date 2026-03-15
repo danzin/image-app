@@ -1,10 +1,13 @@
 import { inject, injectable } from "tsyringe";
-import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfaces";
+import {
+  IPostReadRepository,
+  IUserReadRepository,
+} from "@/repositories/interfaces";
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { ColdStartFeedGeneratedEvent } from "@/application/events/ColdStartFeedGenerated.event";
-import { CoreFeed, CursorPaginationResult, FeedPost } from "@/types";
+import { CursorPaginationResult, FeedPost } from "@/types";
 import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { RedisService } from "@/services/redis.service";
@@ -16,15 +19,23 @@ const FOLLOWING_IDS_TTL_SECONDS = 60;
 @injectable()
 export class FeedCoreService {
   constructor(
-    @inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-    @inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-    @inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
-    @inject("FollowRepository") private readonly followRepository: FollowRepository,
+    @inject("PostReadRepository")
+    private readonly postReadRepository: IPostReadRepository,
+    @inject("UserReadRepository")
+    private readonly userReadRepository: IUserReadRepository,
+    @inject("UserPreferenceRepository")
+    private readonly userPreferenceRepository: UserPreferenceRepository,
+    @inject("FollowRepository")
+    private readonly followRepository: FollowRepository,
     @inject("EventBus") private readonly eventBus: EventBus,
     @inject("RedisService") private readonly redisService: RedisService,
-  ) { }
+  ) {}
 
-  async generatePersonalizedCoreFeed(userPublicId: string, limit: number, cursor?: string): Promise<CursorPaginationResult<FeedPost>> {
+  async generatePersonalizedCoreFeed(
+    userPublicId: string,
+    limit: number,
+    cursor?: string,
+  ): Promise<CursorPaginationResult<FeedPost>> {
     const user = await this.userReadRepository.findByPublicId(userPublicId);
     if (!user) {
       throw createError("NotFoundError", "User not found");
@@ -40,7 +51,9 @@ export class FeedCoreService {
     if (followingIds.length === 0 && favoriteTags.length === 0) {
       if (!cursor) {
         try {
-          await this.eventBus.publish(new ColdStartFeedGeneratedEvent(userPublicId));
+          await this.eventBus.publish(
+            new ColdStartFeedGeneratedEvent(userPublicId),
+          );
         } catch (error) {
           logger.warn("[FeedCoreService] Failed to publish cold-start event", {
             userPublicId,
@@ -49,10 +62,17 @@ export class FeedCoreService {
         }
       }
 
-      return this.postReadRepository.getRankedFeedWithCursor(favoriteTags, { limit, cursor });
+      return this.postReadRepository.getRankedFeedWithCursor(favoriteTags, {
+        limit,
+        cursor,
+      });
     }
 
-    return this.postReadRepository.getFeedForUserCoreWithCursor(followingIds, favoriteTags, { limit, cursor });
+    return this.postReadRepository.getFeedForUserCoreWithCursor(
+      followingIds,
+      favoriteTags,
+      { limit, cursor },
+    );
   }
 
   /**
