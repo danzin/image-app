@@ -44,7 +44,7 @@ const Gallery: React.FC<GalleryProps> = ({
    * .values() - this extracts just the values (the post objects) after the Map has filtered the data
    * throwing away the isolated publicId keys used for filtering.
    *
-   * Array.from(...) - .values() method returns an Iterable Iterator not a real array.
+   * Array.from(...).values() - the .vlaues() method returns an Iterable Iterator not a real array.
    * Array.from() converts it back into a standard JS array that can be mapped over
    */
   const uniquePosts = useMemo(
