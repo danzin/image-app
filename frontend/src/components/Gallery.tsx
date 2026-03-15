@@ -31,16 +31,15 @@ const Gallery: React.FC<GalleryProps> = ({
 
   /**
    * deduplicate posts by publicId while preserving order
-   * using Map in order to avoid N^2 complexity that .filter or  .findIndex would create
-   * this approach uses posts ||[] as a safety fallback defaulting to an empty array
+   * using Map in to avoid N^2 complexity that .filter or  .findIndex would create
+   * this approach uses 'posts ||[]' as a safety fallback defaulting to an empty array
    * if posts is null or undefined
    *
-   * .map((p) => [p.publicId, p])
-   * Transforms the array of post objects into an array of "Tuples" (Key-Value pairs).
+   * .map((p) => [p.publicId, p]) Transforms the array of post objects into an array of tuples.
    * Before: [{ publicId: '123', text: 'hi' }, { publicId: '123', text: 'hi' }]
    * After: [ ['123', { publicId: '123', text: 'hi' }], ['123', { publicId: '123', text: 'hi' }] ]
    *
-   * new Map(...) - this forces keys to be unique which here results in destroying all duplicates
+   * new Map(...) - this forces keys to be unique which results in destroying all duplicates
    * .values() - this extracts just the values (the post objects) after the Map has filtered the data
    * throwing away the isolated publicId keys used for filtering.
    *
