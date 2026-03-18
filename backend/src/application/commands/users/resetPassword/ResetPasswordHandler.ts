@@ -3,12 +3,13 @@ import { ICommandHandler } from "@/application/common/interfaces/command-handler
 import { ResetPasswordCommand } from "./ResetPasswordCommand";
 import { createError } from "@/utils/errors";
 import { IUserReadRepository, IUserWriteRepository } from "@/repositories/interfaces";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ResetPasswordHandler implements ICommandHandler<ResetPasswordCommand, void> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
 	) {}
 
 	async execute(command: ResetPasswordCommand): Promise<void> {

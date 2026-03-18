@@ -9,6 +9,7 @@ import { UserRepository } from "@/repositories/user.repository";
 import { ImageRepository } from "@/repositories/image.repository";
 import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger, logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class NotificationService {
@@ -17,12 +18,12 @@ export class NotificationService {
   private readonly MAX_NOTIFICATIONS_PER_USER = 200;
 
   constructor(
-    @inject("WebSocketServer") private webSocketServer: WebSocketServer,
-    @inject("NotificationRepository")
+    @inject(TOKENS.Models.WebSocketServer) private webSocketServer: WebSocketServer,
+    @inject(TOKENS.Repositories.Notification)
     private notificationRepository: NotificationRepository,
-    @inject("UserRepository") private userRepository: UserRepository,
-    @inject("ImageRepository") private imageRepository: ImageRepository,
-    @inject("RedisService") private redisService: RedisService,
+    @inject(TOKENS.Repositories.User) private userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Image) private imageRepository: ImageRepository,
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
   ) {}
 
   private getIO(): SocketIOServer {

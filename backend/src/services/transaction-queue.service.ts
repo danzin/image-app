@@ -3,6 +3,7 @@ import { ClientSession } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Priority levels for queued transactions
@@ -55,7 +56,7 @@ export class TransactionQueueService {
     totalDropped: 0,
   };
 
-  constructor(@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork) {}
+  constructor(@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork) {}
 
   /**
    * Enqueue a transaction for deferred processing

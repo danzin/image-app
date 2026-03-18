@@ -4,12 +4,13 @@ import { IUserReadRepository } from "@/repositories/interfaces";
 import { FeedPost, UserLookupData } from "@/types";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { CacheConfig } from "@/config/cacheConfig";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedEnrichmentService {
   constructor(
-    @inject("RedisService") private readonly redisService: RedisService,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
   ) {}
 

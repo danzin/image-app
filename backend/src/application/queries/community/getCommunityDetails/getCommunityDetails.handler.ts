@@ -7,6 +7,7 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { DTOService, CommunityDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetCommunityDetailsQueryHandler
@@ -15,8 +16,8 @@ export class GetCommunityDetailsQueryHandler
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject("UserReadRepository") private userRepository: IUserReadRepository,
-		@inject("DTOService") private dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private userRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private dtoService: DTOService,
 	) {}
 
 	async execute(query: GetCommunityDetailsQuery): Promise<CommunityDTO> {

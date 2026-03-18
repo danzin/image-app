@@ -19,6 +19,7 @@ import {
   PostMeta,
 } from "@/types";
 import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetTrendingFeedQueryHandler implements IQueryHandler<
@@ -26,13 +27,13 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
   PaginatedFeedResult
 > {
   constructor(
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.PostRead)
     private postReadRepository: IPostReadRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private userReadRepository: IUserReadRepository,
-    @inject("RedisService") private redisService: RedisService,
-    @inject("DTOService") private dtoService: DTOService,
-    @inject("FeedEnrichmentService")
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
+    @inject(TOKENS.Services.DTO) private dtoService: DTOService,
+    @inject(TOKENS.Services.FeedEnrichment)
     private feedEnrichmentService: FeedEnrichmentService,
   ) {}
 

@@ -23,6 +23,7 @@ import {
 	mapPostError,
 } from "../../../errors/post.errors";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 export interface DeletePostResult {
 	message: string;
@@ -31,18 +32,18 @@ export interface DeletePostResult {
 @injectable()
 export class DeletePostCommandHandler implements ICommandHandler<DeletePostCommand, DeletePostResult> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
-		@inject("TagService") private readonly tagService: TagService,
-		@inject("ImageService") private readonly imageService: ImageService,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("RetryService") private readonly retryService: RetryService,
-		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.Repositories.CommunityMember) private readonly communityMemberRepository: CommunityMemberRepository,
+		@inject(TOKENS.Services.Tag) private readonly tagService: TagService,
+		@inject(TOKENS.Services.Image) private readonly imageService: ImageService,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Services.Retry) private readonly retryService: RetryService,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
 	) {}
 
 	async execute(command: DeletePostCommand): Promise<DeletePostResult> {

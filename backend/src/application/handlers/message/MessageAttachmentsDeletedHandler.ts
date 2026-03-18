@@ -3,10 +3,11 @@ import { IEventHandler } from "@/application/common/interfaces/event-handler.int
 import { MessageAttachmentsDeletedEvent } from "@/application/events/message/message.event";
 import { IImageStorageService } from "@/types";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class MessageAttachmentsDeletedHandler implements IEventHandler<MessageAttachmentsDeletedEvent> {
-	constructor(@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService) {}
+	constructor(@inject(TOKENS.Services.ImageStorage) private readonly imageStorageService: IImageStorageService) {}
 
 	async handle(event: MessageAttachmentsDeletedEvent): Promise<void> {
 		const { attachmentPublicIds } = event;

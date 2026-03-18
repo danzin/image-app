@@ -7,17 +7,18 @@ import { RedisService } from "../redis.service";
 import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedInteractionService {
   constructor(
-    @inject("PostRepository") private postRepository: PostRepository,
-    @inject("UserRepository") private userRepository: UserRepository,
-    @inject("UserPreferenceRepository")
+    @inject(TOKENS.Repositories.Post) private postRepository: PostRepository,
+    @inject(TOKENS.Repositories.User) private userRepository: UserRepository,
+    @inject(TOKENS.Repositories.UserPreference)
     private userPreferenceRepository: UserPreferenceRepository,
-    @inject("UserActionRepository")
+    @inject(TOKENS.Repositories.UserAction)
     private userActionRepository: UserActionRepository,
-    @inject("RedisService") private redisService: RedisService,
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
   ) {}
 
   public async recordInteraction(

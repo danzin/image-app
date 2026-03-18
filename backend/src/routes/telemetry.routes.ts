@@ -1,6 +1,7 @@
 import { Router, Request, Response, text } from "express";
 import { injectable, inject } from "tsyringe";
 import { TelemetryService } from "@/services/telemetry.service";
+import { TOKENS } from "@/types/tokens";
 import {
   AuthFactory,
   adminRateLimit,
@@ -12,7 +13,7 @@ export class TelemetryRoutes {
   private readonly router: Router;
 
   constructor(
-    @inject("TelemetryService")
+    @inject(TOKENS.Services.Telemetry)
     private readonly telemetryService: TelemetryService,
   ) {
     this.router = Router();

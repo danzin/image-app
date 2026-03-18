@@ -7,6 +7,7 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { DTOService } from "@/services/dto.service";
 import { PostDTO } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 interface PaginatedPosts {
 	data: PostDTO[];
@@ -19,7 +20,7 @@ interface PaginatedPosts {
 @injectable()
 export class GetCommunityFeedQueryHandler implements IQueryHandler<GetCommunityFeedQuery, PaginatedPosts> {
 	constructor(
-		@inject("PostReadRepository") private postRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostRead) private postRepository: IPostReadRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(DTOService) private dtoService: DTOService,

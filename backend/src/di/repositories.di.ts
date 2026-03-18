@@ -24,38 +24,63 @@ import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { RequestLogRepository } from "@/repositories/requestLog.repository";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export function registerRepositories(): void {
-  container.registerSingleton("UnitOfWork", UnitOfWork);
-  container.registerSingleton("UserRepository", UserRepository);
-  container.registerSingleton("ImageRepository", ImageRepository);
-  container.registerSingleton("PostRepository", PostRepository);
-  container.registerSingleton("PostLikeRepository", PostLikeRepository);
-  container.registerSingleton("PostViewRepository", PostViewRepository);
-  container.registerSingleton("CommentRepository", CommentRepository);
-  container.registerSingleton("CommentLikeRepository", CommentLikeRepository);
-  container.registerSingleton("UserActionRepository", UserActionRepository);
-  container.registerSingleton("TagRepository", TagRepository);
-  container.registerSingleton("FollowRepository", FollowRepository);
-  container.registerSingleton("NotificationRepository", NotificationRepository);
+  container.registerSingleton(TOKENS.Repositories.UnitOfWork, UnitOfWork);
+  container.registerSingleton(TOKENS.Repositories.User, UserRepository);
+  container.registerSingleton(TOKENS.Repositories.Image, ImageRepository);
+  container.registerSingleton(TOKENS.Repositories.Post, PostRepository);
+  container.registerSingleton(TOKENS.Repositories.PostLike, PostLikeRepository);
+  container.registerSingleton(TOKENS.Repositories.PostView, PostViewRepository);
+  container.registerSingleton(TOKENS.Repositories.Comment, CommentRepository);
   container.registerSingleton(
-    "UserPreferenceRepository",
+    TOKENS.Repositories.CommentLike,
+    CommentLikeRepository,
+  );
+  container.registerSingleton(
+    TOKENS.Repositories.UserAction,
+    UserActionRepository,
+  );
+  container.registerSingleton(TOKENS.Repositories.Tag, TagRepository);
+  container.registerSingleton(TOKENS.Repositories.Follow, FollowRepository);
+  container.registerSingleton(
+    TOKENS.Repositories.Notification,
+    NotificationRepository,
+  );
+  container.registerSingleton(
+    TOKENS.Repositories.UserPreference,
     UserPreferenceRepository,
   );
-  container.registerSingleton("FavoriteRepository", FavoriteRepository);
-  container.registerSingleton("ConversationRepository", ConversationRepository);
-  container.registerSingleton("MessageRepository", MessageRepository);
-  container.registerSingleton("CommunityRepository", CommunityRepository);
+  container.registerSingleton(TOKENS.Repositories.Favorite, FavoriteRepository);
   container.registerSingleton(
-    "CommunityMemberRepository",
+    TOKENS.Repositories.Conversation,
+    ConversationRepository,
+  );
+  container.registerSingleton(TOKENS.Repositories.Message, MessageRepository);
+  container.registerSingleton(
+    TOKENS.Repositories.Community,
+    CommunityRepository,
+  );
+  container.registerSingleton(
+    TOKENS.Repositories.CommunityMember,
     CommunityMemberRepository,
   );
-  container.registerSingleton("RequestLogRepository", RequestLogRepository);
+  container.registerSingleton(
+    TOKENS.Repositories.RequestLog,
+    RequestLogRepository,
+  );
 
-  container.registerSingleton("PostReadRepository", PostReadRepository);
-  container.registerSingleton("UserReadRepository", UserReadRepository);
-  container.registerSingleton("PostWriteRepository", PostWriteRepository);
-  container.registerSingleton("UserWriteRepository", UserWriteRepository);
+  container.registerSingleton(TOKENS.Repositories.PostRead, PostReadRepository);
+  container.registerSingleton(TOKENS.Repositories.UserRead, UserReadRepository);
+  container.registerSingleton(
+    TOKENS.Repositories.PostWrite,
+    PostWriteRepository,
+  );
+  container.registerSingleton(
+    TOKENS.Repositories.UserWrite,
+    UserWriteRepository,
+  );
 
   logger.info("[di] Repositories registered");
 }

@@ -5,12 +5,13 @@ import { IPostReadRepository } from "@/repositories/interfaces";
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { PostDTO } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetPostBySlugQueryHandler implements IQueryHandler<GetPostBySlugQuery, PostDTO> {
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetPostBySlugQuery): Promise<PostDTO> {

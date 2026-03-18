@@ -50,6 +50,7 @@ import { VerifyEmailCommand } from "@/application/commands/users/verifyEmail/Ver
 import { PaginationOptions } from "@/types";
 
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -68,9 +69,9 @@ import { logger } from "@/utils/winston";
 @injectable()
 export class UserController {
   constructor(
-    @inject("AuthService") private readonly authService: AuthService,
-    @inject("CommandBus") private readonly commandBus: CommandBus,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.Auth) private readonly authService: AuthService,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
   ) {}
 
   private getRequestContext(req: Request): { ip: string; userAgent: string } {

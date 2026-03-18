@@ -9,6 +9,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { RedisNotificationModule } from "./redis/redis-notification.module";
 import { RedisFeedModule } from "./redis/redis-feed.module";
 import { RedisStreamModule } from "./redis/redis-stream.module";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Configuration for resilient Redis operations
@@ -52,7 +53,7 @@ export class RedisService {
   private readonly streamModule: RedisStreamModule;
 
   constructor(
-    @inject("MetricsService") private readonly metricsService: MetricsService,
+    @inject(TOKENS.Services.Metrics) private readonly metricsService: MetricsService,
   ) {
     const runningInDocker = fs.existsSync("/.dockerenv"); // check if inside docker environment
     const redisUrl =

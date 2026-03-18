@@ -7,16 +7,17 @@ import { PostRepository } from "@/repositories/post.repository";
 import { DTOService } from "./dto.service";
 import { IFavorite, IPost, PaginationResult, PostDTO } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FavoriteService {
   constructor(
-    @inject("FavoriteRepository")
+    @inject(TOKENS.Repositories.Favorite)
     private readonly favoriteRepository: FavoriteRepository,
-    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("PostRepository") private readonly postRepository: PostRepository,
-    @inject("DTOService") private readonly dtoService: DTOService,
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}
 
   async addFavorite(userId: string, postId: string): Promise<void> {

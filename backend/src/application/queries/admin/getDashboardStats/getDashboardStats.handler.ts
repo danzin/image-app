@@ -3,6 +3,7 @@ import { GetDashboardStatsQuery } from "./getDashboardStats.query";
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { ImageRepository } from "@/repositories/image.repository";
+import { TOKENS } from "@/types/tokens";
 
 export interface DashboardStatsResult {
 	totalUsers: number;
@@ -20,8 +21,8 @@ export interface DashboardStatsResult {
 @injectable()
 export class GetDashboardStatsQueryHandler implements IQueryHandler<GetDashboardStatsQuery, DashboardStatsResult> {
 	constructor(
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.Image) private readonly imageRepository: ImageRepository,
 	) {}
 
 	async execute(_query: GetDashboardStatsQuery): Promise<DashboardStatsResult> {

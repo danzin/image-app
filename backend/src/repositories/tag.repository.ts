@@ -3,10 +3,11 @@ import { ITag } from "@/types";
 import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class TagRepository extends BaseRepository<ITag> {
-	constructor(@inject("TagModel") model: Model<ITag>) {
+	constructor(@inject(TOKENS.Models.Tag) model: Model<ITag>) {
 		super(model);
 	}
 

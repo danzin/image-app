@@ -8,15 +8,16 @@ import {
 } from "../middleware/authentication.middleware";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class MetricsRoutes {
   private readonly router: Router;
 
   constructor(
-    @inject("MetricsService") private readonly metricsService: MetricsService,
-    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-    @inject("TransactionQueueService")
+    @inject(TOKENS.Services.Metrics) private readonly metricsService: MetricsService,
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Services.TransactionQueue)
     private readonly transactionQueue: TransactionQueueService,
   ) {
     this.router = Router();

@@ -3,11 +3,12 @@ import { NotificationService } from "@/services/notification.service";
 import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class NotificationController {
   constructor(
-    @inject("NotificationService")
+    @inject(TOKENS.Services.Notification)
     private readonly notificationService: NotificationService,
   ) {}
 

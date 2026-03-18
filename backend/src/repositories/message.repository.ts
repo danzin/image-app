@@ -3,10 +3,11 @@ import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { IMessage, IMessageWithPopulatedSender, PaginationResult } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class MessageRepository extends BaseRepository<IMessage> {
-	constructor(@inject("MessageModel") model: Model<IMessage>) {
+	constructor(@inject(TOKENS.Models.Message) model: Model<IMessage>) {
 		super(model);
 	}
 

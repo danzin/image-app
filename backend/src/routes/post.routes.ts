@@ -13,6 +13,7 @@ import {
 } from "@/utils/schemas/post.schemas";
 import { handleSchema } from "@/utils/schemas/user.schemas";
 import upload from "@/config/multer";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostRoutes {
@@ -22,7 +23,7 @@ export class PostRoutes {
     AuthFactory.optionalBearerToken().handleOptional();
 
   constructor(
-    @inject("PostController") private readonly postController: PostController,
+    @inject(TOKENS.Controllers.Post) private readonly postController: PostController,
   ) {
     this.initializeRoutes();
   }

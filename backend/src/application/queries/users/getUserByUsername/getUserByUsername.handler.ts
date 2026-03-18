@@ -4,12 +4,13 @@ import { GetUserByHandleQuery } from "./getUserByUsername.query";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetUserByHandleQueryHandler implements IQueryHandler<GetUserByHandleQuery, PublicUserDTO> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
 	) {}
 
 	async execute(query: GetUserByHandleQuery): Promise<PublicUserDTO> {

@@ -5,6 +5,7 @@ import { CommunityRepository } from "@/repositories/community.repository";
 import { PostDTO } from "@/types";
 import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 import {
   DTOService,
   PublicUserDTO,
@@ -14,12 +15,12 @@ import {
 @injectable()
 export class SearchService {
   constructor(
-    @inject("PostRepository") private readonly postRepository: PostRepository,
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("TagRepository") private readonly tagRepository: TagRepository,
-    @inject("CommunityRepository")
+    @inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository,
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository,
+    @inject(TOKENS.Repositories.Community)
     private readonly communityRepository: CommunityRepository,
-    @inject("DTOService") private readonly dtoService: DTOService,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}
 
   /** Universal search function. It uses a query and search throughout the database for users, posts, and communities.

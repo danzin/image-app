@@ -11,6 +11,7 @@ import { handleSchema } from "@/utils/schemas/user.schemas";
 import upload from "@/config/multer";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ImageRoutes {
@@ -18,7 +19,7 @@ export class ImageRoutes {
   private auth = AuthFactory.bearerToken().handle();
   private optionalAuth = AuthFactory.optionalBearerToken().handleOptional();
 
-  constructor(@inject("ImageController") private controller: ImageController) {
+  constructor(@inject(TOKENS.Controllers.Image) private controller: ImageController) {
     this.router = express.Router();
     this.initializeRoutes();
   }

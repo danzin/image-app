@@ -17,13 +17,14 @@ import {
 import { AppError, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { generateSlug } from "@/utils/helpers";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ImageService {
   constructor(
-    @inject("ImageRepository")
+    @inject(TOKENS.Repositories.Image)
     private readonly imageRepository: ImageRepository,
-    @inject("ImageStorageService")
+    @inject(TOKENS.Services.ImageStorage)
     private readonly imageStorageService: IImageStorageService,
   ) {}
 

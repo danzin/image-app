@@ -11,6 +11,7 @@ import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
 import { logger } from "@/utils/winston";
 import { escapeRegex } from "@/utils/sanitizers";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * UserRepository provides database access for user-related operations.
@@ -19,8 +20,8 @@ import { escapeRegex } from "@/utils/sanitizers";
 @injectable()
 export class UserRepository extends BaseRepository<IUser> {
   constructor(
-    @inject("UserModel") model: Model<IUser>,
-    @inject("FollowRepository")
+    @inject(TOKENS.Models.User) model: Model<IUser>,
+    @inject(TOKENS.Repositories.Follow)
     private readonly followRepository: FollowRepository,
   ) {
     super(model);

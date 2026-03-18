@@ -2,11 +2,12 @@ import { Request, Response } from "express";
 import { inject, injectable } from "tsyringe";
 import { FavoriteService } from "@/services/favorite.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FavoriteController {
   constructor(
-    @inject("FavoriteService")
+    @inject(TOKENS.Services.Favorite)
     private readonly favoriteService: FavoriteService,
   ) {}
 

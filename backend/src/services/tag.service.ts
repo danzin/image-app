@@ -4,6 +4,7 @@ import { TagRepository } from "@/repositories/tag.repository";
 import { RedisService } from "./redis.service";
 import { ITag } from "@/types/index";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 // key for tracking tag activity metrics
 export const TAG_ACTIVITY_METRICS_KEY = "trending_tags:activity_metrics";
@@ -22,8 +23,8 @@ export interface TagActivityMetrics {
 @injectable()
 export class TagService {
   constructor(
-    @inject("TagRepository") private readonly tagRepository: TagRepository,
-    @inject("RedisService") private readonly redisService: RedisService,
+    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
   ) {}
 
   /**

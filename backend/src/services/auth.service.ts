@@ -10,6 +10,7 @@ import {
 import { createError } from "@/utils/errors";
 import { DecodedUser, IUser } from "@/types";
 import { AuthSessionService } from "@/services/auth-session.service";
+import { TOKENS } from "@/types/tokens";
 
 export interface AuthSessionContext {
   ip?: string;
@@ -44,9 +45,9 @@ export class AuthService {
    * - wires token logic to server-backed session storage
    */
   constructor(
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("DTOService") private readonly dtoService: DTOService,
-    @inject("AuthSessionService")
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+    @inject(TOKENS.Services.AuthSession)
     private readonly authSessionService: AuthSessionService,
   ) {}
 

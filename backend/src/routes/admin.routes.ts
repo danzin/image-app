@@ -3,13 +3,14 @@ import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { AdminUserController } from "../controllers/admin.controller";
 import { adminRateLimit, AuthFactory, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class AdminUserRoutes {
 	private router: express.Router;
 	private auth = AuthFactory.bearerToken().handle();
 
-	constructor(@inject("AdminUserController") private readonly adminUserController: AdminUserController) {
+	constructor(@inject(TOKENS.Controllers.AdminUser) private readonly adminUserController: AdminUserController) {
 		this.router = express.Router();
 		this.initializeRoutes();
 	}

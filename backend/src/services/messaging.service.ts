@@ -30,6 +30,7 @@ import { sanitizeTextInput } from "@/utils/sanitizers";
 import { logger } from "@/utils/winston";
 import { isUserViewingConversation } from "../server/socketServer";
 import { IImageStorageService } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 /*
 Notes on messaging system:
@@ -57,23 +58,23 @@ Notes on messaging system:
 @injectable()
 export class MessagingService {
   constructor(
-    @inject("ConversationRepository")
+    @inject(TOKENS.Repositories.Conversation)
     private readonly conversationRepository: ConversationRepository,
-    @inject("MessageRepository")
+    @inject(TOKENS.Repositories.Message)
     private readonly messageRepository: MessageRepository,
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-    @inject("DTOService") private readonly dtoService: DTOService,
-    @inject("EventBus") private readonly eventBus: EventBus,
-    @inject("MessageSentHandler")
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+    @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.CQRS.Handlers.MessageSent)
     private readonly messageSentHandler: MessageSentHandler,
-    @inject("MessageStatusUpdatedEventHandler")
+    @inject(TOKENS.CQRS.Handlers.MessageStatusUpdatedEvent)
     private readonly messageStatusUpdatedHandler: MessageStatusUpdatedHandler,
-    @inject("MessageAttachmentsDeletedHandler")
+    @inject(TOKENS.CQRS.Handlers.MessageAttachmentsDeleted)
     private readonly messageAttachmentsDeletedHandler: MessageAttachmentsDeletedHandler,
-    @inject("NotificationService")
+    @inject(TOKENS.Services.Notification)
     private readonly notificationService: NotificationService,
-    @inject("ImageStorageService")
+    @inject(TOKENS.Services.ImageStorage)
     private readonly imageStorageService: IImageStorageService,
   ) {}
 

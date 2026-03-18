@@ -4,12 +4,13 @@ import { ClientSession, Model } from "mongoose";
 import { IUser, IUserPreference } from "@/types";
 import { createError , wrapError } from "@/utils/errors";
 import { UserRepository } from "./user.repository";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserPreferenceRepository extends BaseRepository<IUserPreference> {
 	constructor(
-		@inject("UserPreferenceModel") model: Model<IUserPreference>,
-		@inject("UserRepository") private userRepository: UserRepository
+		@inject(TOKENS.Models.UserPreference) model: Model<IUserPreference>,
+		@inject(TOKENS.Repositories.User) private userRepository: UserRepository
 	) {
 		super(model);
 	}

@@ -4,15 +4,16 @@ import { VerifyEmailCommand } from "./VerifyEmailCommand";
 import { createError } from "@/utils/errors";
 import { IUserReadRepository, IUserWriteRepository } from "@/repositories/interfaces";
 import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "@/services/dto.service";
+import { TOKENS } from "@/types/tokens";
 
 export type VerifyEmailResult = AdminUserDTO | AuthenticatedUserDTO;
 
 @injectable()
 export class VerifyEmailHandler implements ICommandHandler<VerifyEmailCommand, VerifyEmailResult> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
 	) {}
 
 	async execute(command: VerifyEmailCommand): Promise<VerifyEmailResult> {

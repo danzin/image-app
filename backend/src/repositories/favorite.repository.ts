@@ -2,10 +2,11 @@ import mongoose, { Model, ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { IFavorite, IPost } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FavoriteRepository extends BaseRepository<IFavorite> {
-	constructor(@inject("FavoriteModel") model: Model<IFavorite>) {
+	constructor(@inject(TOKENS.Models.Favorite) model: Model<IFavorite>) {
 		super(model);
 	}
 

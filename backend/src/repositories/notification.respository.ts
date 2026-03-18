@@ -3,10 +3,11 @@ import { INotification } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class NotificationRepository extends BaseRepository<INotification> {
-	constructor(@inject("NotificationModel") model: Model<INotification>) {
+	constructor(@inject(TOKENS.Models.Notification) model: Model<INotification>) {
 		super(model);
 	}
 

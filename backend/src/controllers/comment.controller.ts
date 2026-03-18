@@ -6,6 +6,7 @@ import { CommandBus } from "@/application/common/buses/command.bus";
 import { CreateCommentCommand } from "@/application/commands/comments/createComment/createComment.command";
 import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
 import { LikeCommentCommand } from "@/application/commands/comments/likeComment/likeComment.command";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Comment Controller
@@ -14,8 +15,8 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
 @injectable()
 export class CommentController {
   constructor(
-    @inject("CommentService") private readonly commentService: CommentService,
-    @inject("CommandBus") private readonly commandBus: CommandBus,
+    @inject(TOKENS.Services.Comment) private readonly commentService: CommentService,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
   ) {}
 
   createComment = async (req: Request, res: Response): Promise<void> => {

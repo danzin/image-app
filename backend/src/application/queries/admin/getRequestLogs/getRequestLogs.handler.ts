@@ -4,6 +4,7 @@ import { GetRequestLogsQuery } from "./getRequestLogs.query";
 import { RequestLogRepository } from "@/repositories/requestLog.repository";
 import { PaginationResult, IRequestLog } from "@/types";
 import { escapeRegex } from "@/utils/sanitizers";
+import { TOKENS } from "@/types/tokens";
 
 export interface RequestLogDTO {
 	timestamp: Date;
@@ -18,7 +19,7 @@ export interface RequestLogDTO {
 
 @injectable()
 export class GetRequestLogsQueryHandler implements IQueryHandler<GetRequestLogsQuery, PaginationResult<RequestLogDTO>> {
-	constructor(@inject("RequestLogRepository") private readonly requestLogRepository: RequestLogRepository) {}
+	constructor(@inject(TOKENS.Repositories.RequestLog) private readonly requestLogRepository: RequestLogRepository) {}
 
 	async execute(query: GetRequestLogsQuery): Promise<PaginationResult<RequestLogDTO>> {
 		const { page = 1, limit = 50, userId, statusCode, startDate, endDate, search } = query.options;

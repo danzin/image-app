@@ -7,14 +7,15 @@ import { UserPostsResult } from "@/types";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetPostsByUserQueryHandler implements IQueryHandler<GetPostsByUserQuery, UserPostsResult> {
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository
 	) {}
 
 	async execute(query: GetPostsByUserQuery): Promise<UserPostsResult> {

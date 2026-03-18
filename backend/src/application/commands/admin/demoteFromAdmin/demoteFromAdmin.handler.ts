@@ -5,13 +5,14 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
 import { DTOService, AdminUserDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class DemoteFromAdminCommandHandler implements ICommandHandler<DemoteFromAdminCommand, AdminUserDTO> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(command: DemoteFromAdminCommand): Promise<AdminUserDTO> {

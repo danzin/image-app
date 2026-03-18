@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { IPost } from "@/types";
 import { IPostWriteRepository } from "../interfaces/IPostWriteRepository";
 import { PostRepository } from "../post.repository";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Write-only repository for post mutations
@@ -11,7 +12,7 @@ import { PostRepository } from "../post.repository";
  */
 @injectable()
 export class PostWriteRepository implements IPostWriteRepository {
-	constructor(@inject("PostRepository") private readonly postRepository: PostRepository) {}
+	constructor(@inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository) {}
 
 	async create(item: Partial<IPost>, session?: ClientSession): Promise<IPost> {
 		return this.postRepository.create(item, session);

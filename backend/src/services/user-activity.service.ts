@@ -6,6 +6,7 @@ import {
   PlatformSizeThresholds,
 } from "@/config/cacheConfig";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export const USER_ACTIVITY_METRICS_KEY = "who_to_follow:activity_metrics";
 
@@ -22,7 +23,7 @@ export type PlatformActivityLevel = "high" | "medium" | "low" | "dormant";
 @injectable()
 export class UserActivityService {
   constructor(
-    @inject("RedisService") private readonly redisService: RedisService,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
   ) {}
 
   /**

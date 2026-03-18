@@ -12,6 +12,7 @@ import {
 } from "@/utils/schemas/comment.schemas";
 import { postPublicIdSchema } from "@/utils/schemas/post.schemas";
 import { publicIdSchema as userPublicIdSchema } from "@/utils/schemas/user.schemas";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CommentRoutes {
@@ -19,7 +20,7 @@ export class CommentRoutes {
   private auth = AuthFactory.bearerToken().handle();
 
   constructor(
-    @inject("CommentController")
+    @inject(TOKENS.Controllers.Comment)
     private readonly commentController: CommentController,
   ) {
     this.initializeRoutes();

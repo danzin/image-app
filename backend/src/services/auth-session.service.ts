@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { RedisService } from "@/services/redis.service";
 import { AuthSessionRecord } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 const SESSION_ID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,7 @@ export class AuthSessionService {
    * - All auth session operations read/write through one Redis-backed service
    */
   constructor(
-    @inject("RedisService") private readonly redisService: RedisService,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
   ) {}
 
   /**

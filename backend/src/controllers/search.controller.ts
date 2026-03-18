@@ -3,11 +3,12 @@ import { SearchService } from "@/services/search.service";
 import { createError } from "@/utils/errors";
 import { sanitizeTextInput } from "@/utils/sanitizers";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class SearchController {
   constructor(
-    @inject("SearchService") private readonly searchService: SearchService,
+    @inject(TOKENS.Services.Search) private readonly searchService: SearchService,
   ) {}
 
   searchAll = async (req: Request, res: Response) => {

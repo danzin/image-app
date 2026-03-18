@@ -5,6 +5,7 @@ import { AuthFactory } from "../middleware/authentication.middleware";
 import { MessagingController } from "../controllers/messaging.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import upload from "../config/multer";
+import { TOKENS } from "@/types/tokens";
 import {
   paginationSchema,
   conversationParamsSchema,
@@ -20,7 +21,7 @@ export class MessagingRoutes {
   private readonly auth = AuthFactory.bearerToken().handle();
 
   constructor(
-    @inject("MessagingController")
+    @inject(TOKENS.Controllers.Messaging)
     private readonly messagingController: MessagingController,
   ) {
     this.router = express.Router();

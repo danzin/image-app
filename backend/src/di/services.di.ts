@@ -40,6 +40,7 @@ import { FeedReadService } from "@/services/feed/feed-read.service";
 import { FeedInteractionService } from "@/services/feed/feed-interaction.service";
 import { FeedMetaService } from "@/services/feed/feed-meta.service";
 import { FeedFanoutService } from "@/services/feed/feed-fanout.service";
+import { TOKENS } from "@/types/tokens";
 
 export function registerServices(): void {
   const isCloudinaryConfigured =
@@ -56,37 +57,49 @@ export function registerServices(): void {
     );
   }
 
-  container.registerSingleton("MetricsService", MetricsService);
-  container.registerSingleton("TelemetryService", TelemetryService);
-  container.registerSingleton("SearchService", SearchService);
-  container.registerSingleton("AuthService", AuthService);
-  container.registerSingleton("AuthSessionService", AuthSessionService);
-  container.registerSingleton("BloomFilterService", BloomFilterService);
-  container.registerSingleton("ImageService", ImageService);
-  container.registerSingleton("CommentService", CommentService);
-  container.registerSingleton("FollowService", FollowService);
-  container.registerSingleton("NotificationService", NotificationService);
+  container.registerSingleton(TOKENS.Services.Metrics, MetricsService);
+  container.registerSingleton(TOKENS.Services.Telemetry, TelemetryService);
+  container.registerSingleton(TOKENS.Services.Search, SearchService);
+  container.registerSingleton(TOKENS.Services.Auth, AuthService);
+  container.registerSingleton(TOKENS.Services.AuthSession, AuthSessionService);
+  container.registerSingleton(TOKENS.Services.BloomFilter, BloomFilterService);
+  container.registerSingleton(TOKENS.Services.Image, ImageService);
+  container.registerSingleton(TOKENS.Services.Comment, CommentService);
+  container.registerSingleton(TOKENS.Services.Follow, FollowService);
+  container.registerSingleton(
+    TOKENS.Services.Notification,
+    NotificationService,
+  );
   container.registerSingleton<IImageStorageService>(
-    "ImageStorageService",
+    TOKENS.Services.ImageStorage,
     ImageStorageService,
   );
-  container.registerSingleton("DTOService", DTOService);
-  container.registerSingleton("FeedEnrichmentService", FeedEnrichmentService);
-  container.registerSingleton("FeedCoreService", FeedCoreService);
-  container.registerSingleton("FeedReadService", FeedReadService);
-  container.registerSingleton("FeedInteractionService", FeedInteractionService);
-  container.registerSingleton("FeedMetaService", FeedMetaService);
-  container.registerSingleton("FeedFanoutService", FeedFanoutService);
-  container.registerSingleton("FeedService", FeedService);
-  container.registerSingleton("RedisService", RedisService);
-  container.registerSingleton("UserActionService", UserActionService);
-  container.registerSingleton("UserActivityService", UserActivityService);
-  container.registerSingleton("RetryService", RetryService);
+  container.registerSingleton(TOKENS.Services.DTO, DTOService);
   container.registerSingleton(
-    "TransactionQueueService",
+    TOKENS.Services.FeedEnrichment,
+    FeedEnrichmentService,
+  );
+  container.registerSingleton(TOKENS.Services.FeedCore, FeedCoreService);
+  container.registerSingleton(TOKENS.Services.FeedRead, FeedReadService);
+  container.registerSingleton(
+    TOKENS.Services.FeedInteraction,
+    FeedInteractionService,
+  );
+  container.registerSingleton(TOKENS.Services.FeedMeta, FeedMetaService);
+  container.registerSingleton(TOKENS.Services.FeedFanout, FeedFanoutService);
+  container.registerSingleton(TOKENS.Services.Feed, FeedService);
+  container.registerSingleton(TOKENS.Services.Redis, RedisService);
+  container.registerSingleton(TOKENS.Services.UserAction, UserActionService);
+  container.registerSingleton(
+    TOKENS.Services.UserActivity,
+    UserActivityService,
+  );
+  container.registerSingleton(TOKENS.Services.Retry, RetryService);
+  container.registerSingleton(
+    TOKENS.Services.TransactionQueue,
     TransactionQueueService,
   );
-  container.registerSingleton("EmailService", EmailService);
+  container.registerSingleton(TOKENS.Services.Email, EmailService);
 
   const realtimeHandlers = [
     container.resolve(NewPostMessageHandler),
@@ -98,12 +111,15 @@ export function registerServices(): void {
     container.resolve(RealtimeMessageSentHandler),
     container.resolve(RealtimeMessageStatusUpdatedHandler),
   ];
-  container.register("RealtimeHandlers", { useValue: realtimeHandlers });
+  container.register(TOKENS.Services.Realtime, { useValue: realtimeHandlers });
 
-  container.registerSingleton("RealTimeFeedService", RealTimeFeedService);
-  container.registerSingleton("FavoriteService", FavoriteService);
-  container.registerSingleton("MessagingService", MessagingService);
-  container.registerSingleton("TagService", TagService);
+  container.registerSingleton(
+    TOKENS.Services.RealTimeFeed,
+    RealTimeFeedService,
+  );
+  container.registerSingleton(TOKENS.Services.Favorite, FavoriteService);
+  container.registerSingleton(TOKENS.Services.Messaging, MessagingService);
+  container.registerSingleton(TOKENS.Services.Tag, TagService);
 
   logger.info("[di] Services registered");
 }

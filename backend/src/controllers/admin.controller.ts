@@ -24,14 +24,15 @@ import { FavoriteService } from "@/services/favorite.service";
 import { escapeRegex } from "@/utils/sanitizers";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class AdminUserController {
   constructor(
-    @inject("CommandBus") private readonly commandBus: CommandBus,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
-    @inject("RedisService") private readonly redisService: RedisService,
-    @inject("FavoriteService")
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+    @inject(TOKENS.Services.Favorite)
     private readonly favoriteService: FavoriteService,
   ) {}
 

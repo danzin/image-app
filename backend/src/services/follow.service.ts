@@ -8,16 +8,17 @@ import { UnitOfWork } from "@/database/UnitOfWork";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FollowService {
 	constructor(
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("NotificationService") private readonly notificationService: NotificationService,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserRepository") private readonly userRepository: UserRepository,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Services.Notification) private readonly notificationService: NotificationService,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork
 	) {}
 
 	async followUser(followerId: string, followeeId: string): Promise<void | string> {

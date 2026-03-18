@@ -17,21 +17,22 @@ import { FeedInteractionHandler } from "@/application/events/user/feed-interacti
 import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.PostLike) private readonly postLikeRepository: PostLikeRepository,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.CQRS.Handlers.FeedInteraction) private readonly feedInteractionHandler: FeedInteractionHandler,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(command: LikeActionByPublicIdCommand): Promise<PostDTO> {

@@ -3,10 +3,11 @@ import { createError, handleMongoError } from "@/utils/errors";
 import { IFollow } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FollowRepository extends BaseRepository<IFollow> {
-  constructor(@inject("FollowModel") model: Model<IFollow>) {
+  constructor(@inject(TOKENS.Models.Follow) model: Model<IFollow>) {
     super(model);
   }
 

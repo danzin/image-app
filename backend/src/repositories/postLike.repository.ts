@@ -3,10 +3,11 @@ import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { IPostLike } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostLikeRepository extends BaseRepository<IPostLike> {
-	constructor(@inject("PostLikeModel") model: Model<IPostLike>) {
+	constructor(@inject(TOKENS.Models.PostLike) model: Model<IPostLike>) {
 		super(model);
 	}
 

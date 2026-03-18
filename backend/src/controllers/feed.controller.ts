@@ -7,11 +7,12 @@ import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
 import { GetForYouFeedQuery } from "@/application/queries/feed/getForYouFeed/getForYouFeed.query";
 import { GetTrendingFeedQuery } from "@/application/queries/feed/getTrendingFeed/getTrendingFeed.query";
+import { TOKENS } from "@/types/tokens";
 @injectable()
 export class FeedController {
   constructor(
-    @inject("FeedService") private readonly feedService: FeedService,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
   ) {}
 
   getFeed = async (req: Request, res: Response) => {

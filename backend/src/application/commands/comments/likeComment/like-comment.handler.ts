@@ -12,17 +12,18 @@ import { NotificationRequestedHandler } from "@/application/events/notification/
 import { createError } from "@/utils/errors";
 import { CommentLikeResult, IComment } from "@/types";
 import { LikeCommentCommand } from "./likeComment.command";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCommand, CommentLikeResult> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("CommentLikeRepository") private readonly commentLikeRepository: CommentLikeRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.Repositories.CommentLike) private readonly commentLikeRepository: CommentLikeRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 

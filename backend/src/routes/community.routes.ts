@@ -13,6 +13,7 @@ import {
   communitySearchSchema,
 } from "@/utils/schemas/community.schemas";
 import upload from "@/config/multer";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CommunityRoutes {
@@ -22,7 +23,7 @@ export class CommunityRoutes {
     AuthFactory.optionalBearerToken().handleOptional();
 
   constructor(
-    @inject("CommunityController")
+    @inject(TOKENS.Controllers.Community)
     private readonly communityController: CommunityController,
   ) {
     this.initializeRoutes();

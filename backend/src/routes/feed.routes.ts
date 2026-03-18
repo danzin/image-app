@@ -3,13 +3,14 @@ import { asyncHandler } from "@/middleware/async-handler.middleware";
 import express from "express";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedRoutes {
   public router: express.Router;
   private auth = AuthFactory.bearerToken().handle();
 
-  constructor(@inject("FeedController") private controller: FeedController) {
+  constructor(@inject(TOKENS.Controllers.Feed) private controller: FeedController) {
     this.router = express.Router();
     this.initializeRoutes();
   }

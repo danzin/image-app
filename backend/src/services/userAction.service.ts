@@ -1,11 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserActionService {
   constructor(
-    @inject("UserActionRepository")
+    @inject(TOKENS.Repositories.UserAction)
     private readonly userActionRepository: UserActionRepository,
   ) {}
 

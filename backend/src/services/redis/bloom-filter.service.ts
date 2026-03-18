@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "@/services/redis.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 export interface BloomFilterOptions {
   expectedItems: number;
@@ -16,7 +17,7 @@ interface BloomFilterShape {
 @injectable()
 export class BloomFilterService {
   constructor(
-    @inject("RedisService") private readonly redisService: RedisService,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
   ) {}
 
   async mightContain(

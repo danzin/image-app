@@ -4,6 +4,7 @@ import { UserDeletedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Handles cache cleanup when a user is deleted
@@ -11,7 +12,7 @@ import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
  */
 @injectable()
 export class UserDeletedHandler implements IEventHandler<UserDeletedEvent> {
-	constructor(@inject("RedisService") private readonly redis: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private readonly redis: RedisService) {}
 
 	async handle(event: UserDeletedEvent): Promise<void> {
 		logger.info(`[UserDeletedHandler] User deleted: ${event.userPublicId}, clearing cache entries`);

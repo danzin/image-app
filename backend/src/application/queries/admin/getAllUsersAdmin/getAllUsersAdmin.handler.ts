@@ -4,14 +4,15 @@ import { GetAllUsersAdminQuery } from "./getAllUsersAdmin.query";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { DTOService, AdminUserDTO } from "@/services/dto.service";
 import { PaginationResult } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetAllUsersAdminQueryHandler
 	implements IQueryHandler<GetAllUsersAdminQuery, PaginationResult<AdminUserDTO>>
 {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetAllUsersAdminQuery): Promise<PaginationResult<AdminUserDTO>> {

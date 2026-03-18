@@ -3,10 +3,11 @@ import { IQueryHandler } from "@/application/common/interfaces/query-handler.int
 import { GetAllTagsQuery } from "./getAllTags.query";
 import { TagRepository } from "@/repositories/tag.repository";
 import { ITag } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetAllTagsQueryHandler implements IQueryHandler<GetAllTagsQuery, ITag[]> {
-	constructor(@inject("TagRepository") private readonly tagRepository: TagRepository) {}
+	constructor(@inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository) {}
 
 	async execute(_query: GetAllTagsQuery): Promise<ITag[]> {
 		return (await this.tagRepository.getAll()) ?? [];

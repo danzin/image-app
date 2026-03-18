@@ -13,6 +13,7 @@ import {
 import { createError } from "@/utils/errors";
 import { TagRepository } from "./tag.repository";
 import { decodeCursor, encodeCursor } from "@/utils/cursorCodec";
+import { TOKENS } from "@/types/tokens";
 
 type ProjectedFeedPost = FeedPost & {
   _id?: mongoose.Types.ObjectId;
@@ -40,8 +41,8 @@ type MetadataFacetResult<T> = {
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {
   constructor(
-    @inject("PostModel") model: Model<IPost>,
-    @inject("TagRepository") private readonly tagRepository: TagRepository
+    @inject(TOKENS.Models.Post) model: Model<IPost>,
+    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository
   ) {
     super(model);
   }

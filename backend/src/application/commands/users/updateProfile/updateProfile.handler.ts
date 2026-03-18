@@ -9,16 +9,17 @@ import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserUsernameChangedEvent } from "@/application/events/user/user-interaction.event";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfileCommand, PublicUserDTO> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private readonly eventBus: EventBus
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus
 	) {}
 
 	async execute(command: UpdateProfileCommand): Promise<PublicUserDTO> {

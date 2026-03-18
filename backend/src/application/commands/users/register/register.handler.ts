@@ -14,6 +14,7 @@ import {
 import { logger } from "@/utils/winston";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import { TOKENS } from "@/types/tokens";
 
 export interface RegisterUserResult {
   user: AuthenticatedUserDTO;
@@ -25,13 +26,13 @@ export class RegisterUserCommandHandler implements ICommandHandler<
   RegisterUserResult
 > {
   constructor(
-    @inject("UserWriteRepository")
+    @inject(TOKENS.Repositories.UserWrite)
     private readonly userWriteRepository: IUserWriteRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
-    @inject("DTOService") private readonly dtoService: DTOService,
-    @inject("EmailService") private readonly emailService: EmailService,
-    @inject("BloomFilterService")
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+    @inject(TOKENS.Services.Email) private readonly emailService: EmailService,
+    @inject(TOKENS.Services.BloomFilter)
     private readonly bloomFilterService: BloomFilterService,
   ) {}
   // Trying and keeping the logic from my current userservice method, see how it goes

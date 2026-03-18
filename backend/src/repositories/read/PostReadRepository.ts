@@ -11,6 +11,7 @@ import {
 } from "@/types";
 import { IPostReadRepository } from "../interfaces/IPostReadRepository";
 import { PostRepository } from "../post.repository";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Read-only repository for post queries
@@ -19,7 +20,7 @@ import { PostRepository } from "../post.repository";
  */
 @injectable()
 export class PostReadRepository implements IPostReadRepository {
-  constructor(@inject("PostRepository") private readonly postRepository: PostRepository) { }
+  constructor(@inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository) { }
 
   async findById(id: string, session?: ClientSession): Promise<IPost | null> {
     return this.postRepository.findById(id, session);

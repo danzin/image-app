@@ -14,19 +14,20 @@ import { RetryPresets, RetryService } from "@/services/retry.service";
 import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { UserCoverChangedEvent } from "@/application/events/user/user-interaction.event";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCommand, PublicUserDTO> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("RetryService") private readonly retryService: RetryService,
-		@inject("DTOService") private readonly dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.ImageStorage) private readonly imageStorageService: IImageStorageService,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Services.Retry) private readonly retryService: RetryService,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
 	) {}
 
 	async execute(command: UpdateCoverCommand): Promise<PublicUserDTO> {

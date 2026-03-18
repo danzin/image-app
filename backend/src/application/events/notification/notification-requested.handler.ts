@@ -3,10 +3,11 @@ import { IEventHandler } from "@/application/common/interfaces/event-handler.int
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { NotificationService } from "@/services/notification.service";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class NotificationRequestedHandler implements IEventHandler<NotificationRequestedEvent> {
-	constructor(@inject("NotificationService") private readonly notificationService: NotificationService) {}
+	constructor(@inject(TOKENS.Services.Notification) private readonly notificationService: NotificationService) {}
 
 	async handle(event: NotificationRequestedEvent): Promise<void> {
 		try {

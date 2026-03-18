@@ -25,24 +25,26 @@ import {
   POST_VIEW_BLOOM_TTL_SECONDS,
 } from "@/config/bloomConfig";
 
+import { TOKENS } from "@/types/tokens";
+
 @injectable()
 export class RecordPostViewCommandHandler implements ICommandHandler<
   RecordPostViewCommand,
   boolean
 > {
   constructor(
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.PostRead)
     private readonly postReadRepository: IPostReadRepository,
-    @inject("PostWriteRepository")
+    @inject(TOKENS.Repositories.PostWrite)
     private readonly postWriteRepository: IPostWriteRepository,
-    @inject("PostViewRepository")
+    @inject(TOKENS.Repositories.PostView)
     private readonly postViewRepository: PostViewRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
-    @inject("FeedService") private readonly feedService: FeedService,
-    @inject("TransactionQueueService")
+    @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
+    @inject(TOKENS.Services.TransactionQueue)
     private readonly transactionQueue: TransactionQueueService,
-    @inject("BloomFilterService")
+    @inject(TOKENS.Services.BloomFilter)
     private readonly bloomFilterService: BloomFilterService,
   ) {}
 

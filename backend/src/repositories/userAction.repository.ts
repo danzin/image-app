@@ -3,10 +3,11 @@ import { IUserAction, PaginationOptions, PaginationResult } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { createError , wrapError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserActionRepository extends BaseRepository<IUserAction> {
-	constructor(@inject("UserActionModel") model: Model<IUserAction>) {
+	constructor(@inject(TOKENS.Models.UserAction) model: Model<IUserAction>) {
 		super(model);
 	}
 

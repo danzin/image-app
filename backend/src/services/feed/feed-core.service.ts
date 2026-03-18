@@ -12,6 +12,7 @@ import { createError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 // how long to cache a user's following-IDs list; short TTL keeps feed reasonably fresh
 const FOLLOWING_IDS_TTL_SECONDS = 60;
@@ -19,16 +20,16 @@ const FOLLOWING_IDS_TTL_SECONDS = 60;
 @injectable()
 export class FeedCoreService {
   constructor(
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.PostRead)
     private readonly postReadRepository: IPostReadRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
-    @inject("UserPreferenceRepository")
+    @inject(TOKENS.Repositories.UserPreference)
     private readonly userPreferenceRepository: UserPreferenceRepository,
-    @inject("FollowRepository")
+    @inject(TOKENS.Repositories.Follow)
     private readonly followRepository: FollowRepository,
-    @inject("EventBus") private readonly eventBus: EventBus,
-    @inject("RedisService") private readonly redisService: RedisService,
+    @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
   ) {}
 
   async generatePersonalizedCoreFeed(

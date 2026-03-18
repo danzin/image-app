@@ -6,13 +6,14 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { createError } from "@/utils/errors";
 import { PaginationResult } from "@/types";
 import { DTOService, CommunityMemberDTO } from "@/services/dto.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetCommunityMembersQueryHandler implements IQueryHandler<GetCommunityMembersQuery, PaginationResult<CommunityMemberDTO>> {
 	constructor(
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
-		@inject("DTOService") private dtoService: DTOService,
+		@inject(TOKENS.Services.DTO) private dtoService: DTOService,
 	) {}
 
 	async execute(query: GetCommunityMembersQuery): Promise<PaginationResult<CommunityMemberDTO>> {

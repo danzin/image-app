@@ -17,19 +17,20 @@ import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
 import { IComment, TransformedComment, PopulatedPostUser, PopulatedPostTag } from "@/types";
 import mongoose from "mongoose";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<CreateCommentCommand, TransformedComment> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
+		@inject(TOKENS.CQRS.Handlers.FeedInteraction) private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**

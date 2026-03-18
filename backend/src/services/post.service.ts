@@ -9,19 +9,20 @@ import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "@/types";
 import { FavoriteRepository } from "@/repositories/favorite.repository";
 import { TagService } from "./tag.service";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostService {
   constructor(
-    @inject("PostRepository") private readonly postRepository: PostRepository,
-    @inject("PostLikeRepository")
+    @inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository,
+    @inject(TOKENS.Repositories.PostLike)
     private readonly postLikeRepository: PostLikeRepository,
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("TagRepository") private readonly tagRepository: TagRepository,
-    @inject("FavoriteRepository")
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository,
+    @inject(TOKENS.Repositories.Favorite)
     private readonly favoriteRepository: FavoriteRepository,
-    @inject("TagService") private readonly tagService: TagService,
-    @inject("DTOService") private readonly dtoService: DTOService,
+    @inject(TOKENS.Services.Tag) private readonly tagService: TagService,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}
 
   async getPostByPublicId(

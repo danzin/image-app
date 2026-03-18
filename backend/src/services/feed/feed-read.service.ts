@@ -9,16 +9,17 @@ import { logger } from "@/utils/winston";
 import { CacheConfig } from "@/config/cacheConfig";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { CoreFeed, FeedPost, PaginationResult, PostDTO } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedReadService {
   constructor(
-    @inject("PostRepository") private postRepository: PostRepository,
-    @inject("RedisService") private redisService: RedisService,
-    @inject("DTOService") private readonly dtoService: DTOService,
-    @inject("FeedEnrichmentService")
+    @inject(TOKENS.Repositories.Post) private postRepository: PostRepository,
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+    @inject(TOKENS.Services.FeedEnrichment)
     private readonly feedEnrichmentService: FeedEnrichmentService,
-    @inject("FeedCoreService")
+    @inject(TOKENS.Services.FeedCore)
     private readonly feedCoreService: FeedCoreService,
   ) {}
 

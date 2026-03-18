@@ -8,6 +8,7 @@ import { logger } from "@/utils/winston";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { escapeRegex } from "@/utils/sanitizers";
 import { IUser } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 const DEFAULT_LIMIT = 8;
 const TRENDING_FALLBACK_LIMIT = 20;
@@ -16,9 +17,9 @@ const TRENDING_FALLBACK_LIMIT = 20;
 export class GetHandleSuggestionsQueryHandler
 	implements IQueryHandler<GetHandleSuggestionsQuery, HandleSuggestionDTO[]> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
 	) {}
 
 	async execute(query: GetHandleSuggestionsQuery): Promise<HandleSuggestionDTO[]> {

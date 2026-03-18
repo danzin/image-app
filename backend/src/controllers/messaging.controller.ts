@@ -3,11 +3,12 @@ import { inject, injectable } from "tsyringe";
 import { MessagingService } from "@/services/messaging.service";
 import { createError } from "@/utils/errors";
 import { SendMessagePayload } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class MessagingController {
   constructor(
-    @inject("MessagingService")
+    @inject(TOKENS.Services.Messaging)
     private readonly messagingService: MessagingService,
   ) {}
 

@@ -5,14 +5,15 @@ import { RedisService } from "../redis.service";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { CoreFeed, FeedPost } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedFanoutService {
   constructor(
-    @inject("FollowRepository")
+    @inject(TOKENS.Repositories.Follow)
     private readonly followRepository: FollowRepository,
-    @inject("PostRepository") private postRepository: PostRepository,
-    @inject("RedisService") private redisService: RedisService,
+    @inject(TOKENS.Repositories.Post) private postRepository: PostRepository,
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
   ) {}
 
   public async fanOutPostToFollowers(

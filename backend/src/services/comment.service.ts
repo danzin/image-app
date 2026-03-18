@@ -6,6 +6,7 @@ import { createError } from "@/utils/errors";
 import { IComment, TransformedComment } from "@/types";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
+import { TOKENS } from "@/types/tokens";
 
 // type for IPost.user that can be ObjectId or populated object
 type PostUserField =
@@ -15,11 +16,11 @@ type PostUserField =
 @injectable()
 export class CommentService {
   constructor(
-    @inject("CommentRepository")
+    @inject(TOKENS.Repositories.Comment)
     private readonly commentRepository: CommentRepository,
-    @inject("PostRepository") private readonly postRepository: PostRepository,
-    @inject("UserRepository") private readonly userRepository: UserRepository,
-    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository,
+    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async createComment(

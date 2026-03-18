@@ -6,11 +6,12 @@ import { injectable, inject } from "tsyringe";
 import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
 import { logger } from "@/utils/winston";
 import { RetryService, RetryPresets } from "./retry.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CloudinaryService implements IImageStorageService {
   constructor(
-    @inject("RetryService") private readonly retryService: RetryService,
+    @inject(TOKENS.Services.Retry) private readonly retryService: RetryService,
   ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -129,8 +130,6 @@ export class CloudinaryService implements IImageStorageService {
     url: string,
   ): Promise<{ result: string }> {
     const actualUrl = url || ownerId;
-    const actualOwnerId = url ? ownerId : requesterId;
-
     const publicId = this.extractPublicId(actualUrl);
 
     if (!publicId) {

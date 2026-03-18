@@ -23,6 +23,7 @@ import {
 	handleSuggestionsSchema,
 } from "@/utils/schemas/user.schemas";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserRoutes {
@@ -30,7 +31,7 @@ export class UserRoutes {
 	private auth = AuthFactory.bearerToken().handle();
 	private optionalAuth = AuthFactory.optionalBearerToken().handleOptional();
 
-	constructor(@inject("UserController") private readonly userController: UserController) {
+	constructor(@inject(TOKENS.Controllers.User) private readonly userController: UserController) {
 		this.router = express.Router();
 		this.initializeRoutes();
 	}

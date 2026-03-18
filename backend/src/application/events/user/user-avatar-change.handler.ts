@@ -4,10 +4,11 @@ import { UserAvatarChangedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserAvatarChangedHandler implements IEventHandler<UserAvatarChangedEvent> {
-	constructor(@inject("RedisService") private readonly redis: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private readonly redis: RedisService) {}
 
 	async handle(event: UserAvatarChangedEvent): Promise<void> {
 		logger.info(

@@ -4,6 +4,7 @@ import { GetRecentActivityQuery } from "./getRecentActivity.query";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { PaginationResult, IUserAction } from "@/types";
 import mongoose from "mongoose";
+import { TOKENS } from "@/types/tokens";
 
 export interface ActivityItem {
 	userId: string;
@@ -18,7 +19,7 @@ export interface ActivityItem {
 export class GetRecentActivityQueryHandler
 	implements IQueryHandler<GetRecentActivityQuery, PaginationResult<ActivityItem>>
 {
-	constructor(@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository) {}
+	constructor(@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository) {}
 
 	async execute(query: GetRecentActivityQuery): Promise<PaginationResult<ActivityItem>> {
 		const activities = await this.userActionRepository.findWithPagination({

@@ -8,14 +8,15 @@ import { PaginationResult } from "@/types";
 import { DTOService, CommunityDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { Types } from "mongoose";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetUserCommunitiesQueryHandler implements IQueryHandler<GetUserCommunitiesQuery, PaginationResult<CommunityDTO>> {
 	constructor(
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(CommunityRepository) private communityRepository: CommunityRepository,
-		@inject("UserReadRepository") private userRepository: IUserReadRepository,
-		@inject("DTOService") private dtoService: DTOService,
+		@inject(TOKENS.Repositories.UserRead) private userRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private dtoService: DTOService,
 	) {}
 
 	async execute(query: GetUserCommunitiesQuery): Promise<PaginationResult<CommunityDTO>> {

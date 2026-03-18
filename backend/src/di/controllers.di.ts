@@ -12,19 +12,32 @@ import { FavoriteController } from "../controllers/favorite.controller";
 import { MessagingController } from "../controllers/messaging.controller";
 import { CommunityController } from "../controllers/community.controller";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export function registerControllers(): void {
-  container.registerSingleton("SearchController", SearchController);
-  container.registerSingleton("UserController", UserController);
-  container.registerSingleton("ImageController", ImageController);
-  container.registerSingleton("PostController", PostController);
-  container.registerSingleton("CommentController", CommentController);
-  container.registerSingleton("NotificationController", NotificationController);
-  container.registerSingleton("AdminUserController", AdminUserController);
-  container.registerSingleton("FeedController", FeedController);
-  container.registerSingleton("FavoriteController", FavoriteController);
-  container.registerSingleton("MessagingController", MessagingController);
-  container.registerSingleton("CommunityController", CommunityController);
+  container.registerSingleton(TOKENS.Controllers.Search, SearchController);
+  container.registerSingleton(TOKENS.Controllers.User, UserController);
+  container.registerSingleton(TOKENS.Controllers.Image, ImageController);
+  container.registerSingleton(TOKENS.Controllers.Post, PostController);
+  container.registerSingleton(TOKENS.Controllers.Comment, CommentController);
+  container.registerSingleton(
+    TOKENS.Controllers.Notification,
+    NotificationController,
+  );
+  container.registerSingleton(
+    TOKENS.Controllers.AdminUser,
+    AdminUserController,
+  );
+  container.registerSingleton(TOKENS.Controllers.Feed, FeedController);
+  container.registerSingleton(TOKENS.Controllers.Favorite, FavoriteController);
+  container.registerSingleton(
+    TOKENS.Controllers.Messaging,
+    MessagingController,
+  );
+  container.registerSingleton(
+    TOKENS.Controllers.Community,
+    CommunityController,
+  );
 
   logger.info("[di] Controllers registered");
 }

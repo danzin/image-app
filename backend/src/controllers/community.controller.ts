@@ -16,13 +16,14 @@ import { KickMemberCommand } from "@/application/commands/community/kickMember/k
 import { createError } from "@/utils/errors";
 import { ICommunity } from "@/types";
 import { DTOService } from "@/services/dto.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CommunityController {
   constructor(
-    @inject("CommandBus") private readonly commandBus: CommandBus,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
-    @inject("DTOService") private readonly dtoService: DTOService,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}
 
   getAllCommunities = async (req: Request, res: Response): Promise<void> => {

@@ -20,12 +20,13 @@ import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
 import { safeFireAndForget } from "@/utils/helpers";
 import { PublicUserDTO } from "@/services/dto.service";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostController {
   constructor(
-    @inject("CommandBus") private readonly commandBus: CommandBus,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
   ) {}
 
   createPost = async (req: Request, res: Response): Promise<void> => {

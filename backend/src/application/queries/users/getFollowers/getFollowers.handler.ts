@@ -4,6 +4,7 @@ import { inject, injectable } from "tsyringe";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { IUserReadRepository } from "@/repositories/interfaces";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 export interface FollowUserItem {
 	publicId: string;
@@ -24,8 +25,8 @@ export interface GetFollowersResult {
 @injectable()
 export class GetFollowersQueryHandler implements IQueryHandler<GetFollowersQuery, GetFollowersResult> {
 	constructor(
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository
 	) {}
 
 	async execute(query: GetFollowersQuery): Promise<GetFollowersResult> {

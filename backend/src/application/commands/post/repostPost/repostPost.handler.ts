@@ -16,20 +16,21 @@ import { IPost, IUser, PostDTO, PopulatedPostTag, PopulatedPostUser } from "@/ty
 import { EventBus } from "@/application/common/buses/event.bus";
 import { PostUploadedEvent } from "@/application/events/post/post.event";
 import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
+import { TOKENS } from "@/types/tokens";
 
 const MAX_BODY_LENGTH = 300;
 
 @injectable()
 export class RepostPostCommandHandler implements ICommandHandler<RepostPostCommand, PostDTO> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.PostUpload) private readonly postUploadHandler: PostUploadHandler,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
