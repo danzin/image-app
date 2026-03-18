@@ -5,7 +5,7 @@ import { UserRepository } from "@/repositories/user.repository";
 import { TagRepository } from "@/repositories/tag.repository";
 import { DTOService } from "./dto.service";
 import { createError, wrapError } from "@/utils/errors";
-import { IPost, IPostWithId, ITag, PaginationResult, PostDTO } from "@/types";
+import { IPostWithId, ITag, PaginationResult, PostDTO } from "@/types";
 import { FavoriteRepository } from "@/repositories/favorite.repository";
 import { TagService } from "./tag.service";
 import { logger } from "@/utils/winston";
@@ -14,11 +14,14 @@ import { TOKENS } from "@/types/tokens";
 @injectable()
 export class PostService {
   constructor(
-    @inject(TOKENS.Repositories.Post) private readonly postRepository: PostRepository,
+    @inject(TOKENS.Repositories.Post)
+    private readonly postRepository: PostRepository,
     @inject(TOKENS.Repositories.PostLike)
     private readonly postLikeRepository: PostLikeRepository,
-    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
-    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository,
+    @inject(TOKENS.Repositories.User)
+    private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Tag)
+    private readonly tagRepository: TagRepository,
     @inject(TOKENS.Repositories.Favorite)
     private readonly favoriteRepository: FavoriteRepository,
     @inject(TOKENS.Services.Tag) private readonly tagService: TagService,
