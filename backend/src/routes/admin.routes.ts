@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { AdminUserController } from "../controllers/admin.controller";
 import { adminRateLimit, AuthFactory, enhancedAdminOnly } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -21,42 +22,42 @@ export class AdminUserRoutes {
 		// ===Admin endpoints===
 
 		//Get all users
-		this.router.get("/", this.adminUserController.getAllUsersAdmin);
+		this.router.get("/", asyncHandler(this.adminUserController.getAllUsersAdmin));
 
 		//Get user by public ID
-		this.router.get("/user/:publicId", this.adminUserController.getUser);
+		this.router.get("/user/:publicId", asyncHandler(this.adminUserController.getUser));
 
 		//Delete a user by public ID
-		this.router.delete("/user/:publicId", this.adminUserController.deleteUser);
+		this.router.delete("/user/:publicId", asyncHandler(this.adminUserController.deleteUser));
 
 		//Delete an image by public ID
-		this.router.delete("/image/:publicId", this.adminUserController.deleteImage);
+		this.router.delete("/image/:publicId", asyncHandler(this.adminUserController.deleteImage));
 
 		//Delete a comment by ID
-		this.router.delete("/comment/:commentId", this.adminUserController.deleteComment);
+		this.router.delete("/comment/:commentId", asyncHandler(this.adminUserController.deleteComment));
 
 		//Remove a favorite from a user
-		this.router.delete("/user/:publicId/favorite/:postPublicId", this.adminUserController.removeUserFavorite);
+		this.router.delete("/user/:publicId/favorite/:postPublicId", asyncHandler(this.adminUserController.removeUserFavorite));
 
 		// ===New Admin endpoints===
 
 		// User management
-		this.router.get("/user/:publicId/stats", this.adminUserController.getUserStats);
-		this.router.put("/user/:publicId/ban", this.adminUserController.banUser);
-		this.router.put("/user/:publicId/unban", this.adminUserController.unbanUser);
-		this.router.put("/user/:publicId/promote", this.adminUserController.promoteToAdmin);
-		this.router.put("/user/:publicId/demote", this.adminUserController.demoteFromAdmin);
+		this.router.get("/user/:publicId/stats", asyncHandler(this.adminUserController.getUserStats));
+		this.router.put("/user/:publicId/ban", asyncHandler(this.adminUserController.banUser));
+		this.router.put("/user/:publicId/unban", asyncHandler(this.adminUserController.unbanUser));
+		this.router.put("/user/:publicId/promote", asyncHandler(this.adminUserController.promoteToAdmin));
+		this.router.put("/user/:publicId/demote", asyncHandler(this.adminUserController.demoteFromAdmin));
 
 		// Image management
-		this.router.get("/images", this.adminUserController.getAllImages);
+		this.router.get("/images", asyncHandler(this.adminUserController.getAllImages));
 
 		// Dashboard and analytics
-		this.router.get("/dashboard/stats", this.adminUserController.getDashboardStats);
-		this.router.get("/dashboard/activity", this.adminUserController.getRecentActivity);
-		this.router.get("/dashboard/request-logs", this.adminUserController.getRequestLogs);
+		this.router.get("/dashboard/stats", asyncHandler(this.adminUserController.getDashboardStats));
+		this.router.get("/dashboard/activity", asyncHandler(this.adminUserController.getRecentActivity));
+		this.router.get("/dashboard/request-logs", asyncHandler(this.adminUserController.getRequestLogs));
 
 		// Cache management
-		this.router.delete("/cache", this.adminUserController.clearCache);
+		this.router.delete("/cache", asyncHandler(this.adminUserController.clearCache));
 	}
 
 	public getRouter(): express.Router {

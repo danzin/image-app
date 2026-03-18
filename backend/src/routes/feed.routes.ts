@@ -1,4 +1,5 @@
 import { FeedController } from "../controllers/feed.controller";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import express from "express";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -14,11 +15,11 @@ export class FeedRoutes {
 	}
 
 	private initializeRoutes(): void {
-		this.router.get("/", this.auth, this.controller.getFeed);
-		this.router.get("/for-you", this.auth, this.controller.getForYouFeed);
-		this.router.get("/trending", this.controller.getTrendingFeed);
-		this.router.get("/new", this.controller.getNewFeed);
-		this.router.get("/trending-tags", this.controller.getTrendingTags);
+		this.router.get("/", this.auth, asyncHandler(this.controller.getFeed));
+		this.router.get("/for-you", this.auth, asyncHandler(this.controller.getForYouFeed));
+		this.router.get("/trending", asyncHandler(this.controller.getTrendingFeed));
+		this.router.get("/new", asyncHandler(this.controller.getNewFeed));
+		this.router.get("/trending-tags", asyncHandler(this.controller.getTrendingTags));
 	}
 
 	public getRouter(): express.Router {

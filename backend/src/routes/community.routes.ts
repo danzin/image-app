@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { inject, injectable } from "tsyringe";
 import { CommunityController } from "../controllers/community.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
@@ -29,7 +30,7 @@ export class CommunityRoutes {
 			"/",
 			this.optionalAuth,
 			new ValidationMiddleware({ query: communitySearchSchema }).validate(),
-			this.communityController.getAllCommunities,
+			asyncHandler(this.communityController.getAllCommunities),
 		);
 
 		// Create Community
@@ -38,18 +39,18 @@ export class CommunityRoutes {
 			this.auth,
 			upload.single("avatar"),
 			new ValidationMiddleware({ body: createCommunitySchema }).validate(),
-			this.communityController.createCommunity,
+			asyncHandler(this.communityController.createCommunity),
 		);
 
 		// Get User Communities (My Communities)
-		this.router.get("/me", this.auth, this.communityController.getUserCommunities);
+		this.router.get("/me", this.auth, asyncHandler(this.communityController.getUserCommunities));
 
 		// Join Community
 		this.router.post(
 			"/:id/join",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.joinCommunity,
+			asyncHandler(this.communityController.joinCommunity),
 		);
 
 		// Leave Community
@@ -57,7 +58,7 @@ export class CommunityRoutes {
 			"/:id/leave",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.leaveCommunity,
+			asyncHandler(this.communityController.leaveCommunity),
 		);
 
 		// Get Community Feed
@@ -65,7 +66,7 @@ export class CommunityRoutes {
 			"/:id/feed",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.getCommunityFeed,
+			asyncHandler(this.communityController.getCommunityFeed),
 		);
 
 		// Get Community Members
@@ -73,7 +74,7 @@ export class CommunityRoutes {
 			"/:slug/members",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communitySlugSchema }).validate(),
-			this.communityController.getCommunityMembers,
+			asyncHandler(this.communityController.getCommunityMembers),
 		);
 
 		// Get Community Details (by slug)
@@ -81,7 +82,7 @@ export class CommunityRoutes {
 			"/:slug",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: communitySlugSchema }).validate(),
-			this.communityController.getCommunityDetails,
+			asyncHandler(this.communityController.getCommunityDetails),
 		);
 
 		// Update Community
@@ -93,7 +94,7 @@ export class CommunityRoutes {
 				{ name: "coverPhoto", maxCount: 1 },
 			]),
 			new ValidationMiddleware({ params: communityPublicIdSchema, body: updateCommunitySchema }).validate(),
-			this.communityController.updateCommunity,
+			asyncHandler(this.communityController.updateCommunity),
 		);
 
 		// Delete Community
@@ -101,7 +102,7 @@ export class CommunityRoutes {
 			"/:id",
 			this.auth,
 			new ValidationMiddleware({ params: communityPublicIdSchema }).validate(),
-			this.communityController.deleteCommunity,
+			asyncHandler(this.communityController.deleteCommunity),
 		);
 
 		// Kick Member
@@ -109,7 +110,7 @@ export class CommunityRoutes {
 			"/:id/members/:userId",
 			this.auth,
 			new ValidationMiddleware({ params: kickMemberSchema }).validate(),
-			this.communityController.kickMember,
+			asyncHandler(this.communityController.kickMember),
 		);
 	}
 

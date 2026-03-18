@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { ImageController } from "../controllers/image.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
 import { slugSchema, publicIdSchema, searchByTagsSchema } from "@/utils/schemas/post.schemas";
@@ -19,14 +20,14 @@ export class ImageRoutes {
 	}
 
 	private initializeRoutes(): void {
-		this.router.get("/", this.controller.listPosts);
+		this.router.get("/", asyncHandler(this.controller.listPosts));
 
 		// Use slug for SEO-friendly image URLs (optional auth to check if user liked)
 		this.router.get(
 			"/image/:slug",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: slugSchema }).validate(),
-			this.controller.getPostBySlug
+			asyncHandler(this.controller.getPostBySlug)
 		);
 
 		// Public: get image by publicId (optional auth to check if user liked)
@@ -34,38 +35,38 @@ export class ImageRoutes {
 			"/image/:publicId",
 			this.optionalAuth,
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.controller.getPostByPublicId
+			asyncHandler(this.controller.getPostByPublicId)
 		);
 
 		// Use handle for profile image galleries (public endpoint)
 		this.router.get(
 			"/user/handle/:handle",
 			new ValidationMiddleware({ params: handleSchema }).validate(),
-			this.controller.getPostsByHandle
+			asyncHandler(this.controller.getPostsByHandle)
 		);
 		this.router.get(
 			"/user/id/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.controller.getPostsByUserPublicId
+			asyncHandler(this.controller.getPostsByUserPublicId)
 		);
 
 		this.router.get(
 			"/search/tags",
 			new ValidationMiddleware({ query: searchByTagsSchema }).validate(),
-			this.controller.searchByTags
+			asyncHandler(this.controller.searchByTags)
 		);
 
-		this.router.get("/tags", this.controller.listTags);
+		this.router.get("/tags", asyncHandler(this.controller.listTags));
 
 		// === PROTECTED ROUTES (require authentication) ===
 		this.router.use(this.auth);
 
-		this.router.post("/upload", upload.single("image"), this.controller.createPost);
+		this.router.post("/upload", upload.single("image"), asyncHandler(this.controller.createPost));
 
 		this.router.delete(
 			"/image/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.controller.deletePost
+			asyncHandler(this.controller.deletePost)
 		);
 	}
 	public getRouter(): express.Router {

@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { UserController } from "../controllers/user.controller";
 import {
 	AuthFactory,
@@ -42,18 +43,18 @@ export class UserRoutes {
 			"/register",
 			honeypotMiddleware,
 			new ValidationMiddleware({ body: registrationSchema }).validate(),
-			this.userController.register,
+			asyncHandler(this.userController.register),
 		);
 
 		this.router.post(
 			"/login",
 			honeypotMiddleware,
 			new ValidationMiddleware({ body: loginSchema }).validate(),
-			this.userController.login,
+			asyncHandler(this.userController.login),
 		);
 
-		this.router.post("/logout", this.userController.logout);
-		this.router.post("/refresh", this.userController.refresh);
+		this.router.post("/logout", asyncHandler(this.userController.logout));
+		this.router.post("/refresh", asyncHandler(this.userController.refresh));
 
 		this.router.post(
 			"/forgot-password",
@@ -61,107 +62,107 @@ export class UserRoutes {
 			honeypotMiddleware,
 			new ValidationMiddleware({ body: requestPasswordResetSchema }).validate(),
 			forgotPasswordEmailRateLimit,
-			this.userController.requestPasswordReset,
+			asyncHandler(this.userController.requestPasswordReset),
 		);
 
 		this.router.post(
 			"/reset-password",
 			new ValidationMiddleware({ body: resetPasswordSchema }).validate(),
-			this.userController.resetPassword,
+			asyncHandler(this.userController.resetPassword),
 		);
 
 		this.router.post(
 			"/verify-email",
 			new ValidationMiddleware({ body: verifyEmailSchema }).validate(),
-			this.userController.verifyEmail,
+			asyncHandler(this.userController.verifyEmail),
 		);
 
 		// Public user data endpoints
-		this.router.get("/users", this.userController.getUsers);
+		this.router.get("/users", asyncHandler(this.userController.getUsers));
 
 		this.router.get(
 			"/suggestions/handles",
 			this.optionalAuth,
 			new ValidationMiddleware({ query: handleSuggestionsSchema }).validate(),
-			this.userController.getHandleSuggestions,
+			asyncHandler(this.userController.getHandleSuggestions),
 		);
 
 		this.router.get(
 			"/profile/:handle",
 			new ValidationMiddleware({ params: handleSchema }).validate(),
-			this.userController.getUserByHandle,
+			asyncHandler(this.userController.getUserByHandle),
 		);
 
 		this.router.get(
 			"/public/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getUserByPublicId,
+			asyncHandler(this.userController.getUserByPublicId),
 		);
 
 		// followers/following lists (public)
 		this.router.get(
 			"/:publicId/followers",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getFollowers,
+			asyncHandler(this.userController.getFollowers),
 		);
 
 		this.router.get(
 			"/:publicId/following",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.getFollowing,
+			asyncHandler(this.userController.getFollowing),
 		);
 
 		// === Protected Routes (authentication required) ===
 		this.router.use(this.auth);
 
 		// Current user operations
-		this.router.get("/me", this.userController.getMe);
-		this.router.get("/me/account-info", this.userController.getAccountInfo);
-		this.router.get("/suggestions/who-to-follow", this.userController.getWhoToFollow);
+		this.router.get("/me", asyncHandler(this.userController.getMe));
+		this.router.get("/me/account-info", asyncHandler(this.userController.getAccountInfo));
+		this.router.get("/suggestions/who-to-follow", asyncHandler(this.userController.getWhoToFollow));
 		this.router.put(
 			"/me/edit",
 			new ValidationMiddleware({ body: updateProfileSchema }).validate(),
-			this.userController.updateProfile,
+			asyncHandler(this.userController.updateProfile),
 		);
-		this.router.put("/me/avatar", upload.single("avatar"), this.userController.updateAvatar);
-		this.router.put("/me/cover", upload.single("cover"), this.userController.updateCover);
+		this.router.put("/me/avatar", upload.single("avatar"), asyncHandler(this.userController.updateAvatar));
+		this.router.put("/me/cover", upload.single("cover"), asyncHandler(this.userController.updateCover));
 		this.router.put(
 			"/me/change-password",
 			new ValidationMiddleware({ body: changePasswordSchema }).validate(),
-			this.userController.changePassword,
+			asyncHandler(this.userController.changePassword),
 		);
 
 		// Social actions
 		this.router.post(
 			"/follow/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.followUserByPublicId,
+			asyncHandler(this.userController.followUserByPublicId),
 		);
 
 		this.router.delete(
 			"/unfollow/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.unfollowUserByPublicId,
+			asyncHandler(this.userController.unfollowUserByPublicId),
 		);
 
 		this.router.get(
 			"/follows/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.checkFollowStatus,
+			asyncHandler(this.userController.checkFollowStatus),
 		);
 
 		// Post interactions
 		this.router.post(
 			"/like/post/:publicId",
 			new ValidationMiddleware({ params: publicIdSchema }).validate(),
-			this.userController.likeActionByPublicId,
+			asyncHandler(this.userController.likeActionByPublicId),
 		);
 
 		// Account deletion (requires password confirmation)
 		this.router.delete(
 			"/me",
 			new ValidationMiddleware({ body: deleteAccountSchema }).validate(),
-			this.userController.deleteMyAccount,
+			asyncHandler(this.userController.deleteMyAccount),
 		);
 	}
 

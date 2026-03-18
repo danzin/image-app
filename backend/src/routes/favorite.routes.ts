@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { FavoriteController } from "../controllers/favorite.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -14,11 +15,11 @@ export class FavoriteRoutes {
 
 	private initializeRoutes(): void {
 		// Post-based favorite actions (add/remove favorite from specific post)
-		this.router.post("/posts/:publicId", this.auth, this.favoriteController.addFavorite);
-		this.router.delete("/posts/:publicId", this.auth, this.favoriteController.removeFavorite);
+		this.router.post("/posts/:publicId", this.auth, asyncHandler(this.favoriteController.addFavorite));
+		this.router.delete("/posts/:publicId", this.auth, asyncHandler(this.favoriteController.removeFavorite));
 
 		// User-based favorites listing (get all favorites for a user)
-		this.router.get("/user", this.auth, this.favoriteController.getFavorites);
+		this.router.get("/user", this.auth, asyncHandler(this.favoriteController.getFavorites));
 	}
 
 	public getRouter(): express.Router {

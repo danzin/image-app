@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { CommentController } from "../controllers/comment.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
@@ -26,7 +27,7 @@ export class CommentRoutes {
 		this.router.get(
 			"/comments/:commentId/replies",
 			new ValidationMiddleware({ params: commentIdSchema, query: commentsQuerySchema }).validate(),
-			this.commentController.getCommentReplies
+			asyncHandler(this.commentController.getCommentReplies)
 		);
 
 		
@@ -34,20 +35,20 @@ export class CommentRoutes {
 		this.router.get(
 			"/users/:publicId/comments",
 			new ValidationMiddleware({ params: userPublicIdSchema }).validate(),
-			this.commentController.getCommentsByUserId
+			asyncHandler(this.commentController.getCommentsByUserId)
 		);
 
 		this.router.get(
 			"/posts/:postPublicId/comments",
 			new ValidationMiddleware({ params: postPublicIdSchema, query: commentsQuerySchema }).validate(),
-			this.commentController.getCommentsByPostId
+			asyncHandler(this.commentController.getCommentsByPostId)
 		);
 		
 		// Comment thread view
 		this.router.get(
 			"/comments/:commentId/thread",
 			new ValidationMiddleware({ params: commentIdSchema }).validate(),
-			this.commentController.getCommentThread
+			asyncHandler(this.commentController.getCommentThread)
 		);
 
 		// Comment management
@@ -55,28 +56,28 @@ export class CommentRoutes {
 			"/comments/:commentId",
 			this.auth,
 			new ValidationMiddleware({ params: commentIdSchema, body: updateCommentSchema }).validate(),
-			this.commentController.updateComment
+			asyncHandler(this.commentController.updateComment)
 		);
 
 		this.router.post(
 			"/comments/:commentId/like",
 			this.auth,
 			new ValidationMiddleware({ params: commentIdSchema }).validate(),
-			this.commentController.likeComment
+			asyncHandler(this.commentController.likeComment)
 		);
 
 		this.router.delete(
 			"/comments/:commentId",
 			this.auth,
 			new ValidationMiddleware({ params: commentIdSchema }).validate(),
-			this.commentController.deleteComment
+			asyncHandler(this.commentController.deleteComment)
 		);
 
 		this.router.post(
 			"/posts/:postPublicId/comments",
 			this.auth,
 			new ValidationMiddleware({ params: postPublicIdSchema, body: createCommentSchema }).validate(),
-			this.commentController.createComment
+			asyncHandler(this.commentController.createComment)
 		);
 
 

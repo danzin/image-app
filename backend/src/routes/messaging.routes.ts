@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { inject, injectable } from "tsyringe";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { MessagingController } from "../controllers/messaging.controller";
@@ -29,25 +30,25 @@ export class MessagingRoutes {
 		this.router.get(
 			"/conversations",
 			new ValidationMiddleware({ query: paginationSchema }).validate(),
-			this.messagingController.listConversations
+			asyncHandler(this.messagingController.listConversations)
 		);
 
 		this.router.get(
 			"/conversations/:conversationId/messages",
 			new ValidationMiddleware({ params: conversationParamsSchema, query: paginationSchema }).validate(),
-			this.messagingController.getConversationMessages
+			asyncHandler(this.messagingController.getConversationMessages)
 		);
 
 		this.router.post(
 			"/conversations/initiate",
 			new ValidationMiddleware({ body: initiateConversationSchema }).validate(),
-			this.messagingController.initiateConversation
+			asyncHandler(this.messagingController.initiateConversation)
 		);
 
 		this.router.post(
 			"/conversations/:conversationId/read",
 			new ValidationMiddleware({ params: conversationParamsSchema }).validate(),
-			this.messagingController.markConversationRead
+			asyncHandler(this.messagingController.markConversationRead)
 		);
 
 		this.router.post(
@@ -56,19 +57,19 @@ export class MessagingRoutes {
 			// Note: validation middleware for body might fail if multipart form data is used and body is not JSON. 
 			// Multer parses body. ValidationMiddleware should handle parsed body.
 			new ValidationMiddleware({ body: sendMessageSchema }).validate(),
-			this.messagingController.sendMessage
+			asyncHandler(this.messagingController.sendMessage)
 		);
 
 		this.router.patch(
 			"/messages/:messageId",
 			new ValidationMiddleware({ params: messageParamsSchema, body: editMessageSchema }).validate(),
-			this.messagingController.editMessage
+			asyncHandler(this.messagingController.editMessage)
 		);
 
 		this.router.delete(
 			"/messages/:messageId",
 			new ValidationMiddleware({ params: messageParamsSchema }).validate(),
-			this.messagingController.deleteMessage
+			asyncHandler(this.messagingController.deleteMessage)
 		);
 	}
 

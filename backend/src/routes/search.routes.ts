@@ -1,4 +1,5 @@
 import express from "express";
+import { asyncHandler } from '@/middleware/async-handler.middleware';
 import { SearchController } from "@/controllers/search.controller";
 import { inject, injectable } from "tsyringe";
 
@@ -12,7 +13,7 @@ export class SearchRoutes {
 	}
 
 	private initializeRoutes(): void {
-		this.router.get("/", this.controller.searchAll);
+		this.router.get("/", asyncHandler(this.controller.searchAll));
 	}
 
 	public getRouter(): express.Router {
