@@ -37,9 +37,9 @@ export class MetricsRoutes {
     });
 
     // transaction health endpoint for monitoring high-concurrency scenarios
-    this.router.get("/transactions", (_req, res) => {
+    this.router.get("/transactions", async (_req, res) => {
       const uowMetrics = this.unitOfWork.getMetrics();
-      const queueMetrics = this.transactionQueue.getMetrics();
+      const queueMetrics = await this.transactionQueue.getMetrics();
 
       res.json({
         unitOfWork: uowMetrics,
@@ -51,7 +51,7 @@ export class MetricsRoutes {
 
   private calculateHealth(
     uowMetrics: ReturnType<UnitOfWork["getMetrics"]>,
-    queueMetrics: ReturnType<TransactionQueueService["getMetrics"]>,
+    queueMetrics: Awaited<ReturnType<TransactionQueueService["getMetrics"]>>,
   ): "healthy" | "degraded" | "unhealthy" {
     const failureRate =
       uowMetrics.totalAttempts > 0

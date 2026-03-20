@@ -1,32 +1,29 @@
 import { injectable, inject } from "tsyringe";
 import { ClientSession } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
+import { RedisService } from "./redis.service";
 import { logger } from "@/utils/winston";
 import { createError } from "@/utils/errors";
 import { TOKENS } from "@/types/tokens";
+import { RedisClientType } from "redis";
 
 /**
  * Priority levels for queued transactions
  */
 export type TransactionPriority = "critical" | "high" | "normal" | "low";
 
-/**
- * Queued transaction item
- */
-interface QueuedTransaction<T = any> {
+interface QueuedJob {
   id: string;
+  jobName: string;
+  payload: any;
   priority: TransactionPriority;
-  work: (session: ClientSession) => Promise<T>;
-  resolve: (value: T) => void;
-  reject: (error: unknown) => void;
   createdAt: number;
   attempts: number;
   maxAttempts: number;
 }
 
 /**
- * TransactionQueueService provides a queue-based approach for handling
- * high-concurrency scenarios where transactions might conflict
+ * TransactionQueueService backed by Redis Lists
  *
  * Use this for:
  * - non-time-critical operations that can be deferred
@@ -35,19 +32,10 @@ interface QueuedTransaction<T = any> {
  */
 @injectable()
 export class TransactionQueueService {
-  private readonly queues: Map<TransactionPriority, QueuedTransaction[]> =
-    new Map([
-      ["critical", []],
-      ["high", []],
-      ["normal", []],
-      ["low", []],
-    ]);
-
+  private handlers = new Map<string, (payload: any, session: ClientSession | null) => Promise<any>>();
+  private blockingClient: RedisClientType | null = null;
   private isProcessing = false;
-  private readonly maxQueueSize = 1000;
-  private readonly processingInterval = 50; // ms between processing batches
-  private intervalHandle: NodeJS.Timeout | null = null;
-
+  
   // metrics
   private metrics = {
     totalEnqueued: 0,
@@ -56,74 +44,60 @@ export class TransactionQueueService {
     totalDropped: 0,
   };
 
-  constructor(@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork) {}
+  constructor(
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService
+  ) {}
 
   /**
-   * Enqueue a transaction for deferred processing
-   * Returns a promise that resolves when the transaction completes
+   * Register a handler for a specific job name.
    */
-  async enqueue<T>(
-    work: (session: ClientSession) => Promise<T>,
-    options?: {
-      priority?: TransactionPriority;
-      maxAttempts?: number;
-      timeout?: number;
-    },
-  ): Promise<T> {
-    const priority = options?.priority ?? "normal";
-    const queue = this.queues.get(priority)!;
-
-    // check queue size limits
-    if (this.getTotalQueueSize() >= this.maxQueueSize) {
-      this.metrics.totalDropped++;
-      throw createError(
-        "InternalError",
-        "Transaction queue is full, please try again later",
-      );
-    }
-
-    return new Promise<T>((resolve, reject) => {
-      const transaction: QueuedTransaction<T> = {
-        id: `txn_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
-        priority,
-        work,
-        resolve,
-        reject,
-        createdAt: Date.now(),
-        attempts: 0,
-        maxAttempts: options?.maxAttempts ?? 3,
-      };
-
-      queue.push(transaction);
-      this.metrics.totalEnqueued++;
-
-      // set timeout if specified
-      if (options?.timeout) {
-        setTimeout(() => {
-          const index = queue.indexOf(transaction);
-          if (index > -1) {
-            queue.splice(index, 1);
-            reject(new Error("Transaction timed out in queue"));
-          }
-        }, options.timeout);
-      }
-
-      // start processing if not already running
-      this.startProcessing();
-    });
+  registerHandler(jobName: string, handler: (payload: any, session: ClientSession | null) => Promise<any>) {
+    this.handlers.set(jobName, handler);
   }
 
   /**
-   * Execute a transaction immediately if system is not under load
+   * Enqueue a job for deferred processing with Redis
+   */
+  async enqueue(
+    jobName: string,
+    payload: any,
+    options?: {
+      priority?: TransactionPriority;
+      maxAttempts?: number;
+    }
+  ): Promise<void> {
+    const priority = options?.priority ?? "normal";
+    
+    const job: QueuedJob = {
+      id: `job_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      jobName,
+      payload,
+      priority,
+      createdAt: Date.now(),
+      attempts: 0,
+      maxAttempts: options?.maxAttempts ?? 3,
+    };
+
+    const queueName = `queue:${priority}`;
+    await this.redisService.clientInstance.lPush(queueName, JSON.stringify(job));
+    this.metrics.totalEnqueued++;
+
+    this.startProcessing();
+  }
+
+  /**
+   * Execute a job immediately if system is not under load
    * otherwise queue it for deferred processing
    */
-  async executeOrQueue<T>(
-    work: (session: ClientSession) => Promise<T>,
+  async executeOrQueue(
+    jobName: string,
+    payload: any,
     options?: {
       priority?: TransactionPriority;
       loadThreshold?: number;
-    },
-  ): Promise<T> {
+    }
+  ): Promise<void> {
     const uowMetrics = this.unitOfWork.getMetrics();
     const loadThreshold = options?.loadThreshold ?? 40;
 
@@ -137,146 +111,155 @@ export class TransactionQueueService {
         {
           queueLength: uowMetrics.currentQueueLength,
           availablePermits: uowMetrics.availablePermits,
-        },
+        }
       );
-      return this.enqueue(work, options);
+      await this.enqueue(jobName, payload, options);
+      return;
     }
 
     // otherwise execute immediately
-    return this.unitOfWork.executeInTransaction(work);
+    const handler = this.handlers.get(jobName);
+    if (!handler) {
+      throw new Error(`[TransactionQueue] No handler registered for job: ${jobName}`);
+    }
+    
+    await this.unitOfWork.executeInTransaction((session) => handler(payload, session));
   }
 
   /**
    * Start the queue processing loop
    */
-  private startProcessing(): void {
+  public async startProcessing(): Promise<void> {
     if (this.isProcessing) return;
-
     this.isProcessing = true;
-    this.intervalHandle = setInterval(
-      () => this.processNextBatch(),
-      this.processingInterval,
-    );
+
+    try {
+      this.blockingClient = this.redisService.clientInstance.duplicate() as RedisClientType;
+      await this.blockingClient.connect();
+      
+      // We don't await processLoop because we want it to run in the background
+      this.processLoop().catch(err => {
+        logger.error("[TransactionQueue] Process loop crashed", { error: err instanceof Error ? err.message : String(err) });
+        this.isProcessing = false;
+      });
+    } catch (error) {
+      logger.error("[TransactionQueue] Failed to start blocking client", { error: error instanceof Error ? error.message : String(error) });
+      this.isProcessing = false;
+    }
   }
 
   /**
    * Stop the queue processing loop
    */
-  stopProcessing(): void {
-    if (this.intervalHandle) {
-      clearInterval(this.intervalHandle);
-      this.intervalHandle = null;
-    }
+  public stopProcessing(): void {
     this.isProcessing = false;
+    if (this.blockingClient) {
+      this.blockingClient.quit().catch(() => {});
+      this.blockingClient = null;
+    }
   }
 
   /**
    * Process the next batch of transactions from the queue
    */
-  private async processNextBatch(): Promise<void> {
-    const uowMetrics = this.unitOfWork.getMetrics();
+  private async processLoop() {
+    while (this.isProcessing && this.blockingClient) {
+      try {
+        const uowMetrics = this.unitOfWork.getMetrics();
+        if (uowMetrics.availablePermits < 5) {
+          await new Promise(res => setTimeout(res, 100)); // sleep when overloaded
+          continue;
+        }
 
-    // don't process if system is overloaded
-    if (uowMetrics.availablePermits < 5) {
-      return;
-    }
+        const queues = [
+          "queue:critical",
+          "queue:high",
+          "queue:normal",
+          "queue:low"
+        ];
+        
+        // Wait for up to 1 second for a job
+        const popResult = await this.blockingClient.brPop(queues, 1);
+        
+        if (!popResult) {
+          continue;
+        }
 
-    // determine how many to process based on available capacity
-    const batchSize = Math.min(uowMetrics.availablePermits - 2, 10);
-    const transactions: QueuedTransaction[] = [];
+        const { key: queueName, element: jobJson } = popResult;
+        const job = JSON.parse(jobJson) as QueuedJob;
 
-    // get transactions by priority
-    for (const priority of [
-      "critical",
-      "high",
-      "normal",
-      "low",
-    ] as TransactionPriority[]) {
-      const queue = this.queues.get(priority)!;
-      while (transactions.length < batchSize && queue.length > 0) {
-        transactions.push(queue.shift()!);
-      }
-    }
+        job.attempts++;
+        const handler = this.handlers.get(job.jobName);
+        
+        if (!handler) {
+          logger.error(`[TransactionQueue] No handler found for ${job.jobName}`);
+          this.metrics.totalFailed++;
+          continue;
+        }
 
-    if (transactions.length === 0) {
-      // no more work, stop processing
-      this.stopProcessing();
-      return;
-    }
-
-    // process transactions in parallel
-    await Promise.all(
-      transactions.map(async (txn) => {
         try {
-          txn.attempts++;
-          const result = await this.unitOfWork.executeInTransaction(txn.work);
+          await this.unitOfWork.executeInTransaction((session) => handler(job.payload, session));
           this.metrics.totalProcessed++;
-          txn.resolve(result);
         } catch (error) {
-          if (txn.attempts < txn.maxAttempts) {
-            // re-queue with same priority
-            const queue = this.queues.get(txn.priority)!;
-            queue.unshift(txn); // add to front for retry
-            logger.warn(`[TransactionQueue] Retrying transaction ${txn.id}`, {
-              attempt: txn.attempts,
-              maxAttempts: txn.maxAttempts,
-            });
+          if (job.attempts < job.maxAttempts) {
+            logger.warn(`[TransactionQueue] Retrying job ${job.id}`, { attempt: job.attempts });
+            // re-queue (use rPush as we BRPOP from the right)
+            await this.redisService.clientInstance.rPush(queueName, JSON.stringify(job));
           } else {
             this.metrics.totalFailed++;
-            logger.error(
-              `[TransactionQueue] Transaction ${txn.id} failed after ${txn.attempts} attempts`,
-            );
-            txn.reject(error);
+            logger.error(`[TransactionQueue] Job ${job.id} failed after ${job.attempts} attempts`);
           }
         }
-      }),
-    );
-  }
-
-  /**
-   * Get total items across all queues
-   */
-  getTotalQueueSize(): number {
-    let total = 0;
-    for (const queue of this.queues.values()) {
-      total += queue.length;
+      } catch (error) {
+        if (!this.isProcessing) break;
+        logger.error("[TransactionQueue] Error in processing loop", { error: error instanceof Error ? error.message : String(error) });
+        await new Promise(res => setTimeout(res, 1000));
+      }
     }
-    return total;
   }
 
   /**
    * Get queue sizes by priority
    */
-  getQueueSizes(): Record<TransactionPriority, number> {
-    return {
-      critical: this.queues.get("critical")!.length,
-      high: this.queues.get("high")!.length,
-      normal: this.queues.get("normal")!.length,
-      low: this.queues.get("low")!.length,
-    };
+  async getQueueSizes(): Promise<Record<TransactionPriority, number>> {
+    try {
+      const client = this.redisService.clientInstance;
+      if (!client?.isOpen) {
+        return { critical: 0, high: 0, normal: 0, low: 0 };
+      }
+      
+      const [critical, high, normal, low] = await Promise.all([
+        client.lLen("queue:critical"),
+        client.lLen("queue:high"),
+        client.lLen("queue:normal"),
+        client.lLen("queue:low")
+      ]);
+      return { critical, high, normal, low };
+    } catch {
+      return { critical: 0, high: 0, normal: 0, low: 0 };
+    }
   }
 
   /**
    * Get queue metrics
    */
-  getMetrics(): typeof this.metrics & {
-    queueSizes: Record<TransactionPriority, number>;
-  } {
+  async getMetrics(): Promise<any> {
+    const queueSizes = await this.getQueueSizes();
     return {
       ...this.metrics,
-      queueSizes: this.getQueueSizes(),
+      queueSizes
     };
   }
 
   /**
    * Clear all queues (for testing/shutdown)
    */
-  clearQueues(): void {
-    for (const [, queue] of this.queues) {
-      while (queue.length > 0) {
-        const txn = queue.pop()!;
-        txn.reject(new Error("Queue cleared"));
-      }
+  async clearQueues(): Promise<void> {
+    const keys = ["queue:critical", "queue:high", "queue:normal", "queue:low"];
+    try {
+      await this.redisService.clientInstance.del(keys);
+    } catch (e) {
+      logger.error("[TransactionQueue] error clearing queues", { error: e instanceof Error ? e.message : String(e) });
     }
   }
 }

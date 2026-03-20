@@ -46,7 +46,22 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
     private readonly transactionQueue: TransactionQueueService,
     @inject(TOKENS.Services.BloomFilter)
     private readonly bloomFilterService: BloomFilterService,
-  ) {}
+  ) {
+    this.transactionQueue.registerHandler(
+      "UPDATE_VIEW_COUNT_METADATA",
+      async (payload: { postPublicId: string }) => {
+        const updatedPost = await this.postReadRepository.findOneByPublicId(
+          payload.postPublicId,
+        );
+        if (updatedPost?.viewsCount !== undefined) {
+          await this.feedService.updatePostViewMeta(
+            payload.postPublicId,
+            updatedPost.viewsCount,
+          );
+        }
+      },
+    );
+  }
 
   async execute(command: RecordPostViewCommand): Promise<boolean> {
     try {
@@ -142,18 +157,8 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
         // Queue redis and cache updates separately from DB transaction
         this.transactionQueue
           .executeOrQueue(
-            async () => {
-              const updatedPost =
-                await this.postReadRepository.findOneByPublicId(
-                  command.postPublicId,
-                );
-              if (updatedPost?.viewsCount !== undefined) {
-                await this.feedService.updatePostViewMeta(
-                  command.postPublicId,
-                  updatedPost.viewsCount,
-                );
-              }
-            },
+            "UPDATE_VIEW_COUNT_METADATA",
+            { postPublicId: command.postPublicId },
             { priority: "low", loadThreshold: 30 },
           )
           .catch((err) => {
