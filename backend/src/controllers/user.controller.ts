@@ -50,6 +50,7 @@ import { VerifyEmailCommand } from "@/application/commands/users/verifyEmail/Ver
 import { PaginationOptions } from "@/types";
 
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -68,9 +69,9 @@ import { logger } from "@/utils/winston";
 @injectable()
 export class UserController {
   constructor(
-    @inject("AuthService") private readonly authService: AuthService,
-    @inject("CommandBus") private readonly commandBus: CommandBus,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.Auth) private readonly authService: AuthService,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
   ) {}
 
   private getRequestContext(req: Request): { ip: string; userAgent: string } {
@@ -130,349 +131,210 @@ export class UserController {
     return userPublicId;
   }
 
-  private mapErrorByMessage(
-    error: unknown,
-    mappings: Array<{
-      contains: string;
-      type: Parameters<typeof createError>[0];
-      message: string;
-    }>,
-  ): Error {
-    if (error instanceof Error) {
-      const normalizedMessage = error.message.toLowerCase();
-      const matched = mappings.find((m) =>
-        normalizedMessage.includes(m.contains.toLowerCase()),
-      );
-      if (matched) {
-        return createError(matched.type, matched.message);
-      }
-      return createError("InternalServerError", error.message);
-    }
-
-    return createError("UnknownError", "An unknown error occurred");
-  }
-
-  register = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { handle, username, email, password } = req.body;
-      const { ip, userAgent } = this.getRequestContext(req);
-      const command = new RegisterUserCommand(
-        handle,
-        username,
-        email,
-        password,
-        undefined,
-        undefined,
+  register = async (req: Request, res: Response) => {
+    const { handle, username, email, password } = req.body;
+    const { ip, userAgent } = this.getRequestContext(req);
+    const command = new RegisterUserCommand(
+      handle,
+      username,
+      email,
+      password,
+      undefined,
+      undefined,
+      ip,
+    );
+    const { user } =
+      await this.commandBus.dispatch<RegisterUserResult>(command);
+    const { accessToken, refreshToken } =
+      await this.authService.issueTokensForUser(this.toSessionUser(user), {
         ip,
-      );
-      const { user } =
-        await this.commandBus.dispatch<RegisterUserResult>(command);
-      const { accessToken, refreshToken } =
-        await this.authService.issueTokensForUser(this.toSessionUser(user), {
-          ip,
-          userAgent,
-        });
-      this.setAuthCookies(res, accessToken, refreshToken);
-      res.status(201).json({ user });
-    } catch (error) {
-      next(error);
-    }
+        userAgent,
+      });
+    this.setAuthCookies(res, accessToken, refreshToken);
+    res.status(201).json({ user });
   };
 
   // Refresh
   getMe = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      if (!decodedUser?.publicId) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-      const query = new GetMeQuery(decodedUser.publicId as string);
-      const { user } = await this.queryBus.execute<GetMeResult>(query);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
+    const { decodedUser } = req;
+    if (!decodedUser?.publicId) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
     }
+    const query = new GetMeQuery(decodedUser.publicId as string);
+    const { user } = await this.queryBus.execute<GetMeResult>(query);
+    res.status(200).json(user);
   };
 
-  login = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { email, password } = req.body;
-      const { user, accessToken, refreshToken } = await this.authService.login(
-        email,
-        password,
-        this.getRequestContext(req),
-      );
-      this.setAuthCookies(res, accessToken, refreshToken);
-      res.status(200).json({ user });
-    } catch (error) {
-      next(error);
-    }
+  login = async (req: Request, res: Response) => {
+    const { email, password } = req.body;
+    const { user, accessToken, refreshToken } = await this.authService.login(
+      email,
+      password,
+      this.getRequestContext(req),
+    );
+    this.setAuthCookies(res, accessToken, refreshToken);
+    res.status(200).json({ user });
   };
 
   refresh = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const refreshToken = req.cookies?.[authCookieNames.refreshToken];
-      if (typeof refreshToken !== "string" || refreshToken.length === 0) {
-        return next(
-          createError("AuthenticationError", "Refresh token missing"),
-        );
-      }
-
-      const {
-        user,
-        accessToken,
-        refreshToken: nextRefreshToken,
-      } = await this.authService.refreshSession(
-        refreshToken,
-        this.getRequestContext(req),
-      );
-      this.setAuthCookies(res, accessToken, nextRefreshToken);
-      res.status(200).json({ user });
-    } catch (error) {
-      next(error);
+    const refreshToken = req.cookies?.[authCookieNames.refreshToken];
+    if (typeof refreshToken !== "string" || refreshToken.length === 0) {
+      return next(createError("AuthenticationError", "Refresh token missing"));
     }
+
+    const {
+      user,
+      accessToken,
+      refreshToken: nextRefreshToken,
+    } = await this.authService.refreshSession(
+      refreshToken,
+      this.getRequestContext(req),
+    );
+    this.setAuthCookies(res, accessToken, nextRefreshToken);
+    res.status(200).json({ user });
   };
 
-  logout = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const refreshToken = req.cookies?.[authCookieNames.refreshToken];
-      const accessToken =
-        req.cookies?.[authCookieNames.accessToken] ||
-        req.cookies?.[authCookieNames.legacyToken];
-      const revocationTasks: Promise<void>[] = [];
+  logout = async (req: Request, res: Response) => {
+    const refreshToken = req.cookies?.[authCookieNames.refreshToken];
+    const accessToken =
+      req.cookies?.[authCookieNames.accessToken] ||
+      req.cookies?.[authCookieNames.legacyToken];
+    const revocationTasks: Promise<void>[] = [];
 
-      if (typeof refreshToken === "string" && refreshToken.length > 0) {
-        revocationTasks.push(
-          this.authService.revokeSessionByRefreshToken(refreshToken),
-        );
-      } else if (typeof accessToken === "string" && accessToken.length > 0) {
-        revocationTasks.push(
-          this.authService.revokeSessionByAccessToken(accessToken),
-        );
-      }
+    if (typeof refreshToken === "string" && refreshToken.length > 0) {
+      revocationTasks.push(
+        this.authService.revokeSessionByRefreshToken(refreshToken),
+      );
+    } else if (typeof accessToken === "string" && accessToken.length > 0) {
+      revocationTasks.push(
+        this.authService.revokeSessionByAccessToken(accessToken),
+      );
+    }
 
-      if (revocationTasks.length > 0) {
-        const revocationResults = await Promise.allSettled(revocationTasks);
-        for (const result of revocationResults) {
-          if (result.status === "rejected") {
-            const reasonMessage =
-              result.reason instanceof Error
-                ? result.reason.message
-                : String(result.reason);
-            logger.warn(`[AUTH] Logout revocation failed: ${reasonMessage}`);
-          }
+    if (revocationTasks.length > 0) {
+      const revocationResults = await Promise.allSettled(revocationTasks);
+      for (const result of revocationResults) {
+        if (result.status === "rejected") {
+          const reasonMessage =
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason);
+          logger.warn(`[AUTH] Logout revocation failed: ${reasonMessage}`);
         }
       }
-
-      this.clearAuthCookies(res);
-      res.status(200).json({ message: "Logged out successfully" });
-    } catch (error) {
-      next(error);
     }
+
+    this.clearAuthCookies(res);
+    res.status(200).json({ message: "Logged out successfully" });
   };
 
   updateProfile = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      const userData = req.body;
-      if (
-        userData.password ||
-        userData.email ||
-        userData.isAdmin ||
-        userData.avatar ||
-        userData.cover
-      ) {
-        return next(createError("ValidationError", "You can not do that."));
-      }
-      if (!decodedUser) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-      if (!decodedUser.publicId)
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-
-      const command = new UpdateProfileCommand(decodedUser.publicId, userData);
-      const updatedUser =
-        await this.commandBus.dispatch<PublicUserDTO>(command);
-      res.status(200).json(updatedUser);
-    } catch (error) {
-      next(error);
+    const { decodedUser } = req;
+    const userData = req.body;
+    if (
+      userData.password ||
+      userData.email ||
+      userData.isAdmin ||
+      userData.avatar ||
+      userData.cover
+    ) {
+      return next(createError("ValidationError", "You can not do that."));
     }
+    if (!decodedUser) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
+    }
+    if (!decodedUser.publicId)
+      return next(createError("UnauthorizedError", "User not authenticated."));
+
+    const command = new UpdateProfileCommand(decodedUser.publicId, userData);
+    const updatedUser = await this.commandBus.dispatch<PublicUserDTO>(command);
+    res.status(200).json(updatedUser);
   };
 
   changePassword = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
+    const { decodedUser } = req;
+    const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
 
-      if (!decodedUser) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-      if (!decodedUser.publicId)
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-
-      const command = new ChangePasswordCommand(
-        decodedUser.publicId,
-        currentPassword,
-        newPassword,
-      );
-      await this.commandBus.dispatch(command);
-      await this.authService.revokeAllSessionsForUser(decodedUser.publicId);
-      this.clearAuthCookies(res);
-
-      res
-        .status(200)
-        .json({
-          message: "Password changed successfully. Please log in again.",
-        });
-    } catch (error) {
-      next(error);
+    if (!decodedUser) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
     }
+    if (!decodedUser.publicId)
+      return next(createError("UnauthorizedError", "User not authenticated."));
+
+    const command = new ChangePasswordCommand(
+      decodedUser.publicId,
+      currentPassword,
+      newPassword,
+    );
+    await this.commandBus.dispatch(command);
+    await this.authService.revokeAllSessionsForUser(decodedUser.publicId);
+    this.clearAuthCookies(res);
+
+    res.status(200).json({
+      message: "Password changed successfully. Please log in again.",
+    });
   };
 
   updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      const file = req.file?.path;
-      if (!file) throw createError("ValidationError", "No file provided");
-      if (!decodedUser) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-      if (!decodedUser.publicId)
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-
-      const command = new UpdateAvatarCommand(decodedUser.publicId, file);
-      const updatedUserDTO =
-        await this.commandBus.dispatch<PublicUserDTO>(command);
-
-      res.status(200).json(updatedUserDTO);
-    } catch (error) {
-      next(error);
+    const { decodedUser } = req;
+    const file = req.file?.path;
+    if (!file) throw createError("ValidationError", "No file provided");
+    if (!decodedUser) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
     }
+    if (!decodedUser.publicId)
+      return next(createError("UnauthorizedError", "User not authenticated."));
+
+    const command = new UpdateAvatarCommand(decodedUser.publicId, file);
+    const updatedUserDTO =
+      await this.commandBus.dispatch<PublicUserDTO>(command);
+
+    res.status(200).json(updatedUserDTO);
   };
 
   updateCover = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      const file = req.file?.path;
-      if (!file) throw createError("ValidationError", "No file provided");
-      if (!decodedUser) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-      if (!decodedUser.publicId)
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-
-      const command = new UpdateCoverCommand(decodedUser.publicId, file);
-      const updatedUserDTO =
-        await this.commandBus.dispatch<PublicUserDTO>(command);
-
-      res.status(200).json(updatedUserDTO);
-    } catch (error) {
-      next(error);
+    const { decodedUser } = req;
+    const file = req.file?.path;
+    if (!file) throw createError("ValidationError", "No file provided");
+    if (!decodedUser) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
     }
+    if (!decodedUser.publicId)
+      return next(createError("UnauthorizedError", "User not authenticated."));
+
+    const command = new UpdateCoverCommand(decodedUser.publicId, file);
+    const updatedUserDTO =
+      await this.commandBus.dispatch<PublicUserDTO>(command);
+
+    res.status(200).json(updatedUserDTO);
   };
 
-  getUserByHandle = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { handle } = req.params;
-      const query = new GetUserByHandleQuery(handle);
-      const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
+  getUserByHandle = async (req: Request, res: Response): Promise<void> => {
+    const { handle } = req.params;
+    const query = new GetUserByHandleQuery(handle);
+    const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
-      res.status(200).json(userDTO);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-        ]),
-      );
-    }
+    res.status(200).json(userDTO);
   };
 
-  getUserByPublicId = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const query = new GetUserByPublicIdQuery(publicId);
-      const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
+  getUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const query = new GetUserByPublicIdQuery(publicId);
+    const userDTO = await this.queryBus.execute<PublicUserDTO>(query);
 
-      res.status(200).json(userDTO);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-        ]),
-      );
-    }
+    res.status(200).json(userDTO);
   };
 
   /**
    * Follow a user by their public ID
    */
-  followUserByPublicId = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const followerPublicId = this.requireAuthenticatedUserPublicId(req);
+  followUserByPublicId = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
-      const command = new FollowUserCommand(followerPublicId, publicId);
-      const result = await this.commandBus.dispatch<FollowUserResult>(command);
-      res.status(200).json(result);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-          {
-            contains: "already following",
-            type: "ValidationError",
-            message: "Already following this user",
-          },
-          {
-            contains: "follow yourself",
-            type: "ValidationError",
-            message: "Cannot follow yourself",
-          },
-        ]),
-      );
-    }
+    const command = new FollowUserCommand(followerPublicId, publicId);
+    const result = await this.commandBus.dispatch<FollowUserResult>(command);
+    res.status(200).json(result);
   };
 
   /**
@@ -481,266 +343,148 @@ export class UserController {
   unfollowUserByPublicId = async (
     req: Request,
     res: Response,
-    next: NextFunction,
   ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const followerPublicId = this.requireAuthenticatedUserPublicId(req);
+    const { publicId } = req.params;
+    const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
-      const command = new FollowUserCommand(followerPublicId, publicId);
-      const result = await this.commandBus.dispatch<FollowUserResult>(command);
-      res.status(200).json(result);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-          {
-            contains: "not following",
-            type: "ValidationError",
-            message: "Not following this user",
-          },
-        ]),
-      );
-    }
+    const command = new FollowUserCommand(followerPublicId, publicId);
+    const result = await this.commandBus.dispatch<FollowUserResult>(command);
+    res.status(200).json(result);
   };
 
   /**
    * Check if current user follows another user
    */
-  checkFollowStatus = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const followerPublicId = this.requireAuthenticatedUserPublicId(req);
+  checkFollowStatus = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const followerPublicId = this.requireAuthenticatedUserPublicId(req);
 
-      const query = new CheckFollowStatusQuery(followerPublicId, publicId);
-      const isFollowing = await this.queryBus.execute<boolean>(query);
-      res.status(200).json({ isFollowing });
-    } catch (error) {
-      next(this.mapErrorByMessage(error, []));
-    }
+    const query = new CheckFollowStatusQuery(followerPublicId, publicId);
+    const isFollowing = await this.queryBus.execute<boolean>(query);
+    res.status(200).json({ isFollowing });
   };
 
-  getFollowers = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+  getFollowers = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-      const query = new GetFollowersQuery(publicId, page, limit);
-      const result = await this.queryBus.execute<GetFollowersResult>(query);
-      res.status(200).json(result);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-        ]),
-      );
-    }
+    const query = new GetFollowersQuery(publicId, page, limit);
+    const result = await this.queryBus.execute<GetFollowersResult>(query);
+    res.status(200).json(result);
   };
 
-  getFollowing = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const { publicId } = req.params;
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 20;
+  getFollowing = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-      const query = new GetFollowingQuery(publicId, page, limit);
-      const result = await this.queryBus.execute<GetFollowingResult>(query);
-      res.status(200).json(result);
-    } catch (error) {
-      next(
-        this.mapErrorByMessage(error, [
-          {
-            contains: "not found",
-            type: "NotFoundError",
-            message: "User not found",
-          },
-        ]),
-      );
-    }
+    const query = new GetFollowingQuery(publicId, page, limit);
+    const result = await this.queryBus.execute<GetFollowingResult>(query);
+    res.status(200).json(result);
   };
 
-  getAccountInfo = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const userPublicId = this.requireAuthenticatedUserPublicId(req);
+  getAccountInfo = async (req: Request, res: Response): Promise<void> => {
+    const userPublicId = this.requireAuthenticatedUserPublicId(req);
 
-      const query = new GetAccountInfoQuery(userPublicId);
-      const result = await this.queryBus.execute<GetAccountInfoResult>(query);
-      res.status(200).json(result.accountInfo);
-    } catch (error) {
-      next(error);
-    }
+    const query = new GetAccountInfoQuery(userPublicId);
+    const result = await this.queryBus.execute<GetAccountInfoResult>(query);
+    res.status(200).json(result.accountInfo);
   };
 
-  deleteMyAccount = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const userPublicId = this.requireAuthenticatedUserPublicId(req);
-      const { password } = req.body;
+  deleteMyAccount = async (req: Request, res: Response): Promise<void> => {
+    const userPublicId = this.requireAuthenticatedUserPublicId(req);
+    const { password } = req.body;
 
-      const command = new DeleteUserCommand(userPublicId, password);
-      await this.commandBus.dispatch(command);
-      await this.authService.revokeAllSessionsForUser(userPublicId);
+    const command = new DeleteUserCommand(userPublicId, password);
+    await this.commandBus.dispatch(command);
+    await this.authService.revokeAllSessionsForUser(userPublicId);
 
-      this.clearAuthCookies(res);
-      res.status(200).json({ message: "Account deleted successfully" });
-    } catch (error) {
-      next(error);
-    }
+    this.clearAuthCookies(res);
+    res.status(200).json({ message: "Account deleted successfully" });
   };
 
-  requestPasswordReset = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const { email } = req.body;
-      const command = new RequestPasswordResetCommand(email);
-      await this.commandBus.dispatch(command);
-      res
-        .status(200)
-        .json({
-          message:
-            "If an account with that email exists, a password reset link has been sent.",
-        });
-    } catch (error) {
-      next(error);
-    }
+  requestPasswordReset = async (req: Request, res: Response) => {
+    const { email } = req.body;
+    const command = new RequestPasswordResetCommand(email);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({
+      message:
+        "If an account with that email exists, a password reset link has been sent.",
+    });
   };
 
-  resetPassword = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { token, newPassword } = req.body;
-      const command = new ResetPasswordCommand(token, newPassword);
-      await this.commandBus.dispatch(command);
-      res.status(200).json({ message: "Password reset successful" });
-    } catch (error) {
-      next(error);
-    }
+  resetPassword = async (req: Request, res: Response) => {
+    const { token, newPassword } = req.body;
+    const command = new ResetPasswordCommand(token, newPassword);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({ message: "Password reset successful" });
   };
 
-  verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { email, token } = req.body;
-      const command = new VerifyEmailCommand(email, token);
-      const user = await this.commandBus.dispatch(command);
-      res.status(200).json(user);
-    } catch (error) {
-      next(error);
-    }
+  verifyEmail = async (req: Request, res: Response) => {
+    const { email, token } = req.body;
+    const command = new VerifyEmailCommand(email, token);
+    const user = await this.commandBus.dispatch(command);
+    res.status(200).json(user);
   };
 
-  getUsers = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const options = { ...req.query } as unknown as PaginationOptions;
-      const query = new GetUsersQuery(options);
-      const result = await this.queryBus.execute(query);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+  getUsers = async (req: Request, res: Response) => {
+    const options = { ...req.query } as unknown as PaginationOptions;
+    const query = new GetUsersQuery(options);
+    const result = await this.queryBus.execute(query);
+    res.status(200).json(result);
   };
 
-  likeActionByPublicId = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      let { publicId } = req.params;
-      const userPublicId = this.requireAuthenticatedUserPublicId(req);
+  likeActionByPublicId = async (req: Request, res: Response) => {
+    let { publicId } = req.params;
+    const userPublicId = this.requireAuthenticatedUserPublicId(req);
 
-      // strip file extension for backward compatibility
-      publicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+    // strip file extension for backward compatibility
+    publicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
 
-      logger.info(
-        `[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`,
-      );
-      logger.info(publicId);
-      const command = new LikeActionByPublicIdCommand(userPublicId, publicId);
-      const result = await this.commandBus.dispatch(command);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
+    logger.info(
+      `[LIKEACTION]: User public ID: ${userPublicId}, Post public ID: ${publicId}`,
+    );
+    logger.info(publicId);
+    const command = new LikeActionByPublicIdCommand(userPublicId, publicId);
+    const result = await this.commandBus.dispatch(command);
+    res.status(200).json(result);
   };
 
   getWhoToFollow = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { decodedUser } = req;
-      if (!decodedUser?.publicId) {
-        return next(
-          createError("UnauthorizedError", "User not authenticated."),
-        );
-      }
-
-      const limit = parseInt(req.query.limit as string) || 5;
-      if (limit > 20) {
-        return next(createError("ValidationError", "Limit cannot exceed 20"));
-      }
-
-      const query = new GetWhoToFollowQuery(
-        decodedUser.publicId as string,
-        limit,
-      );
-      const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
-
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
+    const { decodedUser } = req;
+    if (!decodedUser?.publicId) {
+      return next(createError("UnauthorizedError", "User not authenticated."));
     }
+
+    const limit = parseInt(req.query.limit as string) || 5;
+    if (limit > 20) {
+      return next(createError("ValidationError", "Limit cannot exceed 20"));
+    }
+
+    const query = new GetWhoToFollowQuery(
+      decodedUser.publicId as string,
+      limit,
+    );
+    const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
+
+    res.status(200).json(result);
   };
 
-  getHandleSuggestions = async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) => {
-    try {
-      const queryValue = typeof req.query.q === "string" ? req.query.q : "";
-      const context = req.query.context as HandleSuggestionContext;
-      const limit = parseInt(req.query.limit as string) || 8;
-      const viewerPublicId = req.decodedUser?.publicId;
+  getHandleSuggestions = async (req: Request, res: Response) => {
+    const queryValue = typeof req.query.q === "string" ? req.query.q : "";
+    const context = req.query.context as HandleSuggestionContext;
+    const limit = parseInt(req.query.limit as string) || 8;
+    const viewerPublicId = req.decodedUser?.publicId;
 
-      const query = new GetHandleSuggestionsQuery(
-        queryValue,
-        context,
-        limit,
-        viewerPublicId,
-      );
-      const result = await this.queryBus.execute<HandleSuggestionDTO[]>(query);
+    const query = new GetHandleSuggestionsQuery(
+      queryValue,
+      context,
+      limit,
+      viewerPublicId,
+    );
+    const result = await this.queryBus.execute<HandleSuggestionDTO[]>(query);
 
-      res.status(200).json({ users: result });
-    } catch (error) {
-      next(error);
-    }
+    res.status(200).json({ users: result });
   };
 }

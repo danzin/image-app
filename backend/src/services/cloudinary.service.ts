@@ -1,15 +1,18 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
-import { createError, getErrorMessage , wrapError } from "@/utils/errors";
+import { createError, getErrorMessage, wrapError } from "@/utils/errors";
 import { CloudinaryDeleteResponse, DeletionResult } from "@/types";
 import { injectable, inject } from "tsyringe";
 import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
 import { logger } from "@/utils/winston";
 import { RetryService, RetryPresets } from "./retry.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CloudinaryService implements IImageStorageService {
-  constructor(@inject("RetryService") private readonly retryService: RetryService) {
+  constructor(
+    @inject(TOKENS.Services.Retry) private readonly retryService: RetryService,
+  ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
       api_key: process.env.CLOUDINARY_API_KEY,
@@ -59,29 +62,48 @@ export class CloudinaryService implements IImageStorageService {
     return retryablePatterns.some((p) => message.includes(p));
   }
 
-  async uploadImage(filePath: string, userId: string, folder?: string): Promise<{ url: string; publicId: string }> {
+  async uploadImage(
+    filePath: string,
+    userId: string,
+    folder?: string,
+  ): Promise<{ url: string; publicId: string }> {
     try {
       return await this.retryService.execute(
         () =>
           new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream({ folder: folder || userId }, (error, result) => {
-              if (error) {
-                return reject(wrapError(error, "StorageError"));
-              }
-              if (!result) {
-                return reject(createError("StorageError", "Upload failed, no result returned"));
-              }
-              resolve({
-                url: result.secure_url,
-                publicId: result.public_id,
-              });
-            });
+            const uploadStream = cloudinary.uploader.upload_stream(
+              { folder: folder || userId },
+              (error, result) => {
+                if (error) {
+                  return reject(wrapError(error, "StorageError"));
+                }
+                if (!result) {
+                  return reject(
+                    createError(
+                      "StorageError",
+                      "Upload failed, no result returned",
+                    ),
+                  );
+                }
+                resolve({
+                  url: result.secure_url,
+                  publicId: result.public_id,
+                });
+              },
+            );
 
             const fileStream = fs.createReadStream(filePath);
 
             fileStream.on("error", (err) => {
-              logger.error(`Error reading file for upload: ${filePath}`, { error: err });
-              reject(createError("StorageError", `Failed to read file: ${err.message}`));
+              logger.error(`Error reading file for upload: ${filePath}`, {
+                error: err,
+              });
+              reject(
+                createError(
+                  "StorageError",
+                  `Failed to read file: ${err.message}`,
+                ),
+              );
             });
 
             fileStream.pipe(uploadStream);
@@ -94,16 +116,20 @@ export class CloudinaryService implements IImageStorageService {
     } finally {
       await fs.promises.unlink(filePath).catch((err) => {
         if (err.code !== "ENOENT") {
-          logger.error(`Failed to cleanup temp file: ${filePath}`, { error: err });
+          logger.error(`Failed to cleanup temp file: ${filePath}`, {
+            error: err,
+          });
         }
       });
     }
   }
 
-  async deleteAssetByUrl(requesterId: string, ownerId: string, url: string): Promise<{ result: string }> {
+  async deleteAssetByUrl(
+    requesterId: string,
+    ownerId: string,
+    url: string,
+  ): Promise<{ result: string }> {
     const actualUrl = url || ownerId;
-    const actualOwnerId = url ? ownerId : requesterId;
-
     const publicId = this.extractPublicId(actualUrl);
 
     if (!publicId) {
@@ -143,7 +169,8 @@ export class CloudinaryService implements IImageStorageService {
       .execute(
         async () => {
           // Delete all resources in the folder first (handles all resources in subfolders too)
-          const result = await cloudinary.api.delete_resources_by_prefix(username);
+          const result =
+            await cloudinary.api.delete_resources_by_prefix(username);
 
           // After resources are deleted, we need to delete subfolders and the main folder
           await this.deleteFolderRecursive(username);
@@ -157,7 +184,10 @@ export class CloudinaryService implements IImageStorageService {
       )
       .catch((error) => ({
         result: "error" as const,
-        message: error instanceof Error ? error.message : "Error deleting cloudinary resources",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Error deleting cloudinary resources",
       }));
   }
 
@@ -168,7 +198,9 @@ export class CloudinaryService implements IImageStorageService {
   private async deleteFolderRecursive(folderPath: string): Promise<void> {
     try {
       // Get subfolders of the current folder
-      const { folders } = (await cloudinary.api.sub_folders(folderPath)) as { folders: { path: string }[] };
+      const { folders } = (await cloudinary.api.sub_folders(folderPath)) as {
+        folders: { path: string }[];
+      };
 
       // Recursively delete subfolders first (bottom-up)
       for (const folder of folders) {
@@ -177,7 +209,9 @@ export class CloudinaryService implements IImageStorageService {
 
       // Delete the current folder
       await cloudinary.api.delete_folder(folderPath);
-      logger.info("Successfully deleted Cloudinary folder", { folder: folderPath });
+      logger.info("Successfully deleted Cloudinary folder", {
+        folder: folderPath,
+      });
     } catch (error: unknown) {
       // If folder doesn't exist (404), that's fine.
       // If it's not empty (e.g. more than 1000 resources or other resource types), it will fail here.
@@ -205,8 +239,12 @@ export class CloudinaryService implements IImageStorageService {
    * and the condition is > 0
    * That way there are no unnecessary errors from successful deletions
    */
-  private processDeleteResponse(response: CloudinaryDeleteResponse): DeletionResult {
-    const hasSuccessfulDeletions = Object.values(response.deleted_counts).some((count) => count.original > 0);
+  private processDeleteResponse(
+    response: CloudinaryDeleteResponse,
+  ): DeletionResult {
+    const hasSuccessfulDeletions = Object.values(response.deleted_counts).some(
+      (count) => count.original > 0,
+    );
 
     if (hasSuccessfulDeletions) {
       return { result: "ok" };

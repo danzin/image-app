@@ -4,13 +4,14 @@ import { RequestPasswordResetCommand } from "./RequestPasswordResetCommand";
 import crypto from "crypto";
 import { IUserReadRepository, IUserWriteRepository } from "@/repositories/interfaces";
 import { EmailService } from "@/services/email.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class RequestPasswordResetHandler implements ICommandHandler<RequestPasswordResetCommand, void> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("EmailService") private readonly emailService: EmailService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Services.Email) private readonly emailService: EmailService,
 	) {}
 
 	async execute(command: RequestPasswordResetCommand): Promise<void> {

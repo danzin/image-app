@@ -29,6 +29,7 @@ import { MetricsRoutes } from "../routes/metrics.routes";
 import { MetricsService } from "../metrics/metrics.service";
 import { CommunityRoutes } from "../routes/community.routes";
 import { TelemetryRoutes } from "../routes/telemetry.routes";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class Server {
@@ -59,10 +60,10 @@ export class Server {
     @inject(FeedRoutes) private readonly feedRoutes: FeedRoutes,
     @inject(FavoriteRoutes) private readonly favoriteRoutes: FavoriteRoutes,
     @inject(MessagingRoutes) private readonly messagingRoutes: MessagingRoutes,
-    @inject("MetricsRoutes") private readonly metricsRoutes: MetricsRoutes,
-    @inject("MetricsService") private readonly metricsService: MetricsService,
+    @inject(TOKENS.Routes.Metrics) private readonly metricsRoutes: MetricsRoutes,
+    @inject(TOKENS.Services.Metrics) private readonly metricsService: MetricsService,
     @inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
-    @inject("TelemetryRoutes")
+    @inject(TOKENS.Routes.Telemetry)
     private readonly telemetryRoutes: TelemetryRoutes,
   ) {
     this.app = express();

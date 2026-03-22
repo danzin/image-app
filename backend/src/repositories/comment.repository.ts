@@ -3,13 +3,14 @@ import { BaseRepository } from "./base.repository";
 import { IComment, PopulatedCommentLean, TransformedComment } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { handleMongoError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CommentRepository extends BaseRepository<IComment> {
   /**
    * Initialize the repository with the injected Mongoose Comment model.
    */
-  constructor(@inject("CommentModel") model: Model<IComment>) {
+  constructor(@inject(TOKENS.Models.Comment) model: Model<IComment>) {
     super(model);
   }
 

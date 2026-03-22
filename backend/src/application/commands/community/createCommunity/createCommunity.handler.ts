@@ -11,6 +11,7 @@ import { createError } from "@/utils/errors";
 import { generateSlug } from "@/utils/helpers";
 import { logger } from "@/utils/winston";
 import { ICommunity, IImageStorageService, IUser } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 
 @injectable()
@@ -20,7 +21,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 		@inject(CommunityMemberRepository) private communityMemberRepository: CommunityMemberRepository,
 		@inject(UserRepository) private userRepository: UserRepository,
 		@inject(UnitOfWork) private uow: UnitOfWork,
-		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService
+		@inject(TOKENS.Services.ImageStorage) private readonly imageStorageService: IImageStorageService
 	) {}
 
 	async execute(command: CreateCommunityCommand): Promise<ICommunity> {

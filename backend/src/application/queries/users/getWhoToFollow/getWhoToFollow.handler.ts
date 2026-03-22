@@ -6,6 +6,7 @@ import { RedisService } from "@/services/redis.service";
 import { UserActivityService, PlatformActivityLevel } from "@/services/user-activity.service";
 import { createError , wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export interface SuggestedUser {
 	publicId: string;
@@ -29,9 +30,9 @@ export interface GetWhoToFollowResult {
 @injectable()
 export class GetWhoToFollowQueryHandler implements IQueryHandler<GetWhoToFollowQuery, GetWhoToFollowResult> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("UserActivityService") private readonly userActivityService: UserActivityService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Services.UserActivity) private readonly userActivityService: UserActivityService,
 	) {}
 
 	async execute(query: GetWhoToFollowQuery): Promise<GetWhoToFollowResult> {

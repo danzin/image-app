@@ -6,13 +6,14 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ImageUploadHandler implements IEventHandler<ImageUploadedEvent> {
 	constructor(
-		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
+		@inject(TOKENS.Services.Redis) private readonly redis: RedisService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserPreference) private readonly userPreferenceRepository: UserPreferenceRepository,
 	) {}
 
 	async handle(event: ImageUploadedEvent): Promise<void> {

@@ -1,7 +1,7 @@
 import { ClientSession } from "mongoose";
 import { NotificationRepository } from "@/repositories/notification.respository";
 import { INotification, NotificationPlain } from "@/types";
-import { createError, isErrorWithStatusCode , wrapError } from "@/utils/errors";
+import { createError, isErrorWithStatusCode, wrapError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
@@ -9,282 +9,355 @@ import { UserRepository } from "@/repositories/user.repository";
 import { ImageRepository } from "@/repositories/image.repository";
 import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger, logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class NotificationService {
-	// cache TTL: 30 days for notification hashes
-	private readonly NOTIFICATION_CACHE_TTL = 2592000;
-	private readonly MAX_NOTIFICATIONS_PER_USER = 200;
+  // cache TTL: 30 days for notification hashes
+  private readonly NOTIFICATION_CACHE_TTL = 2592000;
+  private readonly MAX_NOTIFICATIONS_PER_USER = 200;
 
-	constructor(
-		@inject("WebSocketServer") private webSocketServer: WebSocketServer,
-		@inject("NotificationRepository") private notificationRepository: NotificationRepository,
-		@inject("UserRepository") private userRepository: UserRepository,
-		@inject("ImageRepository") private imageRepository: ImageRepository,
-		@inject("RedisService") private redisService: RedisService
-	) {}
+  constructor(
+    @inject(TOKENS.Models.WebSocketServer) private webSocketServer: WebSocketServer,
+    @inject(TOKENS.Repositories.Notification)
+    private notificationRepository: NotificationRepository,
+    @inject(TOKENS.Repositories.User) private userRepository: UserRepository,
+    @inject(TOKENS.Repositories.Image) private imageRepository: ImageRepository,
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
+  ) {}
 
-	private getIO(): SocketIOServer {
-		return this.webSocketServer.getIO();
-	}
+  private getIO(): SocketIOServer {
+    return this.webSocketServer.getIO();
+  }
 
-	private sendNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
-		try {
-			// emit a plain JSON object using toJSON for proper serialization
-			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
+  private sendNotification(
+    io: SocketIOServer,
+    userPublicId: string,
+    notification: INotification,
+  ) {
+    try {
+      // emit a plain JSON object using toJSON for proper serialization
+      const plain: NotificationPlain = notification.toJSON
+        ? notification.toJSON()
+        : { ...notification };
 
-			if (plain._id && !plain.id) {
-				plain.id = String(plain._id);
-			}
+      if (plain._id && !plain.id) {
+        plain.id = String(plain._id);
+      }
 
-			delete plain._id;
-			delete plain.$__;
+      delete plain._id;
+      delete plain.$__;
 
-			logger.info(`Sending new_notification to user ${userPublicId}:`, { notification: plain });
-			io.to(userPublicId).emit("new_notification", plain);
-			logger.info("Notification sent successfully");
-		} catch (error) {
-			logger.error("Error sending notification:", { error });
-			throw wrapError(error);
-		}
-	}
+      logger.info(`Sending new_notification to user ${userPublicId}:`, {
+        notification: plain,
+      });
+      io.to(userPublicId).emit("new_notification", plain);
+      logger.info("Notification sent successfully");
+    } catch (error) {
+      logger.error("Error sending notification:", { error });
+      throw wrapError(error);
+    }
+  }
 
-	private readNotification(io: SocketIOServer, userPublicId: string, notification: INotification) {
-		try {
-			const plain: NotificationPlain = notification.toJSON ? notification.toJSON() : { ...notification };
+  private readNotification(
+    io: SocketIOServer,
+    userPublicId: string,
+    notification: INotification,
+  ) {
+    try {
+      const plain: NotificationPlain = notification.toJSON
+        ? notification.toJSON()
+        : { ...notification };
 
-			if (plain._id && !plain.id) {
-				plain.id = String(plain._id);
-			}
+      if (plain._id && !plain.id) {
+        plain.id = String(plain._id);
+      }
 
-			delete plain._id;
-			delete plain.$__;
+      delete plain._id;
+      delete plain.$__;
 
-			logger.info(`Sending notification_read to user ${userPublicId}:`, { notification: plain });
-			io.to(userPublicId).emit("notification_read", plain);
-			logger.info("Notification read event sent successfully");
-		} catch (error) {
-			logger.error("Error sending notification read event:", { error });
-			throw wrapError(error);
-		}
-	}
+      logger.info(`Sending notification_read to user ${userPublicId}:`, {
+        notification: plain,
+      });
+      io.to(userPublicId).emit("notification_read", plain);
+      logger.info("Notification read event sent successfully");
+    } catch (error) {
+      logger.error("Error sending notification read event:", { error });
+      throw wrapError(error);
+    }
+  }
 
-	async createNotification(data: {
-		receiverId: string; // user publicId
-		actionType: string; // like, comment, follow, etc
-		actorId: string; // actor publicId
-		targetId?: string; // optional target publicId (e.g., post publicId)
-		targetType?: string; // 'post' | 'image' | 'user'
-		targetPreview?: string; // preview text/snippet
-		actorUsername?: string; // optional actor username provided by frontend
-		actorHandle?: string; // optional actor handle provided by frontend
-		actorAvatar?: string; // optional actor avatar URL
-		session?: ClientSession;
-	}): Promise<INotification> {
-		if (!data.receiverId || !data.actionType || !data.actorId) {
-			throw createError("ValidationError", "Missing required notification fields");
-		}
+  async createNotification(data: {
+    receiverId: string; // user publicId
+    actionType: string; // like, comment, follow, etc
+    actorId: string; // actor publicId
+    targetId?: string; // optional target publicId (e.g., post publicId)
+    targetType?: string; // 'post' | 'image' | 'user'
+    targetPreview?: string; // preview text/snippet
+    actorUsername?: string; // optional actor username provided by frontend
+    actorHandle?: string; // optional actor handle provided by frontend
+    actorAvatar?: string; // optional actor avatar URL
+    session?: ClientSession;
+  }): Promise<INotification> {
+    if (!data.receiverId || !data.actionType || !data.actorId) {
+      throw createError(
+        "ValidationError",
+        "Missing required notification fields",
+      );
+    }
 
-		try {
-			//trust publicIds from frontend
-			const userPublicId = data.receiverId.trim();
-			const actorPublicId = data.actorId.trim();
-			const targetPublicId = data.targetId?.trim();
-			let actorUsername = data.actorUsername?.trim();
-			let actorHandle = data.actorHandle?.trim();
-			let actorAvatar = data.actorAvatar?.trim();
-			const targetType = data.targetType?.trim();
-			const targetPreview = data.targetPreview?.trim();
+    try {
+      //trust publicIds from frontend
+      const userPublicId = data.receiverId.trim();
+      const actorPublicId = data.actorId.trim();
+      const targetPublicId = data.targetId?.trim();
+      let actorUsername = data.actorUsername?.trim();
+      let actorHandle = data.actorHandle?.trim();
+      let actorAvatar = data.actorAvatar?.trim();
+      const targetType = data.targetType?.trim();
+      const targetPreview = data.targetPreview?.trim();
 
-			// Fallback: Fetch actor info if missing
-			if ((!actorUsername || !actorHandle || !actorAvatar) && actorPublicId !== "system-monitor") {
-				try {
-					const actor = await this.userRepository.findByPublicId(actorPublicId);
-					if (actor) {
-						actorUsername = actorUsername || actor.username;
-						actorHandle = actorHandle || actor.handle;
-						actorAvatar = actorAvatar || actor.avatar;
-					}
-				} catch (err) {
-					logger.warn(`Failed to fetch fallback actor info for ${actorPublicId}`, { error: err });
-				}
-			}
+      // Fallback: Fetch actor info if missing
+      if (
+        (!actorUsername || !actorHandle || !actorAvatar) &&
+        actorPublicId !== "system-monitor"
+      ) {
+        try {
+          const actor = await this.userRepository.findByPublicId(actorPublicId);
+          if (actor) {
+            actorUsername = actorUsername || actor.username;
+            actorHandle = actorHandle || actor.handle;
+            actorAvatar = actorAvatar || actor.avatar;
+          }
+        } catch (err) {
+          logger.warn(
+            `Failed to fetch fallback actor info for ${actorPublicId}`,
+            { error: err },
+          );
+        }
+      }
 
-			// Final fallback for avatar to ensure it's never empty
-			if (!actorAvatar) {
-				actorAvatar = "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg";
-			}
+      // Final fallback for avatar to ensure it's never empty
+      if (!actorAvatar) {
+        actorAvatar =
+          "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg";
+      }
 
-			const io = this.getIO();
+      const io = this.getIO();
 
-			const notification = await this.notificationRepository.create(
-				{
-					userId: userPublicId,
-					actionType: data.actionType,
-					actorId: actorPublicId,
-					actorUsername,
-					actorHandle,
-					actorAvatar,
-					targetId: targetPublicId,
-					targetType,
-					targetPreview,
-					isRead: false,
-					timestamp: new Date(),
-				},
-				data.session // pass the session
-			);
+      const notification = await this.notificationRepository.create(
+        {
+          userId: userPublicId,
+          actionType: data.actionType,
+          actorId: actorPublicId,
+          actorUsername,
+          actorHandle,
+          actorAvatar,
+          targetId: targetPublicId,
+          targetType,
+          targetPreview,
+          isRead: false,
+          timestamp: new Date(),
+        },
+        data.session, // pass the session
+      );
 
-			// emit via WebSocket
-			this.sendNotification(io, userPublicId, notification);
+      // emit via WebSocket
+      this.sendNotification(io, userPublicId, notification);
 
-			// push to Redis List+Hash using new pattern
-			await this.redisService.pushNotification(userPublicId, notification, this.MAX_NOTIFICATIONS_PER_USER);
+      // push to Redis List+Hash using new pattern
+      await this.redisService.pushNotification(
+        userPublicId,
+        notification,
+        this.MAX_NOTIFICATIONS_PER_USER,
+      );
 
-			return notification;
-		} catch (error) {
-			logger.error(`notificationRepository.create error:`, { error });
-			throw createError("InternalServerError", "Failed to create notification");
-		}
-	}
+      return notification;
+    } catch (error) {
+      logger.error(`notificationRepository.create error:`, { error });
+      throw createError("InternalServerError", "Failed to create notification");
+    }
+  }
 
-	/**
-	 * Get notifications for a user (using Redis List+Hash pattern)
-	 * Supports cursor-based pagination with timestamps
-	 *
-	 * @param userId - user publicId
-	 * @param limit - number of notifications to fetch (default: 20)
-	 * @param before - timestamp cursor for pagination (fetch notifications older than this)
-	 */
-	async getNotifications(userId: string, limit: number = 20, before?: number): Promise<INotification[]> {
-		redisLogger.debug(`getNotifications called`, { userId, before, limit });
+  /**
+   * Get notifications for a user (using Redis List+Hash pattern)
+   * Supports cursor-based pagination with timestamps
+   *
+   * @param userId - user publicId
+   * @param limit - number of notifications to fetch (default: 20)
+   * @param before - timestamp cursor for pagination (fetch notifications older than this)
+   */
+  async getNotifications(
+    userId: string,
+    limit: number = 20,
+    before?: number,
+  ): Promise<INotification[]> {
+    redisLogger.debug(`getNotifications called`, { userId, before, limit });
 
-		try {
-			// if cursor-based pagination (before timestamp), skip Redis and go to MongoDB
-			if (before) {
-				redisLogger.info(`Cursor-based pagination, fetching from DB`, { userId, before });
-				const beforeDate = new Date(before);
-				const dbNotifications = await this.notificationRepository.getNotificationsBeforeTimestamp(
-					userId,
-					beforeDate,
-					limit
-				);
-				redisLogger.debug(`DB returned notifications`, { userId, count: dbNotifications.length });
-				return dbNotifications;
-			}
+    try {
+      // if cursor-based pagination (before timestamp), skip Redis and go to MongoDB
+      if (before) {
+        redisLogger.info(`Cursor-based pagination, fetching from DB`, {
+          userId,
+          before,
+        });
+        const beforeDate = new Date(before);
+        const dbNotifications =
+          await this.notificationRepository.getNotificationsBeforeTimestamp(
+            userId,
+            beforeDate,
+            limit,
+          );
+        redisLogger.debug(`DB returned notifications`, {
+          userId,
+          count: dbNotifications.length,
+        });
+        return dbNotifications;
+      }
 
-			// initial page load - try Redis cache first
-			const notifications = await this.redisService.getUserNotifications(userId, 1, limit);
+      // initial page load - try Redis cache first
+      const notifications = await this.redisService.getUserNotifications(
+        userId,
+        1,
+        limit,
+      );
 
-			if (notifications.length >= limit) {
-				redisLogger.info(`Notification Redis HIT`, { userId, count: notifications.length });
-				return notifications;
-			}
+      if (notifications.length >= limit) {
+        redisLogger.info(`Notification Redis HIT`, {
+          userId,
+          count: notifications.length,
+        });
+        return notifications;
+      }
 
-			// cache miss - fetch from MongoDB
-			redisLogger.info(`Notification Redis MISS, fetching from DB`, { userId });
-			// Fetch up to MAX_NOTIFICATIONS_PER_USER to properly populate the Redis cache,
-			// but only return `limit` items to the caller
-			const allRecentNotifications = await this.notificationRepository.getNotifications(
-				userId,
-				this.MAX_NOTIFICATIONS_PER_USER,
-				0
-			);
+      // cache miss - fetch from MongoDB
+      redisLogger.info(`Notification Redis MISS, fetching from DB`, { userId });
+      // Fetch up to MAX_NOTIFICATIONS_PER_USER to properly populate the Redis cache,
+      // but only return `limit` items to the caller
+      const allRecentNotifications =
+        await this.notificationRepository.getNotifications(
+          userId,
+          this.MAX_NOTIFICATIONS_PER_USER,
+          0,
+        );
 
-			redisLogger.debug(`DB returned notifications for backfill`, {
-				userId,
-				count: allRecentNotifications.length,
-			});
+      redisLogger.debug(`DB returned notifications for backfill`, {
+        userId,
+        count: allRecentNotifications.length,
+      });
 
-			// backfill cache with the full recent window
-			if (allRecentNotifications.length > 0) {
-				this.redisService
-					.backfillNotifications(userId, allRecentNotifications, this.MAX_NOTIFICATIONS_PER_USER)
-					.catch((err: Error) => {
-						errorLogger.error(`Failed to backfill notification cache`, {
-							userId,
-							error: err.message,
-						});
-					});
-			}
+      // backfill cache with the full recent window
+      if (allRecentNotifications.length > 0) {
+        this.redisService
+          .backfillNotifications(
+            userId,
+            allRecentNotifications,
+            this.MAX_NOTIFICATIONS_PER_USER,
+          )
+          .catch((err: Error) => {
+            errorLogger.error(`Failed to backfill notification cache`, {
+              userId,
+              error: err.message,
+            });
+          });
+      }
 
-			return allRecentNotifications.slice(0, limit);
-		} catch (error) {
-			errorLogger.error(`getNotifications error`, {
-				userId,
-				error: error instanceof Error ? error.message : String(error),
-			});
-			if (error instanceof Error) {
-				throw createError("InternalServerError", error.message);
-			} else {
-				throw createError("InternalServerError", String(error));
-			}
-		}
-	}
+      return allRecentNotifications.slice(0, limit);
+    } catch (error) {
+      errorLogger.error(`getNotifications error`, {
+        userId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error) {
+        throw createError("InternalServerError", error.message);
+      } else {
+        throw createError("InternalServerError", String(error));
+      }
+    }
+  }
 
-	async markAsRead(notificationId: string, userPublicId: string) {
-		try {
-			logger.info(`[NotificationService] markAsRead requested`, { notificationId, userPublicId });
-			const io = this.getIO();
-			const updatedNotification = await this.notificationRepository.markAsRead(notificationId, userPublicId);
-			if (!updatedNotification) {
-				logger.info(`[NotificationService] markAsRead not found`, { notificationId, userPublicId });
-				throw createError("PathError", "Notification not found");
-			}
-			logger.info(`[NotificationService] markAsRead updated`, { notificationId, userPublicId });
-			this.readNotification(io, userPublicId, updatedNotification);
+  async markAsRead(notificationId: string, userPublicId: string) {
+    try {
+      logger.info(`[NotificationService] markAsRead requested`, {
+        notificationId,
+        userPublicId,
+      });
+      const io = this.getIO();
+      const updatedNotification = await this.notificationRepository.markAsRead(
+        notificationId,
+        userPublicId,
+      );
+      if (!updatedNotification) {
+        logger.info(`[NotificationService] markAsRead not found`, {
+          notificationId,
+          userPublicId,
+        });
+        throw createError("PathError", "Notification not found");
+      }
+      logger.info(`[NotificationService] markAsRead updated`, {
+        notificationId,
+        userPublicId,
+      });
+      this.readNotification(io, userPublicId, updatedNotification);
 
-			// update in Redis hash (O(1) operation)
-			await this.redisService.markNotificationRead(notificationId);
+      // update in Redis hash (O(1) operation)
+      await this.redisService.markNotificationRead(notificationId);
 
-			return updatedNotification;
-		} catch (error) {
-			// if already an AppError with statuscode then rethrow
-			if (isErrorWithStatusCode(error)) throw error;
-			throw wrapError(error);
-		}
-	}
+      return updatedNotification;
+    } catch (error) {
+      // if already an AppError with statuscode then rethrow
+      if (isErrorWithStatusCode(error)) throw error;
+      throw wrapError(error);
+    }
+  }
 
-	/**
-	 * Get unread notification count for a user using Redis
-	 */
-	async getUnreadCount(userPublicId: string): Promise<number> {
-		try {
-			// try Redis first for fast count
-			const count = await this.redisService.getUnreadNotificationCount(userPublicId);
-			if (count >= 0) {
-				return count;
-			}
+  /**
+   * Get unread notification count for a user using Redis
+   */
+  async getUnreadCount(userPublicId: string): Promise<number> {
+    try {
+      // try Redis first for fast count
+      const count =
+        await this.redisService.getUnreadNotificationCount(userPublicId);
+      if (count >= 0) {
+        return count;
+      }
 
-			// fallback to DB if Redis fails
-			return await this.notificationRepository.getUnreadCount(userPublicId);
-		} catch (error) {
-			// fallback to DB on error
-			logger.warn(`[NotificationService] Redis error getting unread count, falling back to DB:`, { error });
-			return await this.notificationRepository.getUnreadCount(userPublicId);
-		}
-	}
+      // fallback to DB if Redis fails
+      return await this.notificationRepository.getUnreadCount(userPublicId);
+    } catch (error) {
+      // fallback to DB on error
+      logger.warn(
+        `[NotificationService] Redis error getting unread count, falling back to DB:`,
+        { error },
+      );
+      return await this.notificationRepository.getUnreadCount(userPublicId);
+    }
+  }
 
-	async markAllAsRead(userPublicId: string): Promise<number> {
-		try {
-			const modifiedCount = await this.notificationRepository.markAllAsRead(userPublicId);
+  async markAllAsRead(userPublicId: string): Promise<number> {
+    try {
+      const modifiedCount =
+        await this.notificationRepository.markAllAsRead(userPublicId);
 
-			if (modifiedCount > 0) {
-				const notificationIds = await this.redisService.getUserNotificationIds(userPublicId);
-				if (notificationIds.length > 0) {
-					await this.redisService.markNotificationsRead(notificationIds);
-				}
+      if (modifiedCount > 0) {
+        const notificationIds =
+          await this.redisService.getUserNotificationIds(userPublicId);
+        if (notificationIds.length > 0) {
+          await this.redisService.markNotificationsRead(notificationIds);
+        }
 
-				// emit WebSocket event
-				const io = this.getIO();
-				io.to(userPublicId).emit("all_notifications_read");
-			}
+        // emit WebSocket event
+        const io = this.getIO();
+        io.to(userPublicId).emit("all_notifications_read");
+      }
 
-			return modifiedCount;
-		} catch (error) {
-			if (error instanceof Error) {
-				throw createError("InternalServerError", error.message);
-			}
-			throw createError("InternalServerError", String(error));
-		}
-	}
+      return modifiedCount;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw createError("InternalServerError", error.message);
+      }
+      throw createError("InternalServerError", String(error));
+    }
+  }
 }

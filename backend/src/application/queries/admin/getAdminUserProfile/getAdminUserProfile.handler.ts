@@ -4,12 +4,13 @@ import { GetAdminUserProfileQuery } from "./getAdminUserProfile.query";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { DTOService, AdminUserDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetAdminUserProfileQueryHandler implements IQueryHandler<GetAdminUserProfileQuery, AdminUserDTO> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetAdminUserProfileQuery): Promise<AdminUserDTO> {

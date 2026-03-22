@@ -13,17 +13,18 @@ import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { IPost, PopulatedPostUser, PopulatedPostTag } from "@/types";
 import mongoose from "mongoose";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommentCommand, void> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("FeedInteractionHandler") private readonly feedInteractionHandler: FeedInteractionHandler,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userRepository: IUserReadRepository,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.FeedInteraction) private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**

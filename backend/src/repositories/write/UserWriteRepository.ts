@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { IUser } from "@/types";
 import { IUserWriteRepository } from "../interfaces/IUserWriteRepository";
 import { UserRepository } from "../user.repository";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Write-only repository for user mutations
@@ -11,7 +12,7 @@ import { UserRepository } from "../user.repository";
  */
 @injectable()
 export class UserWriteRepository implements IUserWriteRepository {
-	constructor(@inject("UserRepository") private readonly userRepository: UserRepository) {}
+	constructor(@inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository) {}
 
 	async create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser> {
 		return this.userRepository.create(userData, session);

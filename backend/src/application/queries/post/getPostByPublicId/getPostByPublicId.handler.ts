@@ -9,16 +9,17 @@ import { CommunityMemberRepository } from "@/repositories/communityMember.reposi
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
 import { IPost, PostDTO } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetPostByPublicIdQueryHandler implements IQueryHandler<GetPostByPublicIdQuery, PostDTO> {
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
-		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.Favorite) private readonly favoriteRepository: FavoriteRepository,
+		@inject(TOKENS.Repositories.PostLike) private readonly postLikeRepository: PostLikeRepository,
+		@inject(TOKENS.Repositories.CommunityMember) private readonly communityMemberRepository: CommunityMemberRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetPostByPublicIdQuery): Promise<PostDTO> {

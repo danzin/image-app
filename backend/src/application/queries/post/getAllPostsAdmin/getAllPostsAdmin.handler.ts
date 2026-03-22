@@ -4,12 +4,13 @@ import { GetAllPostsAdminQuery } from "./getAllPostsAdmin.query";
 import { IPostReadRepository } from "@/repositories/interfaces";
 import { DTOService } from "@/services/dto.service";
 import { PaginationResult, PostDTO } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetAllPostsAdminQueryHandler implements IQueryHandler<GetAllPostsAdminQuery, PaginationResult<PostDTO>> {
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetAllPostsAdminQuery): Promise<PaginationResult<PostDTO>> {

@@ -27,25 +27,26 @@ import { NotificationRequestedHandler } from "@/application/events/notification/
 import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 const MAX_BODY_LENGTH = 300;
 
 @injectable()
 export class CreatePostCommandHandler implements ICommandHandler<CreatePostCommand, PostDTO> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
-		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
-		@inject("TagService") private readonly tagService: TagService,
-		@inject("ImageService") private readonly imageService: ImageService,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("DTOService") private readonly dtoService: DTOService,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("PostUploadHandler") private readonly postUploadHandler: PostUploadHandler,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.Community) private readonly communityRepository: CommunityRepository,
+		@inject(TOKENS.Repositories.CommunityMember) private readonly communityMemberRepository: CommunityMemberRepository,
+		@inject(TOKENS.Services.Tag) private readonly tagService: TagService,
+		@inject(TOKENS.Services.Image) private readonly imageService: ImageService,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.PostUpload) private readonly postUploadHandler: PostUploadHandler,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 

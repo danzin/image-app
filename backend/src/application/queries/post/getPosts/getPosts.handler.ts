@@ -6,6 +6,7 @@ import { PaginationResult, PostDTO } from "@/types";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { GetTrendingFeedQuery } from "../../feed/getTrendingFeed/getTrendingFeed.query";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetPostsQueryHandler implements IQueryHandler<
@@ -13,8 +14,8 @@ export class GetPostsQueryHandler implements IQueryHandler<
   PaginationResult<PostDTO>
 > {
   constructor(
-    @inject("FeedService") private readonly feedService: FeedService,
-    @inject("QueryBus") private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
   ) {}
 
   async execute(query: GetPostsQuery): Promise<PaginationResult<PostDTO>> {

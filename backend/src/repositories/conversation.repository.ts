@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { IConversation, HydratedConversation, PaginationResult } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 /*
 Notes on messaging system:
@@ -28,7 +29,7 @@ Notes on messaging system:
 */
 @injectable()
 export class ConversationRepository extends BaseRepository<IConversation> {
-	constructor(@inject("ConversationModel") model: Model<IConversation>) {
+	constructor(@inject(TOKENS.Models.Conversation) model: Model<IConversation>) {
 		super(model);
 	}
 

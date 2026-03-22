@@ -17,29 +17,30 @@ import { FeedService } from "@/services/feed/feed.service";
 import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 @injectable()
 export class LikeActionCommandHandler implements ICommandHandler<
   LikeActionCommand,
   IPost
 > {
   constructor(
-    @inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Repositories.PostRead)
     private readonly postReadRepository: IPostReadRepository,
-    @inject("PostWriteRepository")
+    @inject(TOKENS.Repositories.PostWrite)
     private readonly postWriteRepository: IPostWriteRepository,
-    @inject("PostLikeRepository")
+    @inject(TOKENS.Repositories.PostLike)
     private readonly postLikeRepository: PostLikeRepository,
-    @inject("UserActionRepository")
+    @inject(TOKENS.Repositories.UserAction)
     private readonly userActionRepository: UserActionRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
-    @inject("EventBus") private readonly eventBus: EventBus,
-    @inject("NotificationRequestedHandler")
+    @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.CQRS.Handlers.NotificationRequested)
     private readonly notificationRequestedHandler: NotificationRequestedHandler,
-    @inject("FeedInteractionHandler")
+    @inject(TOKENS.CQRS.Handlers.FeedInteraction)
     private readonly feedInteractionHandler: FeedInteractionHandler,
-    @inject("FeedService") private readonly feedService: FeedService,
+    @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
   ) {}
 
   // TODO: REFACTOR AND REMOVE OLD METHODS

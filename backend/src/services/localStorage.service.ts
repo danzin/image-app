@@ -3,260 +3,289 @@ import * as fs from "fs";
 import * as path from "path";
 import { IImageStorageService } from "@/types";
 import { injectable } from "tsyringe";
-import { createError , wrapError } from "@/utils/errors";
+import { createError, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 
 @injectable()
 export class LocalStorageService implements IImageStorageService {
-	private uploadsDir: string;
+  private uploadsDir: string;
 
-	constructor() {
-		this.uploadsDir = path.join(process.cwd(), "uploads");
-		if (!fs.existsSync(this.uploadsDir)) {
-			fs.mkdirSync(this.uploadsDir, { recursive: true });
-		}
-		logger.info("LocalStorageService: Uploads directory path inside container:", { uploadsDir: this.uploadsDir });
-	}
+  constructor() {
+    this.uploadsDir = path.join(process.cwd(), "uploads");
+    if (!fs.existsSync(this.uploadsDir)) {
+      fs.mkdirSync(this.uploadsDir, { recursive: true });
+    }
+    logger.info(
+      "LocalStorageService: Uploads directory path inside container:",
+      { uploadsDir: this.uploadsDir },
+    );
+  }
 
-	async uploadImage(filePath: string, userId: string, folder?: string): Promise<{ url: string; publicId: string }> {
-		try {
-			const safeUserId = this.validateUserId(userId);
+  async uploadImage(
+    filePath: string,
+    userId: string,
+    folder?: string,
+  ): Promise<{ url: string; publicId: string }> {
+    try {
+      const safeUserId = this.validateUserId(userId);
 
-			const filename = `${uuidv4()}.png`;
-			logger.info("UserID in local storage service:", { safeUserId });
-			
-			let userDir = this.safeJoin(this.uploadsDir, safeUserId);
-			let urlPrefix = `/uploads/${safeUserId}`;
-			let publicIdPrefix = safeUserId;
+      const filename = `${uuidv4()}.png`;
+      logger.info("UserID in local storage service:", { safeUserId });
 
-			if (folder) {
-				// Sanitize folder to avoid traversal
-				const safeFolder = folder
-					.split("/")
-					.filter(Boolean)
-					.map((s) => {
-						// only allow alphanumeric and hyphens for folder names
-						return s.replace(/[^a-z0-9-]/gi, "");
-					})
-					.join("/");
+      let userDir = this.safeJoin(this.uploadsDir, safeUserId);
+      let urlPrefix = `/uploads/${safeUserId}`;
+      let publicIdPrefix = safeUserId;
 
-				if (safeFolder) {
-					userDir = this.safeJoin(this.uploadsDir, safeFolder);
-					urlPrefix = `/uploads/${safeFolder}`;
-					publicIdPrefix = safeFolder;
-				}
-			}
+      if (folder) {
+        // Sanitize folder to avoid traversal
+        const safeFolder = folder
+          .split("/")
+          .filter(Boolean)
+          .map((s) => {
+            // only allow alphanumeric and hyphens for folder names
+            return s.replace(/[^a-z0-9-]/gi, "");
+          })
+          .join("/");
 
-			const destFilepath = this.safeJoin(userDir, filename);
+        if (safeFolder) {
+          userDir = this.safeJoin(this.uploadsDir, safeFolder);
+          urlPrefix = `/uploads/${safeFolder}`;
+          publicIdPrefix = safeFolder;
+        }
+      }
 
-			if (!fs.existsSync(userDir)) {
-				fs.mkdirSync(userDir, { recursive: true });
-			}
+      const destFilepath = this.safeJoin(userDir, filename);
 
-			// Copy instead of rename so retries can re-read the temp file if a transaction retries
-			await fs.promises.copyFile(filePath, destFilepath);
+      if (!fs.existsSync(userDir)) {
+        fs.mkdirSync(userDir, { recursive: true });
+      }
 
-			const url = `${urlPrefix}/${filename}`;
+      // Copy instead of rename so retries can re-read the temp file if a transaction retries
+      await fs.promises.copyFile(filePath, destFilepath);
 
-			// Return composite publicId to enable O(1) deletion later
-			return { url, publicId: `${publicIdPrefix}/${filename}` };
-		} catch (error) {
-			logger.error("Failed to upload image", { error });
-			throw wrapError(error, "StorageError");
-		}
-	}
+      const url = `${urlPrefix}/${filename}`;
 
-	async deleteImage(publicId: string): Promise<void> {
-		try {
-			// Try to parse composite publicId (userId/filename)
-			const parts = publicId.split("/");
-			if (parts.length === 2) {
-				const [userId, filename] = parts;
-				const safeUserId = this.validateUserId(userId);
-				const safeFileName = this.validateFileName(filename);
-				const filePath = this.safeJoin(this.uploadsDir, safeUserId, safeFileName);
+      // Return composite publicId to enable O(1) deletion later
+      return { url, publicId: `${publicIdPrefix}/${filename}` };
+    } catch (error) {
+      logger.error("Failed to upload image", { error });
+      throw wrapError(error, "StorageError");
+    }
+  }
 
-				if (fs.existsSync(filePath)) {
-					await fs.promises.unlink(filePath);
-					return;
-				}
-			}
+  async deleteImage(publicId: string): Promise<void> {
+    try {
+      // Try to parse composite publicId (userId/filename)
+      const parts = publicId.split("/");
+      if (parts.length === 2) {
+        const [userId, filename] = parts;
+        const safeUserId = this.validateUserId(userId);
+        const safeFileName = this.validateFileName(filename);
+        const filePath = this.safeJoin(
+          this.uploadsDir,
+          safeUserId,
+          safeFileName,
+        );
 
-			// Fallback: If publicId is just a filename (legacy data), we must scan (slow)
-			// This ensures backward compatibility but should be avoided for new uploads
-			if (!publicId.includes("/")) {
-				logger.warn("Performing slow O(N) scan for legacy image deletion", { publicId });
-				await this.deleteLegacyImage(publicId);
-			}
-		} catch (error) {
-			logger.error("Error deleting asset", { error });
-			throw wrapError(error, "StorageError");
-		}
-	}
+        if (fs.existsSync(filePath)) {
+          await fs.promises.unlink(filePath);
+          return;
+        }
+      }
 
-	private async deleteLegacyImage(filename: string): Promise<void> {
-		const safeFileName = this.validateFileName(filename);
-		const userDirs = await fs.promises.readdir(this.uploadsDir);
+      // Fallback: If publicId is just a filename (legacy data), we must scan (slow)
+      // This ensures backward compatibility but should be avoided for new uploads
+      if (!publicId.includes("/")) {
+        logger.warn("Performing slow O(N) scan for legacy image deletion", {
+          publicId,
+        });
+        await this.deleteLegacyImage(publicId);
+      }
+    } catch (error) {
+      logger.error("Error deleting asset", { error });
+      throw wrapError(error, "StorageError");
+    }
+  }
 
-		for (const userDir of userDirs) {
-			try {
-				const safeUserDir = this.validateUserId(userDir);
-				const filePath = this.safeJoin(this.uploadsDir, safeUserDir, safeFileName);
+  private async deleteLegacyImage(filename: string): Promise<void> {
+    const safeFileName = this.validateFileName(filename);
+    const userDirs = await fs.promises.readdir(this.uploadsDir);
 
-				if (fs.existsSync(filePath)) {
-					await fs.promises.unlink(filePath);
-					return;
-				}
-			} catch (err) {
-				continue;
-			}
-		}
-	}
+    for (const userDir of userDirs) {
+      try {
+        const safeUserDir = this.validateUserId(userDir);
+        const filePath = this.safeJoin(
+          this.uploadsDir,
+          safeUserDir,
+          safeFileName,
+        );
 
-	/**
-	 * Delete an asset by URL
-	 * Authorization must be handled by the calling handler/service BEFORE invoking this method
-	 * This service only handles file operations, not permission checks
-	 */
-	async deleteAssetByUrl(_requesterPublicId: string, ownerPublicId: string, url: string): Promise<{ result: string }> {
-		// parse & decode URL robustly
-		const parsed = (() => {
-			try {
-				return new URL(url, "http://localhost");
-			} catch {
-				return null;
-			}
-		})();
-		if (!parsed) throw createError("StorageError", "Invalid URL");
-		const pathname = decodeURIComponent(parsed.pathname);
+        if (fs.existsSync(filePath)) {
+          await fs.promises.unlink(filePath);
+          return;
+        }
+      } catch (err) {
+        continue;
+      }
+    }
+  }
 
-		const publicId = this.extractPublicId(pathname);
-		if (!publicId) throw createError("StorageError", "Could not extract publicId from URL");
+  /**
+   * Delete an asset by URL
+   * Authorization must be handled by the calling handler/service BEFORE invoking this method
+   * This service only handles file operations, not permission checks
+   */
+  async deleteAssetByUrl(
+    _requesterPublicId: string,
+    ownerPublicId: string,
+    url: string,
+  ): Promise<{ result: string }> {
+    // parse & decode URL robustly
+    const parsed = (() => {
+      try {
+        return new URL(url, "http://localhost");
+      } catch {
+        return null;
+      }
+    })();
+    if (!parsed) throw createError("StorageError", "Invalid URL");
+    const pathname = decodeURIComponent(parsed.pathname);
 
-		// validate filename and ownerPublicId
-		const safeFileName = this.validateFileName(publicId);
-		const safeOwner = this.validateUserId(ownerPublicId);
+    const publicId = this.extractPublicId(pathname);
+    if (!publicId)
+      throw createError("StorageError", "Could not extract publicId from URL");
 
-		const assetPath = this.safeJoin(this.uploadsDir, safeOwner, safeFileName);
+    // validate filename and ownerPublicId
+    const safeFileName = this.validateFileName(publicId);
+    const safeOwner = this.validateUserId(ownerPublicId);
 
-		// lstat + symlink/file check
-		const stat = await fs.promises.lstat(assetPath).catch(() => null);
-		if (!stat || !stat.isFile()) {
-			return { result: "skipped" };
-		}
-		if (stat.isSymbolicLink()) {
-			throw createError("StorageError", "Refusing to remove symlink");
-		}
+    const assetPath = this.safeJoin(this.uploadsDir, safeOwner, safeFileName);
 
-		await fs.promises.unlink(assetPath);
-		return { result: "ok" };
-	}
+    // lstat + symlink/file check
+    const stat = await fs.promises.lstat(assetPath).catch(() => null);
+    if (!stat || !stat.isFile()) {
+      return { result: "skipped" };
+    }
+    if (stat.isSymbolicLink()) {
+      throw createError("StorageError", "Refusing to remove symlink");
+    }
 
-	async deleteMany(username: string): Promise<{ result: "ok" | "error"; message?: string }> {
-		try {
-			// validate username is a proper UUID v4
-			const safeUsername = this.validateUserId(username);
+    await fs.promises.unlink(assetPath);
+    return { result: "ok" };
+  }
 
-			// safely join paths with traversal protection
-			const userDir = this.safeJoin(this.uploadsDir, safeUsername);
+  async deleteMany(
+    username: string,
+  ): Promise<{ result: "ok" | "error"; message?: string }> {
+    try {
+      // validate username is a proper UUID v4
+      const safeUsername = this.validateUserId(username);
 
-			if (!fs.existsSync(userDir)) {
-				return {
-					result: "ok",
-					message: "User folder does not exist, nothing to delete.",
-				};
-			}
+      // safely join paths with traversal protection
+      const userDir = this.safeJoin(this.uploadsDir, safeUsername);
 
-			const files = await fs.promises.readdir(userDir);
-			if (files.length === 0) {
-				return { result: "ok", message: "User folder is already empty." };
-			}
+      if (!fs.existsSync(userDir)) {
+        return {
+          result: "ok",
+          message: "User folder does not exist, nothing to delete.",
+        };
+      }
 
-			// only delete files that match the expected format
-			await Promise.all(
-				files.map(async (file) => {
-					try {
-						// validate each file is a proper image file
-						const safeFileName = this.validateFileName(file);
-						const filePath = this.safeJoin(userDir, safeFileName);
-						await fs.promises.unlink(filePath);
-					} catch (err) {
-						// skip files that don't match expected format
-						logger.warn(`Skipping invalid file: ${file}`, { error: err });
-					}
-				}),
-			);
+      const files = await fs.promises.readdir(userDir);
+      if (files.length === 0) {
+        return { result: "ok", message: "User folder is already empty." };
+      }
 
-			// remove directory if empty
-			const remainingFiles = await fs.promises.readdir(userDir);
-			if (remainingFiles.length === 0) {
-				await fs.promises.rmdir(userDir);
-			}
+      // only delete files that match the expected format
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            // validate each file is a proper image file
+            const safeFileName = this.validateFileName(file);
+            const filePath = this.safeJoin(userDir, safeFileName);
+            await fs.promises.unlink(filePath);
+          } catch (err) {
+            // skip files that don't match expected format
+            logger.warn(`Skipping invalid file: ${file}`, { error: err });
+          }
+        }),
+      );
 
-			return {
-				result: "ok",
-				message: `Successfully deleted all images for user: ${safeUsername}`,
-			};
-		} catch (error) {
-			logger.error("Error deleting multiple assets:", { error });
-			return {
-				result: "error",
-				message: error instanceof Error ? error.message : "Error deleting local storage resources",
-			};
-		}
-	}
+      // remove directory if empty
+      const remainingFiles = await fs.promises.readdir(userDir);
+      if (remainingFiles.length === 0) {
+        await fs.promises.rmdir(userDir);
+      }
 
-	/* Methods to validate inputs in order to prevent directory traversal attacks */
-	private validateUserId(userId: string): string {
-		// remove null bytes and trim
-		const cleaned = String(userId).replace(/\0/g, "").trim();
+      return {
+        result: "ok",
+        message: `Successfully deleted all images for user: ${safeUsername}`,
+      };
+    } catch (error) {
+      logger.error("Error deleting multiple assets:", { error });
+      return {
+        result: "error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Error deleting local storage resources",
+      };
+    }
+  }
 
-		const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /* Methods to validate inputs in order to prevent directory traversal attacks */
+  private validateUserId(userId: string): string {
+    // remove null bytes and trim
+    const cleaned = String(userId).replace(/\0/g, "").trim();
 
-		if (!uuidV4Regex.test(cleaned)) {
-			throw createError("SecurityError", "Invalid user identifier format");
-		}
+    const uuidV4Regex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-		return cleaned;
-	}
+    if (!uuidV4Regex.test(cleaned)) {
+      throw createError("SecurityError", "Invalid user identifier format");
+    }
 
-	private validateFileName(fileName: string): string {
-		// remove null bytes and use basename to prevent directory traversal
-		const cleaned = path.basename(String(fileName).replace(/\0/g, "").trim());
+    return cleaned;
+  }
 
-		// expected format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx.png
-		const fileNameRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpg|jpeg|webp)$/i;
+  private validateFileName(fileName: string): string {
+    // remove null bytes and use basename to prevent directory traversal
+    const cleaned = path.basename(String(fileName).replace(/\0/g, "").trim());
 
-		if (!fileNameRegex.test(cleaned)) {
-			throw createError("SecurityError", "Invalid file name format");
-		}
+    // expected format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx.png
+    const fileNameRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(png|jpg|jpeg|webp)$/i;
 
-		return cleaned;
-	}
+    if (!fileNameRegex.test(cleaned)) {
+      throw createError("SecurityError", "Invalid file name format");
+    }
 
-	// safe path join that prevents directory traversal
-	private safeJoin(base: string, ...segments: string[]): string {
-		const resolvedBase = path.resolve(base);
-		const resolvedPath = path.resolve(resolvedBase, ...segments);
-		const relativePath = path.relative(resolvedBase, resolvedPath);
+    return cleaned;
+  }
 
-		// check if resolved path escapes base directory
-		if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
-			throw createError("SecurityError", "Path traversal attempt detected");
-		}
+  // safe path join that prevents directory traversal
+  private safeJoin(base: string, ...segments: string[]): string {
+    const resolvedBase = path.resolve(base);
+    const resolvedPath = path.resolve(resolvedBase, ...segments);
+    const relativePath = path.relative(resolvedBase, resolvedPath);
 
-		return resolvedPath;
-	}
+    // check if resolved path escapes base directory
+    if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
+      throw createError("SecurityError", "Path traversal attempt detected");
+    }
 
-	private extractPublicId(url: string): string | null {
-		try {
-			// if url is absolute, parse; if relative, prepend origin so URL works
-			const parsed = new URL(url, "http://localhost");
-			const pathname = decodeURIComponent(parsed.pathname);
-			const match = pathname.match(/\/uploads\/[^\/]+\/([^\/]+)$/);
-			return match ? match[1] : null;
-		} catch {
-			return null;
-		}
-	}
+    return resolvedPath;
+  }
+
+  private extractPublicId(url: string): string | null {
+    try {
+      // if url is absolute, parse; if relative, prepend origin so URL works
+      const parsed = new URL(url, "http://localhost");
+      const pathname = decodeURIComponent(parsed.pathname);
+      const match = pathname.match(/\/uploads\/[^\/]+\/([^\/]+)$/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
 }

@@ -14,21 +14,22 @@ import { MetricsRoutes } from "../routes/metrics.routes";
 import { CommunityRoutes } from "../routes/community.routes";
 import { TelemetryRoutes } from "../routes/telemetry.routes";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export function registerRoutes(): void {
-  container.registerSingleton("UserRoutes", UserRoutes);
-  container.registerSingleton("ImageRoutes", ImageRoutes);
-  container.registerSingleton("PostRoutes", PostRoutes);
-  container.registerSingleton("CommentRoutes", CommentRoutes);
-  container.registerSingleton("SearchRoutes", SearchRoutes);
-  container.registerSingleton("AdminUserRoutes", AdminUserRoutes);
-  container.registerSingleton("NotificationRoutes", NotificationRoutes);
-  container.registerSingleton("FeedRoutes", FeedRoutes);
-  container.registerSingleton("FavoriteRoutes", FavoriteRoutes);
-  container.registerSingleton("MessagingRoutes", MessagingRoutes);
-  container.registerSingleton("MetricsRoutes", MetricsRoutes);
-  container.registerSingleton("CommunityRoutes", CommunityRoutes);
-  container.registerSingleton("TelemetryRoutes", TelemetryRoutes);
+  container.registerSingleton(TOKENS.Routes.User, UserRoutes);
+  container.registerSingleton(TOKENS.Routes.Image, ImageRoutes);
+  container.registerSingleton(TOKENS.Routes.Post, PostRoutes);
+  container.registerSingleton(TOKENS.Routes.Comment, CommentRoutes);
+  container.registerSingleton(TOKENS.Routes.Search, SearchRoutes);
+  container.registerSingleton(TOKENS.Routes.AdminUser, AdminUserRoutes);
+  container.registerSingleton(TOKENS.Routes.Notification, NotificationRoutes);
+  container.registerSingleton(TOKENS.Routes.Feed, FeedRoutes);
+  container.registerSingleton(TOKENS.Routes.Favorite, FavoriteRoutes);
+  container.registerSingleton(TOKENS.Routes.Messaging, MessagingRoutes);
+  container.registerSingleton(TOKENS.Routes.Metrics, MetricsRoutes);
+  container.registerSingleton(TOKENS.Routes.Community, CommunityRoutes);
+  container.registerSingleton(TOKENS.Routes.Telemetry, TelemetryRoutes);
 
   logger.info("[di] Routes registered");
 }

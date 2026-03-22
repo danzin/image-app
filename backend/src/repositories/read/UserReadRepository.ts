@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { IUser, PaginationOptions, PaginationResult, UserSuggestion } from "@/types";
 import { IUserReadRepository } from "../interfaces/IUserReadRepository";
 import { UserRepository } from "../user.repository";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Read-only repository for user queries
@@ -11,7 +12,7 @@ import { UserRepository } from "../user.repository";
  */
 @injectable()
 export class UserReadRepository implements IUserReadRepository {
-	constructor(@inject("UserRepository") private readonly userRepository: UserRepository) {}
+	constructor(@inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository) {}
 
 	async findById(id: string, session?: ClientSession): Promise<IUser | null> {
 		return this.userRepository.findById(id, session);

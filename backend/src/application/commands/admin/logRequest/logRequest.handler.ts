@@ -3,12 +3,13 @@ import { ICommandHandler } from "@/application/common/interfaces/command-handler
 import { LogRequestCommand } from "./logRequest.command";
 import { RequestLogRepository } from "@/repositories/requestLog.repository";
 import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class LogRequestCommandHandler implements ICommandHandler<LogRequestCommand, void> {
 	constructor(
-		@inject("RequestLogRepository") private readonly requestLogRepository: RequestLogRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.RequestLog) private readonly requestLogRepository: RequestLogRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
 	) {}
 
 async execute(command: LogRequestCommand): Promise<void> {

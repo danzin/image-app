@@ -5,13 +5,14 @@ import { IPostReadRepository } from "@/repositories/interfaces";
 import { TagService } from "@/services/tag.service";
 import { DTOService } from "@/services/dto.service";
 import { PaginationResult, PostDTO } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class SearchPostsByTagsQueryHandler implements IQueryHandler<SearchPostsByTagsQuery, PaginationResult<PostDTO>> {
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("TagService") private readonly tagService: TagService,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.Tag) private readonly tagService: TagService,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: SearchPostsByTagsQuery): Promise<PaginationResult<PostDTO>> {

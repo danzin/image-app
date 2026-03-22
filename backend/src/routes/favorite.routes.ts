@@ -1,27 +1,44 @@
 import express from "express";
+import { asyncHandler } from "@/middleware/async-handler.middleware";
 import { FavoriteController } from "../controllers/favorite.controller";
 import { AuthFactory } from "../middleware/authentication.middleware";
 import { inject, injectable } from "tsyringe";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FavoriteRoutes {
-	private router = express.Router();
-	private auth = AuthFactory.bearerToken().handle();
+  private router = express.Router();
+  private auth = AuthFactory.bearerToken().handle();
 
-	constructor(@inject("FavoriteController") private readonly favoriteController: FavoriteController) {
-		this.initializeRoutes();
-	}
+  constructor(
+    @inject(TOKENS.Controllers.Favorite)
+    private readonly favoriteController: FavoriteController,
+  ) {
+    this.initializeRoutes();
+  }
 
-	private initializeRoutes(): void {
-		// Post-based favorite actions (add/remove favorite from specific post)
-		this.router.post("/posts/:publicId", this.auth, this.favoriteController.addFavorite);
-		this.router.delete("/posts/:publicId", this.auth, this.favoriteController.removeFavorite);
+  private initializeRoutes(): void {
+    // Post-based favorite actions (add/remove favorite from specific post)
+    this.router.post(
+      "/posts/:publicId",
+      this.auth,
+      asyncHandler(this.favoriteController.addFavorite),
+    );
+    this.router.delete(
+      "/posts/:publicId",
+      this.auth,
+      asyncHandler(this.favoriteController.removeFavorite),
+    );
 
-		// User-based favorites listing (get all favorites for a user)
-		this.router.get("/user", this.auth, this.favoriteController.getFavorites);
-	}
+    // User-based favorites listing (get all favorites for a user)
+    this.router.get(
+      "/user",
+      this.auth,
+      asyncHandler(this.favoriteController.getFavorites),
+    );
+  }
 
-	public getRouter(): express.Router {
-		return this.router;
-	}
+  public getRouter(): express.Router {
+    return this.router;
+  }
 }

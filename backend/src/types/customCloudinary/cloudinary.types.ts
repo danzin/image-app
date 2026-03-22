@@ -1,10 +1,10 @@
 export interface CloudinaryResponse {
-  result: 'ok' | 'error';
+  result: "ok" | "error";
   message?: string;
 }
 
 export interface DeletionResult {
-  result: 'ok' | 'error';
+  result: "ok" | "error";
   message?: string;
 }
 

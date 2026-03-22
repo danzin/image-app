@@ -7,6 +7,7 @@ import { FollowRepository } from "@/repositories/follow.repository";
 import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { DTOService, AdminUserDTO } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 export interface UserStatsResult {
 	user: AdminUserDTO;
@@ -24,11 +25,11 @@ export interface UserStatsResult {
 @injectable()
 export class GetUserStatsQueryHandler implements IQueryHandler<GetUserStatsQuery, UserStatsResult> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.Image) private readonly imageRepository: ImageRepository,
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Repositories.PostLike) private readonly postLikeRepository: PostLikeRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetUserStatsQuery): Promise<UserStatsResult> {

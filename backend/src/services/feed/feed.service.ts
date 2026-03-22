@@ -4,17 +4,18 @@ import { FeedReadService } from "./feed-read.service";
 import { FeedInteractionService } from "./feed-interaction.service";
 import { FeedMetaService } from "./feed-meta.service";
 import { FeedFanoutService } from "./feed-fanout.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedService {
   constructor(
-    @inject("FeedReadService")
+    @inject(TOKENS.Services.FeedRead)
     private readonly feedReadService: FeedReadService,
-    @inject("FeedInteractionService")
+    @inject(TOKENS.Services.FeedInteraction)
     private readonly feedInteractionService: FeedInteractionService,
-    @inject("FeedMetaService")
+    @inject(TOKENS.Services.FeedMeta)
     private readonly feedMetaService: FeedMetaService,
-    @inject("FeedFanoutService")
+    @inject(TOKENS.Services.FeedFanout)
     private readonly feedFanoutService: FeedFanoutService,
   ) {}
 

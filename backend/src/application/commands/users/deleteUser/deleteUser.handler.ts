@@ -25,31 +25,32 @@ import { EventBus } from "@/application/common/buses/event.bus";
 import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserCommand, void> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("ImageRepository") private readonly imageRepository: ImageRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("FavoriteRepository") private readonly favoriteRepository: FavoriteRepository,
-		@inject("NotificationRepository") private readonly notificationRepository: NotificationRepository,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
-		@inject("ConversationRepository") private readonly conversationRepository: ConversationRepository,
-		@inject("MessageRepository") private readonly messageRepository: MessageRepository,
-		@inject("PostViewRepository") private readonly postViewRepository: PostViewRepository,
-		@inject("CommunityRepository") private readonly communityRepository: CommunityRepository,
-		@inject("CommunityMemberRepository") private readonly communityMemberRepository: CommunityMemberRepository,
-		@inject("ImageStorageService") private readonly imageStorageService: IImageStorageService,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("UserModel") private readonly userModel: Model<IUser>,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.Image) private readonly imageRepository: ImageRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.PostLike) private readonly postLikeRepository: PostLikeRepository,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Repositories.Favorite) private readonly favoriteRepository: FavoriteRepository,
+		@inject(TOKENS.Repositories.Notification) private readonly notificationRepository: NotificationRepository,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Repositories.UserPreference) private readonly userPreferenceRepository: UserPreferenceRepository,
+		@inject(TOKENS.Repositories.Conversation) private readonly conversationRepository: ConversationRepository,
+		@inject(TOKENS.Repositories.Message) private readonly messageRepository: MessageRepository,
+		@inject(TOKENS.Repositories.PostView) private readonly postViewRepository: PostViewRepository,
+		@inject(TOKENS.Repositories.Community) private readonly communityRepository: CommunityRepository,
+		@inject(TOKENS.Repositories.CommunityMember) private readonly communityMemberRepository: CommunityMemberRepository,
+		@inject(TOKENS.Services.ImageStorage) private readonly imageStorageService: IImageStorageService,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.Models.User) private readonly userModel: Model<IUser>,
 	) {}
 
 	async execute(command: DeleteUserCommand): Promise<void> {

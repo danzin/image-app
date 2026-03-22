@@ -12,6 +12,7 @@ import { RedisService } from "@/services/redis.service";
 import { createError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 export interface FollowUserResult {
 	action: "followed" | "unfollowed";
@@ -20,14 +21,14 @@ export interface FollowUserResult {
 @injectable()
 export class FollowUserCommandHandler implements ICommandHandler<FollowUserCommand, FollowUserResult> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("FollowRepository") private readonly followRepository: FollowRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("RedisService") private readonly redisService: RedisService,
-		@inject("EventBus") private readonly eventBus: EventBus,
-		@inject("NotificationRequestedHandler")
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.Follow) private readonly followRepository: FollowRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
+		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
 		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 

@@ -2,10 +2,11 @@ import { inject, injectable } from "tsyringe";
 import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { MessageSentEvent } from "@/application/events/message/message.event";
 import { RedisService } from "@/services/redis.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class MessageSentHandler implements IEventHandler<MessageSentEvent> {
-	constructor(@inject("RedisService") private readonly redisService: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private readonly redisService: RedisService) {}
 
 	async handle(event: MessageSentEvent): Promise<void> {
 		await this.redisService.publish(

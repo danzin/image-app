@@ -7,14 +7,15 @@ import { UserPreferenceRepository } from "@/repositories/userPreference.reposito
 import { UserActivityService } from "@/services/user-activity.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostUploadHandler implements IEventHandler<PostUploadedEvent> {
 	constructor(
-		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
-		@inject("UserPreferenceRepository") private readonly userPreferenceRepository: UserPreferenceRepository,
-		@inject("UserActivityService") private readonly userActivityService: UserActivityService,
+		@inject(TOKENS.Services.Redis) private readonly redis: RedisService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.UserPreference) private readonly userPreferenceRepository: UserPreferenceRepository,
+		@inject(TOKENS.Services.UserActivity) private readonly userActivityService: UserActivityService,
 	) {}
 
 	async handle(event: PostUploadedEvent): Promise<void> {

@@ -5,10 +5,11 @@ import { createError, isNamedError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
 import { escapeRegex } from "@/utils/sanitizers";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ImageRepository extends BaseRepository<IImage> {
-	constructor(@inject("ImageModel") model: Model<IImage>) {
+	constructor(@inject(TOKENS.Models.Image) model: Model<IImage>) {
 		super(model);
 	}
 

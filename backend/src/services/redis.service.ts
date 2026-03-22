@@ -9,6 +9,7 @@ import { MetricsService } from "../metrics/metrics.service";
 import { RedisNotificationModule } from "./redis/redis-notification.module";
 import { RedisFeedModule } from "./redis/redis-feed.module";
 import { RedisStreamModule } from "./redis/redis-stream.module";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Configuration for resilient Redis operations
@@ -23,7 +24,9 @@ interface ResilienceConfigWithFallback<T> extends ResilienceConfigBase {
   fallbackValue: T;
 }
 
-type ResilienceConfig<T> = ResilienceConfigBase | ResilienceConfigWithFallback<T>;
+type ResilienceConfig<T> =
+  | ResilienceConfigBase
+  | ResilienceConfigWithFallback<T>;
 
 type RedisScanResult = {
   cursor: number;
@@ -49,9 +52,13 @@ export class RedisService {
   private readonly feedModule: RedisFeedModule;
   private readonly streamModule: RedisStreamModule;
 
-  constructor(@inject("MetricsService") private readonly metricsService: MetricsService) {
+  constructor(
+    @inject(TOKENS.Services.Metrics) private readonly metricsService: MetricsService,
+  ) {
     const runningInDocker = fs.existsSync("/.dockerenv"); // check if inside docker environment
-    const redisUrl = process.env.REDIS_URL || (runningInDocker ? "redis://redis:6379" : "redis://127.0.0.1:6379");
+    const redisUrl =
+      process.env.REDIS_URL ||
+      (runningInDocker ? "redis://redis:6379" : "redis://127.0.0.1:6379");
 
     this.metricsService.setRedisConnectionState(false);
 
@@ -65,7 +72,10 @@ export class RedisService {
       this.metricsService.setRedisConnectionState(true);
     });
     this.client.on("error", (err) => {
-      redisLogger.error(`Redis client error`, { error: err.message, stack: err.stack });
+      redisLogger.error(`Redis client error`, {
+        error: err.message,
+        stack: err.stack,
+      });
       this.metricsService.setRedisConnectionState(false);
     });
     this.client.on("end", () => {
@@ -73,7 +83,10 @@ export class RedisService {
     });
 
     // avoid opening sockets during unit tests (causes Mocha to hang)
-    if (process.env.NODE_ENV !== "test" || process.env.REDIS_AUTOCONNECT === "true") {
+    if (
+      process.env.NODE_ENV !== "test" ||
+      process.env.REDIS_AUTOCONNECT === "true"
+    ) {
       void this.connect();
     }
   }
@@ -82,24 +95,31 @@ export class RedisService {
     return this.client;
   }
 
-
-
   private parseJson<T>(payload: string): T {
     return JSON.parse(payload) as T;
   }
 
-  private hasFallback<T>(config?: ResilienceConfig<T>): config is ResilienceConfigWithFallback<T> {
+  private hasFallback<T>(
+    config?: ResilienceConfig<T>,
+  ): config is ResilienceConfigWithFallback<T> {
     return config !== undefined && "fallbackValue" in config;
   }
 
-  private async scanKeys(cursor: number, match: string, count: number): Promise<RedisScanResult> {
+  private async scanKeys(
+    cursor: number,
+    match: string,
+    count: number,
+  ): Promise<RedisScanResult> {
     const result = await this.client.scan(cursor, {
       MATCH: match,
       COUNT: count,
     });
 
     return {
-      cursor: typeof result.cursor === "number" ? result.cursor : Number(result.cursor),
+      cursor:
+        typeof result.cursor === "number"
+          ? result.cursor
+          : Number(result.cursor),
       keys: result.keys,
     };
   }
@@ -132,7 +152,10 @@ export class RedisService {
    * Execute a Redis operation with retry logic and optional fallback
    * Use for critical cache operations that should be resilient to transient failures
    */
-  async withResilience<T>(operation: () => Promise<T>, config?: ResilienceConfig<T>): Promise<T> {
+  async withResilience<T>(
+    operation: () => Promise<T>,
+    config?: ResilienceConfig<T>,
+  ): Promise<T> {
     const cfg = { ...DEFAULT_RESILIENCE, ...config };
     let lastError: Error | undefined;
 
@@ -193,10 +216,16 @@ export class RedisService {
   /**
    * Exponential backoff with jitter for Redis retries
    */
-  private async backoffWithJitter(attempt: number, baseMs: number, maxMs: number): Promise<void> {
+  private async backoffWithJitter(
+    attempt: number,
+    baseMs: number,
+    maxMs: number,
+  ): Promise<void> {
     const exponentialDelay = Math.min(baseMs * Math.pow(2, attempt - 1), maxMs);
     const jitteredDelay = Math.floor(Math.random() * exponentialDelay);
-    return new Promise((resolve) => setTimeout(resolve, Math.max(jitteredDelay, 10)));
+    return new Promise((resolve) =>
+      setTimeout(resolve, Math.max(jitteredDelay, 10)),
+    );
   }
 
   /**
@@ -279,7 +308,11 @@ export class RedisService {
    * @param value - Partial object to merge into existing data.
    * @param ttl - (Optional) Reset the TTL on update.
    */
-  async merge<T extends Record<string, unknown>>(key: string, value: Partial<T>, ttl?: number): Promise<void> {
+  async merge<T extends Record<string, unknown>>(
+    key: string,
+    value: Partial<T>,
+    ttl?: number,
+  ): Promise<void> {
     const existing = await this.get<T>(key);
     const next = existing ? { ...existing, ...value } : value;
     await this.set(key, next, ttl);
@@ -313,7 +346,9 @@ export class RedisService {
       }
     } while (cursor !== 0);
 
-    redisLogger.info(`[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`);
+    redisLogger.info(
+      `[Redis] Deleted ${deletedCount} keys matching pattern: ${keyPattern}`,
+    );
     return deletedCount;
   }
 
@@ -361,7 +396,10 @@ export class RedisService {
    * @param channels - List of channels to listen to.
    * @param messageHandler - Callback function invoked on message receipt.
    */
-  async subscribe<T>(channels: string[], messageHandler: (channel: string, message: T) => void): Promise<void> {
+  async subscribe<T>(
+    channels: string[],
+    messageHandler: (channel: string, message: T) => void,
+  ): Promise<void> {
     const subscriber = this.client.duplicate();
     await subscriber.connect();
 
@@ -392,7 +430,12 @@ export class RedisService {
    * @param ttl - (Optional) Time-to-live in seconds. Defaults to 600s.
    * @returns {Promise<void>} Resolves when the pipeline executes successfully.
    */
-  async setWithTags<T>(key: string, value: T, tags: string[], ttl?: number): Promise<void> {
+  async setWithTags<T>(
+    key: string,
+    value: T,
+    tags: string[],
+    ttl?: number,
+  ): Promise<void> {
     if (tags.length === 0) {
       await this.set(key, value, ttl);
       return;
@@ -515,19 +558,43 @@ export class RedisService {
 
   // ====== NOTIFICATIONS ======
 
-  async pushNotification(userId: string, notification: INotification, maxCount = 200): Promise<void> {
-    return this.notificationModule.pushNotification(userId, notification, maxCount);
+  async pushNotification(
+    userId: string,
+    notification: INotification,
+    maxCount = 200,
+  ): Promise<void> {
+    return this.notificationModule.pushNotification(
+      userId,
+      notification,
+      maxCount,
+    );
   }
 
-  async backfillNotifications(userId: string, notifications: INotification[], maxCount = 200): Promise<void> {
-    return this.notificationModule.backfillNotifications(userId, notifications, maxCount);
+  async backfillNotifications(
+    userId: string,
+    notifications: INotification[],
+    maxCount = 200,
+  ): Promise<void> {
+    return this.notificationModule.backfillNotifications(
+      userId,
+      notifications,
+      maxCount,
+    );
   }
 
-  async getUserNotifications(userId: string, page = 1, limit = 20): Promise<INotification[]> {
+  async getUserNotifications(
+    userId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<INotification[]> {
     return this.notificationModule.getUserNotifications(userId, page, limit);
   }
 
-  async getUserNotificationIds(userId: string, start = 0, end = -1): Promise<string[]> {
+  async getUserNotificationIds(
+    userId: string,
+    start = 0,
+    end = -1,
+  ): Promise<string[]> {
     return this.notificationModule.getUserNotificationIds(userId, start, end);
   }
 
@@ -544,19 +611,44 @@ export class RedisService {
   }
 
   // ====== FEEDS ======
-  async addToFeed(userId: string, postId: string, timestamp: number, feedType = "for_you"): Promise<void> {
+  async addToFeed(
+    userId: string,
+    postId: string,
+    timestamp: number,
+    feedType = "for_you",
+  ): Promise<void> {
     return this.feedModule.addToFeed(userId, postId, timestamp, feedType);
   }
 
-  async addToFeedsBatch(userIds: string[], postId: string, timestamp: number, feedType = "for_you"): Promise<void> {
-    return this.feedModule.addToFeedsBatch(userIds, postId, timestamp, feedType);
+  async addToFeedsBatch(
+    userIds: string[],
+    postId: string,
+    timestamp: number,
+    feedType = "for_you",
+  ): Promise<void> {
+    return this.feedModule.addToFeedsBatch(
+      userIds,
+      postId,
+      timestamp,
+      feedType,
+    );
   }
 
-  async getFeedPage(userId: string, page: number, limit: number, feedType = "for_you"): Promise<string[]> {
+  async getFeedPage(
+    userId: string,
+    page: number,
+    limit: number,
+    feedType = "for_you",
+  ): Promise<string[]> {
     return this.feedModule.getFeedPage(userId, page, limit, feedType);
   }
 
-  async getFeedWithCursor(userId: string, limit: number, cursor?: string, feedType = "for_you"): Promise<{
+  async getFeedWithCursor(
+    userId: string,
+    limit: number,
+    cursor?: string,
+    feedType = "for_you",
+  ): Promise<{
     ids: string[];
     hasMore: boolean;
     nextCursor?: string;
@@ -564,11 +656,19 @@ export class RedisService {
     return this.feedModule.getFeedWithCursor(userId, limit, cursor, feedType);
   }
 
-  async removeFromFeed(userId: string, postId: string, feedType = "for_you"): Promise<void> {
+  async removeFromFeed(
+    userId: string,
+    postId: string,
+    feedType = "for_you",
+  ): Promise<void> {
     return this.feedModule.removeFromFeed(userId, postId, feedType);
   }
 
-  async removeFromFeedsBatch(userIds: string[], postId: string, feedType = "for_you"): Promise<void> {
+  async removeFromFeedsBatch(
+    userIds: string[],
+    postId: string,
+    feedType = "for_you",
+  ): Promise<void> {
     return this.feedModule.removeFromFeedsBatch(userIds, postId, feedType);
   }
 
@@ -628,27 +728,49 @@ export class RedisService {
   }
 
   // ====== STREAM / TRENDING ======
-  async pushToStream(stream = "stream:interactions", payload: Record<string, unknown>): Promise<string> {
+  async pushToStream(
+    stream = "stream:interactions",
+    payload: Record<string, unknown>,
+  ): Promise<string> {
     return this.streamModule.pushToStream(stream, payload);
   }
 
-  async createStreamConsumerGroup(stream = "stream:interactions", group = "trendingGroup"): Promise<void> {
+  async createStreamConsumerGroup(
+    stream = "stream:interactions",
+    group = "trendingGroup",
+  ): Promise<void> {
     return this.streamModule.createStreamConsumerGroup(stream, group);
   }
 
-  async ackStreamMessages(stream: string, group: string, ...ids: string[]): Promise<number> {
+  async ackStreamMessages(
+    stream: string,
+    group: string,
+    ...ids: string[]
+  ): Promise<number> {
     return this.streamModule.ackStreamMessages(stream, group, ...ids);
   }
 
-  async updateTrendingScore(postId: string, score: number, key = "trending:posts"): Promise<void> {
+  async updateTrendingScore(
+    postId: string,
+    score: number,
+    key = "trending:posts",
+  ): Promise<void> {
     return this.feedModule.updateTrendingScore(postId, score, key);
   }
 
-  async incrTrendingScore(postId: string, delta: number, key = "trending:posts"): Promise<number> {
+  async incrTrendingScore(
+    postId: string,
+    delta: number,
+    key = "trending:posts",
+  ): Promise<number> {
     return this.feedModule.incrTrendingScore(postId, delta, key);
   }
 
-  async getTrendingRange(start: number, end: number, key = "trending:posts"): Promise<string[]> {
+  async getTrendingRange(
+    start: number,
+    end: number,
+    key = "trending:posts",
+  ): Promise<string[]> {
     return this.feedModule.getTrendingRange(start, end, key);
   }
 
@@ -656,7 +778,11 @@ export class RedisService {
     return this.feedModule.getTrendingCount(key);
   }
 
-  async getTrendingFeedWithCursor(limit: number, cursor?: string, key = "trending:posts"): Promise<{
+  async getTrendingFeedWithCursor(
+    limit: number,
+    cursor?: string,
+    key = "trending:posts",
+  ): Promise<{
     ids: string[];
     hasMore: boolean;
     nextCursor?: string;
@@ -664,11 +790,23 @@ export class RedisService {
     return this.feedModule.getTrendingFeedWithCursor(limit, cursor, key);
   }
 
-  async xPendingRange(stream: string, group: string, start = "-", end = "+", count = 1000): Promise<unknown> {
+  async xPendingRange(
+    stream: string,
+    group: string,
+    start = "-",
+    end = "+",
+    count = 1000,
+  ): Promise<unknown> {
     return this.streamModule.xPendingRange(stream, group, start, end, count);
   }
 
-  async xClaim(stream: string, group: string, consumer: string, minIdleMs: number, ids: string[]): Promise<unknown> {
+  async xClaim(
+    stream: string,
+    group: string,
+    consumer: string,
+    minIdleMs: number,
+    ids: string[],
+  ): Promise<unknown> {
     return this.streamModule.xClaim(stream, group, consumer, minIdleMs, ids);
   }
 
@@ -680,11 +818,19 @@ export class RedisService {
     return this.feedModule.zrem(key, member);
   }
 
-  async zrangeByScore(key: string, min: string, max: string): Promise<string[]> {
+  async zrangeByScore(
+    key: string,
+    min: string,
+    max: string,
+  ): Promise<string[]> {
     return this.feedModule.zrangeByScore(key, min, max);
   }
 
-  async zremRangeByScore(key: string, min: string, max: string): Promise<number> {
+  async zremRangeByScore(
+    key: string,
+    min: string,
+    max: string,
+  ): Promise<number> {
     return this.feedModule.zremRangeByScore(key, min, max);
   }
 

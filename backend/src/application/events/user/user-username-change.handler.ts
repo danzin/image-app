@@ -4,10 +4,11 @@ import { UserUsernameChangedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserUsernameChangedHandler implements IEventHandler<UserUsernameChangedEvent> {
-	constructor(@inject("RedisService") private readonly redis: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private readonly redis: RedisService) {}
 
 	async handle(event: UserUsernameChangedEvent): Promise<void> {
 		logger.info(`User ${event.userPublicId} changed username from "${event.oldUsername}" to "${event.newUsername}"`);

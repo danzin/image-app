@@ -1,10 +1,11 @@
 import { inject, injectable } from "tsyringe";
 import { RedisService } from "../redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class FeedMetaService {
-	constructor(@inject("RedisService") private redisService: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private redisService: RedisService) {}
 
 	public async updatePostLikeMeta(postPublicId: string, newTotalLikes: number): Promise<void> {
 		const metaKey = CacheKeyBuilder.getPostMetaKey(postPublicId);

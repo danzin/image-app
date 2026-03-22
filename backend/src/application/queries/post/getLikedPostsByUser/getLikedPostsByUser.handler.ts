@@ -6,14 +6,15 @@ import { IPostReadRepository, IUserReadRepository } from "@/repositories/interfa
 import { DTOService } from "@/services/dto.service";
 import { PaginationResult, PostDTO } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetLikedPostsByUserHandler implements IQueryHandler<GetLikedPostsByUserQuery, PaginationResult<PostDTO>> {
 	constructor(
-		@inject("PostLikeRepository") private readonly postLikeRepository: PostLikeRepository,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.PostLike) private readonly postLikeRepository: PostLikeRepository,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetLikedPostsByUserQuery): Promise<PaginationResult<PostDTO>> {

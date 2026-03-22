@@ -13,6 +13,7 @@ import {
 import { createError } from "@/utils/errors";
 import { TagRepository } from "./tag.repository";
 import { decodeCursor, encodeCursor } from "@/utils/cursorCodec";
+import { TOKENS } from "@/types/tokens";
 
 type ProjectedFeedPost = FeedPost & {
   _id?: mongoose.Types.ObjectId;
@@ -40,8 +41,8 @@ type MetadataFacetResult<T> = {
 @injectable()
 export class PostRepository extends BaseRepository<IPost> {
   constructor(
-    @inject("PostModel") model: Model<IPost>,
-    @inject("TagRepository") private readonly tagRepository: TagRepository
+    @inject(TOKENS.Models.Post) model: Model<IPost>,
+    @inject(TOKENS.Repositories.Tag) private readonly tagRepository: TagRepository
   ) {
     super(model);
   }
@@ -116,7 +117,7 @@ export class PostRepository extends BaseRepository<IPost> {
 
   async findByCommunityId(communityId: string, page: number = 1, limit: number = 20): Promise<IPost[]> {
     const skip = (page - 1) * limit;
-    return this.model.find({ communityId }).sort({ createdAt: -1 }).skip(skip).limit(limit).populate("image").exec();
+    return this.model.find({ communityId }).sort({ createdAt: -1, _id: -1 }).skip(skip).limit(limit).populate("image").exec();
   }
 
   async countByCommunityId(communityId: string): Promise<number> {
@@ -542,7 +543,7 @@ export class PostRepository extends BaseRepository<IPost> {
           cursorFilter = {
             $or: [{ createdAt: { $lt: cursorDate } }, { createdAt: cursorDate, _id: { $lt: cursorId } }],
           };
-        } catch { } // ignore invalid
+        } catch { return { data: [], hasMore: false as boolean }; }
       }
 
       let results: ProjectedFeedPost[] = [];
@@ -696,7 +697,7 @@ export class PostRepository extends BaseRepository<IPost> {
             },
           },
         },
-        { $sort: { rankScore: -1 } },
+        { $sort: { rankScore: -1, _id: -1 } },
         { $skip: skip },
         { $limit: limit },
         // now do expensive $lookups only on the paginated result set
@@ -785,7 +786,7 @@ export class PostRepository extends BaseRepository<IPost> {
             },
           },
         },
-        { $sort: { trendScore: -1 } },
+        { $sort: { trendScore: -1, _id: -1 } },
         { $skip: skip },
         { $limit: limit },
         // now do expensive $lookups only on the paginated result set
@@ -829,7 +830,7 @@ export class PostRepository extends BaseRepository<IPost> {
   async getNewFeed(limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
     try {
       const pipeline: PipelineStage[] = [
-        { $sort: { createdAt: -1 } },
+        { $sort: { createdAt: -1, _id: -1 } },
         { $skip: skip },
         { $limit: limit },
         ...this.getStandardLookups(),
@@ -1035,9 +1036,7 @@ export class PostRepository extends BaseRepository<IPost> {
               $or: [{ createdAt: { $gt: cursorDate } }, { createdAt: cursorDate, _id: { $gt: cursorId } }],
             };
           }
-        } catch {
-          // invalid cursor, ignore and start from beginning
-        }
+        } catch { return { data: [], hasMore: false }; }
       }
 
       const sortDirection = direction === "forward" ? -1 : 1;
@@ -1146,9 +1145,7 @@ export class PostRepository extends BaseRepository<IPost> {
               $or: [{ trendScore: { $gt: cursorScore } }, { trendScore: cursorScore, _id: { $gt: cursorId } }],
             };
           }
-        } catch {
-          // invalid cursor, ignore
-        }
+        } catch { return { data: [], hasMore: false }; }
       }
 
       const sortDirection = direction === "forward" ? -1 : 1;
@@ -1279,9 +1276,7 @@ export class PostRepository extends BaseRepository<IPost> {
               $or: [{ rankScore: { $gt: cursorScore } }, { rankScore: cursorScore, _id: { $gt: cursorId } }],
             };
           }
-        } catch {
-          // invalid cursor, ignore
-        }
+        } catch { return { data: [], hasMore: false }; }
       }
 
       const sortDirection = direction === "forward" ? -1 : 1;
@@ -1489,7 +1484,7 @@ export class PostRepository extends BaseRepository<IPost> {
             metadata: this.buildFacetPipeline({ $count: "total" }),
             // data facet
             data: this.buildFacetPipeline(
-              { $sort: { trendScore: -1 } },
+              { $sort: { trendScore: -1, _id: -1 } },
               { $skip: skip },
               { $limit: limit },
               ...lookups,
@@ -1534,6 +1529,7 @@ export class PostRepository extends BaseRepository<IPost> {
     }
   }
 }
+
 
 
 

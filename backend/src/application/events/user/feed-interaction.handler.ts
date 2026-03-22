@@ -8,16 +8,17 @@ import { UserPreferenceRepository } from "@/repositories/userPreference.reposito
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 @injectable()
 export class FeedInteractionHandler implements IEventHandler<UserInteractedWithPostEvent> {
   constructor(
-    @inject("FeedService") private readonly feedService: FeedService,
-    @inject("RedisService") private readonly redis: RedisService,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
+    @inject(TOKENS.Services.Redis) private readonly redis: RedisService,
+    @inject(TOKENS.Repositories.UserRead)
     private readonly userRepository: IUserReadRepository,
-    @inject("UserPreferenceRepository")
+    @inject(TOKENS.Repositories.UserPreference)
     private readonly userPreferenceRepository: UserPreferenceRepository,
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.PostRead)
     private readonly postRepository: IPostReadRepository,
   ) {}
 

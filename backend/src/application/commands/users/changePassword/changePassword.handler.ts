@@ -7,14 +7,15 @@ import { UnitOfWork } from "@/database/UnitOfWork";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUser } from "@/types";
 import { createError } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class ChangePasswordCommandHandler implements ICommandHandler<ChangePasswordCommand, void> {
 	constructor(
-		@inject("UserWriteRepository") private readonly userWriteRepository: IUserWriteRepository,
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("UserActionRepository") private readonly userActionRepository: UserActionRepository,
-		@inject("UserModel") private readonly userModel: Model<IUser>
+		@inject(TOKENS.Repositories.UserWrite) private readonly userWriteRepository: IUserWriteRepository,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
+		@inject(TOKENS.Models.User) private readonly userModel: Model<IUser>
 	) {}
 
 	async execute(command: ChangePasswordCommand): Promise<void> {

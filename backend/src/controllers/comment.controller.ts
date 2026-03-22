@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { CommentService } from "@/services/comment.service";
-import { createError , wrapError } from "@/utils/errors";
+import { createError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { CreateCommentCommand } from "@/application/commands/comments/createComment/createComment.command";
 import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
 import { LikeCommentCommand } from "@/application/commands/comments/likeComment/likeComment.command";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Comment Controller
@@ -13,178 +14,142 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
  */
 @injectable()
 export class CommentController {
-	constructor(
-		@inject("CommentService") private readonly commentService: CommentService,
-		@inject("CommandBus") private readonly commandBus: CommandBus,
-	) {}
+  constructor(
+    @inject(TOKENS.Services.Comment) private readonly commentService: CommentService,
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+  ) {}
 
-	createComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { postPublicId } = req.params;
-			const { content, parentId } = req.body;
-			const { decodedUser } = req;
+  createComment = async (req: Request, res: Response): Promise<void> => {
+    const { postPublicId } = req.params;
+    const { content, parentId } = req.body;
+    const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User authentication required");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User authentication required");
+    }
 
-			const command = new CreateCommentCommand(decodedUser.publicId, postPublicId, content, parentId ?? null);
-			const comment = await this.commandBus.dispatch(command);
+    const command = new CreateCommentCommand(
+      decodedUser.publicId,
+      postPublicId,
+      content,
+      parentId ?? null,
+    );
+    const comment = await this.commandBus.dispatch(command);
 
-			res.status(201).json(comment);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    res.status(201).json(comment);
+  };
 
-	getCommentsByPostId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { postPublicId } = req.params;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 10;
-			const parentId = (req.query.parentId as string | undefined) ?? null;
+  getCommentsByPostId = async (req: Request, res: Response): Promise<void> => {
+    const { postPublicId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const parentId = (req.query.parentId as string | undefined) ?? null;
 
-			// Limit max comments per page to prevent abuse
-			const maxLimit = Math.min(limit, 50);
+    // Limit max comments per page to prevent abuse
+    const maxLimit = Math.min(limit, 50);
 
-			const result = await this.commentService.getCommentsByPostPublicId(postPublicId, page, maxLimit, parentId);
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    const result = await this.commentService.getCommentsByPostPublicId(
+      postPublicId,
+      page,
+      maxLimit,
+      parentId,
+    );
+    res.json(result);
+  };
 
-	updateComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { commentId } = req.params;
-			const { content } = req.body; // Already validated and sanitized by Zod middleware
-			const { decodedUser } = req;
+  updateComment = async (req: Request, res: Response): Promise<void> => {
+    const { commentId } = req.params;
+    const { content } = req.body; // Already validated and sanitized by Zod middleware
+    const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User authentication required");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User authentication required");
+    }
 
-			const comment = await this.commentService.updateCommentByPublicId(commentId, decodedUser.publicId, content);
-			res.json(comment);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    const comment = await this.commentService.updateCommentByPublicId(
+      commentId,
+      decodedUser.publicId,
+      content,
+    );
+    res.json(comment);
+  };
 
-	deleteComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { commentId } = req.params;
-			const { decodedUser } = req;
+  deleteComment = async (req: Request, res: Response): Promise<void> => {
+    const { commentId } = req.params;
+    const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User authentication required");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User authentication required");
+    }
 
-			// Use CQRS command instead of service
-			const command = new DeleteCommentCommand(commentId, decodedUser.publicId);
-			await this.commandBus.dispatch(command);
+    // Use CQRS command instead of service
+    const command = new DeleteCommentCommand(commentId, decodedUser.publicId);
+    await this.commandBus.dispatch(command);
 
-			res.status(204).send(); // No content response
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    res.status(204).send(); // No content response
+  };
 
-	likeComment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { commentId } = req.params;
-			const { decodedUser } = req;
+  likeComment = async (req: Request, res: Response): Promise<void> => {
+    const { commentId } = req.params;
+    const { decodedUser } = req;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User authentication required");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User authentication required");
+    }
 
-			const command = new LikeCommentCommand(decodedUser.publicId, commentId);
-			const result = await this.commandBus.dispatch(command);
-			res.status(200).json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    const command = new LikeCommentCommand(decodedUser.publicId, commentId);
+    const result = await this.commandBus.dispatch(command);
+    res.status(200).json(result);
+  };
 
-	getCommentsByUserId = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { publicId } = req.params;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 10;
-			const sortBy = (req.query.sortBy as string) || "createdAt";
-			const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+  getCommentsByUserId = async (req: Request, res: Response): Promise<void> => {
+    const { publicId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const sortBy = (req.query.sortBy as string) || "createdAt";
+    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
-			// Limit max comments per page
-			const maxLimit = Math.min(limit, 100);
+    // Limit max comments per page
+    const maxLimit = Math.min(limit, 100);
 
-			const result = await this.commentService.getCommentsByUserPublicId(publicId, page, maxLimit, sortBy, sortOrder);
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    const result = await this.commentService.getCommentsByUserPublicId(
+      publicId,
+      page,
+      maxLimit,
+      sortBy,
+      sortOrder,
+    );
+    res.json(result);
+  };
 
-	getCommentThread = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { commentId } = req.params;
-			const result = await this.commentService.getCommentThread(commentId);
+  getCommentThread = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    const { commentId } = req.params;
+    const result = await this.commentService.getCommentThread(commentId);
 
-			if (!result.comment) {
-				next(createError("NotFoundError", "Comment not found"));
-				return;
-			}
+    if (!result.comment) {
+      next(createError("NotFoundError", "Comment not found"));
+      return;
+    }
 
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    res.json(result);
+  };
 
-	getCommentReplies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { commentId } = req.params;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 10;
+  getCommentReplies = async (req: Request, res: Response): Promise<void> => {
+    const { commentId } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
 
-			const maxLimit = Math.min(limit, 50);
+    const maxLimit = Math.min(limit, 50);
 
-			const result = await this.commentService.getCommentReplies(commentId, page, maxLimit);
-			res.json(result);
-		} catch (error) {
-			if (error instanceof Error) {
-				next(wrapError(error));
-			} else {
-				next(createError("UnknownError", "An unknown error occurred"));
-			}
-		}
-	};
+    const result = await this.commentService.getCommentReplies(
+      commentId,
+      page,
+      maxLimit,
+    );
+    res.json(result);
+  };
 }

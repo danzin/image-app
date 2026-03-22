@@ -8,6 +8,7 @@ import { logger } from "@/utils/winston";
 import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
 import { FeedCoreService } from "@/services/feed/feed-core.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetPersonalizedFeedQueryHandler implements IQueryHandler<
@@ -15,10 +16,10 @@ export class GetPersonalizedFeedQueryHandler implements IQueryHandler<
   any
 > {
   constructor(
-    @inject("RedisService") private redisService: RedisService,
-    @inject("FeedEnrichmentService")
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
+    @inject(TOKENS.Services.FeedEnrichment)
     private feedEnrichmentService: FeedEnrichmentService,
-    @inject("FeedCoreService")
+    @inject(TOKENS.Services.FeedCore)
     private readonly feedCoreService: FeedCoreService,
   ) {}
 

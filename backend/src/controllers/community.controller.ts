@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { inject, injectable } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { QueryBus } from "@/application/common/buses/query.bus";
@@ -16,207 +16,184 @@ import { KickMemberCommand } from "@/application/commands/community/kickMember/k
 import { createError } from "@/utils/errors";
 import { ICommunity } from "@/types";
 import { DTOService } from "@/services/dto.service";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class CommunityController {
-	constructor(
-		@inject("CommandBus") private readonly commandBus: CommandBus,
-		@inject("QueryBus") private readonly queryBus: QueryBus,
-		@inject("DTOService") private readonly dtoService: DTOService,
-	) {}
+  constructor(
+    @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
+    @inject(TOKENS.CQRS.Queries.Bus) private readonly queryBus: QueryBus,
+    @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
+  ) {}
 
-	getAllCommunities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 20;
-			const search = req.query.search as string;
-			const viewerPublicId = req.decodedUser?.publicId;
+  getAllCommunities = async (req: Request, res: Response): Promise<void> => {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = req.query.search as string;
+    const viewerPublicId = req.decodedUser?.publicId;
 
-			const query = new GetAllCommunitiesQuery(page, limit, search, viewerPublicId);
-			const result = await this.queryBus.execute(query);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
+    const query = new GetAllCommunitiesQuery(
+      page,
+      limit,
+      search,
+      viewerPublicId,
+    );
+    const result = await this.queryBus.execute(query);
+    res.status(200).json(result);
+  };
 
-	createCommunity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { name, description } = req.body;
-			const avatarPath = req.file?.path;
+  createCommunity = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { name, description } = req.body;
+    const avatarPath = req.file?.path;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const command = new CreateCommunityCommand(name, description, decodedUser.publicId, avatarPath);
-			const community = (await this.commandBus.dispatch(command)) as ICommunity;
-			res.status(201).json(
-				this.dtoService.toCommunityDTO(community, {
-					isMember: true,
-					isCreator: true,
-					isAdmin: true,
-				}),
-			);
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new CreateCommunityCommand(
+      name,
+      description,
+      decodedUser.publicId,
+      avatarPath,
+    );
+    const community = (await this.commandBus.dispatch(command)) as ICommunity;
+    res.status(201).json(
+      this.dtoService.toCommunityDTO(community, {
+        isMember: true,
+        isCreator: true,
+        isAdmin: true,
+      }),
+    );
+  };
 
-	joinCommunity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { id } = req.params;
+  joinCommunity = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { id } = req.params;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const command = new JoinCommunityCommand(id, decodedUser.publicId);
-			await this.commandBus.dispatch(command);
-			res.status(200).json({ message: "Joined community successfully" });
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new JoinCommunityCommand(id, decodedUser.publicId);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({ message: "Joined community successfully" });
+  };
 
-	leaveCommunity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { id } = req.params;
+  leaveCommunity = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { id } = req.params;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const command = new LeaveCommunityCommand(id, decodedUser.publicId);
-			await this.commandBus.dispatch(command);
-			res.status(200).json({ message: "Left community successfully" });
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new LeaveCommunityCommand(id, decodedUser.publicId);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({ message: "Left community successfully" });
+  };
 
-	getCommunityDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { slug } = req.params;
-			const viewerPublicId = req.decodedUser?.publicId;
-			const query = new GetCommunityDetailsQuery(slug, viewerPublicId);
-			const community = await this.queryBus.execute(query);
-			res.status(200).json(community);
-		} catch (error) {
-			next(error);
-		}
-	};
+  getCommunityDetails = async (req: Request, res: Response): Promise<void> => {
+    const { slug } = req.params;
+    const viewerPublicId = req.decodedUser?.publicId;
+    const query = new GetCommunityDetailsQuery(slug, viewerPublicId);
+    const community = await this.queryBus.execute(query);
+    res.status(200).json(community);
+  };
 
-	getUserCommunities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 20;
+  getUserCommunities = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const query = new GetUserCommunitiesQuery(decodedUser.publicId, page, limit);
-			const result = await this.queryBus.execute(query);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
+    const query = new GetUserCommunitiesQuery(
+      decodedUser.publicId,
+      page,
+      limit,
+    );
+    const result = await this.queryBus.execute(query);
+    res.status(200).json(result);
+  };
 
-	getCommunityFeed = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { id } = req.params;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 20;
+  getCommunityFeed = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-			const query = new GetCommunityFeedQuery(id, page, limit);
-			const result = await this.queryBus.execute(query);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
+    const query = new GetCommunityFeedQuery(id, page, limit);
+    const result = await this.queryBus.execute(query);
+    res.status(200).json(result);
+  };
 
-	updateCommunity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { id } = req.params;
-			const { name, description } = req.body;
+  updateCommunity = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { id } = req.params;
+    const { name, description } = req.body;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			// handle file uploads - req.files comes from multer fields middleware
-			const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
-			const avatarPath = files?.avatar?.[0]?.path;
-			const coverPhotoPath = files?.coverPhoto?.[0]?.path;
+    // handle file uploads - req.files comes from multer fields middleware
+    const files = req.files as
+      | { [fieldname: string]: Express.Multer.File[] }
+      | undefined;
+    const avatarPath = files?.avatar?.[0]?.path;
+    const coverPhotoPath = files?.coverPhoto?.[0]?.path;
 
-			const updates = {
-				name: name ?? undefined,
-				description: description ?? undefined,
-				avatarPath,
-				coverPhotoPath,
-			};
+    const updates = {
+      name: name ?? undefined,
+      description: description ?? undefined,
+      avatarPath,
+      coverPhotoPath,
+    };
 
-			const command = new UpdateCommunityCommand(id, decodedUser.publicId, updates);
-			const community = (await this.commandBus.dispatch(command)) as ICommunity;
-			res.status(200).json(this.dtoService.toCommunityDTO(community));
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new UpdateCommunityCommand(
+      id,
+      decodedUser.publicId,
+      updates,
+    );
+    const community = (await this.commandBus.dispatch(command)) as ICommunity;
+    res.status(200).json(this.dtoService.toCommunityDTO(community));
+  };
 
-	deleteCommunity = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { id } = req.params;
+  deleteCommunity = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { id } = req.params;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const command = new DeleteCommunityCommand(id, decodedUser.publicId);
-			await this.commandBus.dispatch(command);
-			res.status(200).json({ message: "Community deleted successfully" });
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new DeleteCommunityCommand(id, decodedUser.publicId);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({ message: "Community deleted successfully" });
+  };
 
-	getCommunityMembers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { slug } = req.params;
-			const page = parseInt(req.query.page as string) || 1;
-			const limit = parseInt(req.query.limit as string) || 20;
+  getCommunityMembers = async (req: Request, res: Response): Promise<void> => {
+    const { slug } = req.params;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
 
-			const query = new GetCommunityMembersQuery(slug, page, limit);
-			const result = await this.queryBus.execute(query);
-			res.status(200).json(result);
-		} catch (error) {
-			next(error);
-		}
-	};
+    const query = new GetCommunityMembersQuery(slug, page, limit);
+    const result = await this.queryBus.execute(query);
+    res.status(200).json(result);
+  };
 
-	kickMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-		try {
-			const { decodedUser } = req;
-			const { id, userId } = req.params;
+  kickMember = async (req: Request, res: Response): Promise<void> => {
+    const { decodedUser } = req;
+    const { id, userId } = req.params;
 
-			if (!decodedUser || !decodedUser.publicId) {
-				throw createError("AuthenticationError", "User information missing");
-			}
+    if (!decodedUser || !decodedUser.publicId) {
+      throw createError("AuthenticationError", "User information missing");
+    }
 
-			const command = new KickMemberCommand(id, decodedUser.publicId, userId);
-			await this.commandBus.dispatch(command);
-			res.status(200).json({ message: "Member kicked successfully" });
-		} catch (error) {
-			next(error);
-		}
-	};
+    const command = new KickMemberCommand(id, decodedUser.publicId, userId);
+    await this.commandBus.dispatch(command);
+    res.status(200).json({ message: "Member kicked successfully" });
+  };
 }

@@ -12,6 +12,7 @@ import { PostDeletedEvent } from "@/application/events/post/post.event";
 import { createError } from "@/utils/errors";
 import { isValidPublicId } from "@/utils/sanitizers";
 import { IUser } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 export interface UnrepostResult {
 	message: string;
@@ -20,12 +21,12 @@ export interface UnrepostResult {
 @injectable()
 export class UnrepostPostCommandHandler implements ICommandHandler<UnrepostPostCommand, UnrepostResult> {
 	constructor(
-		@inject("UnitOfWork") private readonly unitOfWork: UnitOfWork,
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("PostWriteRepository") private readonly postWriteRepository: IPostWriteRepository,
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("CommentRepository") private readonly commentRepository: CommentRepository,
-		@inject("EventBus") private readonly eventBus: EventBus,
+		@inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Repositories.PostWrite) private readonly postWriteRepository: IPostWriteRepository,
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
+		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
 	) {}
 
 	async execute(command: UnrepostPostCommand): Promise<UnrepostResult> {

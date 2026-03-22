@@ -28,7 +28,10 @@ export class RetryService {
   /**
    * Execute an operation with automatic retry on failure
    */
-  async execute<T>(operation: () => Promise<T>, config?: RetryConfig): Promise<T> {
+  async execute<T>(
+    operation: () => Promise<T>,
+    config?: RetryConfig,
+  ): Promise<T> {
     const cfg = { ...DEFAULT_CONFIG, ...config };
     let lastError: Error | undefined;
 
@@ -38,13 +41,18 @@ export class RetryService {
       } catch (error: unknown) {
         lastError = error instanceof Error ? error : new Error(String(error));
 
-        const shouldRetry = cfg.shouldRetry ? cfg.shouldRetry(error) : this.isRetryableError(error);
+        const shouldRetry = cfg.shouldRetry
+          ? cfg.shouldRetry(error)
+          : this.isRetryableError(error);
 
         if (!shouldRetry || attempt >= cfg.maxAttempts) {
-          logger.error(`[RetryService] Operation failed after ${attempt} attempts`, {
-            error: lastError.message,
-            stack: lastError.stack?.substring(0, 500),
-          });
+          logger.error(
+            `[RetryService] Operation failed after ${attempt} attempts`,
+            {
+              error: lastError.message,
+              stack: lastError.stack?.substring(0, 500),
+            },
+          );
           throw error;
         }
 
@@ -52,9 +60,12 @@ export class RetryService {
           cfg.onRetry(attempt, error);
         }
 
-        logger.warn(`[RetryService] Attempt ${attempt}/${cfg.maxAttempts} failed, retrying...`, {
-          error: lastError.message.substring(0, 100),
-        });
+        logger.warn(
+          `[RetryService] Attempt ${attempt}/${cfg.maxAttempts} failed, retrying...`,
+          {
+            error: lastError.message.substring(0, 100),
+          },
+        );
 
         await this.backoffWithJitter(attempt, cfg.baseDelayMs, cfg.maxDelayMs);
       }
@@ -69,8 +80,10 @@ export class RetryService {
    */
   async executeAll<T>(
     operations: Array<() => Promise<T>>,
-    config?: RetryConfig & { continueOnError?: boolean }
-  ): Promise<Array<{ success: true; result: T } | { success: false; error: Error }>> {
+    config?: RetryConfig & { continueOnError?: boolean },
+  ): Promise<
+    Array<{ success: true; result: T } | { success: false; error: Error }>
+  > {
     const results = await Promise.all(
       operations.map(async (op) => {
         try {
@@ -82,7 +95,7 @@ export class RetryService {
           }
           return { success: false as const, error: error as Error };
         }
-      })
+      }),
     );
     return results;
   }
@@ -131,7 +144,11 @@ export class RetryService {
   /**
    * Exponential backoff with full jitter
    */
-  private async backoffWithJitter(attempt: number, baseMs: number, maxMs: number): Promise<void> {
+  private async backoffWithJitter(
+    attempt: number,
+    baseMs: number,
+    maxMs: number,
+  ): Promise<void> {
     const exponentialDelay = Math.min(baseMs * Math.pow(2, attempt - 1), maxMs);
     const jitteredDelay = Math.floor(Math.random() * exponentialDelay);
     const finalDelay = Math.max(jitteredDelay, 10);

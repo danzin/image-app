@@ -3,10 +3,11 @@ import { inject, injectable } from "tsyringe";
 import { UserCoverChangedEvent } from "./user-interaction.event";
 import { RedisService } from "@/services/redis.service";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class UserCoverChangedHandler implements IEventHandler<UserCoverChangedEvent> {
-	constructor(@inject("RedisService") private readonly redis: RedisService) {}
+	constructor(@inject(TOKENS.Services.Redis) private readonly redis: RedisService) {}
 
 	async handle(event: UserCoverChangedEvent): Promise<void> {
 		logger.info(

@@ -3,6 +3,7 @@ import mongoose, { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
 import { createError, getErrorMessage, getErrorCode, getErrorLabels } from "@/utils/errors";
+import { TOKENS } from "@/types/tokens";
 
 /**
  * Configuration for transaction execution
@@ -87,7 +88,7 @@ export class UnitOfWork {
     totalRetries: 0,
   };
 
-  constructor(@inject("EventBus") private readonly eventBus: EventBus) {
+  constructor(@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus) {
     if (!mongoose.connection.readyState) {
       throw createError("DatabaseError", "Database connection not established");
     }

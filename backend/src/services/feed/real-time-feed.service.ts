@@ -3,6 +3,7 @@ import { RedisService } from "../redis.service";
 import { WebSocketServer } from "../../server/socketServer";
 import { IRealtimeMessageHandler } from "@/application/handlers/realtime/IRealtimeMessageHandler.interface";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export interface FeedUpdateMessage {
   type:
@@ -41,10 +42,10 @@ export class RealTimeFeedService {
   private handlerRegistry = new Map<string, IRealtimeMessageHandler>();
 
   constructor(
-    @inject("RedisService") private readonly redisService: RedisService,
-    @inject("WebSocketServer")
+    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+    @inject(TOKENS.Models.WebSocketServer)
     private readonly webSocketServer: WebSocketServer,
-    @inject("RealtimeHandlers")
+    @inject(TOKENS.Services.Realtime)
     private readonly handlers: IRealtimeMessageHandler[],
   ) {
     this.registerHandlers();

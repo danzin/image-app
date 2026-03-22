@@ -4,6 +4,7 @@ import { inject, injectable } from "tsyringe";
 import { IUserReadRepository } from "@/repositories/interfaces";
 import { createError , wrapError } from "@/utils/errors";
 import { DTOService, AdminUserDTO, AuthenticatedUserDTO } from "@/services/dto.service";
+import { TOKENS } from "@/types/tokens";
 
 export interface GetMeResult {
 	user: AdminUserDTO | AuthenticatedUserDTO;
@@ -12,8 +13,8 @@ export interface GetMeResult {
 @injectable()
 export class GetMeQueryHandler implements IQueryHandler<GetMeQuery, GetMeResult> {
 	constructor(
-		@inject("UserReadRepository") private readonly userReadRepository: IUserReadRepository,
-		@inject("DTOService") private readonly dtoService: DTOService
+		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
+		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
 	async execute(query: GetMeQuery): Promise<GetMeResult> {

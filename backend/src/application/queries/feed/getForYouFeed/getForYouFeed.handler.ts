@@ -19,6 +19,7 @@ import {
   IImage,
   ITag,
 } from "@/types";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetForYouFeedQueryHandler implements IQueryHandler<
@@ -26,15 +27,15 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
   PaginatedFeedResult
 > {
   constructor(
-    @inject("PostReadRepository")
+    @inject(TOKENS.Repositories.PostRead)
     private postReadRepository: IPostReadRepository,
-    @inject("UserReadRepository")
+    @inject(TOKENS.Repositories.UserRead)
     private userReadRepository: IUserReadRepository,
-    @inject("UserPreferenceRepository")
+    @inject(TOKENS.Repositories.UserPreference)
     private userPreferenceRepository: UserPreferenceRepository,
-    @inject("RedisService") private redisService: RedisService,
-    @inject("EventBus") private eventBus: EventBus,
-    @inject("FeedEnrichmentService")
+    @inject(TOKENS.Services.Redis) private redisService: RedisService,
+    @inject(TOKENS.CQRS.Handlers.EventBus) private eventBus: EventBus,
+    @inject(TOKENS.Services.FeedEnrichment)
     private feedEnrichmentService: FeedEnrichmentService,
   ) {}
 

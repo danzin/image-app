@@ -16,24 +16,27 @@ import UserAction from "@/models/userAction.model";
 import { UserPreference } from "@/models/userPreference.model";
 import { WebSocketServer } from "../server/socketServer";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 export function registerCoreComponents(): void {
-  container.register("UserModel", { useValue: User });
-  container.register("ImageModel", { useValue: Image });
-  container.register("PostModel", { useValue: Post });
-  container.register("PostLikeModel", { useValue: PostLike });
-  container.register("PostViewModel", { useValue: PostView });
-  container.register("TagModel", { useValue: Tag });
-  container.register("CommentModel", { useValue: Comment });
-  container.register("CommentLikeModel", { useValue: CommentLike });
-  container.register("FollowModel", { useValue: Follow });
-  container.register("NotificationModel", { useValue: Notification });
-  container.register("UserActionModel", { useValue: UserAction });
-  container.register("UserPreferenceModel", { useValue: UserPreference });
-  container.register("FavoriteModel", { useValue: Favorite });
-  container.register("ConversationModel", { useValue: Conversation });
-  container.register("MessageModel", { useValue: Message });
-  container.registerSingleton("WebSocketServer", WebSocketServer);
+  container.register(TOKENS.Models.User, { useValue: User });
+  container.register(TOKENS.Models.Image, { useValue: Image });
+  container.register(TOKENS.Models.Post, { useValue: Post });
+  container.register(TOKENS.Models.PostLike, { useValue: PostLike });
+  container.register(TOKENS.Models.PostView, { useValue: PostView });
+  container.register(TOKENS.Models.Tag, { useValue: Tag });
+  container.register(TOKENS.Models.Comment, { useValue: Comment });
+  container.register(TOKENS.Models.CommentLike, { useValue: CommentLike });
+  container.register(TOKENS.Models.Follow, { useValue: Follow });
+  container.register(TOKENS.Models.Notification, { useValue: Notification });
+  container.register(TOKENS.Models.UserAction, { useValue: UserAction });
+  container.register(TOKENS.Models.UserPreference, {
+    useValue: UserPreference,
+  });
+  container.register(TOKENS.Models.Favorite, { useValue: Favorite });
+  container.register(TOKENS.Models.Conversation, { useValue: Conversation });
+  container.register(TOKENS.Models.Message, { useValue: Message });
+  container.registerSingleton(TOKENS.Models.WebSocketServer, WebSocketServer);
 
   logger.info("[di] CoreComponents registered");
 }

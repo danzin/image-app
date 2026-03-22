@@ -9,6 +9,7 @@ import { createError , wrapError } from "@/utils/errors";
 import { GetTrendingTagsResult, TrendingTag } from "@/types";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTagsQuery, GetTrendingTagsResult> {
@@ -16,8 +17,8 @@ export class GetTrendingTagsQueryHandler implements IQueryHandler<GetTrendingTag
 	private readonly HISTORICAL_KEY = "trending_tags:historical";
 
 	constructor(
-		@inject("PostReadRepository") private readonly postReadRepository: IPostReadRepository,
-		@inject("RedisService") private readonly redisService: RedisService,
+		@inject(TOKENS.Repositories.PostRead) private readonly postReadRepository: IPostReadRepository,
+		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
 	) {}
 
 	async execute(query: GetTrendingTagsQuery): Promise<GetTrendingTagsResult> {

@@ -5,12 +5,13 @@ import { RedisService } from "@/services/redis.service";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { logger } from "@/utils/winston";
+import { TOKENS } from "@/types/tokens";
 
 @injectable()
 export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
 	constructor(
-		@inject("RedisService") private readonly redis: RedisService,
-		@inject("UserReadRepository") private readonly userRepository: IUserReadRepository,
+		@inject(TOKENS.Services.Redis) private readonly redis: RedisService,
+		@inject(TOKENS.Repositories.UserRead) private readonly userRepository: IUserReadRepository,
 	) {}
 
 	async handle(event: PostDeletedEvent): Promise<void> {
