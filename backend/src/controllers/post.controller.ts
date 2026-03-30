@@ -15,7 +15,7 @@ import { GetLikedPostsByUserQuery } from "@/application/queries/post/getLikedPos
 import { SearchPostsByTagsQuery } from "@/application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTags.query";
 import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
-import { Errors, ErrorCode } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
 import { safeFireAndForget } from "@/utils/helpers";
 import { PublicUserDTO } from "@/services/dto.service";
