@@ -15,7 +15,7 @@ import { GetLikedPostsByUserQuery } from "@/application/queries/post/getLikedPos
 import { SearchPostsByTagsQuery } from "@/application/queries/post/searchPostsByTags/searchPostsByTags.query";
 import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTags.query";
 import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
-import { createError } from "@/utils/errors";
+import { Errors, ErrorCode } from "@/utils/errors";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
 import { safeFireAndForget } from "@/utils/helpers";
 import { PublicUserDTO } from "@/services/dto.service";
@@ -36,14 +36,13 @@ export class PostController {
     const communityPublicId = req.body.communityPublicId;
 
     if (!file && (!bodyText || bodyText.trim().length === 0)) {
-      throw createError(
-        "ValidationError",
-        "Provide either an image or body text",
-      );
+      throw Errors.validation("Provide either an image or body text", {
+        operation: "createPost",
+      });
     }
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const originalName = file?.originalname || `post-${Date.now()}`;
@@ -210,7 +209,7 @@ export class PostController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "Authentication required");
+      throw Errors.authentication("Authentication required");
     }
 
     const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
@@ -227,7 +226,7 @@ export class PostController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
@@ -246,7 +245,7 @@ export class PostController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");

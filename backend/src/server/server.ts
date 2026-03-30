@@ -255,6 +255,15 @@ export class Server {
    * Any unhandled errors will be caught and formatted using the ErrorHandler.
    */
   private initializeErrorHandling() {
+    // Register metrics callback for error tracking
+    ErrorHandler.setMetricsCallback(({ errorType, statusCode, endpoint }) => {
+      this.metricsService.incrementCounter("errors_total", {
+        error_type: errorType,
+        status_code: statusCode.toString(),
+        endpoint,
+      });
+    });
+
     this.app.use(ErrorHandler.handleError);
   }
 
