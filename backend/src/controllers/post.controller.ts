@@ -22,6 +22,9 @@ import { PublicUserDTO } from "@/services/dto.service";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 
+/** Regex to strip file extensions (e.g., .png, .jpg) from slugs/IDs */
+const FILE_EXTENSION_REGEX = /\.[a-z0-9]{2,5}$/i;
+
 @injectable()
 export class PostController {
   constructor(
@@ -144,7 +147,7 @@ export class PostController {
   getPostBySlug = async (req: Request, res: Response): Promise<void> => {
     const { slug } = req.params;
     const viewerPublicId = req.decodedUser?.publicId;
-    const sanitizedSlug = slug.replace(/\.[a-z0-9]{2,5}$/i, "");
+    const sanitizedSlug = slug.replace(FILE_EXTENSION_REGEX, "");
     const looksLikeUUID =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
         sanitizedSlug,
@@ -168,9 +171,9 @@ export class PostController {
   getPostByPublicId = async (req: Request, res: Response): Promise<void> => {
     logger.info("getPostByPublicId called");
     const { publicId } = req.params;
-    const viewerPublicId = req.decodedUser?.publicId; // Get viewer's publicId if logged in
+    const viewerPublicId = req.decodedUser?.publicId;
     // Strip file extension if present (e.g., "abc-123.png" -> "abc-123")
-    const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+    const sanitizedPublicId = publicId.replace(FILE_EXTENSION_REGEX, "");
     const command = new GetPostByPublicIdQuery(
       sanitizedPublicId,
       viewerPublicId,
@@ -216,7 +219,7 @@ export class PostController {
       throw Errors.authentication("Authentication required");
     }
 
-    const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+    const sanitizedPublicId = publicId.replace(FILE_EXTENSION_REGEX, "");
     const command = new DeletePostCommand(
       sanitizedPublicId,
       decodedUser.publicId,
@@ -233,7 +236,7 @@ export class PostController {
       throw Errors.authentication("User authentication required");
     }
 
-    const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+    const sanitizedPublicId = publicId.replace(FILE_EXTENSION_REGEX, "");
     const body = req.body?.body as string | undefined;
     const command = new RepostPostCommand(
       decodedUser.publicId,
@@ -252,7 +255,7 @@ export class PostController {
       throw Errors.authentication("User authentication required");
     }
 
-    const sanitizedPublicId = publicId.replace(/\.[a-z0-9]{2,5}$/i, "");
+    const sanitizedPublicId = publicId.replace(FILE_EXTENSION_REGEX, "");
     const command = new UnrepostPostCommand(
       decodedUser.publicId,
       sanitizedPublicId,

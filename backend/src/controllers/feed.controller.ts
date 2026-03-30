@@ -96,7 +96,7 @@ export class FeedController {
     const limit = Number(req.query.limit) || 20;
     const cursor = req.query.cursor as string | undefined;
     const refresh = req.query.refresh === "true";
-    const isAuthenticated = !!(req as any).decodedUser;
+    const isAuthenticated = !!req.decodedUser;
 
     // only allow cache bypass for authenticated users requesting a refresh
     const forceRefresh = refresh && isAuthenticated;

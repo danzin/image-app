@@ -1,5 +1,4 @@
 import { Response } from "express";
-import { Transform, TransformCallback } from "stream";
 
 /**
  * Options for streaming JSON responses
@@ -11,33 +10,6 @@ export interface StreamResponseOptions {
 	arrayKey?: string;
 	/** Whether to include a total count after streaming (default: false) */
 	includeTotal?: boolean;
-}
-
-/**
- * Transform stream that converts objects to JSON array elements.
- * Handles proper JSON formatting with commas between elements.
- */
-export class JsonArrayTransform extends Transform {
-	private isFirst = true;
-
-	constructor() {
-		super({ objectMode: true });
-	}
-
-	_transform(chunk: unknown, _encoding: BufferEncoding, callback: TransformCallback): void {
-		try {
-			const json = JSON.stringify(chunk);
-			if (this.isFirst) {
-				this.push(json);
-				this.isFirst = false;
-			} else {
-				this.push("," + json);
-			}
-			callback();
-		} catch (error) {
-			callback(error as Error);
-		}
-	}
 }
 
 /**
@@ -85,10 +57,10 @@ export function streamCursorResponse<T>(
 	// Start JSON object
 	res.write("{");
 	
-	// Write pagination metadata first
-	res.write(`"hasMore":${pagination.hasMore}`);
+	// Write pagination metadata first (use JSON.stringify to escape special chars)
+	res.write(`"hasMore":${JSON.stringify(pagination.hasMore)}`);
 	if (pagination.nextCursor) {
-		res.write(`,"nextCursor":"${pagination.nextCursor}"`);
+		res.write(`,"nextCursor":${JSON.stringify(pagination.nextCursor)}`);
 	}
 	
 	// Start the data array

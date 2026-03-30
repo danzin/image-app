@@ -1,5 +1,3 @@
-import { logger } from "./winston";
-
 export const decodeCursor = <T extends Record<string, unknown>>(
   cursor?: string,
 ): T | null => {
@@ -9,15 +7,13 @@ export const decodeCursor = <T extends Record<string, unknown>>(
 
   try {
     const decoded = JSON.parse(Buffer.from(cursor, "base64").toString("utf-8"));
-    if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+    // JSON.parse returns primitives, arrays, or objects - filter to only objects
+    if (typeof decoded !== "object" || Array.isArray(decoded) || decoded === null) {
       return null;
     }
     return decoded as T;
-  } catch (err) {
-    logger.error("Failed to decode cursor", {
-      cursor,
-      error: err instanceof Error ? err.message : err,
-    });
+  } catch {
+    // Invalid base64 or malformed JSON - expected from user tampering
     return null;
   }
 };

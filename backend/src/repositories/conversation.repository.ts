@@ -30,7 +30,7 @@ Notes on messaging system:
 	- Compression: enable MognoDB's WiredTiger block compression and keep payloads trimmed to reduce storage footprint.
 
 	With sharding plus archival and retention policies, single-document messages remain manageable even at scale.
-	For the current needs of the app, i'm keeping this approach. It's simple and fexible and I don't plan on
+	For the current needs of the app, i'm keeping this approach. It's simple and flexible and I don't plan on
 	having thousands of active users with millions of messages each. 
 	This whole project is proof of concept.
 */

@@ -117,7 +117,7 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 				total,
 				page,
 				limit,
-				totalPages: Math.ceil(total / limit),
+				totalPages: limit > 0 ? Math.ceil(total / limit) : 0,
 			};
 		} catch (error) {
 			if (error instanceof Error) {

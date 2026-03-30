@@ -250,7 +250,6 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 
 		try {
 			// sanitize with max length validation
-			logger.info("Sanitizing body:", body);
 			const sanitized = sanitizeTextInput(body, MAX_BODY_LENGTH);
 			return sanitized;
 		} catch (error) {
@@ -329,9 +328,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		}
 
 		// sanitize payload to prevent NoSQL injection and prototype pollution
-		logger.info("Sanitizing post payload:", payload);
 		const safePayload = sanitizeForMongo(payload);
-		logger.info("Safe post payload:", safePayload);
 
 		return await this.postWriteRepository.create(safePayload as unknown as IPost, session);
 	}
