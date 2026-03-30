@@ -3,7 +3,7 @@ import { errorLogger } from "./winston";
 
 /**
  * Standard error codes for machine-readable error identification.
- * Use these for programmatic error handling on the client side.
+ * For programmatic error handling on the client side.
  */
 export enum ErrorCode {
   // Authentication & Authorization (1xxx)
@@ -502,14 +502,14 @@ export class ErrorHandler {
 /**
  * Standardized error factory with common error patterns.
  * Use these methods for consistent error creation across the application.
- * 
+ *
  * @example
  * // Validation errors
  * throw Errors.validation("Email is required", { field: "email" });
- * 
+ *
  * // Not found errors
  * throw Errors.notFound("User", userId);
- * 
+ *
  * // Authentication errors
  * throw Errors.unauthorized("Invalid token", ErrorCode.TOKEN_INVALID);
  */
@@ -614,7 +614,11 @@ export const Errors = {
   /**
    * Create a database error (500)
    */
-  database: (message: string, context?: ErrorContext, cause?: unknown): AppError =>
+  database: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
     createError("DatabaseError", message, {
       context,
       errorCode: ErrorCode.DATABASE_ERROR,
@@ -624,7 +628,11 @@ export const Errors = {
   /**
    * Create a storage error (500)
    */
-  storage: (message: string, context?: ErrorContext, cause?: unknown): AppError =>
+  storage: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
     createError("StorageError", message, {
       context,
       errorCode: ErrorCode.STORAGE_ERROR,
@@ -634,7 +642,11 @@ export const Errors = {
   /**
    * Create an upload error (500)
    */
-  upload: (message: string, context?: ErrorContext, cause?: unknown): AppError =>
+  upload: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
     createError("UploadError", message, {
       context,
       errorCode: ErrorCode.UPLOAD_FAILED,
