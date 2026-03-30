@@ -1,13 +1,16 @@
 import multer from "multer";
-import fs from "fs";
 import { createError } from "@/utils/errors";
 
-const tmpDir = "/tmp/uploads";
-if (!fs.existsSync(tmpDir)) {
-	fs.mkdirSync(tmpDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({ destination: tmpDir });
+/**
+ * Multer configuration using memory storage for streaming uploads.
+ * 
+ * Instead of writing to disk first, files are held in memory as Buffers
+ * and can be streamed directly to storage services (Cloudinary, local disk).
+ * This eliminates the intermediate disk I/O step and improves upload performance.
+ * 
+ * The file will be available as `req.file.buffer` instead of `req.file.path`.
+ */
+const storage = multer.memoryStorage();
 
 const fileFilter = (req: unknown, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
 	const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/jpg"];

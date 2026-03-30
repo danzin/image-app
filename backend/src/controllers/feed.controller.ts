@@ -7,7 +7,13 @@ import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
 import { GetForYouFeedQuery } from "@/application/queries/feed/getForYouFeed/getForYouFeed.query";
 import { GetTrendingFeedQuery } from "@/application/queries/feed/getTrendingFeed/getTrendingFeed.query";
+import { streamPaginatedResponse, streamCursorResponse } from "@/utils/streamResponse";
+import { CursorPaginationResult, FeedPost, PaginationResult, PostDTO } from "@/types";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
+
 @injectable()
 export class FeedController {
   constructor(
@@ -28,8 +34,17 @@ export class FeedController {
       Number(limit) || 20,
       cursor,
     );
-    const feed = await this.queryBus.execute(query);
-    res.json(feed);
+    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
+    
+    // Use streaming for large responses with cursor pagination
+    if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
+      streamCursorResponse(res, feed.data, {
+        hasMore: feed.hasMore,
+        nextCursor: feed.nextCursor,
+      });
+    } else {
+      res.json(feed);
+    }
   };
 
   getForYouFeed = async (req: Request, res: Response) => {
@@ -44,8 +59,17 @@ export class FeedController {
       Number(limit) || 20,
       cursor,
     );
-    const feed = await this.queryBus.execute(query);
-    res.json(feed);
+    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
+    
+    // Use streaming for large responses with cursor pagination
+    if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
+      streamCursorResponse(res, feed.data, {
+        hasMore: feed.hasMore,
+        nextCursor: feed.nextCursor,
+      });
+    } else {
+      res.json(feed);
+    }
   };
 
   getTrendingFeed = async (req: Request, res: Response) => {
@@ -54,9 +78,17 @@ export class FeedController {
     const cursor = req.query.cursor as string | undefined;
 
     const query = new GetTrendingFeedQuery(page, limit, cursor);
-    const feed = await this.queryBus.execute(query);
+    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
 
-    res.json(feed);
+    // Use streaming for large responses with cursor pagination
+    if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
+      streamCursorResponse(res, feed.data, {
+        hasMore: feed.hasMore,
+        nextCursor: feed.nextCursor,
+      });
+    } else {
+      res.json(feed);
+    }
   };
 
   getNewFeed = async (req: Request, res: Response) => {
@@ -75,7 +107,23 @@ export class FeedController {
       forceRefresh,
       cursor,
     );
-    res.json(feed);
+    
+    // Use cursor-based streaming if cursor is available
+    if (feed.nextCursor && feed.data && feed.data.length >= STREAM_THRESHOLD) {
+      streamCursorResponse(res, feed.data, {
+        hasMore: feed.data.length >= limit,
+        nextCursor: feed.nextCursor,
+      });
+    } else if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, feed.data, {
+        total: feed.total,
+        page: feed.page,
+        limit: feed.limit,
+        totalPages: feed.totalPages,
+      });
+    } else {
+      res.json(feed);
+    }
   };
 
   getTrendingTags = async (req: Request, res: Response) => {

@@ -74,10 +74,29 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		let uploadedImagePublicId: string | null = null;
 		let uploadedImageUrl: string | null = null;
 
-		// Upload Image outside transaction
-		if (command.imagePath) {
+		// Upload Image outside transaction - prefer streaming from buffer
+		const hasImage = command.imageBuffer || command.imagePath;
+		if (hasImage) {
 			try {
-				const uploadResult = await this.imageService.uploadImage(command.imagePath, user.publicId);
+				let uploadResult: { url: string; publicId: string };
+				
+				if (command.imageBuffer) {
+					// Use streaming upload from memory buffer (preferred)
+					uploadResult = await this.imageService.uploadImageStream(
+						{
+							buffer: command.imageBuffer,
+							originalName: command.imageOriginalName,
+							mimeType: command.imageMimeType,
+						},
+						user.publicId,
+					);
+				} else if (command.imagePath) {
+					// Fallback to file path upload (legacy)
+					uploadResult = await this.imageService.uploadImage(command.imagePath, user.publicId);
+				} else {
+					throw createError("ValidationError", "No image data provided");
+				}
+				
 				uploadedImagePublicId = uploadResult.publicId;
 				uploadedImageUrl = uploadResult.url;
 			} catch (error) {
@@ -190,6 +209,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 				imageUploaded: Boolean(uploadedImagePublicId),
 			});
 		} finally {
+			// Clean up temp file if using legacy file path upload
 			if (command.imagePath && fs.existsSync(command.imagePath)) {
 				fs.unlink(command.imagePath, (err) => {
 					if (err) logger.error("Failed to delete temp file", { error: err });

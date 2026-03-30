@@ -1,9 +1,16 @@
 import mongoose, { ClientSession, Model } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
-import { IConversation, HydratedConversation, PaginationResult } from "@/types";
+import { IConversation, HydratedConversation, PaginationResult, CursorPaginationResult } from "@/types";
 import { createError } from "@/utils/errors";
+import { encodeCursor, decodeCursor } from "@/utils/cursorCodec";
 import { TOKENS } from "@/types/tokens";
+
+interface ConversationCursor {
+	lastMessageAt: string;
+	_id: string;
+	[key: string]: unknown;
+}
 
 /*
 Notes on messaging system:
@@ -58,6 +65,9 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 		return query.exec();
 	}
 
+	/**
+	 * @deprecated Use findUserConversationsWithCursor for better performance on users with many conversations
+	 */
 	async findUserConversations(
 		userId: string,
 		page: number,
@@ -152,6 +162,129 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 				page,
 				limit,
 				totalPages: total > 0 ? Math.ceil(total / limit) : 0,
+			};
+		} catch (error) {
+			throw createError("DatabaseError", (error as Error).message);
+		}
+	}
+
+	/**
+	 * Cursor-based pagination for conversations - more efficient for users with many conversations.
+	 * Uses lastMessageAt + _id as cursor to avoid skip() overhead.
+	 */
+	async findUserConversationsWithCursor(
+		userId: string,
+		limit: number = 20,
+		cursor?: string,
+	): Promise<CursorPaginationResult<HydratedConversation>> {
+		try {
+			const objectId = new mongoose.Types.ObjectId(userId);
+			const decodedCursor = decodeCursor<ConversationCursor>(cursor);
+
+			// Build match stage with cursor condition
+			const matchStage: Record<string, unknown> = { participants: objectId };
+
+			if (decodedCursor) {
+				matchStage.$or = [
+					{ lastMessageAt: { $lt: new Date(decodedCursor.lastMessageAt) } },
+					{
+						lastMessageAt: new Date(decodedCursor.lastMessageAt),
+						_id: { $lt: new mongoose.Types.ObjectId(decodedCursor._id) },
+					},
+				];
+			}
+
+			const pipeline: mongoose.PipelineStage[] = [
+				{ $match: matchStage },
+				{ $sort: { lastMessageAt: -1, _id: -1 } },
+				{ $limit: limit + 1 }, // Fetch one extra to check hasMore
+				{
+					$lookup: {
+						from: "messages",
+						localField: "lastMessage",
+						foreignField: "_id",
+						as: "lastMessage",
+					},
+				},
+				{ $unwind: { path: "$lastMessage", preserveNullAndEmptyArrays: true } },
+				{
+					$lookup: {
+						from: "users",
+						let: { senderId: "$lastMessage.sender" },
+						pipeline: [
+							{ $match: { $expr: { $eq: ["$_id", "$$senderId"] } } },
+							{ $project: { publicId: 1, handle: 1, username: 1, avatar: 1 } },
+						],
+						as: "lastMessageSender",
+					},
+				},
+				{
+					$addFields: {
+						lastMessage: {
+							$cond: {
+								if: { $gt: [{ $size: "$lastMessageSender" }, 0] },
+								then: {
+									$mergeObjects: ["$lastMessage", { sender: { $arrayElemAt: ["$lastMessageSender", 0] } }],
+								},
+								else: "$lastMessage",
+							},
+						},
+					},
+				},
+				{
+					$lookup: {
+						from: "users",
+						localField: "participants",
+						foreignField: "_id",
+						as: "participants",
+					},
+				},
+				{
+					$project: {
+						participantHash: 1,
+						publicId: 1,
+						participants: {
+							$map: {
+								input: "$participants",
+								as: "participant",
+								in: {
+									_id: "$$participant._id",
+									publicId: "$$participant.publicId",
+									handle: "$$participant.handle",
+									username: "$$participant.username",
+									avatar: "$$participant.avatar",
+								},
+							},
+						},
+						lastMessage: 1,
+						lastMessageAt: 1,
+						unreadCounts: 1,
+						isGroup: 1,
+						title: 1,
+						createdAt: 1,
+						updatedAt: 1,
+					},
+				},
+			];
+
+			const results = await this.model.aggregate(pipeline).exec();
+			const hasMore = results.length > limit;
+			const data = hasMore ? results.slice(0, limit) : results;
+
+			// Build next cursor from last item
+			let nextCursor: string | undefined;
+			if (hasMore && data.length > 0) {
+				const lastItem = data[data.length - 1];
+				nextCursor = encodeCursor({
+					lastMessageAt: lastItem.lastMessageAt?.toISOString() || lastItem.updatedAt?.toISOString(),
+					_id: lastItem._id.toString(),
+				});
+			}
+
+			return {
+				data: data as HydratedConversation[],
+				hasMore,
+				nextCursor,
 			};
 		} catch (error) {
 			throw createError("DatabaseError", (error as Error).message);

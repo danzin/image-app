@@ -8,6 +8,7 @@ import {
   IImage,
   IImageStorageService,
   ImageDocWithId,
+  ImageUploadInput,
   PopulatedUserField,
   RemoveAttachmentRecordInput,
   RemoveAttachmentRecordResult,
@@ -52,11 +53,25 @@ export class ImageService {
     }
   }
 
+  /**
+   * @deprecated Use uploadImageStream for better performance
+   */
   async uploadImage(
     filePath: string,
     userPublicId: string,
   ): Promise<{ url: string; publicId: string }> {
     return this.imageStorageService.uploadImage(filePath, userPublicId);
+  }
+
+  /**
+   * Upload an image from a Buffer or Stream directly.
+   * This is more efficient as it avoids intermediate disk I/O.
+   */
+  async uploadImageStream(
+    input: ImageUploadInput,
+    userPublicId: string,
+  ): Promise<{ url: string; publicId: string }> {
+    return this.imageStorageService.uploadImageStream(input, userPublicId);
   }
 
   async createImageRecord(input: {

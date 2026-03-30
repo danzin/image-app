@@ -46,13 +46,17 @@ export class PostController {
     }
 
     const originalName = file?.originalname || `post-${Date.now()}`;
+    
+    // Use buffer from memory storage (preferred) or fall back to file path
     const command = new CreatePostCommand(
       decodedUser.publicId,
       bodyText,
       undefined,
-      file?.path,
+      file?.path, // Legacy: file path (only set if disk storage is used)
       originalName,
       communityPublicId,
+      file?.buffer, // New: buffer from memory storage
+      file?.mimetype,
     );
     const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
     res.status(201).json(postDTO);

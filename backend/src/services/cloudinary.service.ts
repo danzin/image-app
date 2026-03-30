@@ -1,7 +1,8 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
+import { Readable } from "stream";
 import { createError, getErrorMessage, wrapError } from "@/utils/errors";
-import { CloudinaryDeleteResponse, DeletionResult } from "@/types";
+import { CloudinaryDeleteResponse, DeletionResult, ImageUploadInput } from "@/types";
 import { injectable, inject } from "tsyringe";
 import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
 import { logger } from "@/utils/winston";
@@ -62,6 +63,86 @@ export class CloudinaryService implements IImageStorageService {
     return retryablePatterns.some((p) => message.includes(p));
   }
 
+  /**
+   * Convert a Buffer to a readable stream
+   */
+  private bufferToStream(buffer: Buffer): Readable {
+    const readable = new Readable();
+    readable.push(buffer);
+    readable.push(null);
+    return readable;
+  }
+
+  /**
+   * Upload an image from a Buffer or Stream directly to Cloudinary.
+   * This is more efficient as it avoids intermediate disk I/O.
+   */
+  async uploadImageStream(
+    input: ImageUploadInput,
+    userId: string,
+    folder?: string,
+  ): Promise<{ url: string; publicId: string }> {
+    // Get the readable stream from input
+    let sourceStream: Readable;
+    
+    if (input.buffer) {
+      sourceStream = this.bufferToStream(input.buffer);
+    } else if (input.stream) {
+      sourceStream = input.stream;
+    } else if (input.filePath) {
+      // Fallback to file path for backward compatibility
+      return this.uploadImage(input.filePath, userId, folder);
+    } else {
+      throw createError("ValidationError", "No image data provided");
+    }
+
+    return this.retryService.execute(
+      () =>
+        new Promise((resolve, reject) => {
+          const uploadStream = cloudinary.uploader.upload_stream(
+            { folder: folder || userId },
+            (error, result) => {
+              if (error) {
+                return reject(wrapError(error, "StorageError"));
+              }
+              if (!result) {
+                return reject(
+                  createError(
+                    "StorageError",
+                    "Upload failed, no result returned",
+                  ),
+                );
+              }
+              resolve({
+                url: result.secure_url,
+                publicId: result.public_id,
+              });
+            },
+          );
+
+          sourceStream.on("error", (err) => {
+            logger.error("Error streaming data for upload", { error: err });
+            reject(
+              createError(
+                "StorageError",
+                `Failed to stream data: ${err.message}`,
+              ),
+            );
+          });
+
+          sourceStream.pipe(uploadStream);
+        }),
+      {
+        ...RetryPresets.externalApi(),
+        shouldRetry: (err) => this.isCloudinaryRetryable(err),
+      },
+    );
+  }
+
+  /**
+   * @deprecated Use uploadImageStream for better performance
+   * Legacy method that reads from file path
+   */
   async uploadImage(
     filePath: string,
     userId: string,
