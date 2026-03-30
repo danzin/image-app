@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { container } from "tsyringe";
-import { createError, isErrorWithStatusCode, getErrorMessage, getErrorName } from "@/utils/errors";
+import { Errors, ErrorCode, isErrorWithStatusCode, getErrorMessage, getErrorName } from "@/utils/errors";
 import rateLimit from "express-rate-limit";
 import { DecodedUser, AdminContext } from "@/types";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
@@ -45,17 +45,17 @@ export class BearerTokenStrategy extends AuthStrategy {
     }
     if (!token) {
       console.warn(`[AUTH] Missing token for ${req.method} ${req.originalUrl}`);
-      throw createError("AuthenticationError", "Missing token");
+      throw Errors.authentication("Missing token", ErrorCode.TOKEN_INVALID);
     }
     try {
       const verified = jwt.verify(token, this.secret);
       if (typeof verified !== "object" || verified === null) {
-        throw createError("AuthenticationError", "Invalid token payload");
+        throw Errors.authentication("Invalid token payload", ErrorCode.TOKEN_INVALID);
       }
       const payload = verified as DecodedUser;
 
       if (!payload.publicId || !payload.email || !payload.username || !payload.handle || !payload.sid) {
-        throw createError("AuthenticationError", "Invalid token payload");
+        throw Errors.authentication("Invalid token payload", ErrorCode.TOKEN_INVALID);
       }
 
       const authSessionService = container.resolve<AuthSessionService>("AuthSessionService");
@@ -68,8 +68,13 @@ export class BearerTokenStrategy extends AuthStrategy {
         throw err;
       }
       console.error("[AUTH] Token verification failed", (err as Error).message);
-      const message = err instanceof Error && err.name === "TokenExpiredError" ? "Access token expired" : "Invalid token";
-      throw createError("AuthenticationError", message);
+      const errorCode = err instanceof Error && err.name === "TokenExpiredError" 
+        ? ErrorCode.TOKEN_EXPIRED 
+        : ErrorCode.TOKEN_INVALID;
+      const message = err instanceof Error && err.name === "TokenExpiredError" 
+        ? "Access token expired" 
+        : "Invalid token";
+      throw Errors.authentication(message, errorCode);
     }
   }
 }
@@ -82,11 +87,14 @@ export class AuthenticationMiddleware {
     const user = await userReadRepository.findByPublicId(decodedUser.publicId);
 
     if (!user) {
-      throw createError("AuthenticationError", "User not found");
+      throw Errors.authentication("User not found", ErrorCode.UNAUTHORIZED);
     }
 
     if (user.isEmailVerified === false) {
-      throw createError("ForbiddenError", "Email verification required");
+      throw Errors.forbidden("Email verification required", {
+        userId: decodedUser.publicId,
+        emailVerified: false,
+      }, ErrorCode.EMAIL_NOT_VERIFIED);
     }
   }
 
@@ -145,7 +153,7 @@ export class AuthenticationMiddleware {
         }
         const message = getErrorMessage(error) || "Unauthorized";
         // Default missing/other errors to AuthenticationError (401)
-        next(createError("AuthenticationError", message));
+        next(Errors.authentication(message, ErrorCode.UNAUTHORIZED));
       }
     };
   }
@@ -305,14 +313,14 @@ export const adminActionValidation = (requiredFields: string[] = []) => {
 export class AuthFactory {
   static bearerToken(): AuthenticationMiddleware {
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw createError("ConfigError", "JWT_SECRET not configured");
+    if (!secret) throw Errors.config("JWT_SECRET not configured");
 
     return new AuthenticationMiddleware(new BearerTokenStrategy(secret));
   }
 
   static optionalBearerToken(): AuthenticationMiddleware {
     const secret = process.env.JWT_SECRET;
-    if (!secret) throw createError("ConfigError", "JWT_SECRET not configured");
+    if (!secret) throw Errors.config("JWT_SECRET not configured");
 
     return new AuthenticationMiddleware(new BearerTokenStrategy(secret));
   }

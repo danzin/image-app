@@ -1,9 +1,76 @@
 import express from "express";
 import { errorLogger } from "./winston";
 
+/**
+ * Standard error codes for machine-readable error identification.
+ * For programmatic error handling on the client side.
+ */
+export enum ErrorCode {
+  // Authentication & Authorization (1xxx)
+  INVALID_CREDENTIALS = "AUTH_1001",
+  TOKEN_EXPIRED = "AUTH_1002",
+  TOKEN_INVALID = "AUTH_1003",
+  UNAUTHORIZED = "AUTH_1004",
+  FORBIDDEN = "AUTH_1005",
+  EMAIL_NOT_VERIFIED = "AUTH_1006",
+
+  // Validation (2xxx)
+  VALIDATION_FAILED = "VAL_2001",
+  INVALID_INPUT = "VAL_2002",
+  REQUIRED_FIELD_MISSING = "VAL_2003",
+  INVALID_FORMAT = "VAL_2004",
+
+  // Resource Not Found (3xxx)
+  USER_NOT_FOUND = "RES_3001",
+  POST_NOT_FOUND = "RES_3002",
+  COMMENT_NOT_FOUND = "RES_3003",
+  COMMUNITY_NOT_FOUND = "RES_3004",
+  IMAGE_NOT_FOUND = "RES_3005",
+
+  // Conflict (4xxx)
+  DUPLICATE_EMAIL = "CONF_4001",
+  DUPLICATE_HANDLE = "CONF_4002",
+  DUPLICATE_RESOURCE = "CONF_4003",
+  ALREADY_EXISTS = "CONF_4004",
+
+  // Server Errors (5xxx)
+  INTERNAL_ERROR = "SRV_5001",
+  DATABASE_ERROR = "SRV_5002",
+  STORAGE_ERROR = "SRV_5003",
+  TRANSACTION_ERROR = "SRV_5004",
+  SERVICE_UNAVAILABLE = "SRV_5005",
+
+  // External Services (6xxx)
+  UPLOAD_FAILED = "EXT_6001",
+  EMAIL_SEND_FAILED = "EXT_6002",
+  EXTERNAL_API_ERROR = "EXT_6003",
+}
+
+/**
+ * Type-safe context interface for error metadata.
+ * Provides structure for debugging information attached to errors.
+ */
+export interface ErrorContext {
+  /** User ID related to the error */
+  userId?: string;
+  /** Resource ID (post, comment, etc.) */
+  resourceId?: string;
+  /** Type of resource (post, user, comment, etc.) */
+  resourceType?: string;
+  /** Operation being performed when error occurred */
+  operation?: string;
+  /** File where error originated */
+  file?: string;
+  /** Function where error originated */
+  function?: string;
+  /** Additional domain-specific context */
+  [key: string]: unknown;
+}
+
 export interface ErrorOptions {
-  context?: Record<string, unknown>;
+  context?: ErrorContext;
   cause?: unknown; // Preserves the original stack trace
+  errorCode?: ErrorCode; // Machine-readable error code
 }
 
 export interface ErrorWithStatusCode extends Error {
@@ -87,7 +154,8 @@ export function isMongoDBDuplicateKeyError(
 
 export class AppError extends Error {
   public statusCode: number;
-  public context?: Record<string, unknown>;
+  public context?: ErrorContext;
+  public errorCode?: ErrorCode;
 
   constructor(
     name: string,
@@ -100,6 +168,7 @@ export class AppError extends Error {
     this.name = name;
     this.statusCode = statusCode;
     this.context = options?.context;
+    this.errorCode = options?.errorCode;
 
     // Capture proper stack trace in V8
     if (Error.captureStackTrace) {
@@ -260,6 +329,8 @@ export function createError(
  * Wraps an unknown caught error as an AppError.
  * If the error is already an AppError it is returned unchanged (preserving its type & status code).
  * Otherwise it is wrapped with the given fallback type and the original error attached as `cause`.
+ * Strictly for catching unknown errors as it preservers AppError.
+ * Using this instead of createError will mask known errors and fuck things up.
  */
 export function wrapError(
   error: unknown,
@@ -303,7 +374,68 @@ export function handleMongoError(error: unknown): never {
   throw createError("DatabaseError", message, { cause: error });
 }
 
+/**
+ * Helper class for formatting error responses consistently.
+ */
+export class ErrorResponse {
+  /**
+   * Converts an AppError to a standardized JSON response.
+   * @param error - The AppError to format
+   * @param includeDebugInfo - Whether to include stack traces and cause chain (default: false)
+   */
+  static toJSON(
+    error: AppError,
+    includeDebugInfo: boolean = false,
+  ): Record<string, unknown> {
+    const errorObj: Record<string, unknown> = {
+      type: error.name,
+      message: error.message,
+      code: error.statusCode,
+    };
+
+    if (error.errorCode) {
+      errorObj.errorCode = error.errorCode;
+    }
+
+    if (error.context) {
+      errorObj.context = error.context;
+    }
+
+    if (includeDebugInfo) {
+      errorObj.stack = error.stack;
+      if (error.cause instanceof Error) {
+        errorObj.cause = {
+          message: error.cause.message,
+          stack: error.cause.stack,
+        };
+      }
+    }
+
+    return { error: errorObj };
+  }
+}
+
+/**
+ * Type for optional error metrics callback.
+ * Use this to integrate with your metrics service.
+ */
+export type ErrorMetricsCallback = (params: {
+  errorType: string;
+  statusCode: number;
+  endpoint: string;
+}) => void;
+
 export class ErrorHandler {
+  private static metricsCallback?: ErrorMetricsCallback;
+
+  /**
+   * Register a callback for error metrics tracking.
+   * @param callback - Function to call with error metrics
+   */
+  static setMetricsCallback(callback: ErrorMetricsCallback): void {
+    ErrorHandler.metricsCallback = callback;
+  }
+
   static handleError(
     err: unknown,
     req: express.Request,
@@ -315,10 +447,25 @@ export class ErrorHandler {
         ? err
         : createError("UnknownError", getErrorMessage(err), { cause: err });
 
+    // Track metrics if callback is registered
+    if (ErrorHandler.metricsCallback) {
+      try {
+        ErrorHandler.metricsCallback({
+          errorType: appError.name,
+          statusCode: appError.statusCode || 500,
+          endpoint: req.path,
+        });
+      } catch (metricsError) {
+        // Don't let metrics errors break error handling
+        errorLogger.error("Failed to track error metrics:", metricsError);
+      }
+    }
+
     const response: Record<string, unknown> = {
       type: appError.name,
       message: appError.message,
       code: appError.statusCode || 500,
+      ...(appError.errorCode && { errorCode: appError.errorCode }),
     };
 
     if (appError.context) response.context = appError.context;
@@ -338,6 +485,7 @@ export class ErrorHandler {
       type: appError.name,
       message: appError.message,
       statusCode: appError.statusCode || 500,
+      errorCode: appError.errorCode,
       context: appError.context,
       stack: appError.stack,
       cause: appError.cause,
@@ -350,3 +498,204 @@ export class ErrorHandler {
     res.status(appError.statusCode || 500).json(response);
   }
 }
+
+/**
+ * Standardized error factory with common error patterns.
+ * Use these methods for consistent error creation across the application.
+ *
+ * @example
+ * // Validation errors
+ * throw Errors.validation("Email is required", { field: "email" });
+ *
+ * // Not found errors
+ * throw Errors.notFound("User", userId);
+ *
+ * // Authentication errors
+ * throw Errors.unauthorized("Invalid token", ErrorCode.TOKEN_INVALID);
+ */
+export const Errors = {
+  /**
+   * Create a validation error (400)
+   */
+  validation: (
+    message: string,
+    context?: ErrorContext,
+    errorCode?: ErrorCode,
+  ): AppError =>
+    createError("ValidationError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.VALIDATION_FAILED,
+    }),
+
+  /**
+   * Create an authentication error (401)
+   */
+  authentication: (
+    message: string = "Authentication required",
+    errorCode?: ErrorCode,
+    context?: ErrorContext,
+  ): AppError =>
+    createError("AuthenticationError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.UNAUTHORIZED,
+    }),
+
+  /**
+   * Create an unauthorized error (401)
+   */
+  unauthorized: (
+    message: string = "Unauthorized access",
+    errorCode?: ErrorCode,
+    context?: ErrorContext,
+  ): AppError =>
+    createError("UnauthorizedError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.UNAUTHORIZED,
+    }),
+
+  /**
+   * Create a forbidden error (403)
+   */
+  forbidden: (
+    message: string = "Access forbidden",
+    context?: ErrorContext,
+    errorCode?: ErrorCode,
+  ): AppError =>
+    createError("ForbiddenError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.FORBIDDEN,
+    }),
+
+  /**
+   * Create a not found error (404)
+   * @param resourceType - Type of resource (e.g., "User", "Post")
+   * @param identifier - Resource identifier
+   */
+  notFound: (
+    resourceType: string,
+    identifier?: string,
+    errorCode?: ErrorCode,
+  ): AppError => {
+    const message = identifier
+      ? `${resourceType} with ID '${identifier}' not found`
+      : `${resourceType} not found`;
+    return createError("NotFoundError", message, {
+      context: { resourceType, resourceId: identifier },
+      errorCode,
+    });
+  },
+
+  /**
+   * Create a conflict/duplicate error (409)
+   */
+  conflict: (
+    message: string,
+    context?: ErrorContext,
+    errorCode?: ErrorCode,
+  ): AppError =>
+    createError("ConflictError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.ALREADY_EXISTS,
+    }),
+
+  /**
+   * Create a duplicate error (409)
+   */
+  duplicate: (
+    message: string,
+    context?: ErrorContext,
+    errorCode?: ErrorCode,
+  ): AppError =>
+    createError("DuplicateError", message, {
+      context,
+      errorCode: errorCode || ErrorCode.DUPLICATE_RESOURCE,
+    }),
+
+  /**
+   * Create a database error (500)
+   */
+  database: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
+    createError("DatabaseError", message, {
+      context,
+      errorCode: ErrorCode.DATABASE_ERROR,
+      cause,
+    }),
+
+  /**
+   * Create a storage error (500)
+   */
+  storage: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
+    createError("StorageError", message, {
+      context,
+      errorCode: ErrorCode.STORAGE_ERROR,
+      cause,
+    }),
+
+  /**
+   * Create an upload error (500)
+   */
+  upload: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
+    createError("UploadError", message, {
+      context,
+      errorCode: ErrorCode.UPLOAD_FAILED,
+      cause,
+    }),
+
+  /**
+   * Create an internal server error (500)
+   */
+  internal: (
+    message: string = "Internal server error",
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
+    createError("InternalServerError", message, {
+      context,
+      errorCode: ErrorCode.INTERNAL_ERROR,
+      cause,
+    }),
+
+  /**
+   * Create a transaction error (500)
+   */
+  transaction: (
+    message: string,
+    context?: ErrorContext,
+    cause?: unknown,
+  ): AppError =>
+    createError("TransactionError", message, {
+      context,
+      errorCode: ErrorCode.TRANSACTION_ERROR,
+      cause,
+    }),
+
+  /**
+   * Create a security error (403)
+   */
+  security: (message: string, context?: ErrorContext): AppError =>
+    createError("SecurityError", message, {
+      context,
+      errorCode: ErrorCode.FORBIDDEN,
+    }),
+
+  /**
+   * Create a configuration error (500)
+   */
+  config: (message: string, context?: ErrorContext): AppError =>
+    createError("ConfigError", message, {
+      context,
+      errorCode: ErrorCode.INTERNAL_ERROR,
+    }),
+};

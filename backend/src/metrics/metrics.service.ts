@@ -114,6 +114,31 @@ export class MetricsService {
 		this.optionalAuthFailuresTotal.labels(reason || "unknown", route || "unknown").inc();
 	}
 
+	/**
+	 * Generic counter increment method for custom metrics.
+	 * Creates a counter if it doesn't exist.
+	 */
+	public incrementCounter(name: string, labels: Record<string, string> = {}): void {
+		const labelNames = Object.keys(labels);
+		const labelValues = Object.values(labels);
+
+		// Try to find existing counter
+		const existing = this.registry.getSingleMetric(name);
+		
+		if (existing && existing instanceof client.Counter) {
+			existing.labels(...labelValues).inc();
+		} else if (!existing) {
+			// Create new counter if it doesn't exist
+			const counter = new client.Counter({
+				name,
+				help: `Dynamic counter: ${name}`,
+				labelNames,
+				registers: [this.registry],
+			});
+			counter.labels(...labelValues).inc();
+		}
+	}
+
 	private normalizeRoute(req: Request): string {
 		const path = this.composeRoute(req);
 		return path.replace(/[0-9a-fA-F]{8,}/g, ":id").replace(/\d+/g, ":id");
