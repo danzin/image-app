@@ -3,7 +3,11 @@ import { inject, injectable } from "tsyringe";
 import { MessagingService } from "@/services/messaging.service";
 import { createError } from "@/utils/errors";
 import { SendMessagePayload } from "@/types";
+import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 @injectable()
 export class MessagingController {
@@ -54,7 +58,17 @@ export class MessagingController {
       page,
       limit,
     );
-    res.status(200).json(result);
+
+    if (result.messages.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.messages, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }, { arrayKey: "messages" });
+    } else {
+      res.status(200).json(result);
+    }
   };
 
   markConversationRead = async (req: Request, res: Response): Promise<void> => {

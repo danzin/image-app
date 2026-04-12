@@ -10,14 +10,13 @@ import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { createError, wrapError } from "@/utils/errors";
-import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { FeedService } from "@/services/feed/feed.service";
 import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+
 @injectable()
 export class LikeActionCommandHandler implements ICommandHandler<
   LikeActionCommand,
@@ -36,14 +35,8 @@ export class LikeActionCommandHandler implements ICommandHandler<
     @inject(TOKENS.Repositories.UserRead)
     private readonly userReadRepository: IUserReadRepository,
     @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.CQRS.Handlers.NotificationRequested)
-    private readonly notificationRequestedHandler: NotificationRequestedHandler,
-    @inject(TOKENS.CQRS.Handlers.FeedInteraction)
-    private readonly feedInteractionHandler: FeedInteractionHandler,
     @inject(TOKENS.Services.Feed) private readonly feedService: FeedService,
   ) {}
-
-  // TODO: REFACTOR AND REMOVE OLD METHODS
 
   /**
    * Handles the execution of the LikeActionCommand.
@@ -88,7 +81,7 @@ export class LikeActionCommandHandler implements ICommandHandler<
           await this.handleLike(command, existingPost!, session);
         }
 
-        this.eventBus.queueTransactional(
+        await this.eventBus.queueTransactional(
           new UserInteractedWithPostEvent(
             command.userId,
             isLikeAction ? "like" : "unlike",
@@ -103,7 +96,6 @@ export class LikeActionCommandHandler implements ICommandHandler<
                 : (owner?.toString() ?? "");
             })(),
           ),
-          this.feedInteractionHandler,
         );
       });
 
@@ -117,7 +109,7 @@ export class LikeActionCommandHandler implements ICommandHandler<
           `Post ${command.postId} not found after update`,
         );
       }
-      // Update per-post meta cache asynchronously as not to block respons
+      // Update per-post meta cache asynchronously as not to block response
       if (updatedPost.publicId) {
         this.feedService
           .updatePostLikeMeta(updatedPost.publicId, updatedPost.likesCount ?? 0)
@@ -211,7 +203,7 @@ export class LikeActionCommandHandler implements ICommandHandler<
           ? "[Image post]"
           : "[Post]";
 
-      this.eventBus.queueTransactional(
+      await this.eventBus.queueTransactional(
         new NotificationRequestedEvent({
           receiverId: postOwnerPublicId,
           actionType: "like",
@@ -223,7 +215,6 @@ export class LikeActionCommandHandler implements ICommandHandler<
           targetType: "post",
           targetPreview: postPreview,
         }),
-        this.notificationRequestedHandler,
       );
     } else {
       logger.info(

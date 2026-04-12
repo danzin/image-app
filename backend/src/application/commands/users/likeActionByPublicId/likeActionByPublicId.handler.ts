@@ -10,15 +10,12 @@ import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { DTOService } from "@/services/dto.service";
-import { createError , wrapError } from "@/utils/errors";
-import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { createError, wrapError } from "@/utils/errors";
 import { ClientSession, Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
-
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeActionByPublicIdCommand, PostDTO> {
 	constructor(
@@ -29,9 +26,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
 		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
 		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
-		private readonly notificationRequestedHandler: NotificationRequestedHandler,
-		@inject(TOKENS.CQRS.Handlers.FeedInteraction) private readonly feedInteractionHandler: FeedInteractionHandler,
 		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService
 	) {}
 
@@ -108,7 +102,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 				} else {
 					await this.handleLike(command, userMongoId, existingPost!, actorUsername, actorHandle, actorAvatar, postOwnerPublicId, session);
 				}
-				this.eventBus.queueTransactional(
+				await this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(
 						command.userPublicId,
 						isLikeAction ? "like" : "unlike",
@@ -116,7 +110,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 						postTags,
 						postOwnerPublicId
 					),
-					this.feedInteractionHandler
 				);
 			});
 
@@ -160,7 +153,7 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					? "[Image post]"
 					: "[Post]";
 
-			this.eventBus.queueTransactional(
+			await this.eventBus.queueTransactional(
 				new NotificationRequestedEvent({
 					receiverId: postOwnerPublicId,
 					actionType: "like",
@@ -172,7 +165,6 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<LikeA
 					targetType: "post",
 					targetPreview: postPreview,
 				}),
-				this.notificationRequestedHandler,
 			);
 		}
 	}

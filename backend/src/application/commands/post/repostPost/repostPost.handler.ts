@@ -7,7 +7,6 @@ import { IPostReadRepository } from "@/repositories/interfaces/IPostReadReposito
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { DTOService } from "@/services/dto.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { createError } from "@/utils/errors";
@@ -15,7 +14,6 @@ import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "@/utils/sa
 import { IPost, IUser, PostDTO, PopulatedPostTag, PopulatedPostUser } from "@/types";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { PostUploadedEvent } from "@/application/events/post/post.event";
-import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
 import { TOKENS } from "@/types/tokens";
 
 const MAX_BODY_LENGTH = 300;
@@ -29,9 +27,6 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
 		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
 		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-		@inject(TOKENS.CQRS.Handlers.PostUpload) private readonly postUploadHandler: PostUploadHandler,
-		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
-		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: RepostPostCommand): Promise<PostDTO> {
@@ -92,7 +87,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
 			if (targetOwner && targetOwner !== command.userPublicId) {
-				this.eventBus.queueTransactional(
+				await this.eventBus.queueTransactional(
 					new NotificationRequestedEvent({
 						receiverId: targetOwner,
 						actionType: "repost",
@@ -104,7 +99,6 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 						targetType: "post",
 						targetPreview: this.buildPostPreview(targetPost),
 					}),
-					this.notificationRequestedHandler,
 				);
 			}
 
@@ -114,9 +108,8 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 						.filter((t): t is string => typeof t === "string")
 				: [];
 
-			this.eventBus.queueTransactional(
+			await this.eventBus.queueTransactional(
 				new PostUploadedEvent(newPost.publicId, user.publicId, Array.from(new Set(tagNames))),
-				this.postUploadHandler
 			);
 
 			return newPost;

@@ -22,14 +22,11 @@ import {
   MessageStatusUpdatedEvent,
   MessageAttachmentsDeletedEvent,
 } from "@/application/events/message/message.event";
-import { MessageSentHandler } from "@/application/events/message/message-sent.handler";
-import { MessageStatusUpdatedHandler } from "@/application/events/message/message-status-updated.handler";
-import { MessageAttachmentsDeletedHandler } from "@/application/handlers/message/MessageAttachmentsDeletedHandler";
 import { NotificationService } from "./notification.service";
 import { sanitizeTextInput } from "@/utils/sanitizers";
 import { logger } from "@/utils/winston";
 import { isUserViewingConversation } from "../server/socketServer";
-import { IImageStorageService } from "@/types";
+import type { IImageStorageService } from "@/types";
 import { TOKENS } from "@/types/tokens";
 
 /*
@@ -62,16 +59,12 @@ export class MessagingService {
     private readonly conversationRepository: ConversationRepository,
     @inject(TOKENS.Repositories.Message)
     private readonly messageRepository: MessageRepository,
-    @inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository,
-    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Repositories.User)
+    private readonly userRepository: UserRepository,
+    @inject(TOKENS.Repositories.UnitOfWork)
+    private readonly unitOfWork: UnitOfWork,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
     @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.CQRS.Handlers.MessageSent)
-    private readonly messageSentHandler: MessageSentHandler,
-    @inject(TOKENS.CQRS.Handlers.MessageStatusUpdatedEvent)
-    private readonly messageStatusUpdatedHandler: MessageStatusUpdatedHandler,
-    @inject(TOKENS.CQRS.Handlers.MessageAttachmentsDeleted)
-    private readonly messageAttachmentsDeletedHandler: MessageAttachmentsDeletedHandler,
     @inject(TOKENS.Services.Notification)
     private readonly notificationService: NotificationService,
     @inject(TOKENS.Services.ImageStorage)
@@ -178,7 +171,10 @@ export class MessagingService {
       );
 
     if (!hydratedConversation) {
-      throw createError("InternalError", "Conversation could not be loaded");
+      throw createError(
+        "InternalServerError",
+        "Conversation could not be loaded",
+      );
     }
 
     return this.mapConversationSummary(
@@ -240,13 +236,12 @@ export class MessagingService {
           .map((doc) => doc.publicId)
           .filter(Boolean);
 
-        this.eventBus.queueTransactional(
+        await this.eventBus.queueTransactional(
           new MessageStatusUpdatedEvent(
             conversation.publicId,
             participantPublicIds,
             "delivered",
           ),
-          this.messageStatusUpdatedHandler,
         );
       });
     }
@@ -315,13 +310,12 @@ export class MessagingService {
         .map((doc) => doc.publicId)
         .filter(Boolean);
 
-      this.eventBus.queueTransactional(
+      await this.eventBus.queueTransactional(
         new MessageStatusUpdatedEvent(
           conversation.publicId,
           participantPublicIds,
           "read",
         ),
-        this.messageStatusUpdatedHandler,
       );
     });
   }
@@ -591,14 +585,13 @@ export class MessagingService {
           );
         }
 
-        this.eventBus.queueTransactional(
+        await this.eventBus.queueTransactional(
           new MessageSentEvent(
             conversationDoc!.publicId,
             senderPublicId,
             recipients,
             message.publicId,
           ),
-          this.messageSentHandler,
         );
 
         targetConversation = conversationDoc;
@@ -608,7 +601,7 @@ export class MessagingService {
 
     if (!targetConversation) {
       throw createError(
-        "InternalError",
+        "InternalServerError",
         "Conversation context missing after message creation",
       );
     }
@@ -676,14 +669,14 @@ export class MessagingService {
       { body: sanitizedBody },
     );
     if (!updatedMessage) {
-      throw createError("InternalError", "Failed to update message");
+      throw createError("InternalServerError", "Failed to update message");
     }
 
     const conversation = await this.conversationRepository.findById(
       updatedMessage.conversation.toString(),
     );
     if (!conversation) {
-      throw createError("InternalError", "Conversation not found");
+      throw createError("InternalServerError", "Conversation not found");
     }
 
     // Emit event for real-time update if needed (not implemented yet for edit, but good practice)
@@ -752,9 +745,8 @@ export class MessagingService {
       );
 
       if (attachmentPublicIds.length > 0) {
-        this.eventBus.queueTransactional(
+        await this.eventBus.queueTransactional(
           new MessageAttachmentsDeletedEvent(attachmentPublicIds),
-          this.messageAttachmentsDeletedHandler,
         );
       }
     });

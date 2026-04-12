@@ -17,14 +17,12 @@ import { DTOService } from "@/services/dto.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { PostUploadedEvent } from "@/application/events/post/post.event";
-import { PostUploadHandler } from "@/application/events/post/post-uploaded.handler";
+import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
+import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 import { createError } from "@/utils/errors";
 import { sanitizeForMongo, isValidPublicId, sanitizeTextInput } from "@/utils/sanitizers";
 import { generateSlug } from "@/utils/helpers";
 import { AttachmentSummary, IPost, IUser, PostDTO } from "@/types";
-import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
-import { PostNotFoundError, UserNotFoundError, mapPostError } from "../../../errors/post.errors";
 import { logger } from "@/utils/winston";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { TOKENS } from "@/types/tokens";
@@ -45,9 +43,6 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 		@inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
 		@inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
 		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-		@inject(TOKENS.CQRS.Handlers.PostUpload) private readonly postUploadHandler: PostUploadHandler,
-		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
-		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: CreatePostCommand): Promise<PostDTO> {
@@ -166,7 +161,7 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 							continue;
 						}
 
-						this.eventBus.queueTransactional(
+						await this.eventBus.queueTransactional(
 							new NotificationRequestedEvent({
 								receiverId: mentionedUser.publicId,
 								actionType: "mention",
@@ -180,15 +175,13 @@ export class CreatePostCommandHandler implements ICommandHandler<CreatePostComma
 									? command.body.substring(0, 50) + (command.body.length > 50 ? "..." : "")
 									: "",
 							}),
-							this.notificationRequestedHandler,
 						);
 					}
 				}
 
 				const distinctTags = Array.from(new Set(tagNames));
-				this.eventBus.queueTransactional(
+				await this.eventBus.queueTransactional(
 					new PostUploadedEvent(post.publicId, user.publicId, distinctTags),
-					this.postUploadHandler,
 				);
 
 				return {

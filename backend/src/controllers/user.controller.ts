@@ -48,9 +48,13 @@ import { RequestPasswordResetCommand } from "@/application/commands/users/reques
 import { ResetPasswordCommand } from "@/application/commands/users/resetPassword/ResetPasswordCommand";
 import { VerifyEmailCommand } from "@/application/commands/users/verifyEmail/VerifyEmailCommand";
 import { PaginationOptions } from "@/types";
+import { streamPaginatedResponse } from "@/utils/streamResponse";
 
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -371,7 +375,17 @@ export class UserController {
 
     const query = new GetFollowersQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowersResult>(query);
-    res.status(200).json(result);
+
+    if (result.users.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.users, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }, { arrayKey: "users" });
+    } else {
+      res.status(200).json(result);
+    }
   };
 
   getFollowing = async (req: Request, res: Response): Promise<void> => {
@@ -381,7 +395,17 @@ export class UserController {
 
     const query = new GetFollowingQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowingResult>(query);
-    res.status(200).json(result);
+
+    if (result.users.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.users, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }, { arrayKey: "users" });
+    } else {
+      res.status(200).json(result);
+    }
   };
 
   getAccountInfo = async (req: Request, res: Response): Promise<void> => {

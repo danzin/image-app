@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { RegisterUserCommand } from "./register.command";
-import { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
-import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
+import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { createError, wrapError } from "@/utils/errors";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { DTOService, AuthenticatedUserDTO } from "@/services/dto.service";

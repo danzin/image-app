@@ -51,6 +51,7 @@ export class RedisService {
   private readonly notificationModule: RedisNotificationModule;
   private readonly feedModule: RedisFeedModule;
   private readonly streamModule: RedisStreamModule;
+  private readonly subscribers = new Map<string, RedisClientType>();
 
   constructor(
     @inject(TOKENS.Services.Metrics) private readonly metricsService: MetricsService,
@@ -400,8 +401,22 @@ export class RedisService {
     channels: string[],
     messageHandler: (channel: string, message: T) => void,
   ): Promise<void> {
+    // Use a composite key so multiple subscribe() calls to different channel
+    // sets each get their own tracked connection.
+    const subscriberKey = channels.sort().join(",");
+
+    // Tear down any previous subscriber for the same channel set (e.g. reconnect)
+    const existing = this.subscribers.get(subscriberKey);
+    if (existing?.isOpen) {
+      try {
+        await existing.unsubscribe();
+        await existing.quit();
+      } catch { /* best-effort cleanup */ }
+    }
+
     const subscriber = this.client.duplicate();
     await subscriber.connect();
+    this.subscribers.set(subscriberKey, subscriber);
 
     await subscriber.subscribe(channels, (message, channel) => {
       try {
@@ -414,6 +429,26 @@ export class RedisService {
         });
       }
     });
+  }
+
+  /**
+   * Tears down all tracked subscriber connections.
+   * Call during graceful shutdown to prevent connection leaks.
+   */
+  async unsubscribeAll(): Promise<void> {
+    for (const [key, subscriber] of this.subscribers) {
+      try {
+        if (subscriber.isOpen) {
+          await subscriber.unsubscribe();
+          await subscriber.quit();
+        }
+      } catch (error) {
+        redisLogger.error(`Failed to close subscriber for ${key}`, {
+          error: getErrorMessage(error),
+        });
+      }
+    }
+    this.subscribers.clear();
   }
 
   /**
@@ -448,13 +483,18 @@ export class RedisService {
         const tagTTL = ttl || 600;
         const stringValue = JSON.stringify(value);
         const start = performance.now();
-        // make sure tag keys are sets before use
+        // Make sure tag keys hold the correct type (set) before pipeline use.
+        // NOTE: These type-checks run OUTSIDE the pipeline, so there is a narrow
+        // race window between the check and the pipeline execution. A Lua script
+        // would close this gap, but the operation is idempotent and the race is
+        // benign in practice. The worst case is a WRONGTYPE error caught by
+        // withResilience and retried.
         await Promise.all([
           ...uniqueTags.map((tag) => this.ensureSetKey(`tag:${tag}`)),
           this.ensureSetKey(`key_tags:${key}`),
         ]);
 
-        // atomic pipeline for setting cache + updating all tags + setting TTLs in one go
+        // Pipeline: batch SET + SADD (tag association) + EXPIRE in one round-trip
         const pipeline = this.client.multi();
 
         if (ttl) {

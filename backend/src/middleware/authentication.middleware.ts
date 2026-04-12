@@ -45,17 +45,17 @@ export class BearerTokenStrategy extends AuthStrategy {
     }
     if (!token) {
       console.warn(`[AUTH] Missing token for ${req.method} ${req.originalUrl}`);
-      throw Errors.authentication("Missing token", ErrorCode.TOKEN_INVALID);
+      throw Errors.authentication("Missing token", { errorCode: ErrorCode.TOKEN_INVALID });
     }
     try {
       const verified = jwt.verify(token, this.secret);
       if (typeof verified !== "object" || verified === null) {
-        throw Errors.authentication("Invalid token payload", ErrorCode.TOKEN_INVALID);
+        throw Errors.authentication("Invalid token payload", { errorCode: ErrorCode.TOKEN_INVALID });
       }
       const payload = verified as DecodedUser;
 
       if (!payload.publicId || !payload.email || !payload.username || !payload.handle || !payload.sid) {
-        throw Errors.authentication("Invalid token payload", ErrorCode.TOKEN_INVALID);
+        throw Errors.authentication("Invalid token payload", { errorCode: ErrorCode.TOKEN_INVALID });
       }
 
       const authSessionService = container.resolve<AuthSessionService>("AuthSessionService");
@@ -74,7 +74,7 @@ export class BearerTokenStrategy extends AuthStrategy {
       const message = err instanceof Error && err.name === "TokenExpiredError" 
         ? "Access token expired" 
         : "Invalid token";
-      throw Errors.authentication(message, errorCode);
+      throw Errors.authentication(message, { errorCode });
     }
   }
 }
@@ -87,14 +87,17 @@ export class AuthenticationMiddleware {
     const user = await userReadRepository.findByPublicId(decodedUser.publicId);
 
     if (!user) {
-      throw Errors.authentication("User not found", ErrorCode.UNAUTHORIZED);
+      throw Errors.authentication("User not found", { errorCode: ErrorCode.UNAUTHORIZED });
     }
 
     if (user.isEmailVerified === false) {
       throw Errors.forbidden("Email verification required", {
-        userId: decodedUser.publicId,
-        emailVerified: false,
-      }, ErrorCode.EMAIL_NOT_VERIFIED);
+        context: {
+          userId: decodedUser.publicId,
+          emailVerified: false,
+        },
+        errorCode: ErrorCode.EMAIL_NOT_VERIFIED,
+      });
     }
   }
 
@@ -153,7 +156,7 @@ export class AuthenticationMiddleware {
         }
         const message = getErrorMessage(error) || "Unauthorized";
         // Default missing/other errors to AuthenticationError (401)
-        next(Errors.authentication(message, ErrorCode.UNAUTHORIZED));
+        next(Errors.authentication(message, { errorCode: ErrorCode.UNAUTHORIZED }));
       }
     };
   }

@@ -17,6 +17,7 @@ import { GetAllTagsQuery } from "@/application/queries/tags/getAllTags/getAllTag
 import { GetUserByHandleQuery } from "@/application/queries/users/getUserByUsername/getUserByUsername.query";
 import { Errors } from "@/utils/errors";
 import { PostDTO, PaginationResult, ITag, UserPostsResult } from "@/types";
+import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { safeFireAndForget } from "@/utils/helpers";
 import { PublicUserDTO } from "@/services/dto.service";
 import { logger } from "@/utils/winston";
@@ -24,6 +25,9 @@ import { TOKENS } from "@/types/tokens";
 
 /** Regex to strip file extensions (e.g., .png, .jpg) from slugs/IDs */
 const FILE_EXTENSION_REGEX = /\.[a-z0-9]{2,5}$/i;
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 @injectable()
 export class PostController {
@@ -40,7 +44,7 @@ export class PostController {
 
     if (!file && (!bodyText || bodyText.trim().length === 0)) {
       throw Errors.validation("Provide either an image or body text", {
-        operation: "createPost",
+        context: { operation: "createPost" },
       });
     }
 
@@ -83,7 +87,17 @@ export class PostController {
     const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
       new GetPostsQuery(page, limit, userId),
     );
-    res.json(posts);
+
+    if (posts.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, posts.data, {
+        total: posts.total,
+        page: posts.page,
+        limit: posts.limit,
+        totalPages: posts.totalPages,
+      });
+    } else {
+      res.json(posts);
+    }
   };
 
   getPostsByUserPublicId = async (
@@ -104,7 +118,17 @@ export class PostController {
       sortOrder,
     );
     const posts = await this.queryBus.execute<UserPostsResult>(query);
-    res.json(posts);
+
+    if (posts.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, posts.data, {
+        total: posts.total,
+        page: posts.page,
+        limit: posts.limit,
+        totalPages: posts.totalPages,
+      });
+    } else {
+      res.json(posts);
+    }
   };
 
   getLikedPostsByUserPublicId = async (
@@ -127,7 +151,17 @@ export class PostController {
       sortOrder,
     );
     const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(query);
-    res.json(posts);
+
+    if (posts.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, posts.data, {
+        total: posts.total,
+        page: posts.page,
+        limit: posts.limit,
+        totalPages: posts.totalPages,
+      });
+    } else {
+      res.json(posts);
+    }
   };
 
   getPostsByHandle = async (req: Request, res: Response): Promise<void> => {
@@ -202,7 +236,17 @@ export class PostController {
     const query = new SearchPostsByTagsQuery(tagArray, page, limit);
     const postDTO =
       await this.queryBus.execute<PaginationResult<PostDTO>>(query);
-    res.status(200).json(postDTO);
+
+    if (postDTO.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, postDTO.data, {
+        total: postDTO.total,
+        page: postDTO.page,
+        limit: postDTO.limit,
+        totalPages: postDTO.totalPages,
+      });
+    } else {
+      res.status(200).json(postDTO);
+    }
   };
 
   listTags = async (_req: Request, res: Response): Promise<void> => {

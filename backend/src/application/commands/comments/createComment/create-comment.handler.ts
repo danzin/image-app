@@ -8,9 +8,7 @@ import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteReposi
 import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
-import { createError , wrapError } from "@/utils/errors";
-import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
+import { createError, wrapError } from "@/utils/errors";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
@@ -28,9 +26,6 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 		@inject(TOKENS.Repositories.Comment) private readonly commentRepository: CommentRepository,
 		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
 		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
-		private readonly notificationRequestedHandler: NotificationRequestedHandler,
-		@inject(TOKENS.CQRS.Handlers.FeedInteraction) private readonly feedInteractionHandler: FeedInteractionHandler,
 	) {}
 
 	/**
@@ -138,7 +133,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							? "[Image post]"
 							: "[Post]";
 
-					this.eventBus.queueTransactional(
+					await this.eventBus.queueTransactional(
 							new NotificationRequestedEvent({
 								receiverId: postOwnerId,
 								actionType: "comment",
@@ -149,9 +144,8 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 								targetId: command.postPublicId,
 								targetType: "post",
 								targetPreview: postPreview,
-						}),
-						this.notificationRequestedHandler,
-					);
+							}),
+						);
 				}
 
 				// Send notification to parent comment owner (for replies), but avoid double notifying post owner
@@ -165,7 +159,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 							parentOwnerPublicId !== command.userPublicId &&
 							parentOwnerPublicId !== postOwnerId
 						) {
-							this.eventBus.queueTransactional(
+							await this.eventBus.queueTransactional(
 							new NotificationRequestedEvent({
 								receiverId: parentOwnerPublicId,
 								actionType: "comment_reply",
@@ -177,7 +171,6 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 								targetType: "comment",
 								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
 								}),
-								this.notificationRequestedHandler,
 							);
 						}
 					}
@@ -211,7 +204,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 						}
 
 						logger.info(`[CreateComment] Creating mention notification for ${mentionedUser.publicId}`);
-						this.eventBus.queueTransactional(
+						await this.eventBus.queueTransactional(
 							new NotificationRequestedEvent({
 								receiverId: mentionedUser.publicId,
 								actionType: "mention",
@@ -223,23 +216,21 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 								targetType: "post",
 								targetPreview: safeContent.substring(0, 50) + (safeContent.length > 50 ? "..." : ""),
 							}),
-							this.notificationRequestedHandler,
 						);
 					}
 				}
 
-				this.eventBus.queueTransactional(
+				await this.eventBus.queueTransactional(
 					new UserInteractedWithPostEvent(command.userPublicId, "comment", sanitizedPostId, postTags, postOwnerId),
-					this.feedInteractionHandler,
 				);
 			});
 
 			if (!createdComment) {
-				throw createError("InternalError", "Comment was not created");
+				throw createError("InternalServerError", "Comment was not created");
 			}
 			const populatedComment = await this.commentRepository.findByIdTransformed((createdComment._id as mongoose.Types.ObjectId).toString());
 			if (!populatedComment) {
-				throw createError("InternalError", "Failed to retrieve created comment");
+				throw createError("InternalServerError", "Failed to retrieve created comment");
 			}
 
 			return populatedComment;

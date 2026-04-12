@@ -1,12 +1,16 @@
 import { Request, Response, NextFunction } from "express";
 import { CommentService } from "@/services/comment.service";
 import { createError } from "@/utils/errors";
+import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { inject, injectable } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { CreateCommentCommand } from "@/application/commands/comments/createComment/createComment.command";
 import { DeleteCommentCommand } from "@/application/commands/comments/deleteComment/deleteComment.command";
 import { LikeCommentCommand } from "@/application/commands/comments/likeComment/likeComment.command";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 /**
  * Comment Controller
@@ -119,7 +123,17 @@ export class CommentController {
       sortBy,
       sortOrder,
     );
-    res.json(result);
+
+    if (result.comments.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.comments, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      }, { arrayKey: "comments" });
+    } else {
+      res.json(result);
+    }
   };
 
   getCommentThread = async (

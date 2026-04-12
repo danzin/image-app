@@ -75,69 +75,6 @@ export class PostReadRepository implements IPostReadRepository {
 
 
 
-  async getFeedForUserCoreWithCursor(
-    followingIds: string[],
-    favoriteTags: string[],
-    options: CursorPaginationOptions
-  ): Promise<CursorPaginationResult<FeedPost>> {
-    return this.postRepository.getFeedForUserCoreWithCursor(followingIds, favoriteTags, options);
-  }
-
-  async getRankedFeed(favoriteTags: string[], limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
-    return this.postRepository.getRankedFeed(favoriteTags, limit, skip);
-  }
-
-  async getTrendingFeed(
-    limit: number,
-    skip: number,
-    options?: {
-      timeWindowDays?: number;
-      minLikes?: number;
-      weights?: { recency?: number; popularity?: number; comments?: number };
-    },
-  ): Promise<PaginationResult<FeedPost>> {
-    return this.postRepository.getTrendingFeed(limit, skip, options);
-  }
-
-  async getTrendingFeedWithFacet(
-    limit: number,
-    skip: number,
-    options?: {
-      timeWindowDays?: number;
-      minLikes?: number;
-      weights?: { recency?: number; popularity?: number; comments?: number };
-    }
-  ): Promise<PaginationResult<FeedPost>> {
-    return this.postRepository.getTrendingFeedWithFacet(limit, skip, options);
-  }
-
-  async getNewFeedWithCursor(options: CursorPaginationOptions): Promise<CursorPaginationResult<FeedPost>> {
-    return this.postRepository.getNewFeedWithCursor(options);
-  }
-
-  async getTrendingFeedWithCursor(
-    options: CursorPaginationOptions & {
-      timeWindowDays?: number;
-      minLikes?: number;
-      weights?: { recency?: number; popularity?: number; comments?: number };
-    }
-  ): Promise<CursorPaginationResult<FeedPost>> {
-    return this.postRepository.getTrendingFeedWithCursor(options);
-  }
-
-  async getRankedFeedWithCursor(
-    favoriteTags: string[],
-    options: CursorPaginationOptions & {
-      weights?: { recency?: number; popularity?: number; tagMatch?: number };
-    }
-  ): Promise<CursorPaginationResult<FeedPost>> {
-    return this.postRepository.getRankedFeedWithCursor(favoriteTags, options);
-  }
-
-  async getNewFeed(limit: number, skip: number): Promise<PaginationResult<FeedPost>> {
-    return this.postRepository.getNewFeed(limit, skip);
-  }
-
   async countDocuments(filter: Record<string, unknown>): Promise<number> {
     return this.postRepository.countDocuments(filter);
   }
@@ -148,10 +85,6 @@ export class PostReadRepository implements IPostReadRepository {
 
   async countByCommunityId(communityId: string): Promise<number> {
     return this.postRepository.countByCommunityId(communityId);
-  }
-
-  async getTrendingTags(limit: number, timeWindowHours: number): Promise<TrendingTag[]> {
-    return this.postRepository.getTrendingTags(limit, timeWindowHours);
   }
 }
 

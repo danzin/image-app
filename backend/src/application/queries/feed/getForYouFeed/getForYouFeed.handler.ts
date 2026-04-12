@@ -3,8 +3,7 @@ import { IQueryHandler } from "@/application/common/interfaces/query-handler.int
 import { GetForYouFeedQuery } from "./getForYouFeed.query";
 import {
   IPostReadRepository,
-  IUserReadRepository,
-} from "@/repositories/interfaces";
+  IUserReadRepository, IFeedReadDao } from "@/repositories/interfaces";
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
 import { RedisService } from "@/services/redis.service";
 import { EventBus } from "@/application/common/buses/event.bus";
@@ -27,6 +26,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
   PaginatedFeedResult
 > {
   constructor(
+    @inject(TOKENS.Repositories.FeedReadDao) private readonly feedReadDao: IFeedReadDao,
     @inject(TOKENS.Repositories.PostRead)
     private postReadRepository: IPostReadRepository,
     @inject(TOKENS.Repositories.UserRead)
@@ -112,7 +112,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
       const favoriteTags = topTags.map((pref) => pref.tag);
 
       // Use getRankedFeedWithCursor (O(1)) instead of getRankedFeed (O(N))
-      const result = await this.postReadRepository.getRankedFeedWithCursor(
+      const result = await this.feedReadDao.getRankedFeedWithCursor(
         favoriteTags,
         { limit, cursor },
       );
@@ -323,6 +323,6 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
     );
     const favoriteTags = topTags.map((pref) => pref.tag);
     const skip = (page - 1) * limit;
-    return this.postReadRepository.getRankedFeed(favoriteTags, limit, skip);
+    return this.feedReadDao.getRankedFeed(favoriteTags, limit, skip);
   }
 }

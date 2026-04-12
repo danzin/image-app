@@ -1,9 +1,13 @@
 import { Request, Response } from "express";
 import { NotificationService } from "@/services/notification.service";
 import { createError } from "@/utils/errors";
+import { streamCursorResponse } from "@/utils/streamResponse";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 @injectable()
 export class NotificationController {
@@ -46,7 +50,28 @@ export class NotificationController {
           : " (initial load)"),
     );
 
-    res.status(200).json(notifications);
+    // Determine if there are more notifications (heuristic: if we got exactly limit, there may be more)
+    const hasMore = notifications.length === limit;
+    // Generate next cursor from the oldest notification's createdAt
+    const nextCursor =
+      hasMore && notifications.length > 0
+        ? new Date(
+            (notifications[notifications.length - 1] as any).timestamp,
+          ).toISOString()
+        : undefined;
+
+    if (notifications.length >= STREAM_THRESHOLD) {
+      streamCursorResponse(res, notifications, {
+        hasMore,
+        nextCursor,
+      });
+    } else {
+      res.status(200).json({
+        data: notifications,
+        hasMore,
+        nextCursor,
+      });
+    }
   };
 
   markAsRead = async (req: Request, res: Response) => {

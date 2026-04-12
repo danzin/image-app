@@ -113,7 +113,7 @@ export class RedisFeedModule {
       {
         BY: "SCORE",
         REV: true,
-        LIMIT: { offset: 0, count: limit + 10 },
+        LIMIT: { offset: 0, count: Math.max(limit * 2, limit + 10) },
       } as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } },
     );
 
@@ -229,7 +229,7 @@ export class RedisFeedModule {
       {
         BY: "SCORE",
         REV: true,
-        LIMIT: { offset: 0, count: limit + 10 },
+        LIMIT: { offset: 0, count: Math.max(limit * 2, limit + 10) },
       } as { BY: "SCORE"; REV: true; LIMIT: { offset: number; count: number } },
     );
 

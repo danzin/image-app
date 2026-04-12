@@ -3,8 +3,7 @@ import { IQueryHandler } from "@/application/common/interfaces/query-handler.int
 import { GetTrendingFeedQuery } from "./getTrendingFeed.query";
 import {
   IPostReadRepository,
-  IUserReadRepository,
-} from "@/repositories/interfaces";
+  IUserReadRepository, IFeedReadDao } from "@/repositories/interfaces";
 import { RedisService } from "@/services/redis.service";
 import { DTOService } from "@/services/dto.service";
 import { createError } from "@/utils/errors";
@@ -27,6 +26,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
   PaginatedFeedResult
 > {
   constructor(
+    @inject(TOKENS.Repositories.FeedReadDao) private readonly feedReadDao: IFeedReadDao,
     @inject(TOKENS.Repositories.PostRead)
     private postReadRepository: IPostReadRepository,
     @inject(TOKENS.Repositories.UserRead)
@@ -58,7 +58,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       }
 
       if (isNewPhase) {
-        const result = await this.postReadRepository.getNewFeedWithCursor({
+        const result = await this.feedReadDao.getNewFeedWithCursor({
           limit,
           cursor: actualCursor,
         });
@@ -128,7 +128,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       redisLogger.info(
         "Falling back to DB cursor pagination for trending feed",
       );
-      let result = await this.postReadRepository.getTrendingFeedWithCursor({
+      let result = await this.feedReadDao.getTrendingFeedWithCursor({
         limit,
         cursor: actualCursor,
         timeWindowDays: 30,
@@ -144,7 +144,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
         const needed = limit - transformedPosts.length;
         if (needed > 0) {
           // Current page isn't full backfill the remainder with new posts
-          const backfill = await this.postReadRepository.getNewFeedWithCursor({
+          const backfill = await this.feedReadDao.getNewFeedWithCursor({
             limit: needed + 1,
           });
           const existingIds = new Set(transformedPosts.map((p) => p.publicId));
@@ -162,7 +162,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
         } else {
           // Current page is full with trending posts, but there are no more trending posts.
           // Fetch a single new feed page so we can generate the new_phase cursor for the NEXT request.
-          const backfill = await this.postReadRepository.getNewFeedWithCursor({
+          const backfill = await this.feedReadDao.getNewFeedWithCursor({
             limit: limit + 1,
           });
           nextCursor = backfill.nextCursor

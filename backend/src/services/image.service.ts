@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { ImageRepository } from "@/repositories/image.repository";
-import {
+import type {
   AttachmentCreationResult,
   CreatePostAttachmentInput,
   DeleteAttachmentAssetInput,

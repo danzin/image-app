@@ -9,6 +9,7 @@ import { GetAllPostsAdminQuery } from "@/application/queries/post/getAllPostsAdm
 import { GetDashboardStatsQuery } from "@/application/queries/admin/getDashboardStats/getDashboardStats.query";
 import { DashboardStatsResult } from "@/application/queries/admin/getDashboardStats/getDashboardStats.handler";
 import { PaginationResult, PostDTO } from "@/types";
+import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { GetAllUsersAdminQuery } from "@/application/queries/admin/getAllUsersAdmin/getAllUsersAdmin.query";
 import { GetAdminUserProfileQuery } from "@/application/queries/admin/getAdminUserProfile/getAdminUserProfile.query";
 import { GetUserStatsQuery } from "@/application/queries/admin/getUserStats/getUserStats.query";
@@ -25,6 +26,9 @@ import { escapeRegex } from "@/utils/sanitizers";
 import { RedisService } from "@/services/redis.service";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { TOKENS } from "@/types/tokens";
+
+/** Threshold for enabling streaming responses (items) */
+const STREAM_THRESHOLD = 100;
 
 @injectable()
 export class AdminUserController {
@@ -64,8 +68,18 @@ export class AdminUserController {
       filter,
     };
     const query = new GetAllUsersAdminQuery(options);
-    const result = await this.queryBus.execute(query);
-    res.status(200).json(result);
+    const result = await this.queryBus.execute<PaginationResult<AdminUserDTO>>(query);
+
+    if (result.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.data, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      });
+    } else {
+      res.status(200).json(result);
+    }
   };
 
   getUser = async (req: Request, res: Response) => {
@@ -138,7 +152,17 @@ export class AdminUserController {
         options.sortOrder,
       ),
     );
-    res.status(200).json(posts);
+
+    if (posts.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, posts.data, {
+        total: posts.total,
+        page: posts.page,
+        limit: posts.limit,
+        totalPages: posts.totalPages,
+      });
+    } else {
+      res.status(200).json(posts);
+    }
   };
 
   deleteImage = async (req: Request, res: Response) => {
@@ -253,7 +277,17 @@ export class AdminUserController {
       search: search as string | undefined,
     };
     const query = new GetRequestLogsQuery(options);
-    const result = await this.queryBus.execute(query);
-    res.status(200).json(result);
+    const result = await this.queryBus.execute<PaginationResult<unknown>>(query);
+
+    if (Array.isArray(result.data) && result.data.length >= STREAM_THRESHOLD) {
+      streamPaginatedResponse(res, result.data, {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+      });
+    } else {
+      res.status(200).json(result);
+    }
   };
 }

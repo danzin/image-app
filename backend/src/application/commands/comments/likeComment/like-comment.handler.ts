@@ -8,7 +8,6 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { NotificationRequestedHandler } from "@/application/events/notification/notification-requested.handler";
 import { createError } from "@/utils/errors";
 import { CommentLikeResult, IComment } from "@/types";
 import { LikeCommentCommand } from "./likeComment.command";
@@ -23,8 +22,6 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 		@inject(TOKENS.Repositories.UserRead) private readonly userReadRepository: IUserReadRepository,
 		@inject(TOKENS.Repositories.UserAction) private readonly userActionRepository: UserActionRepository,
 		@inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-		@inject(TOKENS.CQRS.Handlers.NotificationRequested)
-		private readonly notificationRequestedHandler: NotificationRequestedHandler,
 	) {}
 
 	async execute(command: LikeCommentCommand): Promise<CommentLikeResult> {
@@ -84,9 +81,8 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 				};
 			}
 			if (notifyPayload) {
-				this.eventBus.queueTransactional(
+				await this.eventBus.queueTransactional(
 					new NotificationRequestedEvent(notifyPayload),
-					this.notificationRequestedHandler,
 				);
 			}
 		});

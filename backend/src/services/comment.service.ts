@@ -74,7 +74,7 @@ export class CommentService {
     );
     if (!populatedComment) {
       throw createError(
-        "InternalError",
+        "InternalServerError",
         "Failed to load comment after creation",
       );
     }
