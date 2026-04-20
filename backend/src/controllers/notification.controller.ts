@@ -55,9 +55,7 @@ export class NotificationController {
     // Generate next cursor from the oldest notification's createdAt
     const nextCursor =
       hasMore && notifications.length > 0
-        ? new Date(
-            (notifications[notifications.length - 1] as any).timestamp,
-          ).toISOString()
+        ? notifications[notifications.length - 1].timestamp.toISOString()
         : undefined;
 
     if (notifications.length >= STREAM_THRESHOLD) {
