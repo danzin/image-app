@@ -3,10 +3,10 @@
   "compilerOptions": {
     "composite": true,
     "module": "CommonJS",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
     "types": ["mocha", "node"],
     "noEmit": true,
-    "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"]
     }

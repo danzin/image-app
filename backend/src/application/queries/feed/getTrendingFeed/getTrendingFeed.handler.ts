@@ -10,15 +10,7 @@ import { RedisService } from "@/services/redis.service";
 import { DTOService } from "@/services/dto.service";
 import { Errors } from "@/utils/errors";
 import { redisLogger } from "@/utils/winston";
-import {
-  FeedPost,
-  PaginatedFeedResult,
-  IPost,
-  IImage,
-  ITag,
-  UserLookupData,
-  PostMeta,
-} from "@/types";
+import { FeedPost, PaginatedFeedResult, IPost, IImage, ITag } from "@/types";
 import { FeedEnrichmentService } from "@/services/feed/feed-enrichment.service";
 import { TOKENS } from "@/types/tokens";
 

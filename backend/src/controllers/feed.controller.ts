@@ -11,12 +11,7 @@ import {
   streamPaginatedResponse,
   streamCursorResponse,
 } from "@/utils/streamResponse";
-import {
-  CursorPaginationResult,
-  FeedPost,
-  PaginationResult,
-  PostDTO,
-} from "@/types";
+import { CursorPaginationResult, FeedPost } from "@/types";
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
