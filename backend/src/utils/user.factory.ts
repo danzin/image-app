@@ -1,9 +1,6 @@
 import crypto from "crypto";
 
-const DEFAULT_AVATAR = "";
-const DEFAULT_COVER = "";
-
-interface RegistrationInput {
+export interface UserRegistrationInput {
   handle: string;
   username: string;
   email: string;
@@ -13,14 +10,14 @@ interface RegistrationInput {
   ip?: string;
 }
 
-interface UserPayload {
+export interface UserRegistrationData {
   handle: string;
   handleNormalized: string;
   username: string;
   email: string;
   password: string;
-  avatar: string;
-  cover: string;
+  avatar?: string;
+  cover?: string;
   registrationIp: string | undefined;
   lastIp: string | undefined;
   lastActive: Date;
@@ -37,7 +34,7 @@ interface UserPayload {
  * orchestration (uniqueness check → create → send email → seed bloom).
  */
 export class UserFactory {
-  static createFromRegistration(input: RegistrationInput): UserPayload {
+  static createFromRegistration(input: UserRegistrationInput): UserRegistrationData {
     const handle = input.handle.trim();
     const username = input.username.trim();
     const email = input.email.trim().toLowerCase();
@@ -50,8 +47,10 @@ export class UserFactory {
       username,
       email,
       password: input.password,
-      avatar: input.avatar || DEFAULT_AVATAR,
-      cover: input.cover || DEFAULT_COVER,
+      // Omit avatar/cover when falsy so the Mongoose schema default applies.
+      // Setting avatar: "" would override the default CDN URL with an empty string.
+      ...(input.avatar ? { avatar: input.avatar } : {}),
+      ...(input.cover ? { cover: input.cover } : {}),
       registrationIp: input.ip,
       lastIp: input.ip,
       lastActive: new Date(),
@@ -61,12 +60,12 @@ export class UserFactory {
     };
   }
 
-  private static generateVerificationToken(): string {
+  public static generateVerificationToken(): string {
     const value = crypto.randomInt(0, 100000);
     return value.toString().padStart(5, "0");
   }
 
-  private static getVerificationExpiry(): Date {
+  public static getVerificationExpiry(): Date {
     const ttlMinutes =
       Number(process.env.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES) || 60;
     return new Date(Date.now() + ttlMinutes * 60 * 1000);
