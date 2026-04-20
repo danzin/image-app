@@ -7,7 +7,7 @@ import { IPostReadRepository } from "@/repositories/interfaces/IPostReadReposito
 import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
-import { createError, wrapError } from "@/utils/errors";
+import { Errors, wrapError } from "@/utils/errors";
 import { FeedInteractionHandler } from "@/application/events/user/feed-interaction.handler";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
@@ -45,16 +45,16 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 
 			const user = await this.userRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+				throw Errors.notFound("User");
 			}
 
 			const comment = await this.commentRepository.findById(command.commentId);
 			if (!comment) {
-				throw createError("NotFoundError", "Comment not found");
+				throw Errors.notFound("Comment");
 			}
 
 			const effectivePost = (await this.postReadRepository.findByIdWithPopulates(comment.postId.toString())) ?? null;
-			if (!effectivePost) throw createError("NotFoundError", "Associated post not found");
+			if (!effectivePost) throw Errors.notFound("Post");
 
 			// Check if user owns the comment or the post
 			const isCommentOwner = comment.userId && comment.userId.toString() === user.id;
@@ -62,7 +62,7 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			const postOwnerMatch = postOwnerInternalId === user.id;
 
 			if (!isCommentOwner && !postOwnerMatch) {
-				throw createError("ForbiddenError", "You can only delete your own comments or comments on your posts");
+				throw Errors.forbidden("You can only delete your own comments or comments on your posts");
 			}
 
 			// Extract post data for events
@@ -81,12 +81,12 @@ export class DeleteCommentCommandHandler implements ICommandHandler<DeleteCommen
 			postPublicId = effectivePost.publicId ?? comment.postId.toString();
 
 			// Execute the comment deletion within transaction
-			await this.unitOfWork.executeInTransaction(async (session) => {
+			await this.unitOfWork.executeInTransaction(async (_session) => {
 				// Delete comment
-				await this.commentRepository.deleteComment(command.commentId, session);
+				await this.commentRepository.deleteComment(command.commentId);
 
 				// Decrement comment count on post
-				await this.postWriteRepository.updateCommentCount(comment.postId.toString(), -1, session);
+				await this.postWriteRepository.updateCommentCount(comment.postId.toString(), -1);
 
 				// Queue event for feed interaction handling and real-time updates
 				await this.eventBus.queueTransactional(

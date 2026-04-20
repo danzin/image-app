@@ -2,7 +2,7 @@ import { injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { IRequestLog, PaginationOptions, PaginationResult, CursorPaginationResult } from "@/types";
 import { RequestLogModel } from "@/models/requestLog.model";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { encodeCursor, decodeCursor } from "@/utils/cursorCodec";
 import mongoose from "mongoose";
 
@@ -65,7 +65,7 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 				nextCursor,
 			};
 		} catch (error) {
-			throw createError("DatabaseError", (error as Error).message);
+			throw Errors.database((error as Error).message);
 		}
 	}
 
@@ -121,9 +121,9 @@ export class RequestLogRepository extends BaseRepository<IRequestLog> {
 			};
 		} catch (error) {
 			if (error instanceof Error) {
-				throw createError("DatabaseError", error.message);
+				throw Errors.database(error.message);
 			}
-			throw createError("DatabaseError", String(error));
+			throw Errors.database(String(error));
 		}
 	}
 

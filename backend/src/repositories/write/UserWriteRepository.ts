@@ -1,4 +1,4 @@
-import { ClientSession, UpdateQuery } from "mongoose";
+import { UpdateQuery } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { IUser } from "@/types";
 import { IUserWriteRepository } from "../interfaces/IUserWriteRepository";
@@ -14,35 +14,35 @@ import { TOKENS } from "@/types/tokens";
 export class UserWriteRepository implements IUserWriteRepository {
 	constructor(@inject(TOKENS.Repositories.User) private readonly userRepository: UserRepository) {}
 
-	async create(userData: Partial<IUser>, session?: ClientSession): Promise<IUser> {
-		return this.userRepository.create(userData, session);
+	async create(userData: Partial<IUser>): Promise<IUser> {
+		return this.userRepository.create(userData);
 	}
 
-	async update(id: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
-		return this.userRepository.update(id, updateData, session);
+	async update(id: string, updateData: UpdateQuery<IUser>): Promise<IUser | null> {
+		return this.userRepository.update(id, updateData);
 	}
 
-	async updateByPublicId(publicId: string, updateData: UpdateQuery<IUser>, session?: ClientSession): Promise<IUser | null> {
-		return this.userRepository.updateByPublicId(publicId, updateData, session);
+	async updateByPublicId(publicId: string, updateData: UpdateQuery<IUser>): Promise<IUser | null> {
+		return this.userRepository.updateByPublicId(publicId, updateData);
 	}
 
-	async delete(id: string, session?: ClientSession): Promise<boolean> {
-		return this.userRepository.delete(id, session);
+	async delete(id: string): Promise<boolean> {
+		return this.userRepository.delete(id);
 	}
 
-	async updateAvatar(userId: string, avatarUrl: string, session?: ClientSession): Promise<void> {
-		return this.userRepository.updateAvatar(userId, avatarUrl, session);
+	async updateAvatar(userId: string, avatarUrl: string): Promise<void> {
+		return this.userRepository.updateAvatar(userId, avatarUrl);
 	}
 
-	async updateCover(userId: string, coverUrl: string, session?: ClientSession): Promise<void> {
-		return this.userRepository.updateCover(userId, coverUrl, session);
+	async updateCover(userId: string, coverUrl: string): Promise<void> {
+		return this.userRepository.updateCover(userId, coverUrl);
 	}
 
-	async updateFollowerCount(userId: string, increment: number, session?: ClientSession): Promise<void> {
-		return this.userRepository.updateFollowerCount(userId, increment, session);
+	async updateFollowerCount(userId: string, increment: number): Promise<void> {
+		return this.userRepository.updateFollowerCount(userId, increment);
 	}
 
-	async updateFollowingCount(userId: string, increment: number, session?: ClientSession): Promise<void> {
-		return this.userRepository.updateFollowingCount(userId, increment, session);
+	async updateFollowingCount(userId: string, increment: number): Promise<void> {
+		return this.userRepository.updateFollowingCount(userId, increment);
 	}
 }

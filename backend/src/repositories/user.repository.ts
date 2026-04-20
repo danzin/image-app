@@ -1,11 +1,11 @@
-import { Model, ClientSession, Types, UpdateQuery } from "mongoose";
+import { Model, Types, UpdateQuery } from "mongoose";
 import {
   IUser,
   PaginationOptions,
   PaginationResult,
   UserSuggestion,
 } from "@/types";
-import { createError, isMongoDBDuplicateKeyError } from "@/utils/errors";
+import { Errors, isMongoDBDuplicateKeyError } from "@/utils/errors";
 import { injectable, inject } from "tsyringe";
 import { BaseRepository } from "./base.repository";
 import { FollowRepository } from "./follow.repository";
@@ -37,20 +37,20 @@ export class UserRepository extends BaseRepository<IUser> {
    */
   async create(
     userData: Partial<IUser>,
-    session?: ClientSession,
   ): Promise<IUser> {
     try {
+      const session = this.getSession();
       const doc = new this.model(userData);
       if (session) doc.$session(session);
       return await doc.save();
     } catch (error) {
       if (isMongoDBDuplicateKeyError(error)) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError("DuplicateError", `${field} already exists`, {
+        throw Errors.validation(`${field} already exists`, {
           context: { operation: "create", repository: "userRepository" },
         });
       }
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -65,9 +65,9 @@ export class UserRepository extends BaseRepository<IUser> {
   async update(
     id: string,
     updateData: UpdateQuery<IUser>,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       logger.info("updateData in user repo:", updateData);
 
       const query = this.model.findOneAndUpdate({ _id: id }, updateData, {
@@ -81,20 +81,20 @@ export class UserRepository extends BaseRepository<IUser> {
     } catch (error) {
       if (isMongoDBDuplicateKeyError(error)) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError("DuplicateError", `${field} already exists`, {
+        throw Errors.validation(`${field} already exists`, {
           context: { operation: "create", repository: "userRepository" },
         });
       }
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
   async updateByPublicId(
     publicId: string,
     updateData: UpdateQuery<IUser>,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const query = this.model.findOneAndUpdate({ publicId }, updateData, {
         new: true,
       });
@@ -103,14 +103,14 @@ export class UserRepository extends BaseRepository<IUser> {
     } catch (error) {
       if (isMongoDBDuplicateKeyError(error)) {
         const field = Object.keys(error.keyValue)[0];
-        throw createError("DuplicateError", `${field} already exists`, {
+        throw Errors.validation(`${field} already exists`, {
           context: {
             operation: "updateByPublicId",
             repository: "userRepository",
           },
         });
       }
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -157,7 +157,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message, {
+      throw Errors.database((error as Error).message, {
         context: { operation: "getAll", options },
       });
     }
@@ -166,8 +166,8 @@ export class UserRepository extends BaseRepository<IUser> {
   // Find user by public id
   async findByPublicId(
     publicId: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
+    const session = this.getSession();
     if (session) {
       return this.model.findOne({ publicId }).session(session).exec();
     }
@@ -197,22 +197,22 @@ export class UserRepository extends BaseRepository<IUser> {
    */
   async findByUsername(
     username: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const query = this.model.findOne({ username }).select("+password");
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
   async findByHandle(
     handle: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const handleNormalized = handle.trim().toLowerCase();
       const query = this.model
         .findOne({ handleNormalized })
@@ -220,7 +220,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -232,38 +232,38 @@ export class UserRepository extends BaseRepository<IUser> {
    */
   async findByEmail(
     email: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const query = this.model.findOne({ email }).select("+password");
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
   async findByResetToken(
     token: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const query = this.model
         .findOne({ resetToken: token, resetTokenExpires: { $gt: new Date() } })
         .select("+password +resetToken +resetTokenExpires");
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
   async findByEmailVerificationToken(
     email: string,
     token: string,
-    session?: ClientSession,
   ): Promise<IUser | null> {
     try {
+      const session = this.getSession();
       const query = this.model
         .findOne({
           email,
@@ -274,7 +274,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -311,7 +311,7 @@ export class UserRepository extends BaseRepository<IUser> {
         totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -321,16 +321,15 @@ export class UserRepository extends BaseRepository<IUser> {
    * Updates the avatar URL of a user in the database.
    * @param {string} userId - The unique identifier of the user.
    * @param {string} avatarUrl - The new avatar URL to be set.
-   * @param {ClientSession} [session] - Optional Mongoose session for transaction support.
    * @returns {Promise<void>} - Resolves when the update is complete.
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
   async updateAvatar(
     userId: string,
     avatarUrl: string,
-    session?: ClientSession,
   ): Promise<void> {
     try {
+      const session = this.getSession();
       const query = this.model.findByIdAndUpdate(userId, {
         $set: { avatar: avatarUrl },
       });
@@ -338,7 +337,7 @@ export class UserRepository extends BaseRepository<IUser> {
       await query.exec();
     } catch (error) {
       console.error(error);
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -346,23 +345,22 @@ export class UserRepository extends BaseRepository<IUser> {
    * Updates the cover image URL of a user in the database.
    * @param {string} userId - The unique identifier of the user.
    * @param {string} coverUrl - The new cover image URL to be set.
-   * @param {ClientSession} [session] - Optional Mongoose session for transaction support.
    * @returns {Promise<void>} - Resolves when the update is complete.
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
   async updateCover(
     userId: string,
     coverUrl: string,
-    session?: ClientSession,
   ): Promise<void> {
     try {
+      const session = this.getSession();
       const query = this.model.findByIdAndUpdate(userId, {
         $set: { cover: coverUrl },
       });
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -588,7 +586,7 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       console.error("Error in getSuggestedUsersToFollow:", error);
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -703,7 +701,7 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       console.error("Error in getSuggestedUsersLowTraffic:", error);
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
@@ -885,16 +883,16 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       console.error("Error in getSuggestedUsersHighTraffic:", error);
-      throw createError("DatabaseError", (error as Error).message);
+      throw Errors.database((error as Error).message);
     }
   }
 
   async updateFollowerCount(
     userId: string,
     increment: number,
-    session?: ClientSession,
   ): Promise<void> {
     try {
+      const session = this.getSession();
       const query = this.model.findByIdAndUpdate(
         userId,
         { $inc: { followerCount: increment } },
@@ -902,8 +900,7 @@ export class UserRepository extends BaseRepository<IUser> {
       );
       await query.exec();
     } catch (error: unknown) {
-      throw createError(
-        "DatabaseError",
+      throw Errors.database(
         (error instanceof Error ? error.message : String(error)) ??
           "failed to update follower count",
       );
@@ -913,9 +910,9 @@ export class UserRepository extends BaseRepository<IUser> {
   async updateFollowingCount(
     userId: string,
     increment: number,
-    session?: ClientSession,
   ): Promise<void> {
     try {
+      const session = this.getSession();
       const query = this.model.findByIdAndUpdate(
         userId,
         { $inc: { followingCount: increment } },
@@ -923,8 +920,7 @@ export class UserRepository extends BaseRepository<IUser> {
       );
       await query.exec();
     } catch (error: unknown) {
-      throw createError(
-        "DatabaseError",
+      throw Errors.database(
         (error instanceof Error ? error.message : String(error)) ??
           "failed to update following count",
       );

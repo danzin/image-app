@@ -1,4 +1,4 @@
-import { ClientSession, Model } from "mongoose";
+import { Model } from "mongoose";
 import { INotification } from "@/types";
 import { inject, injectable } from "tsyringe";
 import { BaseRepository } from "./base.repository";
@@ -11,7 +11,8 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		super(model);
 	}
 
-	async create(notificationData: Partial<INotification>, session?: ClientSession): Promise<INotification> {
+	async create(notificationData: Partial<INotification>): Promise<INotification> {
+		const session = this.getSession();
 		const notification = new this.model(notificationData);
 		await notification.save({ session });
 		return notification;
@@ -120,7 +121,8 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		return result.deletedCount;
 	}
 
-	async deleteManyByUserId(userId: string, session?: ClientSession): Promise<number> {
+	async deleteManyByUserId(userId: string): Promise<number> {
+		const session = this.getSession();
 		const result = await this.model
 			.deleteMany({ userId })
 			.session(session || null)
@@ -128,7 +130,8 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		return result.deletedCount || 0;
 	}
 
-	async deleteManyByActorId(actorId: string, session?: ClientSession): Promise<number> {
+	async deleteManyByActorId(actorId: string): Promise<number> {
+		const session = this.getSession();
 		const result = await this.model
 			.deleteMany({ actorId })
 			.session(session || null)

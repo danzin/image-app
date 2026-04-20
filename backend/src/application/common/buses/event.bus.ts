@@ -64,7 +64,6 @@ export class EventBus {
     await this.outboxRepository.saveEvent(
       event.constructor.name,
       event,
-      session,
     );
   }
 }
