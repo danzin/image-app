@@ -3,8 +3,8 @@ import { inject, injectable } from "tsyringe";
 import { ConversationRepository } from "@/repositories/conversation.repository";
 import { MessageRepository } from "@/repositories/message.repository";
 import { UserRepository } from "@/repositories/user.repository";
-import { UnitOfWork } from "@/database/UnitOfWork";
-import { createError } from "@/utils/errors";
+import { UnitOfWork, sessionALS } from "@/database/UnitOfWork";
+import { Errors } from "@/utils/errors";
 import {
   ConversationSummaryDTO,
   HydratedConversation,
@@ -85,7 +85,7 @@ export class MessagingService {
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     const result = await this.conversationRepository.findUserConversations(
@@ -111,10 +111,7 @@ export class MessagingService {
     recipientPublicId: string,
   ): Promise<ConversationSummaryDTO> {
     if (userPublicId === recipientPublicId) {
-      throw createError(
-        "ValidationError",
-        "You cannot start a conversation with yourself",
-      );
+      throw Errors.validation("You cannot start a conversation with yourself");
     }
 
     const [userInternalId, recipientInternalId] = await Promise.all([
@@ -123,11 +120,11 @@ export class MessagingService {
     ]);
 
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     if (!recipientInternalId) {
-      throw createError("NotFoundError", "Recipient not found");
+      throw Errors.notFound("User");
     }
 
     const participantIds = [userInternalId, recipientInternalId];
@@ -138,7 +135,7 @@ export class MessagingService {
 
     if (!conversation) {
       conversation = await this.unitOfWork.executeInTransaction(
-        async (session) => {
+        async () => {
           const participantObjectIds = participantIds.map(
             (id) => new mongoose.Types.ObjectId(id),
           );
@@ -154,7 +151,6 @@ export class MessagingService {
               unreadCounts: unreadSeed,
               isGroup: false,
             },
-            session,
           );
         },
       );
@@ -163,7 +159,6 @@ export class MessagingService {
     const hydratedConversation =
       await this.conversationRepository.findByPublicId(
         conversation.publicId,
-        undefined,
         {
           populateParticipants: true,
           includeLastMessage: true,
@@ -171,10 +166,7 @@ export class MessagingService {
       );
 
     if (!hydratedConversation) {
-      throw createError(
-        "InternalServerError",
-        "Conversation could not be loaded",
-      );
+      throw Errors.internal("Conversation could not be loaded");
     }
 
     return this.mapConversationSummary(
@@ -205,16 +197,15 @@ export class MessagingService {
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     if (page === 1) {
-      await this.unitOfWork.executeInTransaction(async (session) => {
+      await this.unitOfWork.executeInTransaction(async () => {
         const updated =
           await this.messageRepository.markConversationMessagesAsDelivered(
             conversationId,
             userInternalId,
-            session,
           );
         if (!updated) {
           return;
@@ -226,10 +217,11 @@ export class MessagingService {
         const participantObjectIds = participantIds.map(
           (participantId) => new mongoose.Types.ObjectId(participantId),
         );
+        const alsSession = sessionALS.getStore() ?? null;
         const participantDocs = await this.userRepository
           .find({ _id: { $in: participantObjectIds } })
           .select("publicId")
-          .session(session)
+          .session(alsSession)
           .lean<UserPublicIdLean[]>()
           .exec();
         const participantPublicIds = participantDocs
@@ -278,32 +270,31 @@ export class MessagingService {
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
-    await this.unitOfWork.executeInTransaction(async (session) => {
+    await this.unitOfWork.executeInTransaction(async () => {
       const conversationId = (
         conversation._id as unknown as mongoose.Types.ObjectId
       ).toString();
       await this.messageRepository.markConversationMessagesAsRead(
         conversationId,
         userInternalId,
-        session,
       );
       await this.conversationRepository.resetUnreadCount(
         conversationId,
         userInternalId,
-        session,
       );
 
       const participantIds = this.getParticipantIds(conversation.participants);
       const participantObjectIds = participantIds.map(
         (participantId) => new mongoose.Types.ObjectId(participantId),
       );
+      const alsSession = sessionALS.getStore() ?? null;
       const participantDocs = await this.userRepository
         .find({ _id: { $in: participantObjectIds } })
         .select("publicId")
-        .session(session)
+        .session(alsSession)
         .lean<UserPublicIdLean[]>()
         .exec();
       const participantPublicIds = participantDocs
@@ -331,16 +322,13 @@ export class MessagingService {
       !!file;
 
     if (!hasContent) {
-      throw createError(
-        "ValidationError",
-        "Message must contain either text or an attachment",
-      );
+      throw Errors.validation("Message must contain either text or an attachment");
     }
 
     // Validate file type
     if (file) {
       if (!file.mimetype.startsWith("image/")) {
-        throw createError("ValidationError", "Only image files are allowed");
+        throw Errors.validation("Only image files are allowed");
       }
     }
 
@@ -350,10 +338,7 @@ export class MessagingService {
       : 0;
     const newFileCount = file ? 1 : 0;
     if (currentAttachmentsCount + newFileCount > 5) {
-      throw createError(
-        "ValidationError",
-        "Maximum of 5 attachments allowed per message",
-      );
+      throw Errors.validation("Maximum of 5 attachments allowed per message");
     }
 
     // Validate existing attachments are images (if any)
@@ -361,10 +346,7 @@ export class MessagingService {
       for (const attachment of payload.attachments) {
         if (attachment.type !== "image") {
           // We could also check mimeType if available, but 'type' field is what we store
-          throw createError(
-            "ValidationError",
-            "Only image attachments are allowed",
-          );
+          throw Errors.validation("Only image attachments are allowed");
         }
       }
     }
@@ -378,18 +360,17 @@ export class MessagingService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Invalid message body";
-      throw createError("ValidationError", message);
+      throw Errors.validation(message);
     }
 
     const senderInternalId =
       await this.userRepository.findInternalIdByPublicId(senderPublicId);
     if (!senderInternalId) {
-      throw createError("NotFoundError", "Sender not found");
+      throw Errors.notFound("User");
     }
     let targetConversation = payload.conversationPublicId
       ? await this.conversationRepository.findByPublicId(
           payload.conversationPublicId,
-          undefined,
           {
             populateParticipants: true,
           },
@@ -397,10 +378,7 @@ export class MessagingService {
       : null;
 
     if (!targetConversation && !payload.recipientPublicId) {
-      throw createError(
-        "ValidationError",
-        "Recipient is required when no conversation is provided",
-      );
+      throw Errors.validation("Recipient is required when no conversation is provided");
     }
 
     // Handle file upload
@@ -411,8 +389,8 @@ export class MessagingService {
         : "initial";
       const uploadPath = `${senderPublicId}/${convIdForPath}`;
 
-      const { url } = await this.imageStorageService.uploadImage(
-        file.path,
+      const { url } = await this.imageStorageService.uploadImageStream(
+        { buffer: file.buffer, originalName: file.originalname, mimeType: file.mimetype },
         senderPublicId,
         uploadPath,
       );
@@ -424,7 +402,7 @@ export class MessagingService {
     }
 
     const messageDoc = await this.unitOfWork.executeInTransaction(
-      async (session) => {
+      async () => {
         let conversationDoc = targetConversation;
 
         if (conversationDoc) {
@@ -433,7 +411,6 @@ export class MessagingService {
               conversationDoc._id as unknown as mongoose.Types.ObjectId
             ).toString(),
             senderInternalId,
-            session,
           );
 
           await this.conversationRepository.resetUnreadCount(
@@ -441,7 +418,6 @@ export class MessagingService {
               conversationDoc._id as unknown as mongoose.Types.ObjectId
             ).toString(),
             senderInternalId,
-            session,
           );
         }
 
@@ -451,7 +427,7 @@ export class MessagingService {
               payload.recipientPublicId!,
             );
           if (!recipientInternalId) {
-            throw createError("NotFoundError", "Recipient not found");
+            throw Errors.notFound("User");
           }
 
           const participantIds = [senderInternalId, recipientInternalId];
@@ -460,7 +436,6 @@ export class MessagingService {
           conversationDoc =
             await this.conversationRepository.findByParticipantHash(
               participantHash,
-              session,
             );
 
           if (!conversationDoc) {
@@ -478,7 +453,6 @@ export class MessagingService {
                 lastMessageAt: new Date(),
                 unreadCounts: unreadSeed,
               },
-              session,
             );
           }
         } else {
@@ -486,10 +460,7 @@ export class MessagingService {
             conversationDoc.participants,
           );
           if (!new Set(existingParticipantIds).has(senderInternalId)) {
-            throw createError(
-              "ForbiddenError",
-              "You do not have access to this conversation",
-            );
+            throw Errors.forbidden("You do not have access to this conversation");
           }
         }
 
@@ -516,7 +487,6 @@ export class MessagingService {
             readBy: [new mongoose.Types.ObjectId(senderInternalId)],
             status: "sent",
           },
-          session,
         );
 
         await this.conversationRepository.findOneAndUpdate(
@@ -535,7 +505,6 @@ export class MessagingService {
               {},
             ),
           },
-          session,
         );
 
         await message.populate("sender", "publicId handle username avatar");
@@ -545,10 +514,11 @@ export class MessagingService {
         const participantObjectIds = participantIds.map(
           (participantId: string) => new mongoose.Types.ObjectId(participantId),
         );
+        const alsSession = sessionALS.getStore() ?? null;
         const participantDocs = await this.userRepository
           .find({ _id: { $in: participantObjectIds } })
           .select("publicId")
-          .session(session)
+          .session(alsSession)
           .lean<UserPublicIdLean[]>()
           .exec();
 
@@ -579,7 +549,6 @@ export class MessagingService {
                 targetPreview:
                   sanitizedBody.substring(0, 50) +
                   (sanitizedBody.length > 50 ? "..." : ""),
-                session,
               }),
             ),
           );
@@ -600,10 +569,7 @@ export class MessagingService {
     );
 
     if (!targetConversation) {
-      throw createError(
-        "InternalServerError",
-        "Conversation context missing after message creation",
-      );
+      throw Errors.internal("Conversation context missing after message creation");
     }
 
     return this.dtoService.toPublicMessageDTO(
@@ -620,12 +586,12 @@ export class MessagingService {
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     const message = await this.messageRepository.findByPublicId(messageId);
     if (!message) {
-      throw createError("NotFoundError", "Message not found");
+      throw Errors.notFound("Resource");
     }
 
     const populatedSender = message.sender as
@@ -641,10 +607,7 @@ export class MessagingService {
         ? (populatedSender as PopulatedSender)._id!.toString()
         : message.sender.toString();
       if (senderId !== userInternalId) {
-        throw createError(
-          "ForbiddenError",
-          "You can only edit your own messages",
-        );
+        throw Errors.forbidden("You can only edit your own messages");
       }
     }
 
@@ -661,7 +624,7 @@ export class MessagingService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Invalid message body";
-      throw createError("ValidationError", message);
+      throw Errors.validation(message);
     }
 
     const updatedMessage = await this.messageRepository.updateMessage(
@@ -669,14 +632,14 @@ export class MessagingService {
       { body: sanitizedBody },
     );
     if (!updatedMessage) {
-      throw createError("InternalServerError", "Failed to update message");
+      throw Errors.internal("Failed to update message");
     }
 
     const conversation = await this.conversationRepository.findById(
       updatedMessage.conversation.toString(),
     );
     if (!conversation) {
-      throw createError("InternalServerError", "Conversation not found");
+      throw Errors.internal("Conversation not found");
     }
 
     // Emit event for real-time update if needed (not implemented yet for edit, but good practice)
@@ -692,12 +655,12 @@ export class MessagingService {
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     const message = await this.messageRepository.findByPublicId(messageId);
     if (!message) {
-      throw createError("NotFoundError", "Message not found");
+      throw Errors.notFound("Resource");
     }
 
     const populatedSender2 = message.sender as
@@ -707,13 +670,10 @@ export class MessagingService {
       ? (populatedSender2 as PopulatedSender)._id!.toString()
       : message.sender.toString();
     if (senderId !== userInternalId) {
-      throw createError(
-        "ForbiddenError",
-        "You can only delete your own messages",
-      );
+      throw Errors.forbidden("You can only delete your own messages");
     }
 
-    await this.unitOfWork.executeInTransaction(async (session) => {
+    await this.unitOfWork.executeInTransaction(async () => {
       // Collect attachment publicIds to delete
       const attachmentPublicIds =
         message.attachments
@@ -741,7 +701,6 @@ export class MessagingService {
           body: "message delete by user",
           attachments: [], // clear attachments from DB
         },
-        session,
       );
 
       if (attachmentPublicIds.length > 0) {
@@ -840,7 +799,6 @@ export class MessagingService {
   ) {
     const conversation = await this.conversationRepository.findByPublicId(
       conversationPublicId,
-      undefined,
       {
         populateParticipants: true,
         includeLastMessage: true,
@@ -848,13 +806,13 @@ export class MessagingService {
     );
 
     if (!conversation) {
-      throw createError("NotFoundError", "Conversation not found");
+      throw Errors.notFound("Conversation");
     }
 
     const userInternalId =
       await this.userRepository.findInternalIdByPublicId(userPublicId);
     if (!userInternalId) {
-      throw createError("NotFoundError", "User not found");
+      throw Errors.notFound("User");
     }
 
     const hasAccess = Array.isArray(conversation.participants)
@@ -863,10 +821,7 @@ export class MessagingService {
         )
       : false;
     if (!hasAccess) {
-      throw createError(
-        "ForbiddenError",
-        "You do not have access to this conversation",
-      );
+      throw Errors.forbidden("You do not have access to this conversation");
     }
 
     return conversation;

@@ -4,7 +4,7 @@ import { AuthFactory } from "../middleware/authentication.middleware";
 import { Server as SocketIOServer } from "socket.io";
 import { injectable, inject } from "tsyringe";
 import cookieParser from "cookie-parser";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { RedisService } from "@/services/redis.service";
@@ -106,12 +106,12 @@ export class WebSocketServer {
         AuthFactory.bearerToken().handle()(req, {} as any, (error?: any) => {
           if (error) {
             console.error("Auth error:", error);
-            return next(createError("AuthenticationError", error.message));
+            return next(Errors.authentication(error.message));
           }
 
           if (!req.decodedUser) {
             console.error("Missing decoded user after authentication");
-            return next(createError("UnauthorizedError", "Unauthorized"));
+            return next(Errors.authentication("Unauthorized"));
           }
           logger.info("[Socket][Auth] Authenticated user:", req.decodedUser);
 
@@ -121,9 +121,7 @@ export class WebSocketServer {
         });
       } catch (error) {
         console.error("WebSocket auth error:", error);
-        next(
-          createError("AuthenticationError", "Socket authentication failed"),
-        );
+        next(Errors.authentication("Socket authentication failed"));
       }
     });
 
@@ -221,10 +219,7 @@ export class WebSocketServer {
    */
   getIO(): SocketIOServer {
     if (!this.io) {
-      throw createError(
-        "InternalServerError",
-        "WebSocket server is not initialized.",
-      );
+      throw Errors.internal("WebSocket server is not initialized.");
     }
     return this.io;
   }

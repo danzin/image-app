@@ -1,10 +1,14 @@
 import { v2 as cloudinary } from "cloudinary";
 import * as fs from "fs";
 import { Readable } from "stream";
-import { createError, getErrorMessage, wrapError } from "@/utils/errors";
-import { CloudinaryDeleteResponse, DeletionResult, ImageUploadInput } from "@/types";
+import { Errors, getErrorMessage, wrapError } from "@/utils/errors";
+import {
+  CloudinaryDeleteResponse,
+  DeletionResult,
+  ImageUploadInput,
+} from "@/types";
 import { injectable, inject } from "tsyringe";
-import { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
+import type { IImageStorageService } from "@/types/customImageStorage/imageStorage.types";
 import { logger } from "@/utils/winston";
 import { RetryService, RetryPresets } from "./retry.service";
 import { TOKENS } from "@/types/tokens";
@@ -84,7 +88,7 @@ export class CloudinaryService implements IImageStorageService {
   ): Promise<{ url: string; publicId: string }> {
     // Get the readable stream from input
     let sourceStream: Readable;
-    
+
     if (input.buffer) {
       sourceStream = this.bufferToStream(input.buffer);
     } else if (input.stream) {
@@ -93,7 +97,7 @@ export class CloudinaryService implements IImageStorageService {
       // Fallback to file path for backward compatibility
       return this.uploadImage(input.filePath, userId, folder);
     } else {
-      throw createError("ValidationError", "No image data provided");
+      throw Errors.validation("No image data provided");
     }
 
     return this.retryService.execute(
@@ -107,10 +111,7 @@ export class CloudinaryService implements IImageStorageService {
               }
               if (!result) {
                 return reject(
-                  createError(
-                    "StorageError",
-                    "Upload failed, no result returned",
-                  ),
+                  Errors.storage("Upload failed, no result returned"),
                 );
               }
               resolve({
@@ -122,12 +123,7 @@ export class CloudinaryService implements IImageStorageService {
 
           sourceStream.on("error", (err) => {
             logger.error("Error streaming data for upload", { error: err });
-            reject(
-              createError(
-                "StorageError",
-                `Failed to stream data: ${err.message}`,
-              ),
-            );
+            reject(Errors.storage(`Failed to stream data: ${err.message}`));
           });
 
           sourceStream.pipe(uploadStream);
@@ -160,10 +156,7 @@ export class CloudinaryService implements IImageStorageService {
                 }
                 if (!result) {
                   return reject(
-                    createError(
-                      "StorageError",
-                      "Upload failed, no result returned",
-                    ),
+                    Errors.storage("Upload failed, no result returned"),
                   );
                 }
                 resolve({
@@ -179,12 +172,7 @@ export class CloudinaryService implements IImageStorageService {
               logger.error(`Error reading file for upload: ${filePath}`, {
                 error: err,
               });
-              reject(
-                createError(
-                  "StorageError",
-                  `Failed to read file: ${err.message}`,
-                ),
-              );
+              reject(Errors.storage(`Failed to read file: ${err.message}`));
             });
 
             fileStream.pipe(uploadStream);

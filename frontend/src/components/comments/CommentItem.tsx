@@ -13,6 +13,7 @@ import { useAuth } from "../../hooks/context/useAuth";
 import { useUpdateComment, useDeleteComment, useCreateComment, useLikeComment } from "../../hooks/comments/useComments";
 import { useNavigate } from "react-router";
 import RichText from "../RichText";
+import { devError } from "@/lib/devLogger";
 
 interface CommentItemProps {
 	comment: IComment;
@@ -62,7 +63,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 			setReplyContent("");
 			setShowReplyForm(false);
 		} catch (error) {
-			console.error("Failed to post reply:", error);
+			devError("Failed to post reply:", error);
 		}
 	};
 
@@ -74,7 +75,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 				postPublicId: comment.postPublicId,
 			});
 		} catch (error) {
-			console.error("Failed to like comment:", error);
+			devError("Failed to like comment:", error);
 		}
 	};
 
@@ -106,7 +107,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 			});
 			setIsEditing(false);
 		} catch (error) {
-			console.error("Failed to update comment:", error);
+			devError("Failed to update comment:", error);
 		}
 	};
 
@@ -119,7 +120,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment }) => {
 					parentId: comment.parentId,
 				});
 			} catch (error) {
-				console.error("Failed to delete comment:", error);
+				devError("Failed to delete comment:", error);
 			}
 		}
 		handleMenuClose();

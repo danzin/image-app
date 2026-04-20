@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { injectable, inject } from "tsyringe";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { DeletePostCommand } from "@/application/commands/post/deletePost/deletePost.command";
@@ -60,15 +60,18 @@ export class AdminUserController {
       if (endDate) filter.createdAt.$lte = new Date(endDate as string);
     }
 
+    const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "username", "email"];
+    const rawSortBy = sortBy as string | undefined;
     const options = {
       page: page ? parseInt(page as string, 10) : 1,
-      limit: limit ? parseInt(limit as string, 10) : 20,
-      sortBy: sortBy as string | undefined,
+      limit: Math.min(limit ? parseInt(limit as string, 10) : 20, 100),
+      sortBy: rawSortBy && ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : undefined,
       sortOrder: sortOrder as "asc" | "desc" | undefined,
       filter,
     };
     const query = new GetAllUsersAdminQuery(options);
-    const result = await this.queryBus.execute<PaginationResult<AdminUserDTO>>(query);
+    const result =
+      await this.queryBus.execute<PaginationResult<AdminUserDTO>>(query);
 
     if (result.data.length >= STREAM_THRESHOLD) {
       streamPaginatedResponse(res, result.data, {
@@ -110,14 +113,14 @@ export class AdminUserController {
     const { reason } = req.body;
 
     if (!reason || reason.trim() === "") {
-      throw createError("ValidationError", "Ban reason is required");
+      throw Errors.validation("Ban reason is required");
     }
     if (!decodedUser) {
-      throw createError("ValidationError", "Admin user is required");
+      throw Errors.validation("Admin user is required");
     }
 
     if (!(decodedUser as any).publicId) {
-      throw createError("ValidationError", "Admin publicId missing in token");
+      throw Errors.validation("Admin publicId missing in token");
     }
     const command = new BanUserCommand(
       publicId,
@@ -138,10 +141,12 @@ export class AdminUserController {
   // === IMAGE MANAGEMENT ===
   getAllImages = async (req: Request, res: Response) => {
     const { page, limit, sortBy, sortOrder } = req.query;
+    const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "title"];
+    const rawSortBy = sortBy as string | undefined;
     const options = {
       page: page ? parseInt(page as string, 10) : 1,
-      limit: limit ? parseInt(limit as string, 10) : 10,
-      sortBy: sortBy as string | undefined,
+      limit: Math.min(limit ? parseInt(limit as string, 10) : 10, 100),
+      sortBy: rawSortBy && ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : undefined,
       sortOrder: sortOrder as "asc" | "desc" | undefined,
     };
     const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
@@ -170,7 +175,7 @@ export class AdminUserController {
     const { decodedUser } = req;
 
     if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("AuthenticationError", "Admin user not found");
+      throw Errors.authentication("Admin user not found");
     }
 
     await this.commandBus.dispatch(
@@ -184,7 +189,7 @@ export class AdminUserController {
     const { decodedUser } = req;
 
     if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("AuthenticationError", "Admin user not found");
+      throw Errors.authentication("Admin user not found");
     }
 
     await this.commandBus.dispatch(
@@ -269,7 +274,7 @@ export class AdminUserController {
       req.query;
     const options = {
       page: page ? parseInt(page as string, 10) : 1,
-      limit: limit ? parseInt(limit as string, 10) : 50,
+      limit: Math.min(limit ? parseInt(limit as string, 10) : 50, 100),
       userId: userId as string | undefined,
       statusCode: statusCode ? parseInt(statusCode as string, 10) : undefined,
       startDate: startDate ? new Date(startDate as string) : undefined,
@@ -277,7 +282,8 @@ export class AdminUserController {
       search: search as string | undefined,
     };
     const query = new GetRequestLogsQuery(options);
-    const result = await this.queryBus.execute<PaginationResult<unknown>>(query);
+    const result =
+      await this.queryBus.execute<PaginationResult<unknown>>(query);
 
     if (Array.isArray(result.data) && result.data.length >= STREAM_THRESHOLD) {
       streamPaginatedResponse(res, result.data, {

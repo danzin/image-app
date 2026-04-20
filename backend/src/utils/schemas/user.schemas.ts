@@ -44,7 +44,7 @@ export const handleSuggestionsSchema = z
 export const registrationSchema = z
 	.object({
 		email: z.string().email(),
-		password: z.string().min(3),
+		password: z.string().min(8),
 		handle: z
 			.string()
 			.regex(/^[a-zA-Z0-9._]+$/, "Handle must be alphanumeric and may include dots or underscores.")

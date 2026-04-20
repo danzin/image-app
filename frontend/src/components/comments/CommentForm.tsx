@@ -4,6 +4,7 @@ import SendIcon from "@mui/icons-material/Send";
 import { useAuth } from "../../hooks/context/useAuth";
 import { useCreateComment } from "../../hooks/comments/useComments";
 import MentionInput from "../MentionInput";
+import { devError } from "@/lib/devLogger";
 
 interface CommentFormProps {
 	postId: string;
@@ -26,7 +27,7 @@ const CommentForm: React.FC<CommentFormProps> = ({ postId }) => {
 			});
 			setContent("");
 		} catch (error) {
-			console.error("Failed to create comment:", error);
+			devError("Failed to create comment:", error);
 		}
 	};
 

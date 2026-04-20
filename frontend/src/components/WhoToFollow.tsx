@@ -6,6 +6,7 @@ import { useFollowUser } from "../hooks/user/useUserAction";
 import { useQueryClient } from "@tanstack/react-query";
 import { SuggestedUser } from "@/types";
 import { useTranslation } from "react-i18next";
+import { devError } from "@/lib/devLogger";
 
 interface WhoToFollowProps {
 	limit?: number;
@@ -93,7 +94,7 @@ const WhoToFollow: React.FC<WhoToFollowProps> = ({ limit = 5 }) => {
 				refetchType: "active",
 			});
 		} catch (error) {
-			console.error("Failed to follow user:", error);
+			devError("Failed to follow user:", error);
 			// revert the optimistic update on err
 			setFollowStates((prev) => ({
 				...prev,

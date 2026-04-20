@@ -2,6 +2,7 @@ import { Router, Request, Response, text } from "express";
 import { injectable, inject } from "tsyringe";
 import { TelemetryService } from "@/services/telemetry.service";
 import { TOKENS } from "@/types/tokens";
+import { logger } from "@/utils/winston";
 import {
   AuthFactory,
   adminRateLimit,
@@ -28,7 +29,7 @@ export class TelemetryRoutes {
     this.router.post(
       "/",
       optionalAuth,
-      text({ type: "*/*" }),
+      text({ type: "*/*", limit: "100kb" }),
       async (req: Request, res: Response) => {
         try {
           // handle sendBeacon which might send as text/plain
@@ -44,9 +45,23 @@ export class TelemetryRoutes {
 
           const { events } = body;
 
-          if (!Array.isArray(events)) {
-            res.status(400).json({ error: "events must be an array" });
+          if (!Array.isArray(events) || events.length > 100) {
+            res.status(400).json({ error: "events must be an array with at most 100 items" });
             return;
+          }
+
+          // validate each event has required fields
+          for (const event of events) {
+            if (
+              !event ||
+              typeof event !== "object" ||
+              typeof event.type !== "string" ||
+              typeof event.timestamp !== "number" ||
+              typeof event.sessionId !== "string"
+            ) {
+              res.status(400).json({ error: "Each event must have type (string), timestamp (number), and sessionId (string)" });
+              return;
+            }
           }
 
           // extract client info for context
@@ -80,7 +95,8 @@ export class TelemetryRoutes {
         } catch (error) {
           const message =
             error instanceof Error ? error.message : "Failed to get summary";
-          res.status(500).json({ error: message });
+          logger.error("Telemetry summary error", { error: message });
+          res.status(500).json({ error: "Failed to retrieve telemetry summary" });
         }
       },
     );

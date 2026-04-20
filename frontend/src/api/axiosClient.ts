@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import { devWarn } from "@/lib/devLogger";
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 	_retry?: boolean;
@@ -70,12 +71,12 @@ axiosClient.interceptors.response.use(
 				await refreshPromise;
 				return axiosClient(originalRequest);
 			} catch {
-				console.warn("[Axios] Session refresh failed");
+				devWarn("[Axios] Session refresh failed");
 			}
 		}
 
 		if (status === 401 || status === 403) {
-			console.warn("[Axios] Auth error status", status, "- user session expired");
+			devWarn("[Axios] Auth error status", status, "- user session expired");
 		}
 
 		return Promise.reject(error);

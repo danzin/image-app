@@ -850,6 +850,14 @@ export class RedisService {
     return this.streamModule.xClaim(stream, group, consumer, minIdleMs, ids);
   }
 
+  /**
+   * Low-level sorted-set ADD for feed management.
+   * This is a direct pass-through to the feed module's Redis sorted set.
+   * Prefer higher-level feed service methods when possible.
+   * @param key - Redis sorted set key
+   * @param score - Numeric score (typically a timestamp)
+   * @param member - The value to store
+   */
   async zadd(key: string, score: number, member: string): Promise<number> {
     return this.feedModule.zadd(key, score, member);
   }
@@ -858,6 +866,15 @@ export class RedisService {
     return this.feedModule.zrem(key, member);
   }
 
+  /**
+   * Low-level sorted-set range-by-score query for feed management.
+   * This is a direct pass-through to the feed module's Redis sorted set.
+   * Prefer higher-level feed service methods when possible.
+   * @param key - Redis sorted set key
+   * @param min - Minimum score (use '-inf' for unbounded)
+   * @param max - Maximum score (use '+inf' for unbounded)
+   * @returns Array of members within the score range
+   */
   async zrangeByScore(
     key: string,
     min: string,

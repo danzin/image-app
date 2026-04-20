@@ -1,6 +1,6 @@
 import { inject, injectable } from "tsyringe";
 import { FeedPost, IPost, PaginationOptions, PaginationResult } from "@/types";
-import { IPostReadRepository } from "../interfaces/IPostReadRepository";
+import type { IPostReadRepository } from "../interfaces/IPostReadRepository";
 import { PostRepository } from "../post.repository";
 import { TOKENS } from "@/types/tokens";
 

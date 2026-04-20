@@ -13,7 +13,7 @@ import { GetCommunityMembersQuery } from "@/application/queries/community/getCom
 import { UpdateCommunityCommand } from "@/application/commands/community/updateCommunity/updateCommunity.command";
 import { DeleteCommunityCommand } from "@/application/commands/community/deleteCommunity/deleteCommunity.command";
 import { KickMemberCommand } from "@/application/commands/community/kickMember/kickMember.command";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { ICommunity } from "@/types";
 import { DTOService } from "@/services/dto.service";
 import { TOKENS } from "@/types/tokens";
@@ -45,17 +45,19 @@ export class CommunityController {
   createCommunity = async (req: Request, res: Response): Promise<void> => {
     const { decodedUser } = req;
     const { name, description } = req.body;
-    const avatarPath = req.file?.path;
+    const avatarBuffer = req.file?.buffer;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const command = new CreateCommunityCommand(
       name,
       description,
       decodedUser.publicId,
-      avatarPath,
+      avatarBuffer,
+      req.file?.originalname,
+      req.file?.mimetype,
     );
     const community = (await this.commandBus.dispatch(command)) as ICommunity;
     res.status(201).json(
@@ -72,7 +74,7 @@ export class CommunityController {
     const { id } = req.params;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const command = new JoinCommunityCommand(id, decodedUser.publicId);
@@ -85,7 +87,7 @@ export class CommunityController {
     const { id } = req.params;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const command = new LeaveCommunityCommand(id, decodedUser.publicId);
@@ -107,7 +109,7 @@ export class CommunityController {
     const limit = parseInt(req.query.limit as string) || 20;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const query = new GetUserCommunitiesQuery(
@@ -135,21 +137,25 @@ export class CommunityController {
     const { name, description } = req.body;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     // handle file uploads - req.files comes from multer fields middleware
     const files = req.files as
       | { [fieldname: string]: Express.Multer.File[] }
       | undefined;
-    const avatarPath = files?.avatar?.[0]?.path;
-    const coverPhotoPath = files?.coverPhoto?.[0]?.path;
+    const avatarBuffer = files?.avatar?.[0]?.buffer;
+    const coverPhotoBuffer = files?.coverPhoto?.[0]?.buffer;
 
     const updates = {
       name: name ?? undefined,
       description: description ?? undefined,
-      avatarPath,
-      coverPhotoPath,
+      avatarBuffer,
+      avatarOriginalName: files?.avatar?.[0]?.originalname,
+      avatarMimeType: files?.avatar?.[0]?.mimetype,
+      coverPhotoBuffer,
+      coverPhotoOriginalName: files?.coverPhoto?.[0]?.originalname,
+      coverPhotoMimeType: files?.coverPhoto?.[0]?.mimetype,
     };
 
     const command = new UpdateCommunityCommand(
@@ -166,12 +172,12 @@ export class CommunityController {
     const { id } = req.params;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const command = new DeleteCommunityCommand(id, decodedUser.publicId);
     await this.commandBus.dispatch(command);
-    res.status(200).json({ message: "Community deleted successfully" });
+    res.status(204).send();
   };
 
   getCommunityMembers = async (req: Request, res: Response): Promise<void> => {
@@ -189,7 +195,7 @@ export class CommunityController {
     const { id, userId } = req.params;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User information missing");
+      throw Errors.authentication("User information missing");
     }
 
     const command = new KickMemberCommand(id, decodedUser.publicId, userId);

@@ -11,6 +11,7 @@ import {
 	HandleSuggestionContext,
 } from "../types";
 import axios, { AxiosError } from "axios";
+import { devError } from "@/lib/devLogger";
 
 export type LoginResponse = { user: AuthenticatedUserDTO | AdminUserDTO };
 export type RegisterResponse = { user: AuthenticatedUserDTO };
@@ -91,7 +92,7 @@ export const fetchUserPosts = async (
 		);
 		return data;
 	} catch (error) {
-		console.error("Error fetching user posts:", error);
+		devError("Error fetching user posts:", error);
 		throw error;
 	}
 };
@@ -109,7 +110,7 @@ export const fetchUserLikedPosts = async (
 		);
 		return data;
 	} catch (error) {
-		console.error("Error fetching user liked posts:", error);
+		devError("Error fetching user liked posts:", error);
 		throw error;
 	}
 };
@@ -133,7 +134,7 @@ export const fetchUserComments = async (
 		);
 		return data;
 	} catch (error) {
-		console.error("Error fetching user comments:", error);
+		devError("Error fetching user comments:", error);
 		throw error;
 	}
 };

@@ -2,10 +2,10 @@ import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 import { RecordPostViewCommand } from "./recordPostView.command";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
-import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import type { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import type { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { PostViewRepository } from "@/repositories/postView.repository";
-import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { FeedService } from "@/services/feed/feed.service";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { BloomFilterService } from "@/services/redis/bloom-filter.service";
@@ -134,10 +134,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
 
       let isNewView = false;
       await this.unitOfWork.executeInTransaction(async () => {
-        isNewView = await this.postViewRepository.recordView(
-          postId,
-          userId,
-        );
+        isNewView = await this.postViewRepository.recordView(postId, userId);
 
         if (isNewView) {
           await this.postWriteRepository.incrementViewCount(postId);

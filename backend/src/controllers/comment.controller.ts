@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { CommentService } from "@/services/comment.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { inject, injectable } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
@@ -19,7 +19,8 @@ const STREAM_THRESHOLD = 100;
 @injectable()
 export class CommentController {
   constructor(
-    @inject(TOKENS.Services.Comment) private readonly commentService: CommentService,
+    @inject(TOKENS.Services.Comment)
+    private readonly commentService: CommentService,
     @inject(TOKENS.CQRS.Commands.Bus) private readonly commandBus: CommandBus,
   ) {}
 
@@ -29,7 +30,7 @@ export class CommentController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     const command = new CreateCommentCommand(
@@ -67,7 +68,7 @@ export class CommentController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     const comment = await this.commentService.updateCommentByPublicId(
@@ -83,7 +84,7 @@ export class CommentController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     // Use CQRS command instead of service
@@ -98,7 +99,7 @@ export class CommentController {
     const { decodedUser } = req;
 
     if (!decodedUser || !decodedUser.publicId) {
-      throw createError("AuthenticationError", "User authentication required");
+      throw Errors.authentication("User authentication required");
     }
 
     const command = new LikeCommentCommand(decodedUser.publicId, commentId);
@@ -110,7 +111,9 @@ export class CommentController {
     const { publicId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
-    const sortBy = (req.query.sortBy as string) || "createdAt";
+    const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt"];
+    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
     // Limit max comments per page
@@ -125,12 +128,17 @@ export class CommentController {
     );
 
     if (result.comments.length >= STREAM_THRESHOLD) {
-      streamPaginatedResponse(res, result.comments, {
-        total: result.total,
-        page: result.page,
-        limit: result.limit,
-        totalPages: result.totalPages,
-      }, { arrayKey: "comments" });
+      streamPaginatedResponse(
+        res,
+        result.comments,
+        {
+          total: result.total,
+          page: result.page,
+          limit: result.limit,
+          totalPages: result.totalPages,
+        },
+        { arrayKey: "comments" },
+      );
     } else {
       res.json(result);
     }
@@ -145,7 +153,7 @@ export class CommentController {
     const result = await this.commentService.getCommentThread(commentId);
 
     if (!result.comment) {
-      next(createError("NotFoundError", "Comment not found"));
+      next(Errors.notFound("Comment"));
       return;
     }
 

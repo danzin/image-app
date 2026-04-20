@@ -1,6 +1,6 @@
 import { IQueryHandler } from "../interfaces/query-handler.interface";
 import { IQuery } from "../interfaces/query.interface";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 
 export class QueryBus {
 	// Stores query handlers, mapping query names to their respective handlerss
@@ -28,7 +28,7 @@ export class QueryBus {
 		const handler = this.handlers.get(query.constructor.name);
 
 		if (!handler) {
-			throw createError("InternalServerError", `No handler found for query ${query.constructor.name}`);
+			throw Errors.internal(`No handler found for query ${query.constructor.name}`);
 		}
 
 		return handler.execute(query) as Promise<TResult>;

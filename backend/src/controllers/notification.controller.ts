@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { NotificationService } from "@/services/notification.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { streamCursorResponse } from "@/utils/streamResponse";
 import { inject, injectable } from "tsyringe";
 import { logger } from "@/utils/winston";
@@ -18,10 +18,10 @@ export class NotificationController {
 
   getNotifications = async (req: Request, res: Response) => {
     const { decodedUser } = req;
-    if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("ValidationError", "User publicId is required");
+    if (!decodedUser || !decodedUser.publicId) {
+      throw Errors.validation("User publicId is required");
     }
-    const userPublicId = (decodedUser as any).publicId;
+    const userPublicId = decodedUser.publicId;
 
     // cursor-based pagination support
     const beforeStr = req.query.before as string | undefined;
@@ -30,11 +30,11 @@ export class NotificationController {
 
     // validate pagination params
     if (limit < 1 || limit > 100) {
-      throw createError("ValidationError", "Limit must be between 1 and 100");
+      throw Errors.validation("Limit must be between 1 and 100");
     }
 
     if (before !== undefined && (isNaN(before) || before < 0)) {
-      throw createError("ValidationError", "Invalid 'before' timestamp");
+      throw Errors.validation("Invalid 'before' timestamp");
     }
 
     const notifications = await this.notificationService.getNotifications(
@@ -77,10 +77,10 @@ export class NotificationController {
   markAsRead = async (req: Request, res: Response) => {
     const { notificationId } = req.params;
     const { decodedUser } = req;
-    if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("ValidationError", "User publicId is required");
+    if (!decodedUser || !decodedUser.publicId) {
+      throw Errors.validation("User publicId is required");
     }
-    const userPublicId = (decodedUser as any).publicId;
+    const userPublicId = decodedUser.publicId;
     const notification = await this.notificationService.markAsRead(
       notificationId,
       userPublicId,
@@ -90,20 +90,20 @@ export class NotificationController {
 
   getUnreadCount = async (req: Request, res: Response) => {
     const { decodedUser } = req;
-    if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("ValidationError", "User publicId is required");
+    if (!decodedUser || !decodedUser.publicId) {
+      throw Errors.validation("User publicId is required");
     }
-    const userPublicId = (decodedUser as any).publicId;
+    const userPublicId = decodedUser.publicId;
     const count = await this.notificationService.getUnreadCount(userPublicId);
     res.status(200).json({ count });
   };
 
   markAllAsRead = async (req: Request, res: Response) => {
     const { decodedUser } = req;
-    if (!decodedUser || !(decodedUser as any).publicId) {
-      throw createError("ValidationError", "User publicId is required");
+    if (!decodedUser || !decodedUser.publicId) {
+      throw Errors.validation("User publicId is required");
     }
-    const userPublicId = (decodedUser as any).publicId;
+    const userPublicId = decodedUser.publicId;
     const modifiedCount =
       await this.notificationService.markAllAsRead(userPublicId);
     res.status(200).json({ modifiedCount });

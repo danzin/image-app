@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { inject, injectable } from "tsyringe";
 import { FavoriteService } from "@/services/favorite.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { TOKENS } from "@/types/tokens";
 
 @injectable()
@@ -17,10 +17,7 @@ export class FavoriteController {
   addFavorite = async (req: Request, res: Response) => {
     const actorPublicId = req.decodedUser?.publicId;
     if (!actorPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to favorite a post",
-      );
+      throw Errors.authentication("User must be logged in to favorite a post");
     }
 
     const sanitizedPostId = req.params.publicId.replace(
@@ -41,8 +38,7 @@ export class FavoriteController {
   removeFavorite = async (req: Request, res: Response) => {
     const actorPublicId = req.decodedUser?.publicId;
     if (!actorPublicId) {
-      throw createError(
-        "AuthenticationError",
+      throw Errors.authentication(
         "User must be logged in to unfavorite a post",
       );
     }
@@ -65,14 +61,11 @@ export class FavoriteController {
   getFavorites = async (req: Request, res: Response) => {
     const viewerPublicId = req.decodedUser?.publicId;
     if (!viewerPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to view favorites",
-      );
+      throw Errors.authentication("User must be logged in to view favorites");
     }
 
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const favorites = await this.favoriteService.getFavoritesForViewer(
       viewerPublicId,

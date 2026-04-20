@@ -1,14 +1,22 @@
 import { Request, Response } from "express";
 import { FeedService } from "@/services/feed/feed.service";
 import { inject, injectable } from "tsyringe";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { GetTrendingTagsQuery } from "@/application/queries/tags/getTrendingTags/getTrendingTags.query";
 import { GetPersonalizedFeedQuery } from "@/application/queries/feed/getPersonalizedFeed/getPersonalizedFeed.query";
 import { GetForYouFeedQuery } from "@/application/queries/feed/getForYouFeed/getForYouFeed.query";
 import { GetTrendingFeedQuery } from "@/application/queries/feed/getTrendingFeed/getTrendingFeed.query";
-import { streamPaginatedResponse, streamCursorResponse } from "@/utils/streamResponse";
-import { CursorPaginationResult, FeedPost, PaginationResult, PostDTO } from "@/types";
+import {
+  streamPaginatedResponse,
+  streamCursorResponse,
+} from "@/utils/streamResponse";
+import {
+  CursorPaginationResult,
+  FeedPost,
+  PaginationResult,
+  PostDTO,
+} from "@/types";
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
@@ -25,17 +33,18 @@ export class FeedController {
     const { page, limit } = req.query;
     const cursor = req.query.cursor as string | undefined;
     if (!req.decodedUser || !req.decodedUser.publicId) {
-      throw createError("ValidationError", "User public ID is required");
+      throw Errors.validation("User public ID is required");
     }
 
     const query = new GetPersonalizedFeedQuery(
       req.decodedUser.publicId,
       Number(page) || 1,
-      Number(limit) || 20,
+      Math.min(Number(limit) || 20, 100),
       cursor,
     );
-    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
-    
+    const feed =
+      await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
+
     // Use streaming for large responses with cursor pagination
     if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
       streamCursorResponse(res, feed.data, {
@@ -51,16 +60,17 @@ export class FeedController {
     const { page, limit } = req.query;
     const cursor = req.query.cursor as string | undefined;
     if (!req.decodedUser || !req.decodedUser.publicId) {
-      throw createError("ValidationError", "User public ID is required");
+      throw Errors.validation("User public ID is required");
     }
     const query = new GetForYouFeedQuery(
       req.decodedUser.publicId,
       Number(page) || 1,
-      Number(limit) || 20,
+      Math.min(Number(limit) || 20, 100),
       cursor,
     );
-    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
-    
+    const feed =
+      await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
+
     // Use streaming for large responses with cursor pagination
     if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
       streamCursorResponse(res, feed.data, {
@@ -74,11 +84,12 @@ export class FeedController {
 
   getTrendingFeed = async (req: Request, res: Response) => {
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
     const cursor = req.query.cursor as string | undefined;
 
     const query = new GetTrendingFeedQuery(page, limit, cursor);
-    const feed = await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
+    const feed =
+      await this.queryBus.execute<CursorPaginationResult<FeedPost>>(query);
 
     // Use streaming for large responses with cursor pagination
     if (feed.data && feed.data.length >= STREAM_THRESHOLD) {
@@ -93,7 +104,7 @@ export class FeedController {
 
   getNewFeed = async (req: Request, res: Response) => {
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
     const cursor = req.query.cursor as string | undefined;
     const refresh = req.query.refresh === "true";
     const isAuthenticated = !!req.decodedUser;
@@ -107,7 +118,7 @@ export class FeedController {
       forceRefresh,
       cursor,
     );
-    
+
     // Use cursor-based streaming if cursor is available
     if (feed.nextCursor && feed.data && feed.data.length >= STREAM_THRESHOLD) {
       streamCursorResponse(res, feed.data, {
@@ -127,7 +138,7 @@ export class FeedController {
   };
 
   getTrendingTags = async (req: Request, res: Response) => {
-    const limit = Number(req.query.limit) || 5;
+    const limit = Math.min(Number(req.query.limit) || 5, 50);
     const timeWindowHours = Number(req.query.timeWindowHours) || 168; // 7 days default
 
     const query = new GetTrendingTagsQuery(limit, timeWindowHours);

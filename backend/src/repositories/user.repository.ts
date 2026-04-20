@@ -35,9 +35,7 @@ export class UserRepository extends BaseRepository<IUser> {
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The created user object.
    */
-  async create(
-    userData: Partial<IUser>,
-  ): Promise<IUser> {
+  async create(userData: Partial<IUser>): Promise<IUser> {
     try {
       const session = this.getSession();
       const doc = new this.model(userData);
@@ -76,7 +74,6 @@ export class UserRepository extends BaseRepository<IUser> {
 
       if (session) query.session(session);
       const result = await query.exec();
-      logger.info("[UserRepository.update] Result:", result);
       return result;
     } catch (error) {
       if (isMongoDBDuplicateKeyError(error)) {
@@ -164,9 +161,7 @@ export class UserRepository extends BaseRepository<IUser> {
   }
 
   // Find user by public id
-  async findByPublicId(
-    publicId: string,
-  ): Promise<IUser | null> {
+  async findByPublicId(publicId: string): Promise<IUser | null> {
     const session = this.getSession();
     if (session) {
       return this.model.findOne({ publicId }).session(session).exec();
@@ -195,9 +190,7 @@ export class UserRepository extends BaseRepository<IUser> {
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The user object or null if not found.
    */
-  async findByUsername(
-    username: string,
-  ): Promise<IUser | null> {
+  async findByUsername(username: string): Promise<IUser | null> {
     try {
       const session = this.getSession();
       const query = this.model.findOne({ username }).select("+password");
@@ -208,9 +201,7 @@ export class UserRepository extends BaseRepository<IUser> {
     }
   }
 
-  async findByHandle(
-    handle: string,
-  ): Promise<IUser | null> {
+  async findByHandle(handle: string): Promise<IUser | null> {
     try {
       const session = this.getSession();
       const handleNormalized = handle.trim().toLowerCase();
@@ -230,9 +221,7 @@ export class UserRepository extends BaseRepository<IUser> {
    * @param session - (Optional) Mongoose session for transactions.
    * @returns The user object or null if not found.
    */
-  async findByEmail(
-    email: string,
-  ): Promise<IUser | null> {
+  async findByEmail(email: string): Promise<IUser | null> {
     try {
       const session = this.getSession();
       const query = this.model.findOne({ email }).select("+password");
@@ -243,9 +232,7 @@ export class UserRepository extends BaseRepository<IUser> {
     }
   }
 
-  async findByResetToken(
-    token: string,
-  ): Promise<IUser | null> {
+  async findByResetToken(token: string): Promise<IUser | null> {
     try {
       const session = this.getSession();
       const query = this.model
@@ -324,10 +311,7 @@ export class UserRepository extends BaseRepository<IUser> {
    * @returns {Promise<void>} - Resolves when the update is complete.
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
-  async updateAvatar(
-    userId: string,
-    avatarUrl: string,
-  ): Promise<void> {
+  async updateAvatar(userId: string, avatarUrl: string): Promise<void> {
     try {
       const session = this.getSession();
       const query = this.model.findByIdAndUpdate(userId, {
@@ -348,10 +332,7 @@ export class UserRepository extends BaseRepository<IUser> {
    * @returns {Promise<void>} - Resolves when the update is complete.
    * @throws {Error} - Throws a 'DatabaseError' if the update operation fails.
    */
-  async updateCover(
-    userId: string,
-    coverUrl: string,
-  ): Promise<void> {
+  async updateCover(userId: string, coverUrl: string): Promise<void> {
     try {
       const session = this.getSession();
       const query = this.model.findByIdAndUpdate(userId, {
@@ -887,10 +868,7 @@ export class UserRepository extends BaseRepository<IUser> {
     }
   }
 
-  async updateFollowerCount(
-    userId: string,
-    increment: number,
-  ): Promise<void> {
+  async updateFollowerCount(userId: string, increment: number): Promise<void> {
     try {
       const session = this.getSession();
       const query = this.model.findByIdAndUpdate(
@@ -907,10 +885,7 @@ export class UserRepository extends BaseRepository<IUser> {
     }
   }
 
-  async updateFollowingCount(
-    userId: string,
-    increment: number,
-  ): Promise<void> {
+  async updateFollowingCount(userId: string, increment: number): Promise<void> {
     try {
       const session = this.getSession();
       const query = this.model.findByIdAndUpdate(

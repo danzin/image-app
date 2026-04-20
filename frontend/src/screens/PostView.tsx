@@ -5,6 +5,7 @@ import { useLikePost, useFavoritePost } from "../hooks/user/useUserAction";
 import { useAuth } from "../hooks/context/useAuth";
 import { useDeletePost, useRepostPost, useUnrepostPost } from "../hooks/posts/usePosts";
 import RichText from "../components/RichText";
+import { devError } from "@/lib/devLogger";
 import {
 	Box,
 	Typography,
@@ -170,7 +171,7 @@ const PostView = () => {
 		if (isOwner) {
 			deleteMutation.mutate(post.publicId, {
 				onSuccess: () => navigate(-1),
-				onError: (err) => console.error("Delete failed", err),
+				onError: (err) => devError("Delete failed", err),
 			});
 		}
 	};

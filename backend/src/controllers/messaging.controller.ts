@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { inject, injectable } from "tsyringe";
 import { MessagingService } from "@/services/messaging.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { SendMessagePayload } from "@/types";
 import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { TOKENS } from "@/types/tokens";
@@ -19,10 +19,7 @@ export class MessagingController {
   listConversations = async (req: Request, res: Response): Promise<void> => {
     const userPublicId = req.decodedUser?.publicId as string | undefined;
     if (!userPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to view conversations",
-      );
+      throw Errors.authentication("User must be logged in to view conversations");
     }
 
     const page = Number(req.query.page) || 1;
@@ -42,10 +39,7 @@ export class MessagingController {
   ): Promise<void> => {
     const userPublicId = req.decodedUser?.publicId as string | undefined;
     if (!userPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to view messages",
-      );
+      throw Errors.authentication("User must be logged in to view messages");
     }
 
     const { conversationId } = req.params;
@@ -74,10 +68,7 @@ export class MessagingController {
   markConversationRead = async (req: Request, res: Response): Promise<void> => {
     const userPublicId = req.decodedUser?.publicId as string | undefined;
     if (!userPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to update read state",
-      );
+      throw Errors.authentication("User must be logged in to update read state");
     }
 
     const { conversationId } = req.params;
@@ -91,10 +82,7 @@ export class MessagingController {
   initiateConversation = async (req: Request, res: Response): Promise<void> => {
     const senderPublicId = req.decodedUser?.publicId as string | undefined;
     if (!senderPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to start a conversation",
-      );
+      throw Errors.authentication("User must be logged in to start a conversation");
     }
 
     const { recipientPublicId } = req.body; // validated by Zod middleware
@@ -109,10 +97,7 @@ export class MessagingController {
   sendMessage = async (req: Request, res: Response): Promise<void> => {
     const senderPublicId = req.decodedUser?.publicId as string | undefined;
     if (!senderPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to send messages",
-      );
+      throw Errors.authentication("User must be logged in to send messages");
     }
 
     const payload: SendMessagePayload = {
@@ -133,10 +118,7 @@ export class MessagingController {
   editMessage = async (req: Request, res: Response): Promise<void> => {
     const userPublicId = req.decodedUser?.publicId as string | undefined;
     if (!userPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to edit messages",
-      );
+      throw Errors.authentication("User must be logged in to edit messages");
     }
 
     const { messageId } = req.params;
@@ -153,10 +135,7 @@ export class MessagingController {
   deleteMessage = async (req: Request, res: Response): Promise<void> => {
     const userPublicId = req.decodedUser?.publicId as string | undefined;
     if (!userPublicId) {
-      throw createError(
-        "AuthenticationError",
-        "User must be logged in to delete messages",
-      );
+      throw Errors.authentication("User must be logged in to delete messages");
     }
 
     const { messageId } = req.params;

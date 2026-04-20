@@ -4,11 +4,11 @@ import { LikeActionCommand } from "./likeAction.command";
 import { IPost, PopulatedPostUser, PopulatedPostTag } from "@/types/index";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
-import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
-import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
+import type { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
+import type { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteRepository";
 import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
-import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { Errors, wrapError } from "@/utils/errors";
 import { FeedService } from "@/services/feed/feed.service";
@@ -23,7 +23,8 @@ export class LikeActionCommandHandler implements ICommandHandler<
   IPost
 > {
   constructor(
-    @inject(TOKENS.Repositories.UnitOfWork) private readonly unitOfWork: UnitOfWork,
+    @inject(TOKENS.Repositories.UnitOfWork)
+    private readonly unitOfWork: UnitOfWork,
     @inject(TOKENS.Repositories.PostRead)
     private readonly postReadRepository: IPostReadRepository,
     @inject(TOKENS.Repositories.PostWrite)
@@ -66,7 +67,10 @@ export class LikeActionCommandHandler implements ICommandHandler<
 
       // Execute the like/unlike operation within transaction
       await this.unitOfWork.executeInTransaction(async () => {
-        const existingLike = await this.postLikeRepository.hasUserLiked(command.postId, command.userId);
+        const existingLike = await this.postLikeRepository.hasUserLiked(
+          command.postId,
+          command.userId,
+        );
 
         if (existingLike) {
           // If the like already exists, perform an unlike operation
@@ -126,18 +130,22 @@ export class LikeActionCommandHandler implements ICommandHandler<
    * @param command - The like action command containing user ID and post ID.
    * @param post - The post being liked.
    */
-  private async handleLike(
-    command: LikeActionCommand,
-    post: IPost,
-  ) {
-    const added = await this.postLikeRepository.addLike(command.postId, command.userId);
+  private async handleLike(command: LikeActionCommand, post: IPost) {
+    const added = await this.postLikeRepository.addLike(
+      command.postId,
+      command.userId,
+    );
     if (!added) {
       throw Errors.validation("like already exists for user and post");
     }
 
     await this.postWriteRepository.updateLikeCount(command.postId, 1);
 
-    await this.userActionRepository.logAction(command.userId, "like", command.postId);
+    await this.userActionRepository.logAction(
+      command.userId,
+      "like",
+      command.postId,
+    );
 
     const postOwner = post.user as Types.ObjectId | PopulatedPostUser;
     let postOwnerPublicId = "";
@@ -207,16 +215,21 @@ export class LikeActionCommandHandler implements ICommandHandler<
    * and logging the user action.
    * @param command - The unlike action command containing user ID and post ID.
    */
-  private async handleUnlike(
-    command: LikeActionCommand,
-  ) {
-    const removed = await this.postLikeRepository.removeLike(command.postId, command.userId);
+  private async handleUnlike(command: LikeActionCommand) {
+    const removed = await this.postLikeRepository.removeLike(
+      command.postId,
+      command.userId,
+    );
     if (!removed) {
       throw Errors.notFound("Resource");
     }
 
     await this.postWriteRepository.updateLikeCount(command.postId, -1);
 
-    await this.userActionRepository.logAction(command.userId, "unlike", command.postId);
+    await this.userActionRepository.logAction(
+      command.userId,
+      "unlike",
+      command.postId,
+    );
   }
 }

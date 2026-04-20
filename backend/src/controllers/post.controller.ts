@@ -53,16 +53,16 @@ export class PostController {
     }
 
     const originalName = file?.originalname || `post-${Date.now()}`;
-    
-    // Use buffer from memory storage (preferred) or fall back to file path
+
+    // Use buffer from memory storage
     const command = new CreatePostCommand(
       decodedUser.publicId,
       bodyText,
       undefined,
-      file?.path, // Legacy: file path (only set if disk storage is used)
+      undefined,
       originalName,
       communityPublicId,
-      file?.buffer, // New: buffer from memory storage
+      file?.buffer,
       file?.mimetype,
     );
     const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
@@ -71,7 +71,7 @@ export class PostController {
 
   listPosts = async (req: Request, res: Response): Promise<void> => {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 9;
+    const limit = Math.min(parseInt(req.query.limit as string) || 9, 100);
 
     // Get authenticated user's publicId if available
     const userId = (req as any).decodedUser?.publicId;
@@ -106,8 +106,10 @@ export class PostController {
   ): Promise<void> => {
     const { publicId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const sortBy = (req.query.sortBy as string) || "createdAt";
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "likesCount"];
+    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
 
     const query = new GetPostsByUserQuery(
@@ -137,8 +139,10 @@ export class PostController {
   ): Promise<void> => {
     const { publicId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const sortBy = (req.query.sortBy as string) || "createdAt";
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "likesCount"];
+    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
     const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
     const viewerPublicId = req.decodedUser?.publicId;
 
@@ -167,7 +171,7 @@ export class PostController {
   getPostsByHandle = async (req: Request, res: Response): Promise<void> => {
     const { handle } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const userQuery = new GetUserByHandleQuery(handle);
     const user = await this.queryBus.execute<PublicUserDTO>(userQuery);
@@ -228,7 +232,7 @@ export class PostController {
   searchByTags = async (req: Request, res: Response): Promise<void> => {
     const { tags } = req.query;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
     const tagArray = tags
       ? (tags as string).split(",").filter((tag) => tag.trim() !== "")
       : [];

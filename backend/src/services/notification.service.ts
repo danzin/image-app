@@ -1,7 +1,6 @@
-import { ClientSession } from "mongoose";
 import { NotificationRepository } from "@/repositories/notification.respository";
 import { INotification, NotificationPlain } from "@/types";
-import { createError, isErrorWithStatusCode, wrapError } from "@/utils/errors";
+import { Errors, isErrorWithStatusCode, wrapError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";
 import { Server as SocketIOServer } from "socket.io";
 import { WebSocketServer } from "../server/socketServer";
@@ -10,6 +9,7 @@ import { ImageRepository } from "@/repositories/image.repository";
 import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger, logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+import { SystemActor } from "@/utils/actors/SystemActor";
 
 @injectable()
 export class NotificationService {
@@ -97,11 +97,9 @@ export class NotificationService {
     actorUsername?: string; // optional actor username provided by frontend
     actorHandle?: string; // optional actor handle provided by frontend
     actorAvatar?: string; // optional actor avatar URL
-    session?: ClientSession;
   }): Promise<INotification> {
     if (!data.receiverId || !data.actionType || !data.actorId) {
-      throw createError(
-        "ValidationError",
+      throw Errors.validation(
         "Missing required notification fields",
       );
     }
@@ -120,7 +118,7 @@ export class NotificationService {
       // Fallback: Fetch actor info if missing
       if (
         (!actorUsername || !actorHandle || !actorAvatar) &&
-        actorPublicId !== "system-monitor"
+        actorPublicId !== SystemActor.id
       ) {
         try {
           const actor = await this.userRepository.findByPublicId(actorPublicId);
@@ -139,8 +137,7 @@ export class NotificationService {
 
       // Final fallback for avatar to ensure it's never empty
       if (!actorAvatar) {
-        actorAvatar =
-          "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg";
+        actorAvatar = SystemActor.avatar;
       }
 
       const io = this.getIO();
@@ -159,7 +156,6 @@ export class NotificationService {
           isRead: false,
           timestamp: new Date(),
         },
-        data.session, // pass the session
       );
 
       // emit via WebSocket
@@ -175,7 +171,7 @@ export class NotificationService {
       return notification;
     } catch (error) {
       logger.error(`notificationRepository.create error:`, { error });
-      throw createError("InternalServerError", "Failed to create notification");
+      throw Errors.internal("Failed to create notification");
     }
   }
 
@@ -269,9 +265,9 @@ export class NotificationService {
         error: error instanceof Error ? error.message : String(error),
       });
       if (error instanceof Error) {
-        throw createError("InternalServerError", error.message);
+        throw Errors.internal(error.message);
       } else {
-        throw createError("InternalServerError", String(error));
+        throw Errors.internal(String(error));
       }
     }
   }
@@ -292,7 +288,7 @@ export class NotificationService {
           notificationId,
           userPublicId,
         });
-        throw createError("PathError", "Notification not found");
+        throw Errors.notFound("Notification");
       }
       logger.info(`[NotificationService] markAsRead updated`, {
         notificationId,
@@ -355,9 +351,9 @@ export class NotificationService {
       return modifiedCount;
     } catch (error) {
       if (error instanceof Error) {
-        throw createError("InternalServerError", error.message);
+        throw Errors.internal(error.message);
       }
-      throw createError("InternalServerError", String(error));
+      throw Errors.internal(String(error));
     }
   }
 }

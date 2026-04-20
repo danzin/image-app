@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { container } from "tsyringe";
 import { CommandBus } from "@/application/common/buses/command.bus";
 import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
+import { logger } from "@/utils/winston";
 
 const stripPort = (raw: string): string => {
 	const trimmed = raw.trim();
@@ -73,7 +74,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 
 			await commandBus.dispatch(command);
 		} catch (error) {
-			console.error("Failed to log request:", error);
+			logger.error("Failed to log request:", { error });
 		}
 	});
 

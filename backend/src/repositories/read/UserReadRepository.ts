@@ -5,7 +5,7 @@ import {
   PaginationResult,
   UserSuggestion,
 } from "@/types";
-import { IUserReadRepository } from "../interfaces/IUserReadRepository";
+import type { IUserReadRepository } from "../interfaces/IUserReadRepository";
 import { UserRepository } from "../user.repository";
 import { TOKENS } from "@/types/tokens";
 

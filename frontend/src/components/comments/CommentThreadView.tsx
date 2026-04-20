@@ -35,6 +35,7 @@ import {
 	useLikeComment,
 } from "../../hooks/comments/useComments";
 import RichText from "../RichText";
+import { devError } from "@/lib/devLogger";
 
 interface ThreadCommentItemProps {
 	comment: IComment;
@@ -79,7 +80,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 				postPublicId: comment.postPublicId,
 			});
 		} catch (error) {
-			console.error("Failed to like comment:", error);
+			devError("Failed to like comment:", error);
 		}
 	};
 
@@ -103,7 +104,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 			});
 			setIsEditing(false);
 		} catch (error) {
-			console.error("Failed to update comment:", error);
+			devError("Failed to update comment:", error);
 		}
 	};
 
@@ -117,7 +118,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
 				});
 				navigate(-1);
 			} catch (error) {
-				console.error("Failed to delete comment:", error);
+				devError("Failed to delete comment:", error);
 			}
 		}
 		handleMenuClose();
@@ -492,7 +493,7 @@ const CommentThreadView: React.FC = () => {
 			});
 			setReplyContent("");
 		} catch (error) {
-			console.error("Failed to post reply:", error);
+			devError("Failed to post reply:", error);
 		}
 	};
 

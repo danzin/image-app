@@ -1,7 +1,7 @@
 import { injectable } from "tsyringe";
 import { ICommandHandler } from "../interfaces/command-handler.interface";
 import { ICommand } from "../interfaces/command.interface";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 
 
 @injectable()
@@ -47,7 +47,7 @@ export class CommandBus {
     
 
     if(!handler){
-      throw createError("InternalServerError", `No handler found for command ${command.constructor.name}`);
+      throw Errors.internal(`No handler found for command ${command.constructor.name}`);
     }
 
     return handler.execute(command) as Promise<TResult>;

@@ -22,6 +22,7 @@ import {
 import { IPost, ITag, PaginatedResponse } from "../../types";
 import { useAuth } from "../context/useAuth";
 import { mapPost } from "../../lib/mappers";
+import { devError } from "@/lib/devLogger";
 
 export const usePosts = () => {
   const { user } = useAuth();
@@ -182,7 +183,7 @@ export const useUploadPost = () => {
       });
     },
     onError: (error: Error) => {
-      console.error("Error uploading post:", error);
+      devError("Error uploading post:", error);
     },
   });
 };
@@ -200,7 +201,7 @@ export const useDeletePost = () => {
       queryClient.invalidateQueries({ queryKey: ["personalizedFeed"] });
     },
     onError: (error: Error) => {
-      console.error("Error deleting post:", error);
+      devError("Error deleting post:", error);
     },
   });
 };
@@ -283,7 +284,7 @@ export const useRepostPost = () => {
       queryClient.invalidateQueries({ queryKey: ["userPosts"] });
     },
     onError: (error: Error) => {
-      console.error("Error reposting post:", error);
+      devError("Error reposting post:", error);
     },
   });
 };
@@ -366,7 +367,7 @@ export const useUnrepostPost = () => {
       queryClient.invalidateQueries({ queryKey: ["userPosts"] });
     },
     onError: (error: Error) => {
-      console.error("Error removing repost:", error);
+      devError("Error removing repost:", error);
     },
   });
 };

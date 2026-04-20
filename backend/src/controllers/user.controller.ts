@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AuthService } from "@/services/auth.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { injectable, inject } from "tsyringe";
 import {
   accessCookieOptions,
@@ -130,7 +130,7 @@ export class UserController {
   private requireAuthenticatedUserPublicId(req: Request): string {
     const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
-      throw createError("AuthenticationError", "Authentication required");
+      throw Errors.authentication("Authentication required");
     }
     return userPublicId;
   }
@@ -162,7 +162,7 @@ export class UserController {
   getMe = async (req: Request, res: Response, next: NextFunction) => {
     const { decodedUser } = req;
     if (!decodedUser?.publicId) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
     const query = new GetMeQuery(decodedUser.publicId as string);
     const { user } = await this.queryBus.execute<GetMeResult>(query);
@@ -183,7 +183,7 @@ export class UserController {
   refresh = async (req: Request, res: Response, next: NextFunction) => {
     const refreshToken = req.cookies?.[authCookieNames.refreshToken];
     if (typeof refreshToken !== "string" || refreshToken.length === 0) {
-      return next(createError("AuthenticationError", "Refresh token missing"));
+      return next(Errors.authentication("Refresh token missing"));
     }
 
     const {
@@ -242,13 +242,13 @@ export class UserController {
       userData.avatar ||
       userData.cover
     ) {
-      return next(createError("ValidationError", "You can not do that."));
+      return next(Errors.validation("You can not do that."));
     }
     if (!decodedUser) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
     if (!decodedUser.publicId)
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
 
     const command = new UpdateProfileCommand(decodedUser.publicId, userData);
     const updatedUser = await this.commandBus.dispatch<PublicUserDTO>(command);
@@ -260,10 +260,10 @@ export class UserController {
     const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
 
     if (!decodedUser) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
     if (!decodedUser.publicId)
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
 
     const command = new ChangePasswordCommand(
       decodedUser.publicId,
@@ -281,15 +281,15 @@ export class UserController {
 
   updateAvatar = async (req: Request, res: Response, next: NextFunction) => {
     const { decodedUser } = req;
-    const file = req.file?.path;
-    if (!file) throw createError("ValidationError", "No file provided");
+    const fileBuffer = req.file?.buffer;
+    if (!fileBuffer) throw Errors.validation("No file provided");
     if (!decodedUser) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
     if (!decodedUser.publicId)
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
 
-    const command = new UpdateAvatarCommand(decodedUser.publicId, file);
+    const command = new UpdateAvatarCommand(decodedUser.publicId, fileBuffer, req.file?.originalname, req.file?.mimetype);
     const updatedUserDTO =
       await this.commandBus.dispatch<PublicUserDTO>(command);
 
@@ -298,15 +298,15 @@ export class UserController {
 
   updateCover = async (req: Request, res: Response, next: NextFunction) => {
     const { decodedUser } = req;
-    const file = req.file?.path;
-    if (!file) throw createError("ValidationError", "No file provided");
+    const fileBuffer = req.file?.buffer;
+    if (!fileBuffer) throw Errors.validation("No file provided");
     if (!decodedUser) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
     if (!decodedUser.publicId)
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
 
-    const command = new UpdateCoverCommand(decodedUser.publicId, file);
+    const command = new UpdateCoverCommand(decodedUser.publicId, fileBuffer, req.file?.originalname, req.file?.mimetype);
     const updatedUserDTO =
       await this.commandBus.dispatch<PublicUserDTO>(command);
 
@@ -371,7 +371,7 @@ export class UserController {
   getFollowers = async (req: Request, res: Response): Promise<void> => {
     const { publicId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const query = new GetFollowersQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowersResult>(query);
@@ -391,7 +391,7 @@ export class UserController {
   getFollowing = async (req: Request, res: Response): Promise<void> => {
     const { publicId } = req.params;
     const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
 
     const query = new GetFollowingQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowingResult>(query);
@@ -478,13 +478,10 @@ export class UserController {
   getWhoToFollow = async (req: Request, res: Response, next: NextFunction) => {
     const { decodedUser } = req;
     if (!decodedUser?.publicId) {
-      return next(createError("UnauthorizedError", "User not authenticated."));
+      return next(Errors.authentication("User not authenticated."));
     }
 
-    const limit = parseInt(req.query.limit as string) || 5;
-    if (limit > 20) {
-      return next(createError("ValidationError", "Limit cannot exceed 20"));
-    }
+    const limit = Math.min(parseInt(req.query.limit as string) || 5, 20);
 
     const query = new GetWhoToFollowQuery(
       decodedUser.publicId as string,
@@ -498,7 +495,7 @@ export class UserController {
   getHandleSuggestions = async (req: Request, res: Response) => {
     const queryValue = typeof req.query.q === "string" ? req.query.q : "";
     const context = req.query.context as HandleSuggestionContext;
-    const limit = parseInt(req.query.limit as string) || 8;
+    const limit = Math.min(parseInt(req.query.limit as string) || 8, 20);
     const viewerPublicId = req.decodedUser?.publicId;
 
     const query = new GetHandleSuggestionsQuery(
