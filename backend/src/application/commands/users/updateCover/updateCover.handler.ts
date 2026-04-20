@@ -1,5 +1,4 @@
 import { inject, injectable } from "tsyringe";
-import * as fs from "fs";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { UpdateCoverCommand } from "./updateCover.command";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
@@ -11,7 +10,7 @@ import { EventBus } from "@/application/common/buses/event.bus";
 import { RedisService } from "@/services/redis.service";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { RetryPresets, RetryService } from "@/services/retry.service";
-import { createError , wrapError } from "@/utils/errors";
+import { Errors, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { UserCoverChangedEvent } from "@/application/events/user/user-interaction.event";
 import { TOKENS } from "@/types/tokens";
@@ -31,13 +30,13 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 	) {}
 
 	async execute(command: UpdateCoverCommand): Promise<PublicUserDTO> {
-		if (!command.filePath) {
-			throw createError("ValidationError", "Cover file is required");
+		if (!command.fileBuffer) {
+			throw Errors.validation("Cover file is required");
 		}
 
 		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw Errors.notFound("User");
 		}
 
 		let newCoverUrl: string | null = null;
@@ -46,24 +45,21 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 		const userPublicId = user.publicId;
 
 		try {
-			const uploadResult = await this.imageStorageService.uploadImage(command.filePath, userPublicId);
+			const uploadResult = await this.imageStorageService.uploadImageStream(
+				{ buffer: command.fileBuffer, originalName: command.originalName, mimeType: command.mimeType },
+				userPublicId,
+			);
 			newCoverUrl = uploadResult.url;
 			newCoverPublicId = uploadResult.publicId;
 		} catch (error) {
-			// Clean up temp file if upload fails
-			if (fs.existsSync(command.filePath)) {
-				fs.unlink(command.filePath, (err) => {
-					if (err) logger.error("Failed to delete temp file", { err });
-				});
-			}
-			throw createError("UploadError", error instanceof Error ? error.message : "Failed to upload cover");
+			throw Errors.storage(error instanceof Error ? error.message : "Failed to upload cover");
 		}
 
 		try {
-			await this.unitOfWork.executeInTransaction(async (session) => {
+			await this.unitOfWork.executeInTransaction(async () => {
 				const userId = user.id;
 
-				await this.userWriteRepository.updateCover(userId, newCoverUrl!, session);
+				await this.userWriteRepository.updateCover(userId, newCoverUrl!);
 			});
 
 			await this.deleteOldCoverAfterCommit(userPublicId, oldCoverUrl);
@@ -79,7 +75,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 
 			const updatedUser = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!updatedUser) {
-				throw createError("NotFoundError", "User not found after cover update");
+				throw Errors.notFound("User");
 			}
 
 			const postCount = await this.postReadRepository.countDocuments({ user: updatedUser.id });
@@ -98,13 +94,7 @@ export class UpdateCoverCommandHandler implements ICommandHandler<UpdateCoverCom
 			if (error instanceof Error) {
 				throw wrapError(error);
 			}
-			throw createError("InternalServerError", "An unknown error occurred");
-		} finally {
-			if (command.filePath && fs.existsSync(command.filePath)) {
-				fs.unlink(command.filePath, (err) => {
-					if (err) logger.error("Failed to delete temp file", { err });
-				});
-			}
+			throw Errors.internal("An unknown error occurred");
 		}
 	}
 

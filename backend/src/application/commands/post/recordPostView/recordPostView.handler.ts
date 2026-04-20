@@ -9,7 +9,8 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { FeedService } from "@/services/feed/feed.service";
 import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { BloomFilterService } from "@/services/redis/bloom-filter.service";
-import { createError } from "@/utils/errors";
+import { UnitOfWork } from "@/database/UnitOfWork";
+import { Errors } from "@/utils/errors";
 import { isValidPublicId } from "@/utils/sanitizers";
 import {
   PostAuthorizationError,
@@ -46,6 +47,8 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
     private readonly transactionQueue: TransactionQueueService,
     @inject(TOKENS.Services.BloomFilter)
     private readonly bloomFilterService: BloomFilterService,
+    @inject(TOKENS.Repositories.UnitOfWork)
+    private readonly unitOfWork: UnitOfWork,
   ) {
     this.transactionQueue.registerHandler(
       "UPDATE_VIEW_COUNT_METADATA",
@@ -66,11 +69,11 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
   async execute(command: RecordPostViewCommand): Promise<boolean> {
     try {
       if (!isValidPublicId(command.postPublicId)) {
-        throw createError("ValidationError", "Invalid postPublicId format");
+        throw Errors.validation("Invalid postPublicId format");
       }
 
       if (!isValidPublicId(command.userPublicId)) {
-        throw createError("ValidationError", "Invalid userPublicId format");
+        throw Errors.validation("Invalid userPublicId format");
       }
 
       const post = await this.postReadRepository.findOneByPublicId(
@@ -129,27 +132,17 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
         return false;
       }
 
-      const session = await mongoose.startSession();
-      session.startTransaction();
       let isNewView = false;
-      try {
+      await this.unitOfWork.executeInTransaction(async () => {
         isNewView = await this.postViewRepository.recordView(
           postId,
           userId,
-          session,
         );
 
         if (isNewView) {
-          await this.postWriteRepository.incrementViewCount(postId, session);
+          await this.postWriteRepository.incrementViewCount(postId);
         }
-
-        await session.commitTransaction();
-      } catch (error) {
-        await session.abortTransaction();
-        throw error;
-      } finally {
-        session.endSession();
-      }
+      });
 
       await this.markViewSeenInBloom(bloomKey, bloomItem);
 

@@ -19,8 +19,8 @@ import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { IImageStorageService, IUser } from "@/types";
-import { UnitOfWork } from "@/database/UnitOfWork";
-import { createError , wrapError } from "@/utils/errors";
+import { UnitOfWork, sessionALS } from "@/database/UnitOfWork";
+import { Errors, wrapError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { RedisService } from "@/services/redis.service";
@@ -57,7 +57,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 		// verify password before proceeding with deletion (unless admin bypass)
 		if (!command.skipPasswordVerification) {
 			if (!command.password) {
-				throw createError("ValidationError", "Password is required for account deletion");
+				throw Errors.validation("Password is required for account deletion");
 			}
 
 			const userWithPassword = await this.userModel
@@ -66,12 +66,12 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				.exec();
 
 			if (!userWithPassword) {
-				throw createError("NotFoundError", "User not found");
+				throw Errors.notFound("User");
 			}
 
 			const isPasswordValid = await userWithPassword.comparePassword(command.password);
 			if (!isPasswordValid) {
-				throw createError("AuthenticationError", "Invalid password");
+				throw Errors.authentication("Invalid password");
 			}
 		}
 
@@ -85,10 +85,10 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 			const followers = await this.userReadRepository.findUsersFollowing(command.userPublicId);
 			followerPublicIds = followers.map((f) => f.publicId);
 
-			await this.unitOfWork.executeInTransaction(async (session) => {
-				const user = await this.userReadRepository.findByPublicId(command.userPublicId, session);
+			await this.unitOfWork.executeInTransaction(async () => {
+				const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 				if (!user) {
-					throw createError("NotFoundError", "User not found");
+					throw Errors.notFound("User");
 				}
 
 				userId = user.id;
@@ -101,19 +101,19 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 				const followerIds = await this.followRepository.getFollowerObjectIds(userId);
 
 				// delete all user relationships and content in proper order
-				await this.commentRepository.deleteCommentsByUserId(userId, session);
+				await this.commentRepository.deleteCommentsByUserId(userId);
 
-				await this.postLikeRepository.removeLikesByUser(userId, session);
+				await this.postLikeRepository.removeLikesByUser(userId);
 
-				await this.favoriteRepository.deleteManyByUserId(userId, session);
+				await this.favoriteRepository.deleteManyByUserId(userId);
 
-				await this.postViewRepository.deleteManyByUserId(userId, session);
+				await this.postViewRepository.deleteManyByUserId(userId);
 
-				await this.postWriteRepository.deleteManyByUserId(userId, session);
+				await this.postWriteRepository.deleteManyByUserId(userId);
 
-				await this.imageRepository.deleteMany(userId, session);
+				await this.imageRepository.deleteMany(userId);
 
-				await this.followRepository.deleteAllFollowsByUserId(userId, session);
+				await this.followRepository.deleteAllFollowsByUserId(userId);
 
 				const uniqueFollowingIds = Array.from(new Set(followingIds));
 				if (uniqueFollowingIds.length > 0) {
@@ -121,7 +121,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 						.updateMany(
 							{ _id: { $in: uniqueFollowingIds.map((id) => new Types.ObjectId(id)) } },
 							{ $inc: { followerCount: -1 } },
-							{ session },
+							{ session: sessionALS.getStore() ?? undefined },
 						)
 						.exec();
 				}
@@ -132,25 +132,25 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 						.updateMany(
 							{ _id: { $in: uniqueFollowerIds.map((id) => new Types.ObjectId(id)) } },
 							{ $inc: { followingCount: -1 } },
-							{ session },
+							{ session: sessionALS.getStore() ?? undefined },
 						)
 						.exec();
 				}
 
-				await this.userPreferenceRepository.deleteManyByUserId(userId, session);
+				await this.userPreferenceRepository.deleteManyByUserId(userId);
 
-				await this.userActionRepository.deleteManyByUserId(userId, session);
+				await this.userActionRepository.deleteManyByUserId(userId);
 
-				await this.notificationRepository.deleteManyByUserId(user.publicId, session);
-				await this.notificationRepository.deleteManyByActorId(user.publicId, session);
+				await this.notificationRepository.deleteManyByUserId(user.publicId);
+				await this.notificationRepository.deleteManyByActorId(user.publicId);
 
 				const joinedCommunityIds = (user.joinedCommunities ?? [])
 					.map((community) => (community && community._id ? community._id.toString() : ""))
 					.filter((id): id is string => id.length > 0);
-				await this.communityRepository.decrementMemberCountsByIds(joinedCommunityIds, session);
-				await this.communityMemberRepository.deleteManyByUserId(userId, session);
+				await this.communityRepository.decrementMemberCountsByIds(joinedCommunityIds);
+				await this.communityMemberRepository.deleteManyByUserId(userId);
 
-				const userConversations = await this.conversationRepository.findByParticipant(userId, session);
+				const userConversations = await this.conversationRepository.findByParticipant(userId);
 
 				for (const conversation of userConversations) {
 					const conversationId = conversation.id || conversation._id?.toString();
@@ -158,19 +158,19 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 
 					if (conversation.participants.length <= 2) {
 						// delete the conversation
-						await this.conversationRepository.delete(conversationId, session);
+						await this.conversationRepository.delete(conversationId);
 					} else {
 						// remove user from participants array
-						await this.conversationRepository.removeParticipant(conversationId, userId, session);
+						await this.conversationRepository.removeParticipant(conversationId, userId);
 					}
 				}
 
-				await this.messageRepository.deleteManyBySender(userId, session);
+				await this.messageRepository.deleteManyBySender(userId);
 
-				await this.messageRepository.removeUserFromReadBy(userId, session);
+				await this.messageRepository.removeUserFromReadBy(userId);
 
 				// finally, delete the user
-				await this.userWriteRepository.delete(userId, session);
+				await this.userWriteRepository.delete(userId);
 			});
 
 			// delete all user-related cloud storage assets (after successful transaction commit)
@@ -202,7 +202,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<DeleteUserComma
 			if (error instanceof Error) {
 				throw wrapError(error);
 			}
-			throw createError("InternalServerError", "An unknown error occurred during user deletion");
+			throw Errors.internal("An unknown error occurred during user deletion");
 		}
 	}
 }

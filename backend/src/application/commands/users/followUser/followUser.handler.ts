@@ -8,7 +8,7 @@ import type { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteR
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { RedisService } from "@/services/redis.service";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
 import { TOKENS } from "@/types/tokens";
@@ -46,11 +46,11 @@ export class FollowUserCommandHandler implements ICommandHandler<
     ]);
 
     if (!follower || !followee) {
-      throw createError("NotFoundError", "One or both users not found");
+      throw Errors.notFound("User");
     }
 
     if (follower.id === followee.id) {
-      throw createError("ValidationError", "Cannot follow yourself");
+      throw Errors.validation("Cannot follow yourself");
     }
 
     const wasFollowing = await this.followRepository.isFollowing(
@@ -59,7 +59,7 @@ export class FollowUserCommandHandler implements ICommandHandler<
     );
 
     try {
-      await this.unitOfWork.executeInTransaction(async (session) => {
+      await this.unitOfWork.executeInTransaction(async () => {
         const followerId = follower.id;
         const followeeId = followee.id;
 
@@ -68,70 +68,58 @@ export class FollowUserCommandHandler implements ICommandHandler<
           await this.followRepository.removeFollow(
             followerId,
             followeeId,
-            session,
           );
           await this.userWriteRepository.update(
             followerId,
             { $pull: { following: followeeId } },
-            session,
           );
           await this.userWriteRepository.update(
             followeeId,
             { $pull: { followers: followerId } },
-            session,
           );
           // decrement denormalized counts
           await this.userWriteRepository.updateFollowingCount(
             followerId,
             -1,
-            session,
           );
           await this.userWriteRepository.updateFollowerCount(
             followeeId,
             -1,
-            session,
           );
 
           await this.userActionRepository.logAction(
             followerId,
             "unfollow",
             followeeId,
-            session,
           );
         } else {
           // follow logic
           await this.followRepository.addFollow(
             followerId,
             followeeId,
-            session,
           );
           await this.userWriteRepository.update(
             followerId,
             { $addToSet: { following: followeeId } },
-            session,
           );
           await this.userWriteRepository.update(
             followeeId,
             { $addToSet: { followers: followerId } },
-            session,
           );
           // increment denormalized counts
           await this.userWriteRepository.updateFollowingCount(
             followerId,
             1,
-            session,
           );
           await this.userWriteRepository.updateFollowerCount(
             followeeId,
             1,
-            session,
           );
 
           await this.userActionRepository.logAction(
             followerId,
             "follow",
             followeeId,
-            session,
           );
 
           await this.eventBus.queueTransactional(
@@ -152,7 +140,7 @@ export class FollowUserCommandHandler implements ICommandHandler<
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
-      throw createError("TransactionError", errorMessage, {
+      throw Errors.database(errorMessage, {
         context: {
           function: "followUser",
           additionalInfo: "Transaction failed",

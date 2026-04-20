@@ -9,7 +9,7 @@ import { CommentRepository } from "@/repositories/comment.repository";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { PostDeletedEvent } from "@/application/events/post/post.event";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { isValidPublicId } from "@/utils/sanitizers";
 import { IUser } from "@/types";
 import { TOKENS } from "@/types/tokens";
@@ -31,17 +31,17 @@ export class UnrepostPostCommandHandler implements ICommandHandler<UnrepostPostC
 
 	async execute(command: UnrepostPostCommand): Promise<UnrepostResult> {
 		if (!isValidPublicId(command.userPublicId)) {
-			throw createError("ValidationError", "Invalid userPublicId format");
+			throw Errors.validation("Invalid userPublicId format");
 		}
 
 		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
-			throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+			throw Errors.notFound("User");
 		}
 
 		const targetPost = await this.postReadRepository.findByPublicId(command.targetPostPublicId);
 		if (!targetPost) {
-			throw createError("NotFoundError", `Post ${command.targetPostPublicId} not found`);
+			throw Errors.notFound("Post");
 		}
 
 		// Find the user's repost of the target post
@@ -53,14 +53,14 @@ export class UnrepostPostCommandHandler implements ICommandHandler<UnrepostPostC
 		});
 
 		if (!repost) {
-			throw createError("NotFoundError", "You have not reposted this post");
+			throw Errors.notFound("Resource");
 		}
 
-		await this.unitOfWork.executeInTransaction(async (session) => {
+		await this.unitOfWork.executeInTransaction(async () => {
 			const repostInternalId = repost._id!.toString();
-			await this.postWriteRepository.delete(repostInternalId, session);
-			await this.commentRepository.deleteCommentsByPostId(repostInternalId, session);
-			await this.postWriteRepository.updateRepostCount(targetPost._id!.toString(), -1, session);
+			await this.postWriteRepository.delete(repostInternalId);
+			await this.commentRepository.deleteCommentsByPostId(repostInternalId);
+			await this.postWriteRepository.updateRepostCount(targetPost._id!.toString(), -1);
 		});
 
 		// Fire event for cache invalidation after transaction commits

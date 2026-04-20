@@ -1,4 +1,3 @@
-import { ClientSession } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { UnitOfWork } from "@/database/UnitOfWork";
@@ -8,7 +7,7 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { CommentLikeResult, IComment } from "@/types";
 import { LikeCommentCommand } from "./likeComment.command";
 import { TOKENS } from "@/types/tokens";
@@ -41,31 +40,31 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 
 		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
-			throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+			throw Errors.notFound("User");
 		}
 
 		const comment = await this.commentRepository.findById(command.commentId);
 		if (!comment) {
-			throw createError("NotFoundError", "Comment not found");
+			throw Errors.notFound("Comment");
 		}
 
 		commentOwnerPublicId = await this.resolveCommentOwnerPublicId(comment);
 
-		await this.unitOfWork.executeInTransaction(async (session: ClientSession) => {
+		await this.unitOfWork.executeInTransaction(async () => {
 			const userInternalId = user._id?.toString() || user.id?.toString();
 			if (!userInternalId) {
-				throw createError("ValidationError", "User internal id missing");
+				throw Errors.validation("User internal id missing");
 			}
 
-			const alreadyLiked = await this.commentLikeRepository.hasUserLiked(command.commentId, userInternalId, session);
+			const alreadyLiked = await this.commentLikeRepository.hasUserLiked(command.commentId, userInternalId);
 
 			if (alreadyLiked) {
-				await this.handleUnlike(command, userInternalId, session);
+				await this.handleUnlike(command, userInternalId);
 				isLiked = false;
 				return;
 			}
 
-			await this.handleLike(command, userInternalId, comment, session);
+			await this.handleLike(command, userInternalId, comment);
 
 			if (commentOwnerPublicId && commentOwnerPublicId !== command.userPublicId) {
 				notifyPayload = {
@@ -89,7 +88,7 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 
 		const updatedComment = await this.commentRepository.findById(command.commentId);
 		if (!updatedComment) {
-			throw createError("NotFoundError", "Comment not found after like update");
+			throw Errors.notFound("Comment");
 		}
 
 		return {
@@ -102,30 +101,28 @@ export class LikeCommentCommandHandler implements ICommandHandler<LikeCommentCom
 	private async handleLike(
 		command: LikeCommentCommand,
 		userInternalId: string,
-		comment: IComment,
-		session: ClientSession
+		comment: IComment
 	): Promise<void> {
-		const added = await this.commentLikeRepository.addLike(command.commentId, userInternalId, session);
+		const added = await this.commentLikeRepository.addLike(command.commentId, userInternalId);
 		if (!added) {
-			throw createError("ConflictError", "like already exists for user and comment");
+			throw Errors.validation("like already exists for user and comment");
 		}
 
-		await this.commentRepository.updateLikesCount(command.commentId, 1, session);
-		await this.userActionRepository.logAction(userInternalId, "comment_like", command.commentId, session);
+		await this.commentRepository.updateLikesCount(command.commentId, 1);
+		await this.userActionRepository.logAction(userInternalId, "comment_like", command.commentId);
 	}
 
 	private async handleUnlike(
 		command: LikeCommentCommand,
-		userInternalId: string,
-		session: ClientSession
+		userInternalId: string
 	): Promise<void> {
-		const removed = await this.commentLikeRepository.removeLike(command.commentId, userInternalId, session);
+		const removed = await this.commentLikeRepository.removeLike(command.commentId, userInternalId);
 		if (!removed) {
-			throw createError("NotFoundError", "like does not exist for user and comment");
+			throw Errors.notFound("Resource");
 		}
 
-		await this.commentRepository.updateLikesCount(command.commentId, -1, session);
-		await this.userActionRepository.logAction(userInternalId, "comment_unlike", command.commentId, session);
+		await this.commentRepository.updateLikesCount(command.commentId, -1);
+		await this.userActionRepository.logAction(userInternalId, "comment_unlike", command.commentId);
 	}
 
 	private async resolveCommentOwnerPublicId(comment: IComment): Promise<string> {

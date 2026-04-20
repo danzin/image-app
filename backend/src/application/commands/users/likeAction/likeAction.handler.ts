@@ -10,9 +10,9 @@ import { PostLikeRepository } from "@/repositories/postLike.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { createError, wrapError } from "@/utils/errors";
+import { Errors, wrapError } from "@/utils/errors";
 import { FeedService } from "@/services/feed/feed.service";
-import { ClientSession, Types } from "mongoose";
+import { Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
@@ -53,7 +53,7 @@ export class LikeActionCommandHandler implements ICommandHandler<
     try {
       existingPost = await this.postReadRepository.findById(command.postId);
       if (!existingPost) {
-        throw createError("PathError", `Post ${command.postId} not found`);
+        throw Errors.notFound("Post");
       }
       postTags = Array.isArray(existingPost.tags)
         ? (existingPost.tags as (Types.ObjectId | PopulatedPostTag)[]).map(
@@ -65,20 +65,16 @@ export class LikeActionCommandHandler implements ICommandHandler<
         : [];
 
       // Execute the like/unlike operation within transaction
-      await this.unitOfWork.executeInTransaction(async (session) => {
-        const existingLike = await this.postLikeRepository.hasUserLiked(
-          command.postId,
-          command.userId,
-          session,
-        );
+      await this.unitOfWork.executeInTransaction(async () => {
+        const existingLike = await this.postLikeRepository.hasUserLiked(command.postId, command.userId);
 
         if (existingLike) {
           // If the like already exists, perform an unlike operation
-          await this.handleUnlike(command, session);
+          await this.handleUnlike(command);
           isLikeAction = false;
         } else {
           // perform a like operation
-          await this.handleLike(command, existingPost!, session);
+          await this.handleLike(command, existingPost!);
         }
 
         await this.eventBus.queueTransactional(
@@ -104,10 +100,7 @@ export class LikeActionCommandHandler implements ICommandHandler<
         command.postId,
       );
       if (!updatedPost) {
-        throw createError(
-          "PathError",
-          `Post ${command.postId} not found after update`,
-        );
+        throw Errors.notFound("Post");
       }
       // Update per-post meta cache asynchronously as not to block response
       if (updatedPost.publicId) {
@@ -132,33 +125,19 @@ export class LikeActionCommandHandler implements ICommandHandler<
    * logging the user action, and triggering a notification.
    * @param command - The like action command containing user ID and post ID.
    * @param post - The post being liked.
-   * @param session - The active database transaction session.
    */
   private async handleLike(
     command: LikeActionCommand,
     post: IPost,
-    session: ClientSession,
   ) {
-    const added = await this.postLikeRepository.addLike(
-      command.postId,
-      command.userId,
-      session,
-    );
+    const added = await this.postLikeRepository.addLike(command.postId, command.userId);
     if (!added) {
-      throw createError(
-        "ConflictError",
-        "like already exists for user and post",
-      );
+      throw Errors.validation("like already exists for user and post");
     }
 
-    await this.postWriteRepository.updateLikeCount(command.postId, 1, session);
+    await this.postWriteRepository.updateLikeCount(command.postId, 1);
 
-    await this.userActionRepository.logAction(
-      command.userId,
-      "like",
-      command.postId,
-      session,
-    );
+    await this.userActionRepository.logAction(command.userId, "like", command.postId);
 
     const postOwner = post.user as Types.ObjectId | PopulatedPostUser;
     let postOwnerPublicId = "";
@@ -227,31 +206,17 @@ export class LikeActionCommandHandler implements ICommandHandler<
    * Handles the unlike action by removing the like record, decrementing the like count,
    * and logging the user action.
    * @param command - The unlike action command containing user ID and post ID.
-   * @param session - The active database transaction session.
    */
   private async handleUnlike(
     command: LikeActionCommand,
-    session: ClientSession,
   ) {
-    const removed = await this.postLikeRepository.removeLike(
-      command.postId,
-      command.userId,
-      session,
-    );
+    const removed = await this.postLikeRepository.removeLike(command.postId, command.userId);
     if (!removed) {
-      throw createError(
-        "NotFoundError",
-        "like does not exist for user and post",
-      );
+      throw Errors.notFound("Resource");
     }
 
-    await this.postWriteRepository.updateLikeCount(command.postId, -1, session);
+    await this.postWriteRepository.updateLikeCount(command.postId, -1);
 
-    await this.userActionRepository.logAction(
-      command.userId,
-      "unlike",
-      command.postId,
-      session,
-    );
+    await this.userActionRepository.logAction(command.userId, "unlike", command.postId);
   }
 }

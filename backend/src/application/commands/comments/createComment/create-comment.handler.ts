@@ -8,7 +8,7 @@ import { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteReposi
 import { CommentRepository } from "@/repositories/comment.repository";
 import { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { createError, wrapError } from "@/utils/errors";
+import { Errors, wrapError } from "@/utils/errors";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
@@ -37,26 +37,26 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 	async execute(command: CreateCommentCommand): Promise<TransformedComment> {
 		// Validate input straight away
 		if (typeof command.content !== "string") {
-			throw createError("ValidationError", "Comment content must be a string");
+			throw Errors.validation("Comment content must be a string");
 		}
 
 		if (!isValidPublicId(command.postPublicId)) {
-			throw createError("ValidationError", "Invalid postPublicId format");
+			throw Errors.validation("Invalid postPublicId format");
 		}
 
 		const trimmed = command.content.trim();
 		if (!trimmed) {
-			throw createError("ValidationError", "Comment content cannot be empty");
+			throw Errors.validation("Comment content cannot be empty");
 		}
 
 		const safeContent = sanitizeHtml(trimmed, { allowedTags: [], allowedAttributes: {} });
 
 		if (!safeContent || safeContent.length === 0) {
-			throw createError("ValidationError", "Comment content empty after sanitization");
+			throw Errors.validation("Comment content empty after sanitization");
 		}
 
 		if (safeContent.length > 280) {
-			throw createError("ValidationError", "Comment cannot exceed 280 characters");
+			throw Errors.validation("Comment cannot exceed 280 characters");
 		}
 
 		let createdComment!: IComment;
@@ -70,22 +70,22 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 			const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 			if (!user) {
-				throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+				throw Errors.notFound("User");
 			}
 
 			const post = await this.postReadRepository.findByPublicId(command.postPublicId);
 			if (!post) {
-				throw createError("NotFoundError", `Post with publicId ${command.postPublicId} not found`);
+				throw Errors.notFound("Post");
 			}
 
 			if (command.parentId) {
 				parentComment = await this.commentRepository.findById(command.parentId);
 				if (!parentComment) {
-					throw createError("NotFoundError", "Parent comment not found");
+					throw Errors.notFound("Comment");
 				}
 
 				if (parentComment.postId.toString() !== (post._id as mongoose.Types.ObjectId).toString()) {
-					throw createError("ValidationError", "Parent comment does not belong to the same post");
+					throw Errors.validation("Parent comment does not belong to the same post");
 				}
 
 				const parentDepth = parentComment.depth ?? 0;
@@ -104,7 +104,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 					: (postOwner?.toString() ?? "");
 			const sanitizedPostId = post.publicId;
 
-			await this.unitOfWork.executeInTransaction(async (session) => {
+			await this.unitOfWork.executeInTransaction(async () => {
 				const payload: Partial<IComment> = {
 					content: safeContent,
 					postId: post._id as mongoose.Types.ObjectId,
@@ -116,13 +116,13 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 
 				const safePayload = sanitizeForMongo(payload);
 
-				createdComment = await this.commentRepository.create(safePayload as Partial<IComment>, session);
+				createdComment = await this.commentRepository.create(safePayload as Partial<IComment>);
 
 				// Increment comment count on post
-				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1, session);
+				await this.postWriteRepository.updateCommentCount((post._id as mongoose.Types.ObjectId).toString(), 1);
 
 				if (command.parentId) {
-					await this.commentRepository.updateReplyCount(command.parentId, 1, session);
+					await this.commentRepository.updateReplyCount(command.parentId, 1);
 				}
 
 				// Send notification to post owner (if not commenting on own post)
@@ -226,11 +226,11 @@ export class CreateCommentCommandHandler implements ICommandHandler<CreateCommen
 			});
 
 			if (!createdComment) {
-				throw createError("InternalServerError", "Comment was not created");
+				throw Errors.internal("Comment was not created");
 			}
 			const populatedComment = await this.commentRepository.findByIdTransformed((createdComment._id as mongoose.Types.ObjectId).toString());
 			if (!populatedComment) {
-				throw createError("InternalServerError", "Failed to retrieve created comment");
+				throw Errors.internal("Failed to retrieve created comment");
 			}
 
 			return populatedComment;

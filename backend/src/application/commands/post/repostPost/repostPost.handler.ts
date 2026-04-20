@@ -9,7 +9,7 @@ import { IUserReadRepository } from "@/repositories/interfaces/IUserReadReposito
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { DTOService } from "@/services/dto.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { isValidPublicId, sanitizeTextInput, sanitizeForMongo } from "@/utils/sanitizers";
 import { IPost, IUser, PostDTO, PopulatedPostTag, PopulatedPostUser } from "@/types";
 import { EventBus } from "@/application/common/buses/event.bus";
@@ -31,17 +31,17 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 	async execute(command: RepostPostCommand): Promise<PostDTO> {
 		if (!isValidPublicId(command.userPublicId)) {
-			throw createError("ValidationError", "Invalid userPublicId format");
+			throw Errors.validation("Invalid userPublicId format");
 		}
 
 		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
-			throw createError("NotFoundError", `User with publicId ${command.userPublicId} not found`);
+			throw Errors.notFound("User");
 		}
 
 		const targetPost = await this.postReadRepository.findByPublicId(command.targetPostPublicId);
 		if (!targetPost) {
-			throw createError("NotFoundError", `Post ${command.targetPostPublicId} not found`);
+			throw Errors.notFound("Post");
 		}
 
 		// prevent duplicate repost by same user
@@ -50,12 +50,12 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 			repostOf: targetPost._id,
 		});
 		if (duplicates > 0) {
-			throw createError("ConflictError", "Post already reposted by this user");
+			throw Errors.validation("Post already reposted by this user");
 		}
 
 		const normalizedBody = this.normalizeBody(command.body);
 
-		const created = (await this.unitOfWork.executeInTransaction(async (session) => {
+		const created = (await this.unitOfWork.executeInTransaction(async () => {
 			const postPublicId = uuidv4();
 			const payload = sanitizeForMongo({
 				publicId: postPublicId,
@@ -82,8 +82,8 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 				viewsCount: 0,
 			}) as Partial<IPost>;
 
-			const newPost = await this.postWriteRepository.create(payload, session);
-			await this.postWriteRepository.updateRepostCount(targetPost._id!.toString(), 1, session);
+			const newPost = await this.postWriteRepository.create(payload);
+			await this.postWriteRepository.updateRepostCount(targetPost._id!.toString(), 1);
 
 			const targetOwner = this.resolvePostOwnerPublicId(targetPost);
 			if (targetOwner && targetOwner !== command.userPublicId) {
@@ -117,7 +117,7 @@ export class RepostPostCommandHandler implements ICommandHandler<RepostPostComma
 
 		const hydrated = await this.postReadRepository.findByPublicId(created.publicId);
 		if (!hydrated) {
-			throw createError("NotFoundError", "Failed to load repost after creation");
+			throw Errors.notFound("Resource");
 		}
 
 		return this.dtoService.toPostDTO(hydrated);

@@ -8,7 +8,7 @@ import { UserActionRepository } from "@/repositories/userAction.repository";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserUsernameChangedEvent } from "@/application/events/user/user-interaction.event";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { TOKENS } from "@/types/tokens";
 
 @injectable()
@@ -25,7 +25,7 @@ export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfil
 	async execute(command: UpdateProfileCommand): Promise<PublicUserDTO> {
 		const user = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw Errors.notFound("User");
 		}
 
 		const allowedUpdates: Record<string, unknown> = {};
@@ -38,7 +38,7 @@ export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfil
 				// check if username is already taken
 				const existingUser = await this.userReadRepository.findByUsername(trimmed);
 				if (existingUser && existingUser.publicId !== command.userPublicId) {
-					throw createError("ValidationError", "Username is already taken");
+					throw Errors.validation("Username is already taken");
 				}
 				allowedUpdates.username = trimmed;
 				usernameChanged = true;
@@ -50,16 +50,16 @@ export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfil
 		}
 
 		if (typeof command.updates.handle === "string") {
-			throw createError("ValidationError", "Handle cannot be changed");
+			throw Errors.validation("Handle cannot be changed");
 		}
 
 		if (Object.keys(allowedUpdates).length === 0) {
-			throw createError("ValidationError", "No valid fields provided for update");
+			throw Errors.validation("No valid fields provided for update");
 		}
 
-		await this.unitOfWork.executeInTransaction(async (session) => {
-			await this.userWriteRepository.update(user.id, { $set: allowedUpdates }, session);
-			await this.userActionRepository.logAction(user.id, "profile_update", user.id, session);
+		await this.unitOfWork.executeInTransaction(async () => {
+			await this.userWriteRepository.update(user.id, { $set: allowedUpdates });
+			await this.userActionRepository.logAction(user.id, "profile_update", user.id);
 		});
 
 		// emit username change event after successful transaction
@@ -75,7 +75,7 @@ export class UpdateProfileCommandHandler implements ICommandHandler<UpdateProfil
 		// fetch updated user
 		const updatedUser = await this.userReadRepository.findByPublicId(command.userPublicId);
 		if (!updatedUser) {
-			throw createError("NotFoundError", "User not found after update");
+			throw Errors.notFound("User");
 		}
 
 		return this.dtoService.toPublicDTO(updatedUser);

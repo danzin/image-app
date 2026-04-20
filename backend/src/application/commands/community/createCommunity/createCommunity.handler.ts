@@ -1,13 +1,12 @@
 import { inject, injectable } from "tsyringe";
 import { Types, UpdateQuery } from "mongoose";
-import * as fs from "fs";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { CreateCommunityCommand } from "./createCommunity.command";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { CommunityMemberRepository } from "@/repositories/communityMember.repository";
 import { UserRepository } from "@/repositories/user.repository";
 import { UnitOfWork } from "@/database/UnitOfWork";
-import { createError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { generateSlug } from "@/utils/helpers";
 import { logger } from "@/utils/winston";
 import { ICommunity, IImageStorageService, IUser } from "@/types";
@@ -25,11 +24,11 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 	) {}
 
 	async execute(command: CreateCommunityCommand): Promise<ICommunity> {
-		const { name, description, creatorId, avatarPath } = command;
+		const { name, description, creatorId, avatarBuffer } = command;
 
 		const user = await this.userRepository.findByPublicId(creatorId);
 		if (!user) {
-			throw createError("NotFoundError", "User not found");
+			throw Errors.notFound("User");
 		}
 		const userId = user._id as Types.ObjectId;
 
@@ -38,58 +37,44 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 		// Check if slug exists
 		const existing = await this.communityRepository.findBySlug(slug);
 		if (existing) {
-			throw createError("ValidationError", "Community with this name already exists");
+			throw Errors.validation("Community with this name already exists");
 		}
 
 		let avatarUrl = "";
 		let avatarPublicId = "";
 
-		if (avatarPath) {
+		if (avatarBuffer) {
 			try {
-				// Use slug as the folder/publicId prefix
-				const uploadResult = await this.imageStorageService.uploadImage(avatarPath, slug);
+				const uploadResult = await this.imageStorageService.uploadImageStream(
+					{ buffer: command.avatarBuffer!, originalName: command.avatarOriginalName, mimeType: command.avatarMimeType },
+					slug,
+				);
 				avatarUrl = uploadResult.url;
 				avatarPublicId = uploadResult.publicId;
 			} catch (error) {
 				logger.error("Failed to upload community avatar", { error });
-        throw createError("StorageError", error instanceof Error ? error.message : "Failed to upload community avatar");
-      } finally {
-				// Clean up temp file
-				if (fs.existsSync(avatarPath)) {
-					fs.unlink(avatarPath, (err) => {
-						if (err){
-              logger.error("Failed to delete temp file", { err });
-              throw createError("StorageError", err instanceof Error ? err.message : "Failed to delete temp avatar file");
-            } 
-					});
-				}
+				throw Errors.storage(error instanceof Error ? error.message : "Failed to upload community avatar");
 			}
 		}
 
 		try {
-			return await this.uow.executeInTransaction(async (session) => {
+			return await this.uow.executeInTransaction(async () => {
 				// 1. Create Community
-				const community = await this.communityRepository.create(
-					{
+				const community = await this.communityRepository.create({
 						name,
 						slug,
 						description,
 						avatar: avatarUrl,
 						creatorId: userId,
 						stats: { memberCount: 1, postCount: 0 },
-					},
-					session
-				);
+					});
 
 				// 2. Add Creator as Admin
-				await this.communityMemberRepository.create(
-					{
+				await this.communityMemberRepository.create({
 						communityId: community._id,
 						userId: userId,
 						role: "admin",
-					},
-					session
-				);
+					});
 
 				// 3. Update User Cache
 				await this.userRepository.update(
@@ -108,8 +93,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 								$slice: 10,
 							},
 						},
-					} as UpdateQuery<IUser> ,
-					session
+					} as UpdateQuery<IUser> 
 				);
 
 				return community;
@@ -120,7 +104,7 @@ export class CreateCommunityCommandHandler implements ICommandHandler<CreateComm
 					await this.imageStorageService.deleteImage(avatarPublicId);
 				} catch (deleteError) {
 					logger.error("Failed to rollback community avatar upload", { error: deleteError });
-          throw createError("StorageError", deleteError instanceof Error ? deleteError.message : "Failed to rollback community avatar upload");
+					throw Errors.storage(deleteError instanceof Error ? deleteError.message : "Failed to rollback community avatar upload");
 				}
 			}
 			throw error;

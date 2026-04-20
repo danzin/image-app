@@ -1,5 +1,5 @@
 import { inject, injectable } from "tsyringe";
-import mongoose, { ClientSession } from "mongoose";
+import mongoose from "mongoose";
 import { DeletePostCommand } from "./deletePost.command";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { IPostReadRepository } from "@/repositories/interfaces/IPostReadRepository";
@@ -51,25 +51,20 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		let imageAssetToDelete: { url: string; ownerPublicId: string; requesterPublicId: string } | null = null;
 
 		try {
-			await this.unitOfWork.executeInTransaction(async (session) => {
-				const post = await this.validatePostExists(command.postPublicId, session);
-				const user = await this.validateUserExists(command.requesterPublicId, session);
+			await this.unitOfWork.executeInTransaction(async () => {
+				const post = await this.validatePostExists(command.postPublicId);
+				const user = await this.validateUserExists(command.requesterPublicId);
 
 				const { postOwnerInternalId, postOwnerPublicId } = this.extractPostOwnerInfo(post);
 				const postOwnerDoc = postOwnerInternalId
-					? await this.userReadRepository.findById(postOwnerInternalId, session)
+					? await this.userReadRepository.findById(postOwnerInternalId)
 					: null;
 
 				postAuthorPublicId = postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId;
 
-				await this.validateDeletePermission(user, post, session);
+				await this.validateDeletePermission(user, post);
 
-				const imageRemoval = await this.handleImageRecordDeletion(
-					post,
-					command.requesterPublicId,
-					postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId,
-					session,
-				);
+				const imageRemoval = await this.handleImageRecordDeletion(post, command.requesterPublicId, postOwnerDoc?.publicId ?? postOwnerPublicId ?? command.requesterPublicId);
 
 				if (imageRemoval?.removedUrl) {
 					imageAssetToDelete = {
@@ -79,12 +74,12 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 					};
 				}
 
-				await this.deletePostAndComments(post, session);
+				await this.deletePostAndComments(post);
 				if (postOwnerInternalId) {
-					await this.userWriteRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } }, session);
+					await this.userWriteRepository.update(postOwnerInternalId, { $inc: { postCount: -1 } });
 				}
 
-				await this.decrementTagUsage(post, session);
+				await this.decrementTagUsage(post);
 			});
 
 			await this.deleteImageAssetAfterCommit(imageAssetToDelete);
@@ -102,16 +97,16 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 	}
 
-	private async validatePostExists(publicId: string, session: ClientSession): Promise<IPost> {
-		const post = await this.postReadRepository.findByPublicId(publicId, session);
+	private async validatePostExists(publicId: string): Promise<IPost> {
+		const post = await this.postReadRepository.findByPublicId(publicId);
 		if (!post) {
 			throw new PostNotFoundError();
 		}
 		return post;
 	}
 
-	private async validateUserExists(publicId: string, session: ClientSession): Promise<IUser> {
-		const user = await this.userReadRepository.findByPublicId(publicId, session);
+	private async validateUserExists(publicId: string): Promise<IUser> {
+		const user = await this.userReadRepository.findByPublicId(publicId);
 		if (!user) {
 			throw new UserNotFoundError();
 		}
@@ -129,7 +124,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		return { postOwnerInternalId, postOwnerPublicId };
 	}
 
-	private async validateDeletePermission(user: IUser, post: IPost, session: ClientSession): Promise<void> {
+	private async validateDeletePermission(user: IUser, post: IPost): Promise<void> {
 		const requesterId = user._id!.toString();
 		// post.user is an ObjectId in lean mode
 		const ownerId = (post.user as unknown as mongoose.Types.ObjectId).toString();
@@ -152,12 +147,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		throw new PostAuthorizationError();
 	}
 
-	private async handleImageRecordDeletion(
-		post: IPost,
-		requesterPublicId: string,
-		ownerPublicId: string,
-		session: ClientSession,
-	): Promise<{ removedUrl: string; ownerPublicId: string } | null> {
+	private async handleImageRecordDeletion(post: IPost, requesterPublicId: string, ownerPublicId: string): Promise<{ removedUrl: string; ownerPublicId: string } | null> {
 		if (!post.image) {
 			return null;
 		}
@@ -174,10 +164,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 
 		try {
-			const removal = await this.imageService.removePostAttachmentRecord({
-				imageId,
-				session,
-			});
+			const removal = await this.imageService.removePostAttachmentRecord({ imageId });
 
 			if (removal.removed && removal.removedUrl) {
 				return { removedUrl: removal.removedUrl, ownerPublicId: ownerPublicId || requesterPublicId };
@@ -212,13 +199,13 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 		}
 	}
 
-	private async deletePostAndComments(post: IPost, session: ClientSession): Promise<void> {
+	private async deletePostAndComments(post: IPost): Promise<void> {
 		const postInternalId = post._id!.toString();
-		await this.postWriteRepository.delete(postInternalId, session);
-		await this.commentRepository.deleteCommentsByPostId(postInternalId, session);
+		await this.postWriteRepository.delete(postInternalId);
+		await this.commentRepository.deleteCommentsByPostId(postInternalId);
 	}
 
-	private async decrementTagUsage(post: IPost, session: ClientSession): Promise<void> {
+	private async decrementTagUsage(post: IPost): Promise<void> {
 		if (!post.tags || post.tags.length === 0) {
 			return;
 		}
@@ -229,7 +216,7 @@ export class DeletePostCommandHandler implements ICommandHandler<DeletePostComma
 			return new mongoose.Types.ObjectId(id);
 		});
 
-		await this.tagService.decrementUsage(tagIds, session);
+		await this.tagService.decrementUsage(tagIds);
 	}
 
 	private async invalidateCache(userPublicId: string, postPublicId: string): Promise<void> {
