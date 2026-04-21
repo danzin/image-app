@@ -54,7 +54,7 @@ import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
-const STREAM_THRESHOLD = 100;
+import { STREAM_THRESHOLD } from "@/utils/post-helpers";
 
 /**
  * When using Dependency Injection in Express, there's a common
@@ -242,13 +242,13 @@ export class UserController {
       userData.avatar ||
       userData.cover
     ) {
-      return next(Errors.validation("You can not do that."));
+      throw Errors.validation("You can not do that.");
     }
     if (!decodedUser) {
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
     }
     if (!decodedUser.publicId)
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
 
     const command = new UpdateProfileCommand(decodedUser.publicId, userData);
     const updatedUser = await this.commandBus.dispatch<PublicUserDTO>(command);
@@ -260,10 +260,10 @@ export class UserController {
     const { currentPassword, newPassword } = req.body; // already validated by Zod middleware
 
     if (!decodedUser) {
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
     }
     if (!decodedUser.publicId)
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
 
     const command = new ChangePasswordCommand(
       decodedUser.publicId,
@@ -284,10 +284,10 @@ export class UserController {
     const fileBuffer = req.file?.buffer;
     if (!fileBuffer) throw Errors.validation("No file provided");
     if (!decodedUser) {
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
     }
     if (!decodedUser.publicId)
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
 
     const command = new UpdateAvatarCommand(decodedUser.publicId, fileBuffer, req.file?.originalname, req.file?.mimetype);
     const updatedUserDTO =
@@ -301,10 +301,10 @@ export class UserController {
     const fileBuffer = req.file?.buffer;
     if (!fileBuffer) throw Errors.validation("No file provided");
     if (!decodedUser) {
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
     }
     if (!decodedUser.publicId)
-      return next(Errors.authentication("User not authenticated."));
+      throw Errors.authentication("User not authenticated.");
 
     const command = new UpdateCoverCommand(decodedUser.publicId, fileBuffer, req.file?.originalname, req.file?.mimetype);
     const updatedUserDTO =

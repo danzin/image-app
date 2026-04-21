@@ -1,4 +1,4 @@
-import { NotificationRepository } from "@/repositories/notification.respository";
+import { NotificationRepository } from "@/repositories/notification.repository";
 import { INotification, NotificationPlain } from "@/types";
 import { Errors, isErrorWithStatusCode, wrapError } from "@/utils/errors";
 import { inject, injectable } from "tsyringe";

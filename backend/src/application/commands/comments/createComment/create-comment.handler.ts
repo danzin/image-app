@@ -8,7 +8,7 @@ import type { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteR
 import { CommentRepository } from "@/repositories/comment.repository";
 import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
-import { Errors, wrapError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import sanitizeHtml from "sanitize-html";
 import { sanitizeForMongo, isValidPublicId } from "@/utils/sanitizers";
@@ -21,6 +21,7 @@ import {
 import mongoose from "mongoose";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+import { extractTagNames, buildPostPreview } from "@/utils/post-helpers";
 
 @injectable()
 export class CreateCommentCommandHandler implements ICommandHandler<
@@ -81,8 +82,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<
     let parentComment: IComment | null = null;
     let depth = 0;
 
-    try {
-      logger.info(
+    logger.info(
         `[CREATECOMMENTHANDLER] user=${command.userPublicId} post=${command.postPublicId}`,
       );
 
@@ -119,14 +119,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<
         depth = parentDepth + 1;
       }
 
-      postTags = Array.isArray(post.tags)
-        ? (post.tags as (mongoose.Types.ObjectId | PopulatedPostTag)[]).map(
-            (t) =>
-              typeof t === "object" && "tag" in t
-                ? (t as PopulatedPostTag).tag
-                : t.toString(),
-          )
-        : [];
+      postTags = extractTagNames(post.tags);
       const postOwner = post.user as
         | mongoose.Types.ObjectId
         | PopulatedPostUser;
@@ -166,11 +159,7 @@ export class CreateCommentCommandHandler implements ICommandHandler<
 
         // Send notification to post owner (if not commenting on own post)
         if (postOwnerId && postOwnerId !== command.userPublicId) {
-          const postPreview = post.body
-            ? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
-            : post.image
-              ? "[Image post]"
-              : "[Post]";
+          const postPreview = buildPostPreview(post);
 
           await this.eventBus.queueTransactional(
             new NotificationRequestedEvent({
@@ -301,14 +290,5 @@ export class CreateCommentCommandHandler implements ICommandHandler<
       }
 
       return populatedComment;
-    } catch (error) {
-      throw wrapError(error, "InternalServerError", {
-        context: {
-          operation: "CreateComment",
-          userPublicId: command.userPublicId,
-          postPublicId: command.postPublicId,
-        },
-      });
-    }
   }
 }

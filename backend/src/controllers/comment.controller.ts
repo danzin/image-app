@@ -10,7 +10,7 @@ import { LikeCommentCommand } from "@/application/commands/comments/likeComment/
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
-const STREAM_THRESHOLD = 100;
+import { STREAM_THRESHOLD } from "@/utils/post-helpers";
 
 /**
  * Comment Controller

@@ -8,9 +8,10 @@ import type { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteR
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { RedisService } from "@/services/redis.service";
-import { Errors } from "@/utils/errors";
+import { Errors, AppError } from "@/utils/errors";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
+import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 
 export interface FollowUserResult {
@@ -138,6 +139,7 @@ export class FollowUserCommandHandler implements ICommandHandler<
       // invalidate feed caches after transaction commits
       await this.invalidateFeedCaches(follower.publicId);
     } catch (error) {
+      if (error instanceof AppError) throw error;
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       throw Errors.database(errorMessage, {
@@ -161,7 +163,7 @@ export class FollowUserCommandHandler implements ICommandHandler<
         `user_suggestions:${followerPublicId}`,
       ]);
     } catch (error) {
-      console.warn("failed to invalidate feed caches", {
+      logger.warn("failed to invalidate feed caches", {
         followerPublicId,
         error,
       });

@@ -5,7 +5,6 @@ import {
   IPost,
   PostDTO,
   PopulatedPostUser,
-  PopulatedPostTag,
 } from "@/types/index";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { UserInteractedWithPostEvent } from "@/application/events/user/user-interaction.event";
@@ -16,11 +15,13 @@ import { UserActionRepository } from "@/repositories/userAction.repository";
 import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { NotificationRequestedEvent } from "@/application/events/notification/notification.event";
 import { DTOService } from "@/services/dto.service";
-import { Errors, wrapError } from "@/utils/errors";
+import { Errors } from "@/utils/errors";
 import { Types } from "mongoose";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+import { extractTagNames, buildPostPreview } from "@/utils/post-helpers";
+
 @injectable()
 export class LikeActionByPublicIdCommandHandler implements ICommandHandler<
   LikeActionByPublicIdCommand,
@@ -45,140 +46,78 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<
 
   async execute(command: LikeActionByPublicIdCommand): Promise<PostDTO> {
     let isLikeAction = true;
-    let postTags: string[] = [];
-    let existingPost: IPost | null;
-    let userMongoId: string;
 
-    try {
-      logger.info(
-        `[LIKEACTIONHANDLER]:\r\n  User public ID: ${command.userPublicId},
-			 Post public ID: ${command.postPublicId} \r\n command: ${JSON.stringify(command)}`,
-      );
-      const user = await this.userReadRepository.findByPublicId(
-        command.userPublicId,
-      );
-      if (!user) {
-        throw Errors.notFound("User");
-      }
-      // Get MongoDB _id from user document - handle both raw and transformed
-      userMongoId = user._id?.toString() ?? user.id?.toString();
-
-      if (!userMongoId) {
-        throw Errors.notFound("User");
-      }
-
-      logger.info("[LIKEACTIONHANDLER] user keys:", Object.keys(user));
-      logger.info("[LIKEACTIONHANDLER] user._id:", user._id);
-      logger.info("[LIKEACTIONHANDLER] user.username:", user.username);
-
-      const actorUsername = user.username || "Unknown";
-      const actorHandle = user.handle;
-      const actorAvatar = user.avatar;
-
-      existingPost = await this.postReadRepository.findByPublicId(
-        command.postPublicId,
-      );
-      if (!existingPost) {
-        throw Errors.notFound("Post");
-      }
-
-      logger.info(
-        "[LIKEACTIONHANDLER] existingPost keys:",
-        Object.keys(existingPost),
-      );
-      logger.info("[LIKEACTIONHANDLER] existingPost._id:", existingPost._id);
-      logger.info("[LIKEACTIONHANDLER] existingPost.id:", existingPost.id);
-
-      postTags = Array.isArray(existingPost.tags)
-        ? (existingPost.tags as (Types.ObjectId | PopulatedPostTag)[]).map(
-            (t) =>
-              typeof t === "object" && "tag" in t
-                ? (t as PopulatedPostTag).tag
-                : t.toString(),
-          )
-        : [];
-
-      // Get _id from the document to handle both Mongoose document and plain object
-      const postInternalId =
-        existingPost._id?.toString() ?? existingPost.id?.toString() ?? null;
-
-      if (!postInternalId) {
-        logger.error("[LIKEACTIONHANDLER] Post object:", {
-          post: existingPost,
-        });
-        throw Errors.notFound("Post");
-      }
-
-      const postOwner = existingPost.user as Types.ObjectId | PopulatedPostUser;
-      let postOwnerPublicId = "";
-      if (typeof postOwner === "object" && "publicId" in postOwner) {
-        postOwnerPublicId = (postOwner as PopulatedPostUser).publicId ?? "";
-      } else if (postOwner) {
-        const ownerUser = await this.userReadRepository.findById(
-          postOwner.toString(),
-        );
-        if (ownerUser) {
-          postOwnerPublicId = ownerUser.publicId;
-        }
-      }
-
-      await this.unitOfWork.executeInTransaction(async () => {
-        const existingLike = await this.postLikeRepository.hasUserLiked(
-          postInternalId,
-          userMongoId,
-        );
-
-        if (existingLike) {
-          await this.handleUnlike(command, userMongoId, postInternalId);
-          isLikeAction = false;
-        } else {
-          await this.handleLike(
-            command,
-            userMongoId,
-            existingPost!,
-            actorUsername,
-            actorHandle,
-            actorAvatar,
-            postOwnerPublicId,
-          );
-        }
-        await this.eventBus.queueTransactional(
-          new UserInteractedWithPostEvent(
-            command.userPublicId,
-            isLikeAction ? "like" : "unlike",
-            existingPost!.publicId,
-            postTags,
-            postOwnerPublicId,
-          ),
-        );
-      });
-
-      const updatedPost = await this.postReadRepository.findByPublicId(
-        command.postPublicId,
-      );
-      if (!updatedPost) {
-        throw Errors.notFound("Post");
-      }
-
-      return this.dtoService.toPostDTO(updatedPost);
-    } catch (error) {
-      throw wrapError(error, "InternalServerError", {
-        context: {
-          operation: "LikeActionByPublicId",
-          userId: command.userPublicId,
-          postPublicId: command.postPublicId,
-        },
-      });
+    const user = await this.userReadRepository.findByPublicId(
+      command.userPublicId,
+    );
+    if (!user) {
+      throw Errors.notFound("User");
     }
+
+    const userMongoId = user._id?.toString() ?? user.id?.toString();
+    if (!userMongoId) {
+      throw Errors.notFound("User");
+    }
+
+    const existingPost = await this.postReadRepository.findByPublicId(
+      command.postPublicId,
+    );
+    if (!existingPost) {
+      throw Errors.notFound("Post");
+    }
+
+    const postTags = extractTagNames(existingPost.tags);
+
+    const postInternalId =
+      existingPost._id?.toString() ?? existingPost.id?.toString() ?? null;
+    if (!postInternalId) {
+      throw Errors.notFound("Post");
+    }
+
+    const postOwnerPublicId = await this.resolveOwnerPublicIdAsync(existingPost);
+
+    await this.unitOfWork.executeInTransaction(async () => {
+      const existingLike = await this.postLikeRepository.hasUserLiked(
+        postInternalId,
+        userMongoId,
+      );
+
+      if (existingLike) {
+        await this.handleUnlike(userMongoId, postInternalId);
+        isLikeAction = false;
+      } else {
+        await this.handleLike(
+          command,
+          userMongoId,
+          existingPost,
+          postOwnerPublicId,
+        );
+      }
+      await this.eventBus.queueTransactional(
+        new UserInteractedWithPostEvent(
+          command.userPublicId,
+          isLikeAction ? "like" : "unlike",
+          existingPost.publicId,
+          postTags,
+          postOwnerPublicId,
+        ),
+      );
+    });
+
+    const updatedPost = await this.postReadRepository.findByPublicId(
+      command.postPublicId,
+    );
+    if (!updatedPost) {
+      throw Errors.notFound("Post");
+    }
+
+    return this.dtoService.toPostDTO(updatedPost);
   }
 
   private async handleLike(
     command: LikeActionByPublicIdCommand,
     userMongoId: string,
     post: IPost,
-    actorUsername: string,
-    actorHandle: string | undefined,
-    actorAvatar: string | undefined,
     postOwnerPublicId: string,
   ) {
     const postId = post._id?.toString();
@@ -196,30 +135,25 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<
     );
 
     if (postOwnerPublicId && postOwnerPublicId !== command.userPublicId) {
-      const postPreview = post.body
-        ? post.body.substring(0, 50) + (post.body.length > 50 ? "..." : "")
-        : post.image
-          ? "[Image post]"
-          : "[Post]";
+      const actorUser = await this.userReadRepository.findById(userMongoId);
 
       await this.eventBus.queueTransactional(
         new NotificationRequestedEvent({
           receiverId: postOwnerPublicId,
           actionType: "like",
           actorId: command.userPublicId,
-          actorUsername,
-          actorHandle,
-          actorAvatar,
+          actorUsername: actorUser?.username ?? "Unknown",
+          actorHandle: actorUser?.handle,
+          actorAvatar: actorUser?.avatar,
           targetId: post.publicId,
           targetType: "post",
-          targetPreview: postPreview,
+          targetPreview: buildPostPreview(post),
         }),
       );
     }
   }
 
   private async handleUnlike(
-    command: LikeActionByPublicIdCommand,
     userMongoId: string,
     postId: string,
   ) {
@@ -232,5 +166,18 @@ export class LikeActionByPublicIdCommandHandler implements ICommandHandler<
     }
     await this.userActionRepository.logAction(userMongoId, "unlike", postId);
     await this.postWriteRepository.updateLikeCount(postId, -1);
+  }
+
+  /** Async resolution of post owner publicId — falls back to DB lookup when not populated */
+  private async resolveOwnerPublicIdAsync(post: IPost): Promise<string> {
+    const owner = post.user as Types.ObjectId | PopulatedPostUser;
+    if (typeof owner === "object" && "publicId" in owner) {
+      return (owner as PopulatedPostUser).publicId ?? "";
+    }
+    if (owner) {
+      const ownerUser = await this.userReadRepository.findById(owner.toString());
+      return ownerUser?.publicId ?? "";
+    }
+    return "";
   }
 }

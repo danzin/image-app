@@ -7,7 +7,7 @@ import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
-const STREAM_THRESHOLD = 100;
+import { STREAM_THRESHOLD } from "@/utils/post-helpers";
 
 @injectable()
 export class NotificationController {

@@ -320,7 +320,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
-      console.error(error);
+      logger.error(error);
       throw Errors.database((error as Error).message);
     }
   }
@@ -380,7 +380,7 @@ export class UserRepository extends BaseRepository<IUser> {
         .select("publicId handle username avatar")
         .exec();
     } catch (error) {
-      console.error(`Error finding followers for user ${userPublicId}:`, error);
+      logger.error(`Error finding followers for user ${userPublicId}:`, error);
       return [];
     }
   }
@@ -394,7 +394,7 @@ export class UserRepository extends BaseRepository<IUser> {
         .select("publicId handle username avatar")
         .exec();
     } catch (error) {
-      console.error("Error in findUsersByPublicIds:", error);
+      logger.error("Error in findUsersByPublicIds:", error);
       return [];
     }
   }
@@ -409,7 +409,7 @@ export class UserRepository extends BaseRepository<IUser> {
         .select("publicId handle username avatar")
         .exec();
     } catch (error) {
-      console.error("Error in findUsersByUsernames:", error);
+      logger.error("Error in findUsersByUsernames:", error);
       return [];
     }
   }
@@ -429,7 +429,7 @@ export class UserRepository extends BaseRepository<IUser> {
         .select("publicId handle username avatar")
         .exec();
     } catch (error) {
-      console.error("Error in findUsersByHandles:", error);
+      logger.error("Error in findUsersByHandles:", error);
       return [];
     }
   }
@@ -566,7 +566,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      console.error("Error in getSuggestedUsersToFollow:", error);
+      logger.error("Error in getSuggestedUsersToFollow:", error);
       throw Errors.database((error as Error).message);
     }
   }
@@ -681,7 +681,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      console.error("Error in getSuggestedUsersLowTraffic:", error);
+      logger.error("Error in getSuggestedUsersLowTraffic:", error);
       throw Errors.database((error as Error).message);
     }
   }
@@ -863,7 +863,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      console.error("Error in getSuggestedUsersHighTraffic:", error);
+      logger.error("Error in getSuggestedUsersHighTraffic:", error);
       throw Errors.database((error as Error).message);
     }
   }

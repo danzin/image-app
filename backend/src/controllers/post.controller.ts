@@ -27,7 +27,7 @@ import { TOKENS } from "@/types/tokens";
 const FILE_EXTENSION_REGEX = /\.[a-z0-9]{2,5}$/i;
 
 /** Threshold for enabling streaming responses (items) */
-const STREAM_THRESHOLD = 100;
+import { STREAM_THRESHOLD } from "@/utils/post-helpers";
 
 @injectable()
 export class PostController {
@@ -74,7 +74,7 @@ export class PostController {
     const limit = Math.min(parseInt(req.query.limit as string) || 9, 100);
 
     // Get authenticated user's publicId if available
-    const userId = (req as any).decodedUser?.publicId;
+    const userId = req.decodedUser?.publicId;
     logger.info(
       "listPosts called with page:",
       page,

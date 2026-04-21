@@ -105,7 +105,7 @@ export class WebSocketServer {
         // Handle authentication using the bearer token strategy
         AuthFactory.bearerToken().handle()(req, {} as any, (error?: any) => {
           if (error) {
-            console.error("Auth error:", error);
+            logger.error("Auth error:", error);
             return next(Errors.authentication(error.message));
           }
 
@@ -120,7 +120,7 @@ export class WebSocketServer {
           next();
         });
       } catch (error) {
-        console.error("WebSocket auth error:", error);
+        logger.error("WebSocket auth error:", error);
         next(Errors.authentication("Socket authentication failed"));
       }
     });
@@ -145,7 +145,7 @@ export class WebSocketServer {
           message: "Automatically joined user room",
         });
       } else {
-        console.warn("Socket connected without user data:", socket.id);
+        logger.warn("Socket connected without user data:", socket.id);
       }
 
       /**
@@ -154,12 +154,12 @@ export class WebSocketServer {
        */
       socket.on("join", (userId: string) => {
         if (!socket.data.user) {
-          console.warn("Unauthorized join attempt. Disconnecting socket.");
+          logger.warn("Unauthorized join attempt. Disconnecting socket.");
           return socket.disconnect(); // Disconnect unauthorized users
         }
 
         if (!userId || typeof userId !== "string") {
-          console.warn("Invalid userId in join event:", userId);
+          logger.warn("Invalid userId in join event:", userId);
           socket.emit("join_response", {
             success: false,
             error: "Invalid userId",

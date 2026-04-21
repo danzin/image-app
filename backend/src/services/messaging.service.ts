@@ -601,7 +601,7 @@ export class MessagingService {
       (populatedSender as PopulatedSender).publicId !== undefined &&
       (populatedSender as PopulatedSender).publicId !== userPublicId
     ) {
-      // sender is populated and doesn't match
+      throw Errors.forbidden("You can only edit your own messages");
     } else if (message.sender.toString() !== userInternalId) {
       const senderId = (populatedSender as PopulatedSender)._id
         ? (populatedSender as PopulatedSender)._id!.toString()
@@ -621,10 +621,10 @@ export class MessagingService {
         maxLength: 5000,
         allowEmpty,
       });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Invalid message body";
-      throw Errors.validation(message);
+    } catch (sanitizeError) {
+      const errorMsg =
+        sanitizeError instanceof Error ? sanitizeError.message : "Invalid message body";
+      throw Errors.validation(errorMsg);
     }
 
     const updatedMessage = await this.messageRepository.updateMessage(
@@ -663,11 +663,11 @@ export class MessagingService {
       throw Errors.notFound("Resource");
     }
 
-    const populatedSender2 = message.sender as
+    const senderRef = message.sender as
       | mongoose.Types.ObjectId
       | PopulatedSender;
-    const senderId = (populatedSender2 as PopulatedSender)._id
-      ? (populatedSender2 as PopulatedSender)._id!.toString()
+    const senderId = (senderRef as PopulatedSender)._id
+      ? (senderRef as PopulatedSender)._id!.toString()
       : message.sender.toString();
     if (senderId !== userInternalId) {
       throw Errors.forbidden("You can only delete your own messages");
@@ -698,7 +698,7 @@ export class MessagingService {
       await this.messageRepository.updateMessage(
         messageId,
         {
-          body: "message delete by user",
+          body: "message deleted by user",
           attachments: [], // clear attachments from DB
         },
       );

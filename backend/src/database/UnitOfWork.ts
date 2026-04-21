@@ -161,7 +161,6 @@ export class UnitOfWork {
                 message: getErrorMessage(error).substring(0, 100),
               },
             );
-            await session.endSession();
             await this.backoffWithJitter(
               attempt,
               cfg.baseDelayMs,

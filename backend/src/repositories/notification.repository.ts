@@ -67,7 +67,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 
 	async markAsRead(notificationId: string, userId: string) {
 		if (!notificationId || !/^[0-9a-fA-F]{24}$/.test(notificationId)) {
-			console.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
+			logger.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
 			return null;
 		}
 		logger.info(`[NotificationRepository] markAsRead start id=${notificationId} userId=${userId}`);
@@ -77,7 +77,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 				.lean<INotification>()
 				.exec();
 			if (!updated) {
-				console.warn(
+				logger.warn(
 					`[NotificationRepository] markAsRead miss (not found or ownership mismatch) id=${notificationId} userId=${userId}`,
 				);
 			} else {
@@ -87,7 +87,7 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			}
 			return updated;
 		} catch (e) {
-			console.error(`[NotificationRepository] markAsRead error id=${notificationId} userId=${userId}:`, e);
+			logger.error(`[NotificationRepository] markAsRead error id=${notificationId} userId=${userId}:`, e);
 			throw e;
 		}
 	}

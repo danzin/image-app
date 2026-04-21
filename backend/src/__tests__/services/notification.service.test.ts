@@ -2,7 +2,7 @@ import "reflect-metadata";
 import { expect } from "chai";
 import sinon, { SinonStub, SinonStubbedInstance } from "sinon";
 import { NotificationService } from "@/services/notification.service";
-import { NotificationRepository } from "@/repositories/notification.respository";
+import { NotificationRepository } from "@/repositories/notification.repository";
 import { RedisService } from "@/services/redis.service";
 import { WebSocketServer } from "@/server/socketServer";
 import { UserRepository } from "@/repositories/user.repository";

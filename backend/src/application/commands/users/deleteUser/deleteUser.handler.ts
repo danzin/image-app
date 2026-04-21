@@ -9,7 +9,7 @@ import type { IPostWriteRepository } from "@/repositories/interfaces/IPostWriteR
 import { CommentRepository } from "@/repositories/comment.repository";
 import { FollowRepository } from "@/repositories/follow.repository";
 import { FavoriteRepository } from "@/repositories/favorite.repository";
-import { NotificationRepository } from "@/repositories/notification.respository";
+import { NotificationRepository } from "@/repositories/notification.repository";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { UserPreferenceRepository } from "@/repositories/userPreference.repository";
 import { ConversationRepository } from "@/repositories/conversation.repository";

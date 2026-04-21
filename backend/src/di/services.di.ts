@@ -4,7 +4,6 @@ import { CloudinaryService } from "@/services/cloudinary.service";
 import { AuthService } from "@/services/auth.service";
 import { ImageService } from "@/services/image.service";
 import { CommentService } from "@/services/comment.service";
-import { FollowService } from "@/services/follow.service";
 import { NotificationService } from "@/services/notification.service";
 import { DTOService } from "@/services/dto.service";
 import { FeedService } from "@/services/feed/feed.service";
@@ -65,7 +64,6 @@ export function registerServices(): void {
   container.registerSingleton(TOKENS.Services.BloomFilter, BloomFilterService);
   container.registerSingleton(TOKENS.Services.Image, ImageService);
   container.registerSingleton(TOKENS.Services.Comment, CommentService);
-  container.registerSingleton(TOKENS.Services.Follow, FollowService);
   container.registerSingleton(
     TOKENS.Services.Notification,
     NotificationService,

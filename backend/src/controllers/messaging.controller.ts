@@ -7,7 +7,7 @@ import { streamPaginatedResponse } from "@/utils/streamResponse";
 import { TOKENS } from "@/types/tokens";
 
 /** Threshold for enabling streaming responses (items) */
-const STREAM_THRESHOLD = 100;
+import { STREAM_THRESHOLD } from "@/utils/post-helpers";
 
 @injectable()
 export class MessagingController {
@@ -23,7 +23,7 @@ export class MessagingController {
     }
 
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 20;
+    const limit = Math.min(Number(req.query.limit) || 20, 50);
 
     const result = await this.messagingService.listConversations(
       userPublicId,
@@ -44,7 +44,7 @@ export class MessagingController {
 
     const { conversationId } = req.params;
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 30;
+    const limit = Math.min(Number(req.query.limit) || 30, 100);
 
     const result = await this.messagingService.getConversationMessages(
       userPublicId,
