@@ -52,10 +52,14 @@ export class NotificationController {
 
     // Determine if there are more notifications (heuristic: if we got exactly limit, there may be more)
     const hasMore = notifications.length === limit;
-    // Generate next cursor from the oldest notification's createdAt
+    // Generate next cursor from the oldest notification's timestamp.
+    // timestamp may be a Date (MongoDB document) or a string (Redis-cached plain object),
+    // so coerce to Date before calling toISOString().
     const nextCursor =
       hasMore && notifications.length > 0
-        ? notifications[notifications.length - 1].timestamp.toISOString()
+        ? new Date(
+            notifications[notifications.length - 1].timestamp,
+          ).toISOString()
         : undefined;
 
     if (notifications.length >= STREAM_THRESHOLD) {

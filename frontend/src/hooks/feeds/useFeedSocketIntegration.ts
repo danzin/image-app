@@ -14,6 +14,67 @@ export const useFeedSocketIntegration = () => {
     if (!socket) return;
 
     /**
+     * Remove a deleted post from all cached feed/post queries.
+     */
+    const removePostFromCaches = (postId: string) => {
+      const filterPost = (oldData: unknown): unknown => {
+        if (!oldData || typeof oldData !== "object") return oldData;
+
+        if ("pages" in oldData) {
+          const inf = oldData as {
+            pages: { data: { publicId: string }[] }[];
+            pageParams: unknown[];
+          };
+          return {
+            ...inf,
+            pages: inf.pages.map((page) => ({
+              ...page,
+              data: Array.isArray(page.data)
+                ? page.data.filter((item) => item.publicId !== postId)
+                : page.data,
+            })),
+          };
+        }
+
+        if ("data" in oldData) {
+          const reg = oldData as { data: { publicId: string }[] };
+          if (Array.isArray(reg.data)) {
+            return {
+              ...reg,
+              data: reg.data.filter((item) => item.publicId !== postId),
+            };
+          }
+        }
+
+        return oldData;
+      };
+
+      for (const key of [
+        "personalizedFeed",
+        "forYouFeed",
+        "trendingFeed",
+        "newFeed",
+        "images",
+        "userImages",
+        "posts",
+        "userPosts",
+      ]) {
+        queryClient.setQueriesData({ queryKey: [key] }, filterPost);
+      }
+
+      // Drop the post detail and its comments so nothing tries to refetch a deleted post
+      queryClient.removeQueries({
+        predicate: (query) => {
+          const key = query.queryKey as unknown[];
+          return (
+            (key[0] === "post" && key.includes(postId)) ||
+            (key[0] === "comments" && key[1] === "post" && key[2] === postId)
+          );
+        },
+      });
+    };
+
+    /**
      * Handle new post uploads (targeted to specific users)
      * Backend event: "feed_update" with type: "new_post"
      */
@@ -34,6 +95,38 @@ export const useFeedSocketIntegration = () => {
       queryClient.invalidateQueries({
         queryKey: ["userImages", data.authorId],
       });
+    };
+
+    /**
+     * Handle post deletion.
+     * Backend event: "feed_update" with type: "post_deleted"
+     */
+    const handlePostDeleted = (data: {
+      type: "post_deleted";
+      postId: string;
+      authorId: string;
+      timestamp: string;
+    }) => {
+      removePostFromCaches(data.postId);
+
+      // Invalidate author profile stats (post count changed)
+      queryClient.invalidateQueries({
+        queryKey: ["userImages", data.authorId],
+      });
+    };
+
+    /**
+     * Route all "feed_update" events by type.
+     */
+    const handleFeedUpdate = (data: {
+      type: string;
+      [key: string]: unknown;
+    }) => {
+      if (data.type === "new_post") {
+        handleNewPost(data as Parameters<typeof handleNewPost>[0]);
+      } else if (data.type === "post_deleted") {
+        handlePostDeleted(data as Parameters<typeof handlePostDeleted>[0]);
+      }
     };
 
     /**
@@ -170,10 +263,10 @@ export const useFeedSocketIntegration = () => {
         data.actionType === "comment" ||
         data.actionType === "comment_deleted"
       ) {
-        // Invalidate specific image and comment queries for this image
+        // Invalidate specific post and comment queries for this post
         queryClient.invalidateQueries({ queryKey: ["image"] }); // Refresh image details (comment count)
         queryClient.invalidateQueries({
-          queryKey: ["comments", "image", data.targetId],
+          queryKey: ["comments", "post", data.targetId],
         }); // Refresh comment list
 
         // Only invalidate the personalized feed - most relevant for the user
@@ -182,14 +275,14 @@ export const useFeedSocketIntegration = () => {
     };
 
     // Register all socket event listeners
-    socket.on("feed_update", handleNewPost);
+    socket.on("feed_update", handleFeedUpdate);
     socket.on("like_update", handleLikeUpdate);
     socket.on("avatar_update", handleAvatarUpdate);
     socket.on("feed_interaction", handleFeedInteraction);
 
     return () => {
       // Cleanup listeners
-      socket.off("feed_update", handleNewPost);
+      socket.off("feed_update", handleFeedUpdate);
       socket.off("like_update", handleLikeUpdate);
       socket.off("avatar_update", handleAvatarUpdate);
       socket.off("feed_interaction", handleFeedInteraction);
