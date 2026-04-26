@@ -528,16 +528,18 @@ export class MessagingService {
         const recipients = participantPublicIds.filter(
           (id: string) => id !== senderPublicId,
         );
-        const recipientsNeedingNotification = [];
-        for (const recipientId of recipients) {
-          const isViewingConversation = await isUserViewingConversation(
+        const recipientViewingStates = await Promise.all(
+          recipients.map(async (recipientId) => ({
             recipientId,
-            conversationDoc!.publicId,
-          );
-          if (!isViewingConversation) {
-            recipientsNeedingNotification.push(recipientId);
-          }
-        }
+            isViewingConversation: await isUserViewingConversation(
+              recipientId,
+              conversationDoc!.publicId,
+            ),
+          })),
+        );
+        const recipientsNeedingNotification = recipientViewingStates
+          .filter(({ isViewingConversation }) => !isViewingConversation)
+          .map(({ recipientId }) => recipientId);
 
         // only create notifications for users not actively viewing the conversation
         if (recipientsNeedingNotification.length > 0) {

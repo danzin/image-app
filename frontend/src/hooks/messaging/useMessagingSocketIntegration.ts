@@ -5,22 +5,43 @@ import { MessagingUpdatePayload, MessageDTO, ConversationMessagesResponse } from
 import type { InfiniteData } from "@tanstack/react-query";
 import { useAuth } from "../context/useAuth";
 
-function isMessagingUpdatePayload(value: unknown): value is MessagingUpdatePayload {
+type MessageSentPayload = Extract<MessagingUpdatePayload, { type: "message_sent" }>;
+type MessageStatusPayload = Extract<MessagingUpdatePayload, { type: "message_status_updated" }>;
+
+function hasMessagingUpdateBaseFields(
+	value: unknown,
+): value is { type: unknown; conversationId: string; timestamp: string } {
 	if (typeof value !== "object" || value === null) {
 		return false;
 	}
 
-	const candidate = value as Partial<MessagingUpdatePayload>;
+	const candidate = value as Record<string, unknown>;
+	return typeof candidate.conversationId === "string" && typeof candidate.timestamp === "string";
+}
+
+function isMessageSentPayload(value: unknown): value is MessageSentPayload {
+	if (!hasMessagingUpdateBaseFields(value)) {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	return candidate.type === "message_sent" && typeof candidate.senderId === "string";
+}
+
+function isMessageStatusPayload(value: unknown): value is MessageStatusPayload {
+	if (!hasMessagingUpdateBaseFields(value)) {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
 	return (
-		((candidate.type === "message_sent" &&
-			typeof candidate.conversationId === "string" &&
-			typeof candidate.timestamp === "string" &&
-			typeof candidate.senderId === "string") ||
-			(candidate.type === "message_status_updated" &&
-				typeof candidate.conversationId === "string" &&
-				typeof candidate.timestamp === "string" &&
-				(candidate.status === "delivered" || candidate.status === "read")))
+		candidate.type === "message_status_updated" &&
+		(candidate.status === "delivered" || candidate.status === "read")
 	);
+}
+
+function isMessagingUpdatePayload(value: unknown): value is MessagingUpdatePayload {
+	return isMessageSentPayload(value) || isMessageStatusPayload(value);
 }
 
 export const useMessagingSocketIntegration = (): void => {

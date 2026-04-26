@@ -221,7 +221,11 @@ export class WebSocketServer {
             socket.data.activeConversationId === conversationId)
         ) {
           delete socket.data.activeConversationId;
-          logger.info(`User ${userId} closed conversation ${conversationId ?? ""}`.trim());
+          logger.info(
+            conversationId
+              ? `User ${userId} closed conversation ${conversationId}`
+              : `User ${userId} closed conversation`,
+          );
         }
       });
 
