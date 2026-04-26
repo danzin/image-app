@@ -46,9 +46,9 @@ export class CommentController {
 
   getCommentsByPostId = async (req: Request, res: Response): Promise<void> => {
     const { postPublicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const parentId = (req.query.parentId as string | undefined) ?? null;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 10;
+    const parentId = typeof req.query.parentId === "string" ? req.query.parentId : null;
 
     // Limit max comments per page to prevent abuse
     const maxLimit = Math.min(limit, 50);
@@ -109,12 +109,12 @@ export class CommentController {
 
   getCommentsByUserId = async (req: Request, res: Response): Promise<void> => {
     const { publicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 10;
     const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt"];
-    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const rawSortBy = String(req.query.sortBy || "createdAt");
     const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
-    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const sortOrder = String(req.query.sortOrder) === "asc" ? "asc" : "desc";
 
     // Limit max comments per page
     const maxLimit = Math.min(limit, 100);
@@ -162,8 +162,8 @@ export class CommentController {
 
   getCommentReplies = async (req: Request, res: Response): Promise<void> => {
     const { commentId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 10;
 
     const maxLimit = Math.min(limit, 50);
 

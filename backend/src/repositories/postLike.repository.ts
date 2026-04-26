@@ -22,8 +22,7 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 			await this.model.create([payload], { session });
 			return true;
 		} catch (error: unknown) {
-			const err = error as Record<string, unknown>;
-			if (err?.code === 11000) {
+			if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
 				return false;
 			}
 			throw Errors.database((error instanceof Error ? error.message : String(error)) ?? "failed to persist post like");
@@ -107,7 +106,9 @@ export class PostLikeRepository extends BaseRepository<IPostLike> {
 		]);
 
 		return {
-			postIds: likes.map((like) => like.postId as Types.ObjectId),
+			postIds: likes.map((like) => 
+				like.postId instanceof Types.ObjectId ? like.postId : new Types.ObjectId(String(like.postId))
+			),
 			total,
 		};
 	}

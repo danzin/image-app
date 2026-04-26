@@ -28,7 +28,7 @@ export class PostViewRepository extends BaseRepository<IPostView> {
 			return true; // new view recorded
 		} catch (error: unknown) {
 			// duplicate key error means user already viewed this post
-			if ((error as Record<string, unknown>).code === 11000) {
+			if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
 				return false; // already viewed
 			}
 			throw Errors.database("Failed to record post view", { cause: error });

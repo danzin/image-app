@@ -119,6 +119,8 @@ export interface HydratedConversation {
 	unreadCounts: Map<string, number> | Record<string, number>;
 	isGroup: boolean;
 	title?: string;
+	_id: mongoose.Types.ObjectId;
+	updatedAt: Date;
 }
 
 export interface UserPublicIdLean {

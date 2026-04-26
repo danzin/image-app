@@ -78,7 +78,9 @@ export class WebSocketServer {
      * This allows authentication tokens stored in cookies to be accessed in socket requests.
      */
     this.io.use((socket, next) => {
-      cookieParser()(socket.request as any, {} as any, () => {
+      // By casting cleanly to Request we can leverage Express middleware
+      const req = socket.request as Request;
+      cookieParser()(req, {} as any, () => {
         next();
       });
     });
@@ -91,11 +93,11 @@ export class WebSocketServer {
       try {
         const req = socket.request as Request;
         logger.info("[Socket][Auth] Incoming handshake headers:", req.headers);
-        logger.info("[Socket][Auth] Incoming cookies:", (req as any).cookies);
+        logger.info("[Socket][Auth] Incoming cookies:", req.cookies);
 
         // Allow token passed via Socket.IO auth payload as fallback
-        const handshakeAuth: any = (socket as any).handshake?.auth;
-        if (handshakeAuth?.token && !req.headers.authorization) {
+        const handshakeAuth = socket.handshake?.auth;
+        if (handshakeAuth && typeof handshakeAuth.token === "string" && !req.headers.authorization) {
           req.headers.authorization = `Bearer ${handshakeAuth.token}`;
           logger.info(
             "[Socket][Auth] Applied bearer token from handshake auth",

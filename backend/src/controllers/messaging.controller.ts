@@ -17,7 +17,7 @@ export class MessagingController {
   ) {}
 
   listConversations = async (req: Request, res: Response): Promise<void> => {
-    const userPublicId = req.decodedUser?.publicId as string | undefined;
+    const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
       throw Errors.authentication("User must be logged in to view conversations");
     }
@@ -37,7 +37,7 @@ export class MessagingController {
     req: Request,
     res: Response,
   ): Promise<void> => {
-    const userPublicId = req.decodedUser?.publicId as string | undefined;
+    const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
       throw Errors.authentication("User must be logged in to view messages");
     }
@@ -66,7 +66,7 @@ export class MessagingController {
   };
 
   markConversationRead = async (req: Request, res: Response): Promise<void> => {
-    const userPublicId = req.decodedUser?.publicId as string | undefined;
+    const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
       throw Errors.authentication("User must be logged in to update read state");
     }
@@ -80,7 +80,7 @@ export class MessagingController {
   };
 
   initiateConversation = async (req: Request, res: Response): Promise<void> => {
-    const senderPublicId = req.decodedUser?.publicId as string | undefined;
+    const senderPublicId = req.decodedUser?.publicId;
     if (!senderPublicId) {
       throw Errors.authentication("User must be logged in to start a conversation");
     }
@@ -95,7 +95,7 @@ export class MessagingController {
   };
 
   sendMessage = async (req: Request, res: Response): Promise<void> => {
-    const senderPublicId = req.decodedUser?.publicId as string | undefined;
+    const senderPublicId = req.decodedUser?.publicId;
     if (!senderPublicId) {
       throw Errors.authentication("User must be logged in to send messages");
     }
@@ -116,7 +116,7 @@ export class MessagingController {
   };
 
   editMessage = async (req: Request, res: Response): Promise<void> => {
-    const userPublicId = req.decodedUser?.publicId as string | undefined;
+    const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
       throw Errors.authentication("User must be logged in to edit messages");
     }
@@ -133,7 +133,7 @@ export class MessagingController {
   };
 
   deleteMessage = async (req: Request, res: Response): Promise<void> => {
-    const userPublicId = req.decodedUser?.publicId as string | undefined;
+    const userPublicId = req.decodedUser?.publicId;
     if (!userPublicId) {
       throw Errors.authentication("User must be logged in to delete messages");
     }

@@ -95,14 +95,12 @@ export class UserController {
     username: string;
     isAdmin: boolean;
   } {
-    const withAdmin = user as { isAdmin?: boolean };
     return {
       publicId: user.publicId,
       email: user.email,
       handle: user.handle,
       username: user.username,
-      isAdmin:
-        typeof withAdmin.isAdmin === "boolean" ? withAdmin.isAdmin : false,
+      isAdmin: "isAdmin" in user ? Boolean(user.isAdmin) : false,
     };
   }
 
@@ -164,7 +162,7 @@ export class UserController {
     if (!decodedUser?.publicId) {
       return next(Errors.authentication("User not authenticated."));
     }
-    const query = new GetMeQuery(decodedUser.publicId as string);
+    const query = new GetMeQuery(decodedUser.publicId);
     const { user } = await this.queryBus.execute<GetMeResult>(query);
     res.status(200).json(user);
   };
@@ -370,8 +368,8 @@ export class UserController {
 
   getFollowers = async (req: Request, res: Response): Promise<void> => {
     const { publicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 20, 100);
 
     const query = new GetFollowersQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowersResult>(query);
@@ -390,8 +388,8 @@ export class UserController {
 
   getFollowing = async (req: Request, res: Response): Promise<void> => {
     const { publicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 20, 100);
 
     const query = new GetFollowingQuery(publicId, page, limit);
     const result = await this.queryBus.execute<GetFollowingResult>(query);
@@ -481,10 +479,10 @@ export class UserController {
       return next(Errors.authentication("User not authenticated."));
     }
 
-    const limit = Math.min(parseInt(req.query.limit as string) || 5, 20);
+    const limit = Math.min(parseInt(String(req.query.limit)) || 5, 20);
 
     const query = new GetWhoToFollowQuery(
-      decodedUser.publicId as string,
+      decodedUser.publicId,
       limit,
     );
     const result = await this.queryBus.execute<GetWhoToFollowResult>(query);
@@ -494,8 +492,10 @@ export class UserController {
 
   getHandleSuggestions = async (req: Request, res: Response) => {
     const queryValue = typeof req.query.q === "string" ? req.query.q : "";
-    const context = req.query.context as HandleSuggestionContext;
-    const limit = Math.min(parseInt(req.query.limit as string) || 8, 20);
+    const contextRaw = req.query.context;
+    // We expect it to be a valid context but safely let TS know via structural assignment if possible, or bypass the cast
+    const context = (typeof contextRaw === "string" ? contextRaw : undefined) as HandleSuggestionContext;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 8, 20);
     const viewerPublicId = req.decodedUser?.publicId;
 
     const query = new GetHandleSuggestionsQuery(

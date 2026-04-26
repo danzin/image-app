@@ -65,13 +65,13 @@ export class PostController {
       file?.buffer,
       file?.mimetype,
     );
-    const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
+    const postDTO = await this.commandBus.dispatch<PostDTO>(command);
     res.status(201).json(postDTO);
   };
 
   listPosts = async (req: Request, res: Response): Promise<void> => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 9, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 9, 100);
 
     // Get authenticated user's publicId if available
     const userId = req.decodedUser?.publicId;
@@ -105,12 +105,12 @@ export class PostController {
     res: Response,
   ): Promise<void> => {
     const { publicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 10, 100);
     const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "likesCount"];
-    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const rawSortBy = String(req.query.sortBy || "createdAt");
     const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
-    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const sortOrder = String(req.query.sortOrder) === "asc" ? "asc" : "desc";
 
     const query = new GetPostsByUserQuery(
       publicId,
@@ -138,12 +138,12 @@ export class PostController {
     res: Response,
   ): Promise<void> => {
     const { publicId } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 10, 100);
     const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "likesCount"];
-    const rawSortBy = (req.query.sortBy as string) || "createdAt";
+    const rawSortBy = String(req.query.sortBy || "createdAt");
     const sortBy = ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : "createdAt";
-    const sortOrder = (req.query.sortOrder as "asc" | "desc") || "desc";
+    const sortOrder = String(req.query.sortOrder) === "asc" ? "asc" : "desc";
     const viewerPublicId = req.decodedUser?.publicId;
 
     const query = new GetLikedPostsByUserQuery(
@@ -170,8 +170,8 @@ export class PostController {
 
   getPostsByHandle = async (req: Request, res: Response): Promise<void> => {
     const { handle } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 20, 100);
 
     const userQuery = new GetUserByHandleQuery(handle);
     const user = await this.queryBus.execute<PublicUserDTO>(userQuery);
@@ -231,10 +231,10 @@ export class PostController {
 
   searchByTags = async (req: Request, res: Response): Promise<void> => {
     const { tags } = req.query;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 10, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 10, 100);
     const tagArray = tags
-      ? (tags as string).split(",").filter((tag) => tag.trim() !== "")
+      ? String(tags).split(",").filter((tag) => tag.trim() !== "")
       : [];
 
     const query = new SearchPostsByTagsQuery(tagArray, page, limit);
@@ -285,13 +285,13 @@ export class PostController {
     }
 
     const sanitizedPublicId = publicId.replace(FILE_EXTENSION_REGEX, "");
-    const body = req.body?.body as string | undefined;
+    const body = typeof req.body?.body === "string" ? req.body.body : undefined;
     const command = new RepostPostCommand(
       decodedUser.publicId,
       sanitizedPublicId,
       body,
     );
-    const postDTO = (await this.commandBus.dispatch(command)) as PostDTO;
+    const postDTO = await this.commandBus.dispatch<PostDTO>(command);
     res.status(201).json(postDTO);
   };
 

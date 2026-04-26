@@ -27,9 +27,9 @@ export class CommunityController {
   ) {}
 
   getAllCommunities = async (req: Request, res: Response): Promise<void> => {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const search = req.query.search as string;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 20;
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
     const viewerPublicId = req.decodedUser?.publicId;
 
     const query = new GetAllCommunitiesQuery(
@@ -59,7 +59,7 @@ export class CommunityController {
       req.file?.originalname,
       req.file?.mimetype,
     );
-    const community = (await this.commandBus.dispatch(command)) as ICommunity;
+    const community = await this.commandBus.dispatch<ICommunity>(command);
     res.status(201).json(
       this.dtoService.toCommunityDTO(community, {
         isMember: true,
@@ -105,8 +105,8 @@ export class CommunityController {
 
   getUserCommunities = async (req: Request, res: Response): Promise<void> => {
     const { decodedUser } = req;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 20;
 
     if (!decodedUser || !decodedUser.publicId) {
       throw Errors.authentication("User information missing");
@@ -123,8 +123,8 @@ export class CommunityController {
 
   getCommunityFeed = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 20;
 
     const query = new GetCommunityFeedQuery(id, page, limit);
     const result = await this.queryBus.execute(query);
@@ -141,9 +141,9 @@ export class CommunityController {
     }
 
     // handle file uploads - req.files comes from multer fields middleware
-    const files = req.files as
-      | { [fieldname: string]: Express.Multer.File[] }
-      | undefined;
+    const files = (req.files && !Array.isArray(req.files))
+      ? req.files 
+      : undefined;
     const avatarBuffer = files?.avatar?.[0]?.buffer;
     const coverPhotoBuffer = files?.coverPhoto?.[0]?.buffer;
 
@@ -163,7 +163,7 @@ export class CommunityController {
       decodedUser.publicId,
       updates,
     );
-    const community = (await this.commandBus.dispatch(command)) as ICommunity;
+    const community = await this.commandBus.dispatch<ICommunity>(command);
     res.status(200).json(this.dtoService.toCommunityDTO(community));
   };
 
@@ -182,8 +182,8 @@ export class CommunityController {
 
   getCommunityMembers = async (req: Request, res: Response): Promise<void> => {
     const { slug } = req.params;
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = parseInt(String(req.query.limit)) || 20;
 
     const query = new GetCommunityMembersQuery(slug, page, limit);
     const result = await this.queryBus.execute(query);

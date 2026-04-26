@@ -107,7 +107,7 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
             ],
           };
         } catch {
-          return { data: [], hasMore: false as boolean };
+          return { data: [], hasMore: false };
         }
       }
 

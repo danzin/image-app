@@ -35,7 +35,7 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 		const skip = (page - 1) * limit;
 
 		// Use an aggregation pipeline to join Favorite documents with the Post documents
-		const aggregation = this.model.aggregate([
+		const aggregation = this.model.aggregate<IPost>([
 			{ $match: { userId: new mongoose.Types.ObjectId(userId) } },
 			{ $sort: { createdAt: -1 } },
 			{ $skip: skip },
@@ -85,7 +85,7 @@ export class FavoriteRepository extends BaseRepository<IFavorite> {
 		const totalFavorites = await this.model.countDocuments({ userId });
 		const favoritedPosts = await aggregation.exec();
 
-		return { data: favoritedPosts as IPost[], total: totalFavorites };
+		return { data: favoritedPosts, total: totalFavorites };
 	}
 
 	async deleteManyByUserId(userId: string): Promise<number> {

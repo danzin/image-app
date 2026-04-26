@@ -64,8 +64,8 @@ export class FavoriteController {
       throw Errors.authentication("User must be logged in to view favorites");
     }
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+    const page = parseInt(String(req.query.page)) || 1;
+    const limit = Math.min(parseInt(String(req.query.limit)) || 20, 100);
 
     const favorites = await this.favoriteService.getFavoritesForViewer(
       viewerPublicId,

@@ -58,7 +58,7 @@ export class MessageRepository extends BaseRepository<IMessage> {
 				.sort({ createdAt: -1, _id: -1 })
 				.limit(limit + 1)
 				.populate("sender", "publicId handle username avatar")
-				.lean()
+				.lean<IMessageWithPopulatedSender[]>()
 				.exec();
 
 			const hasMore = messages.length > limit;
@@ -75,12 +75,12 @@ export class MessageRepository extends BaseRepository<IMessage> {
 			}
 
 			return {
-				data: data as unknown as IMessageWithPopulatedSender[],
+				data,
 				hasMore,
 				nextCursor,
 			};
 		} catch (error) {
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -103,20 +103,20 @@ export class MessageRepository extends BaseRepository<IMessage> {
 					.skip(skip)
 					.limit(limit)
 					.populate("sender", "publicId handle username avatar")
-					.lean()
+					.lean<IMessageWithPopulatedSender[]>()
 					.exec(),
 				this.model.countDocuments({ conversation: objectId }),
 			]);
 
 			return {
-				data: messages as unknown as IMessageWithPopulatedSender[],
+				data: messages,
 				total,
 				page,
 				limit,
 				totalPages: total > 0 ? Math.ceil(total / limit) : 0,
 			};
 		} catch (error) {
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 

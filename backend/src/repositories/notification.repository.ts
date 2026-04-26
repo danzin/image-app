@@ -25,13 +25,13 @@ export class NotificationRepository extends BaseRepository<INotification> {
 	 * @param skip - number of notifications to skip for pagination (default: 0)
 	 */
 	async getNotifications(userId: string, limit: number = 50, skip: number = 0): Promise<INotification[]> {
-		return (await this.model
+		return await this.model
 			.find({ userId })
 			.sort({ timestamp: -1 })
 			.skip(skip)
 			.limit(limit)
-			.lean()
-			.exec()) as unknown as INotification[];
+			.lean<INotification[]>()
+			.exec();
 	}
 
 	/**
@@ -46,15 +46,15 @@ export class NotificationRepository extends BaseRepository<INotification> {
 		beforeTimestamp: Date,
 		limit: number = 20,
 	): Promise<INotification[]> {
-		return (await this.model
+		return await this.model
 			.find({
 				userId,
 				timestamp: { $lt: beforeTimestamp }, // older than cursor
 			})
 			.sort({ timestamp: -1 }) // most recent first (within the older set)
 			.limit(limit)
-			.lean()
-			.exec()) as unknown as INotification[];
+			.lean<INotification[]>()
+			.exec();
 	}
 
 	/**

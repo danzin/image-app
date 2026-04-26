@@ -67,25 +67,33 @@ export class BearerTokenStrategy extends AuthStrategy {
           errorCode: ErrorCode.TOKEN_INVALID,
         });
       }
-      const payload = verified as DecodedUser;
 
       if (
-        !payload.publicId ||
-        !payload.email ||
-        !payload.username ||
-        !payload.handle ||
-        !payload.sid
+        typeof verified.publicId !== "string" ||
+        typeof verified.email !== "string" ||
+        typeof verified.username !== "string" ||
+        typeof verified.handle !== "string" ||
+        typeof verified.sid !== "string"
       ) {
         throw Errors.authentication("Invalid token payload", {
           errorCode: ErrorCode.TOKEN_INVALID,
         });
       }
 
+      const payload: DecodedUser = {
+        publicId: verified.publicId,
+        email: verified.email,
+        username: verified.username,
+        handle: verified.handle,
+        sid: verified.sid,
+        isAdmin: typeof verified.isAdmin === "boolean" ? verified.isAdmin : false,
+      };
+
       const authSessionService =
         container.resolve<AuthSessionService>("AuthSessionService");
       await authSessionService.assertAccessSession(
-        payload.sid,
-        payload.publicId,
+        verified.sid,
+        verified.publicId,
       );
 
       logger.info(
@@ -96,7 +104,8 @@ export class BearerTokenStrategy extends AuthStrategy {
       if (isErrorWithStatusCode(err)) {
         throw err;
       }
-      logger.error("[AUTH] Token verification failed", (err as Error).message);
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error("[AUTH] Token verification failed", errorMessage);
       const errorCode =
         err instanceof Error && err.name === "TokenExpiredError"
           ? ErrorCode.TOKEN_EXPIRED

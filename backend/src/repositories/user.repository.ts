@@ -48,7 +48,7 @@ export class UserRepository extends BaseRepository<IUser> {
           context: { operation: "create", repository: "userRepository" },
         });
       }
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -82,7 +82,7 @@ export class UserRepository extends BaseRepository<IUser> {
           context: { operation: "create", repository: "userRepository" },
         });
       }
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -107,7 +107,7 @@ export class UserRepository extends BaseRepository<IUser> {
           },
         });
       }
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -154,7 +154,7 @@ export class UserRepository extends BaseRepository<IUser> {
 
       return result;
     } catch (error) {
-      throw Errors.database((error as Error).message, {
+      throw Errors.database(error instanceof Error ? error.message : String(error), {
         context: { operation: "getAll", options },
       });
     }
@@ -197,7 +197,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -211,7 +211,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -228,7 +228,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -241,7 +241,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -261,7 +261,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -298,7 +298,7 @@ export class UserRepository extends BaseRepository<IUser> {
         totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -321,7 +321,7 @@ export class UserRepository extends BaseRepository<IUser> {
       await query.exec();
     } catch (error) {
       logger.error(error);
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -341,7 +341,7 @@ export class UserRepository extends BaseRepository<IUser> {
       if (session) query.session(session);
       await query.exec();
     } catch (error) {
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -567,7 +567,7 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       logger.error("Error in getSuggestedUsersToFollow:", error);
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -682,7 +682,7 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       logger.error("Error in getSuggestedUsersLowTraffic:", error);
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -864,7 +864,7 @@ export class UserRepository extends BaseRepository<IUser> {
       return result;
     } catch (error) {
       logger.error("Error in getSuggestedUsersHighTraffic:", error);
-      throw Errors.database((error as Error).message);
+      throw Errors.database(error instanceof Error ? error.message : String(error));
     }
   }
 

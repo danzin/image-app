@@ -56,17 +56,17 @@ export class AdminUserController {
 
     if (startDate || endDate) {
       filter.createdAt = {};
-      if (startDate) filter.createdAt.$gte = new Date(startDate as string);
-      if (endDate) filter.createdAt.$lte = new Date(endDate as string);
+      if (typeof startDate === "string") filter.createdAt.$gte = new Date(startDate);
+      if (typeof endDate === "string") filter.createdAt.$lte = new Date(endDate);
     }
 
     const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "username", "email"];
-    const rawSortBy = sortBy as string | undefined;
+    const rawSortBy = typeof sortBy === "string" ? sortBy : undefined;
     const options = {
-      page: page ? parseInt(page as string, 10) : 1,
-      limit: Math.min(limit ? parseInt(limit as string, 10) : 20, 100),
+      page: parseInt(String(page)) || 1,
+      limit: Math.min(parseInt(String(limit)) || 20, 100),
       sortBy: rawSortBy && ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : undefined,
-      sortOrder: sortOrder as "asc" | "desc" | undefined,
+      sortOrder: typeof sortOrder === "string" ? (sortOrder as "asc" | "desc") : undefined,
       filter,
     };
     const query = new GetAllUsersAdminQuery(options);
@@ -119,12 +119,12 @@ export class AdminUserController {
       throw Errors.validation("Admin user is required");
     }
 
-    if (!(decodedUser as any).publicId) {
+    if (!decodedUser?.publicId) {
       throw Errors.validation("Admin publicId missing in token");
     }
     const command = new BanUserCommand(
       publicId,
-      (decodedUser as any).publicId,
+      decodedUser.publicId,
       reason,
     );
     const result = await this.commandBus.dispatch<AdminUserDTO>(command);
@@ -142,12 +142,12 @@ export class AdminUserController {
   getAllImages = async (req: Request, res: Response) => {
     const { page, limit, sortBy, sortOrder } = req.query;
     const ALLOWED_SORT_FIELDS = ["createdAt", "updatedAt", "title"];
-    const rawSortBy = sortBy as string | undefined;
+    const rawSortBy = typeof sortBy === "string" ? sortBy : undefined;
     const options = {
-      page: page ? parseInt(page as string, 10) : 1,
-      limit: Math.min(limit ? parseInt(limit as string, 10) : 10, 100),
+      page: parseInt(String(page)) || 1,
+      limit: Math.min(parseInt(String(limit)) || 10, 100),
       sortBy: rawSortBy && ALLOWED_SORT_FIELDS.includes(rawSortBy) ? rawSortBy : undefined,
-      sortOrder: sortOrder as "asc" | "desc" | undefined,
+      sortOrder: typeof sortOrder === "string" ? (sortOrder as "asc" | "desc") : undefined,
     };
     const posts = await this.queryBus.execute<PaginationResult<PostDTO>>(
       new GetAllPostsAdminQuery(
@@ -174,12 +174,12 @@ export class AdminUserController {
     const { publicId } = req.params;
     const { decodedUser } = req;
 
-    if (!decodedUser || !(decodedUser as any).publicId) {
+    if (!decodedUser || !decodedUser.publicId) {
       throw Errors.authentication("Admin user not found");
     }
 
     await this.commandBus.dispatch(
-      new DeletePostCommand(publicId, (decodedUser as any).publicId),
+      new DeletePostCommand(publicId, decodedUser.publicId),
     );
     res.status(204).send();
   };
@@ -188,12 +188,12 @@ export class AdminUserController {
     const { commentId } = req.params;
     const { decodedUser } = req;
 
-    if (!decodedUser || !(decodedUser as any).publicId) {
+    if (!decodedUser || !decodedUser.publicId) {
       throw Errors.authentication("Admin user not found");
     }
 
     await this.commandBus.dispatch(
-      new DeleteCommentCommand(commentId, (decodedUser as any).publicId),
+      new DeleteCommentCommand(commentId, decodedUser.publicId),
     );
     res.status(204).send();
   };
@@ -216,8 +216,8 @@ export class AdminUserController {
   getRecentActivity = async (req: Request, res: Response) => {
     const { page, limit } = req.query;
     const options = {
-      page: page ? parseInt(page as string, 10) : 1,
-      limit: limit ? parseInt(limit as string, 10) : 10,
+      page: parseInt(String(page)) || 1,
+      limit: parseInt(String(limit)) || 10,
     };
     const query = new GetRecentActivityQuery(options);
     const activity = await this.queryBus.execute(query);
@@ -242,7 +242,7 @@ export class AdminUserController {
   // === CACHE MANAGEMENT ===
   clearCache = async (req: Request, res: Response) => {
     const { pattern } = req.query;
-    const patternToDelete = (pattern as string) || "all_feeds";
+    const patternToDelete = typeof pattern === "string" ? pattern : "all_feeds";
 
     let deletedCount = 0;
 
@@ -273,13 +273,13 @@ export class AdminUserController {
     const { page, limit, userId, statusCode, startDate, endDate, search } =
       req.query;
     const options = {
-      page: page ? parseInt(page as string, 10) : 1,
-      limit: Math.min(limit ? parseInt(limit as string, 10) : 50, 100),
-      userId: userId as string | undefined,
-      statusCode: statusCode ? parseInt(statusCode as string, 10) : undefined,
-      startDate: startDate ? new Date(startDate as string) : undefined,
-      endDate: endDate ? new Date(endDate as string) : undefined,
-      search: search as string | undefined,
+      page: parseInt(String(page)) || 1,
+      limit: Math.min(parseInt(String(limit)) || 50, 100),
+      userId: typeof userId === "string" ? userId : undefined,
+      statusCode: parseInt(String(statusCode)) || undefined,
+      startDate: typeof startDate === "string" ? new Date(startDate) : undefined,
+      endDate: typeof endDate === "string" ? new Date(endDate) : undefined,
+      search: typeof search === "string" ? search : undefined,
     };
     const query = new GetRequestLogsQuery(options);
     const result =

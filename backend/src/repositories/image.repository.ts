@@ -35,7 +35,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			return doc ? doc._id.toString() : null;
 		} catch (error) {
 			console.error(`Error in findInternalIdByPublicId for publicId: ${publicId}`, error);
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -61,7 +61,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			if (isNamedError(error) && error.name === "ValidationError") {
 				throw error;
 			}
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -80,7 +80,7 @@ export class ImageRepository extends BaseRepository<IImage> {
 			const result = await query.exec();
 			logger.info(`result from await query.exec() : ${result} `);
 		} catch (error) {
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 }

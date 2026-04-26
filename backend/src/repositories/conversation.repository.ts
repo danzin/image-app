@@ -165,7 +165,7 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 				totalPages: total > 0 ? Math.ceil(total / limit) : 0,
 			};
 		} catch (error) {
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 
@@ -268,7 +268,7 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 				},
 			];
 
-			const results = await this.model.aggregate(pipeline).exec();
+			const results = await this.model.aggregate<HydratedConversation>(pipeline).exec();
 			const hasMore = results.length > limit;
 			const data = hasMore ? results.slice(0, limit) : results;
 
@@ -283,12 +283,12 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 			}
 
 			return {
-				data: data as HydratedConversation[],
+				data,
 				hasMore,
 				nextCursor,
 			};
 		} catch (error) {
-			throw Errors.database((error as Error).message);
+			throw Errors.database(error instanceof Error ? error.message : String(error));
 		}
 	}
 

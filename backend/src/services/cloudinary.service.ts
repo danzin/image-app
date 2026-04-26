@@ -260,10 +260,6 @@ export class CloudinaryService implements IImageStorageService {
       }));
   }
 
-  /**
-   * Recursively deletes Cloudinary folders.
-   * Folders must be empty of assets before they can be deleted.
-   */
   private async deleteFolderRecursive(folderPath: string): Promise<void> {
     try {
       // Get subfolders of the current folder
@@ -284,8 +280,14 @@ export class CloudinaryService implements IImageStorageService {
     } catch (error: unknown) {
       // If folder doesn't exist (404), that's fine.
       // If it's not empty (e.g. more than 1000 resources or other resource types), it will fail here.
-      const err = error as { http_code?: number };
-      if (err?.http_code !== 404) {
+      let is404 = false;
+      if (typeof error === "object" && error !== null && "http_code" in error) {
+         if ((error as Record<string, unknown>).http_code === 404) {
+           is404 = true;
+         }
+      }
+
+      if (!is404) {
         logger.warn("Cloudinary folder deletion skipped or failed", {
           folder: folderPath,
           error: getErrorMessage(error),

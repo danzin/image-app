@@ -166,7 +166,7 @@ export class Server {
       message: "Too many requests, please try again after 15 minutes",
       standardHeaders: true,
       legacyHeaders: false,
-      keyGenerator: (req) => getClientIp(req as Request),
+      keyGenerator: (req: Request) => getClientIp(req),
       skip: (req) => req.path === "/metrics" || req.path === "/health",
     });
     this.app.use(limiter);
@@ -179,7 +179,7 @@ export class Server {
       next();
     });
 
-    this.app.use(cookieParser() as any); // Parsing cookies
+    this.app.use(cookieParser()); // Parsing cookies
     this.app.use(express.json({ limit: "1mb" })); // Parsing JSON request bodies
     this.app.use(express.urlencoded({ extended: true, limit: "1mb" })); // Handling URL-encoded payloads
 

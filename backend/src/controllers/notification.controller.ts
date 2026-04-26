@@ -24,9 +24,9 @@ export class NotificationController {
     const userPublicId = decodedUser.publicId;
 
     // cursor-based pagination support
-    const beforeStr = req.query.before as string | undefined;
+    const beforeStr = typeof req.query.before === "string" ? req.query.before : undefined;
     const before = beforeStr ? new Date(beforeStr).getTime() : undefined;
-    const limit = parseInt(req.query.limit as string) || 20;
+    const limit = parseInt(String(req.query.limit)) || 20;
 
     // validate pagination params
     if (limit < 1 || limit > 100) {

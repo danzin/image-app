@@ -57,7 +57,7 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
 			}
 
 			const responseTimeMs = Date.now() - startTime;
-			const userId = (req as any).decodedUser?.publicId;
+			const userId = req.decodedUser?.publicId;
 			const userAgent = req.get("user-agent");
 
 			const commandBus = container.resolve<CommandBus>("CommandBus");

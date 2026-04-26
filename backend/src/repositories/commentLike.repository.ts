@@ -22,8 +22,7 @@ export class CommentLikeRepository extends BaseRepository<ICommentLike> {
 			await this.model.create([payload], { session });
 			return true;
 		} catch (error: unknown) {
-			const err = error as Record<string, unknown>;
-			if (err?.code === 11000) {
+			if (typeof error === 'object' && error !== null && 'code' in error && error.code === 11000) {
 				return false;
 			}
 			throw Errors.database((error instanceof Error ? error.message : String(error)) ?? "failed to persist comment like");
