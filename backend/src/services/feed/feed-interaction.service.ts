@@ -69,10 +69,7 @@ export class FeedInteractionService {
       );
     }
 
-    await Promise.all([
-      this.redisService.invalidateFeed(userPublicId, "for_you"),
-      this.redisService.invalidateFeed(userPublicId, "personalized"),
-    ]);
+    await this.redisService.invalidateFeed(userPublicId, "for_you");
 
     const invalidationTags = [CacheKeyBuilder.getUserFeedTag(userPublicId)];
     await this.redisService.invalidateByTags(invalidationTags);

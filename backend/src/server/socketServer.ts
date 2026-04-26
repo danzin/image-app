@@ -9,14 +9,20 @@ import { logger } from "@/utils/winston";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { RedisService } from "@/services/redis.service";
 
-// track users who have a conversation open (userId -> conversationId)
-const activeConversations = new Map<string, string>();
+let ioInstance: SocketIOServer | null = null;
 
-export function isUserViewingConversation(
+export async function isUserViewingConversation(
   userPublicId: string,
   conversationPublicId: string,
-): boolean {
-  return activeConversations.get(userPublicId) === conversationPublicId;
+): Promise<boolean> {
+  if (!ioInstance) {
+    return false;
+  }
+
+  const sockets = await ioInstance.in(userPublicId).fetchSockets();
+  return sockets.some(
+    (socket) => socket.data.activeConversationId === conversationPublicId,
+  );
 }
 
 @injectable()
@@ -52,6 +58,7 @@ export class WebSocketServer {
       path: "/socket.io",
       allowEIO3: true, // Allow older clients if needed
     });
+    ioInstance = this.io;
 
     // Add Redis Adapter for horizontal scaling of Socket.io node processes
     const pubClient = this.redisService.clientInstance;
@@ -92,8 +99,6 @@ export class WebSocketServer {
     this.io.use(async (socket, next) => {
       try {
         const req = socket.request as Request;
-        logger.info("[Socket][Auth] Incoming handshake headers:", req.headers);
-        logger.info("[Socket][Auth] Incoming cookies:", req.cookies);
 
         // Allow token passed via Socket.IO auth payload as fallback
         const handshakeAuth = socket.handshake?.auth;
@@ -112,10 +117,9 @@ export class WebSocketServer {
           }
 
           if (!req.decodedUser) {
-            console.error("Missing decoded user after authentication");
+            logger.error("Missing decoded user after authentication");
             return next(Errors.authentication("Unauthorized"));
           }
-          logger.info("[Socket][Auth] Authenticated user:", req.decodedUser);
 
           // Store user data in socket
           socket.data.user = req.decodedUser;
@@ -171,6 +175,22 @@ export class WebSocketServer {
 
         logger.info(`User join room request received`);
         const trimmedUserId = userId.trim();
+        const authenticatedUserId =
+          socket.data.user?.publicId || socket.data.user?.id;
+
+        if (!authenticatedUserId || trimmedUserId !== authenticatedUserId) {
+          logger.warn("Rejected socket room join for mismatched user", {
+            requestedUserId: trimmedUserId,
+            authenticatedUserId,
+            socketId: socket.id,
+          });
+          socket.emit("join_response", {
+            success: false,
+            error: "Forbidden room join",
+          });
+          return;
+        }
+
         logger.info(`Received a join event with data: ${trimmedUserId}`);
         socket.join(trimmedUserId);
         logger.info(`User ${trimmedUserId} joined their room`);
@@ -187,26 +207,26 @@ export class WebSocketServer {
       socket.on("conversation_opened", (conversationId: string) => {
         const userId = socket.data.user?.publicId;
         if (userId && conversationId) {
-          activeConversations.set(userId, conversationId);
+          socket.data.activeConversationId = conversationId;
           logger.info(`User ${userId} opened conversation ${conversationId}`);
         }
       });
 
       // track when user closes/leaves a conversation
-      socket.on("conversation_closed", () => {
+      socket.on("conversation_closed", (conversationId?: string) => {
         const userId = socket.data.user?.publicId;
-        if (userId) {
-          activeConversations.delete(userId);
-          logger.info(`User ${userId} closed their conversation`);
+        if (
+          userId &&
+          (!conversationId ||
+            socket.data.activeConversationId === conversationId)
+        ) {
+          delete socket.data.activeConversationId;
+          logger.info(`User ${userId} closed conversation ${conversationId ?? ""}`.trim());
         }
       });
 
       socket.on("disconnect", () => {
-        // clean up active conversation tracking on disconnect
-        const userId = socket.data.user?.publicId;
-        if (userId) {
-          activeConversations.delete(userId);
-        }
+        delete socket.data.activeConversationId;
         logger.info("Client disconnected:", socket.id);
       });
     });

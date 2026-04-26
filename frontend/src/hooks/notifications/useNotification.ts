@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from "@tanstack/react-query";
 import { fetchNotifications, markNotificationAsRead } from "../../api/notificationApi";
-import { Notification } from "../../types";
+import { Notification, NotificationPage } from "../../types";
 import { useSocket } from "../context/useSocket";
 import { useAuth } from "../context/useAuth";
 
@@ -11,24 +11,15 @@ export const useNotifications = () => {
 	const { user } = useAuth();
 	const isVerified = user ? !("isEmailVerified" in user) || user.isEmailVerified !== false : false;
 
-	// use infinite query for cursor-based pagination
-	const notificationsQuery = useInfiniteQuery<Notification[]>({
+	const notificationsQuery = useInfiniteQuery<NotificationPage>({
 		queryKey: ["notifications"],
 		queryFn: ({ signal, pageParam }) => {
-			// pageParam is the timestamp cursor for pagination
 			return fetchNotifications(signal, pageParam as string | undefined);
 		},
 		enabled: isVerified,
-		initialPageParam: undefined, // first page has no cursor
+		initialPageParam: undefined,
 		getNextPageParam: (lastPage) => {
-			// only stop when backend returns empty — a partial page is not the end
-			if (!lastPage || lastPage.length === 0) {
-				return undefined;
-			}
-
-			// use the timestamp of the oldest notification as cursor for next page
-			const oldestNotification = lastPage[lastPage.length - 1];
-			return oldestNotification?.timestamp;
+			return lastPage.hasMore ? lastPage.nextCursor : undefined;
 		},
 		staleTime: 5 * 60_000, // 5 minutes
 		gcTime: 10 * 60_000, // 10 minutes
@@ -38,7 +29,7 @@ export const useNotifications = () => {
 	// flatten all pages into single array
 	const notifications = useMemo(() => {
 		if (!notificationsQuery.data) return [];
-		return notificationsQuery.data.pages.flat();
+		return notificationsQuery.data.pages.flatMap((page) => page.data);
 	}, [notificationsQuery.data]);
 
 	const markReadMutation = useMutation({
@@ -46,19 +37,24 @@ export const useNotifications = () => {
 		// Make use of optimistic update
 		onMutate: async (id: string) => {
 			await queryClient.cancelQueries({ queryKey: ["notifications"] });
-			const previous = queryClient.getQueryData<InfiniteData<Notification[]>>(["notifications"]);
+			const previous = queryClient.getQueryData<InfiniteData<NotificationPage>>(["notifications"]);
 
-			queryClient.setQueryData<InfiniteData<Notification[]>>(["notifications"], (old) => {
+			queryClient.setQueryData<InfiniteData<NotificationPage>>(["notifications"], (old) => {
 				if (!old?.pages) return old;
 				return {
 					...old,
-					pages: old.pages.map((page: Notification[]) => page.map((n) => (n.id === id ? { ...n, isRead: true } : n))),
+					pages: old.pages.map((page) => ({
+						...page,
+						data: page.data.map((notification) =>
+							notification.id === id ? { ...notification, isRead: true } : notification,
+						),
+					})),
 				};
 			});
 
 			return { previous };
 		},
-		onError: (_err, _id, context: { previous?: InfiniteData<Notification[]> } | undefined) => {
+		onError: (_err, _id, context: { previous?: InfiniteData<NotificationPage> } | undefined) => {
 			if (context?.previous) {
 				queryClient.setQueryData(["notifications"], context.previous);
 			}
@@ -73,23 +69,30 @@ export const useNotifications = () => {
 		if (!socket || !isVerified) return;
 
 		const handleNew = (notification: Notification) => {
-			console.log("[useNotifications] New notification received:", notification);
-			queryClient.setQueryData<InfiniteData<Notification[]>>(["notifications"], (oldData) => {
+			queryClient.setQueryData<InfiniteData<NotificationPage>>(["notifications"], (oldData) => {
 				if (!oldData) {
 					return {
-						pages: [[notification]],
+						pages: [
+							{
+								data: [notification],
+								hasMore: false,
+							},
+						],
 						pageParams: [undefined],
 					};
 				}
 
-				const exists = oldData.pages.some((page) => page.some((n) => n.id === notification.id));
+				const exists = oldData.pages.some((page) =>
+					page.data.some((existingNotification) => existingNotification.id === notification.id),
+				);
 				if (exists) {
-					console.log("[useNotifications] Notification already exists, skipping");
 					return oldData;
 				}
 				const newPages = [...oldData.pages];
-				// Prepend the new notification to the very first page
-				newPages[0] = [notification, ...newPages[0]];
+				newPages[0] = {
+					...newPages[0],
+					data: [notification, ...newPages[0].data],
+				};
 
 				return {
 					...oldData,
@@ -99,14 +102,16 @@ export const useNotifications = () => {
 		};
 
 		const handleRead = (updatedNotification: Notification) => {
-			console.log("[useNotifications] Notification marked as read:", updatedNotification.id);
-			queryClient.setQueryData<InfiniteData<Notification[]>>(["notifications"], (old) => {
+			queryClient.setQueryData<InfiniteData<NotificationPage>>(["notifications"], (old) => {
 				if (!old?.pages) return old;
 				return {
 					...old,
-					pages: old.pages.map((page: Notification[]) =>
-						page.map((notif) => (notif.id === updatedNotification.id ? updatedNotification : notif)),
-					),
+					pages: old.pages.map((page) => ({
+						...page,
+						data: page.data.map((notification) =>
+							notification.id === updatedNotification.id ? updatedNotification : notification,
+						),
+					})),
 				};
 			});
 		};

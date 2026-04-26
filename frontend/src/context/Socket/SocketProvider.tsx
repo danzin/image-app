@@ -35,7 +35,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     // Connect
     const handleConnect = () => {
-      socket.emit("join", user.publicId);
       setReady(true);
     };
 
@@ -51,14 +50,9 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         socket.connect();
       }
     };
-    const handleNotification = (msg: unknown) => {
-      console.info("New notification (raw listener):", msg);
-    };
-
     socket.on("connect", handleConnect);
     socket.on("connect_error", handleError);
     socket.on("disconnect", handleDisconnect);
-    socket.on("new_notification", handleNotification);
 
     // Store and explicitly connect
     socketRef.current = socket;
@@ -68,7 +62,6 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
       socket.off("connect", handleConnect);
       socket.off("connect_error", handleError);
       socket.off("disconnect", handleDisconnect);
-      socket.off("new_notification", handleNotification);
       socket.disconnect();
     };
   }, [isLoggedIn, user, user?.publicId]);

@@ -6,7 +6,6 @@ import mongoose, {
 } from "mongoose";
 import { IRepository } from "@/types";
 import { handleMongoError } from "@/utils/errors";
-import { logger } from "@/utils/winston";
 import { sessionALS } from "@/database/UnitOfWork";
 
 /**
@@ -70,7 +69,6 @@ export abstract class BaseRepository<
       const query = this.model.findOneAndDelete({ _id: id });
       if (session) query.session(session);
       const result = await query.exec();
-      logger.info(`result from execution of delete: ${result}`);
       return result !== null;
     } catch (error) {
       handleMongoError(error);

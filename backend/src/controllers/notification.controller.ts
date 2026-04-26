@@ -55,11 +55,13 @@ export class NotificationController {
     // Generate next cursor from the oldest notification's timestamp.
     // timestamp may be a Date (MongoDB document) or a string (Redis-cached plain object),
     // so coerce to Date before calling toISOString().
+    const lastTimestamp =
+      notifications.length > 0
+        ? notifications[notifications.length - 1]?.timestamp
+        : undefined;
     const nextCursor =
-      hasMore && notifications.length > 0
-        ? new Date(
-            notifications[notifications.length - 1].timestamp,
-          ).toISOString()
+      hasMore && lastTimestamp !== undefined
+        ? new Date(lastTimestamp).toISOString()
         : undefined;
 
     if (notifications.length >= STREAM_THRESHOLD) {

@@ -10,6 +10,7 @@ import { RedisService } from "./redis.service";
 import { redisLogger, errorLogger, logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 import { SystemActor } from "@/utils/actors/SystemActor";
+import { normalizeNotificationPlain } from "@/utils/notification-plain";
 
 @injectable()
 export class NotificationService {
@@ -30,23 +31,25 @@ export class NotificationService {
     return this.webSocketServer.getIO();
   }
 
+  private toPlainNotification(notification: INotification | NotificationPlain): NotificationPlain {
+    const raw =
+      typeof notification === "object" &&
+      notification !== null &&
+      "toJSON" in notification &&
+      typeof notification.toJSON === "function"
+        ? notification.toJSON()
+        : notification;
+
+    return normalizeNotificationPlain(raw) ?? {};
+  }
+
   private sendNotification(
     io: SocketIOServer,
     userPublicId: string,
-    notification: INotification,
+    notification: INotification | NotificationPlain,
   ) {
     try {
-      // emit a plain JSON object using toJSON for proper serialization
-      const plain: NotificationPlain = notification.toJSON
-        ? notification.toJSON()
-        : { ...notification };
-
-      if (plain._id && !plain.id) {
-        plain.id = String(plain._id);
-      }
-
-      delete plain._id;
-      delete plain.$__;
+      const plain = this.toPlainNotification(notification);
 
       logger.info(`Sending new_notification to user ${userPublicId}:`, {
         notification: plain,
@@ -62,19 +65,10 @@ export class NotificationService {
   private readNotification(
     io: SocketIOServer,
     userPublicId: string,
-    notification: INotification,
+    notification: INotification | NotificationPlain,
   ) {
     try {
-      const plain: NotificationPlain = notification.toJSON
-        ? notification.toJSON()
-        : { ...notification };
-
-      if (plain._id && !plain.id) {
-        plain.id = String(plain._id);
-      }
-
-      delete plain._id;
-      delete plain.$__;
+      const plain = this.toPlainNotification(notification);
 
       logger.info(`Sending notification_read to user ${userPublicId}:`, {
         notification: plain,
@@ -187,7 +181,7 @@ export class NotificationService {
     userId: string,
     limit: number = 20,
     before?: number,
-  ): Promise<INotification[]> {
+  ): Promise<NotificationPlain[]> {
     redisLogger.debug(`getNotifications called`, { userId, before, limit });
 
     try {
@@ -208,7 +202,9 @@ export class NotificationService {
           userId,
           count: dbNotifications.length,
         });
-        return dbNotifications;
+        return dbNotifications.map((notification) =>
+          this.toPlainNotification(notification),
+        );
       }
 
       // initial page load - try Redis cache first
@@ -258,7 +254,9 @@ export class NotificationService {
           });
       }
 
-      return allRecentNotifications.slice(0, limit);
+      return allRecentNotifications
+        .slice(0, limit)
+        .map((notification) => this.toPlainNotification(notification));
     } catch (error) {
       errorLogger.error(`getNotifications error`, {
         userId,
@@ -312,15 +310,7 @@ export class NotificationService {
    */
   async getUnreadCount(userPublicId: string): Promise<number> {
     try {
-      // try Redis first for fast count
-      const count =
-        await this.redisService.getUnreadNotificationCount(userPublicId);
-      if (count >= 0) {
-        return count;
-      }
-
-      // fallback to DB if Redis fails
-      return await this.notificationRepository.getUnreadCount(userPublicId);
+      return await this.redisService.getUnreadNotificationCount(userPublicId);
     } catch (error) {
       // fallback to DB on error
       logger.warn(
