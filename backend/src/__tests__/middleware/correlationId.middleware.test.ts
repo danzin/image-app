@@ -48,4 +48,31 @@ describe("correlationIdMiddleware", () => {
       done();
     });
   });
+
+  it("rejects unsafe client-provided identifiers before they reach request metadata", (done) => {
+    const req = {
+      get: sinon.stub().callsFake((header: string) => {
+        const headers: Record<string, string> = {
+          "x-request-id": "Bearer secret-token",
+          "x-client-request-id": "password=hunter2",
+          "x-client-boot-id": "x".repeat(129),
+          "x-previous-client-request-id": "contains space",
+          "x-caused-by-client-request-id": "safe-causation-id",
+          "x-axios-retry": "banana",
+        };
+        return headers[header];
+      }),
+    } as any;
+    const res = { setHeader: sinon.stub() } as any;
+
+    correlationIdMiddleware(req, res, () => {
+      expect(req.correlationId).to.match(uuidPattern);
+      expect(req.clientRequestId).to.be.undefined;
+      expect(req.clientBootId).to.be.undefined;
+      expect(req.previousClientRequestId).to.be.undefined;
+      expect(req.causedByClientRequestId).to.equal("safe-causation-id");
+      expect(req.axiosRetry).to.be.undefined;
+      done();
+    });
+  });
 });

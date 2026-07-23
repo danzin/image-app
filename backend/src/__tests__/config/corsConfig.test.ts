@@ -1,17 +1,26 @@
 import { expect } from "chai";
-import { isAllowedOrigin } from "@/config/corsConfig";
+import sinon from "sinon";
+import { buildCorsOptions, isAllowedOrigin } from "@/config/corsConfig";
+import { logger } from "@/utils/winston";
+
+function restoreEnvironmentVariable(
+  key: string,
+  previousValue: string | undefined,
+): void {
+  if (previousValue === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = previousValue;
+  }
+}
 
 describe("origin policy", () => {
   const originalNodeEnv = process.env.NODE_ENV;
   const originalAllowedOrigins = process.env.ALLOWED_ORIGINS;
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-    if (originalAllowedOrigins === undefined) {
-      delete process.env.ALLOWED_ORIGINS;
-    } else {
-      process.env.ALLOWED_ORIGINS = originalAllowedOrigins;
-    }
+    restoreEnvironmentVariable("NODE_ENV", originalNodeEnv);
+    restoreEnvironmentVariable("ALLOWED_ORIGINS", originalAllowedOrigins);
   });
 
   it("accepts only the exact canonical configured origin", () => {
@@ -43,5 +52,22 @@ describe("origin policy", () => {
     delete process.env.ALLOWED_ORIGINS;
 
     expect(isAllowedOrigin("http://localhost:5173")).to.equal(true);
+  });
+
+  it("logs blocked origins as a stable event without the raw header value", () => {
+    const warn = sinon.stub(logger, "warn");
+    const corsOptions = buildCorsOptions();
+
+    try {
+      (corsOptions.origin as Function)("https://attacker.example", sinon.stub());
+      expect(
+        warn.calledOnceWithExactly({
+          message: "CORS origin blocked",
+          event: "cors.origin.blocked",
+        }),
+      ).to.equal(true);
+    } finally {
+      warn.restore();
+    }
   });
 });

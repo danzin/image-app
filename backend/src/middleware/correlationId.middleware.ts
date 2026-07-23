@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextFunction, Request, Response } from "express";
 import { runWithRequestContext } from "@/runtime/request-context";
 
-const MAX_CORRELATION_ID_LENGTH = 128;
+const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
 const CLIENT_REQUEST_ID_HEADER = "x-client-request-id";
 const CLIENT_BOOT_ID_HEADER = "x-client-boot-id";
@@ -25,7 +25,7 @@ declare module "express-serve-static-core" {
 
 function normalizeHeaderValue(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
-  if (!trimmed || trimmed.length > MAX_CORRELATION_ID_LENGTH) {
+  if (!trimmed || !SAFE_REQUEST_ID_PATTERN.test(trimmed)) {
     return undefined;
   }
   return trimmed;
@@ -68,11 +68,18 @@ function resolveClientRequestAttempt(req: Request): number | undefined {
 
 function resolveAxiosRetry(req: Request): boolean | undefined {
   const raw = normalizeHeaderValue(req.get(AXIOS_RETRY_HEADER) ?? undefined);
-  if (!raw) {
+  if (raw === undefined) {
     return undefined;
   }
 
-  return raw.toLowerCase() === "true";
+  switch (raw.toLowerCase()) {
+    case "true":
+      return true;
+    case "false":
+      return false;
+    default:
+      return undefined;
+  }
 }
 
 function resolvePreviousClientRequestId(req: Request): string | undefined {

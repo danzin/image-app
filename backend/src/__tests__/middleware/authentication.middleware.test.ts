@@ -9,6 +9,7 @@ import {
 import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
 import { asSessionId, asUserPublicId } from "@/types/branded";
 import type { DecodedUser } from "@/types";
+import { logger } from "@/utils/winston";
 
 describe("AuthenticationMiddleware", () => {
   function buildUnverifiedRequest() {
@@ -74,5 +75,33 @@ describe("AuthenticationMiddleware", () => {
       message: "Email verification required",
       statusCode: 403,
     });
+  });
+
+  it("does not warn when optional authentication has no token", async () => {
+    const strategy = {
+      authenticate: sinon.stub().rejects(new Error("Missing token")),
+    } as unknown as AuthStrategy;
+    const middleware = new AuthenticationMiddleware(
+      strategy,
+      {} as IUserReadRepository,
+      null,
+    );
+    const request = {
+      method: "GET",
+      originalUrl: "/api/posts",
+      baseUrl: "/api",
+      path: "/posts",
+      headers: {},
+    } as Request;
+    const next = sinon.stub();
+    const warn = sinon.stub(logger, "warn");
+
+    try {
+      await middleware.handleOptional()(request, {} as Response, next);
+      expect(next.calledOnceWithExactly()).to.equal(true);
+      expect(warn.called).to.equal(false);
+    } finally {
+      warn.restore();
+    }
   });
 });

@@ -77,7 +77,10 @@ export function buildCorsOptions(): CorsOptions {
         return callback(null, true);
       }
 
-      logger.warn(`[Backend CORS] Blocked origin: ${origin}`);
+      logger.warn({
+        message: "CORS origin blocked",
+        event: "cors.origin.blocked",
+      });
       return callback(
         new Error("Request from this origin is blocked by CORS policy"),
       );
@@ -97,7 +100,7 @@ export function buildCorsOptions(): CorsOptions {
       "X-Previous-Client-Request-ID",
       "X-Caused-By-Client-Request-ID",
     ],
-    exposedHeaders: ["Set-Cookie", "X-Request-ID"],
+    exposedHeaders: ["Set-Cookie", "X-Request-ID", "X-Error-ID"],
     maxAge: 86400,
   };
 }

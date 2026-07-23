@@ -1,4 +1,6 @@
 import express from "express";
+import { randomUUID } from "node:crypto";
+import { serializeError } from "./error-serialization";
 import { errorLogger } from "./winston";
 
 /**
@@ -400,61 +402,98 @@ export class ErrorHandler {
       err instanceof AppError
         ? err
         : createError("UnknownError", getErrorMessage(err), { cause: err });
+    const statusCode = appError.statusCode || 500;
+    const errorId = randomUUID();
+    const serializedError = serializeError(appError);
+    const matchedRoutePath = req.route?.path;
+    const matchedRoute =
+      typeof matchedRoutePath === "string"
+        ? `${req.baseUrl}${matchedRoutePath}`
+        : undefined;
+    const normalizedRoute = matchedRoute ?? "<unmatched>";
+    const exposeInternalDetails = process.env.NODE_ENV === "development";
 
     // Track metrics if callback is registered
     if (ErrorHandler.metricsCallback) {
       try {
         ErrorHandler.metricsCallback({
           errorType: appError.name,
-          statusCode: appError.statusCode || 500,
-          endpoint: req.path,
+          statusCode,
+          endpoint: normalizedRoute,
         });
       } catch (metricsError) {
         // Don't let metrics errors break error handling
-        errorLogger.error("Failed to track error metrics", {
+        errorLogger.error({
+          message: "Failed to track error metrics",
           event: "metrics.error_tracking.failed",
-          error: metricsError,
+          errorId,
+          correlationId: req.correlationId,
+          error: serializeError(metricsError),
         });
       }
     }
 
     const response: Record<string, unknown> = {
       type: appError.name,
-      message: appError.message,
-      code: appError.statusCode || 500,
+      message:
+        statusCode >= 500 && !exposeInternalDetails
+          ? "Internal server error"
+          : appError.message,
+      code: statusCode,
+      errorId,
       ...(appError.errorCode && { errorCode: appError.errorCode }),
     };
 
-    if (process.env.NODE_ENV !== "production") {
-      if (appError.context) response.context = appError.context;
-      response.stack = appError.stack;
-      if (appError.cause instanceof Error) {
-        // Expose DB layer stacktrace locally
-        response.cause = {
-          message: appError.cause.message,
-          stack: appError.cause.stack,
-        };
-      }
+    if (exposeInternalDetails) {
+      if (serializedError.context) response.context = serializedError.context;
+      if (serializedError.stack) response.stack = serializedError.stack;
+      if (serializedError.cause) response.cause = serializedError.cause;
+      if (serializedError.errors) response.errors = serializedError.errors;
     }
 
-    errorLogger.error({
-      event: "http.request.error",
-      type: appError.name,
-      message: appError.message,
-      statusCode: appError.statusCode || 500,
-      errorCode: appError.errorCode,
-      context: appError.context,
-      stack: appError.stack,
-      cause: appError.cause,
-      correlationId: req.correlationId,
-      method: req.method,
-      route: req.originalUrl.split("?")[0],
-      ip: req.ip,
-      userAgent: req.get("user-agent"),
-      userId: req.decodedUser?.publicId,
-    });
+    if (statusCode >= 500) {
+      const requestStartTime = (req as express.Request & {
+        _startTime?: number;
+      })._startTime;
+      const durationMs =
+        typeof requestStartTime === "number"
+          ? Math.max(0, Date.now() - requestStartTime)
+          : undefined;
 
-    res.status(appError.statusCode || 500).json({ error: response });
+      errorLogger.error({
+        message: "HTTP request failed",
+        event: "http.request.error",
+        errorId,
+        correlationId: req.correlationId,
+        method: req.method,
+        route: normalizedRoute,
+        matchedRoute,
+        statusCode,
+        durationMs,
+        userId: req.decodedUser?.publicId,
+        ...(req.clientRequestId && { clientRequestId: req.clientRequestId }),
+        ...(req.clientBootId && { clientBootId: req.clientBootId }),
+        ...(req.clientRequestAttempt !== undefined && {
+          clientRequestAttempt: req.clientRequestAttempt,
+        }),
+        ...(req.axiosRetry !== undefined && { axiosRetry: req.axiosRetry }),
+        ...(req.previousClientRequestId && {
+          previousClientRequestId: req.previousClientRequestId,
+        }),
+        ...(req.causedByClientRequestId && {
+          causedByClientRequestId: req.causedByClientRequestId,
+        }),
+        env: process.env.NODE_ENV || "development",
+        ...((process.env.RELEASE || process.env.GIT_SHA) && {
+          release: process.env.RELEASE || process.env.GIT_SHA,
+        }),
+        service: process.env.SERVICE_NAME || "ascendance-backend",
+        error: serializedError,
+      });
+    }
+
+    res.setHeader("X-Error-ID", errorId);
+    res.status(statusCode).json({ error: response });
   }
 }
 

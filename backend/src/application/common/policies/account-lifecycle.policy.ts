@@ -5,8 +5,7 @@ export const DELETED_ACCOUNT_COMMENT = "This user no-longer exists";
 export const BANNED_ACCOUNT_COMMENT =
   "User got binned. Can't view comment, comment binned too.";
 
-export const UNAVAILABLE_MESSAGE_SENDER =
-  "User is taking a hike. Don't expect a reply soon";
+export const UNAVAILABLE_MESSAGE_SENDER = "User is taking a hike.";
 
 export const DEFAULT_ACCOUNT_AVATAR =
   "https://res.cloudinary.com/dfyqaqnj7/image/upload/v1737562142/defaultAvatar_evsmmj.jpg";
