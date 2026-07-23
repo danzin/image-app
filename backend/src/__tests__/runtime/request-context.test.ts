@@ -85,4 +85,67 @@ describe("request context", () => {
       expect(breadcrumbs?.[0]?.data).not.to.have.property("infinity");
     });
   });
+
+  it("normalizes breadcrumb keys and redacts sensitive keys and values", () => {
+    runWithRequestContext({ correlationId: "request-123" }, () => {
+      addRequestContextBreadcrumb("request.marker", {
+        APIKey: "blocked",
+        "request.body": "blocked",
+        passwordHash: "blocked",
+        authToken: "blocked",
+        tokenFamilyId: "blocked",
+        userPublicId: "blocked",
+        [`${"x".repeat(64)}_password`]: "blocked",
+        bodyAttempt: 1,
+        body: "blocked",
+        maxBodyAttempts: 3,
+        commitAttempt: 2,
+        maxCommitAttempts: 4,
+        subscription: true,
+        shipping: "standard",
+        description: "safe",
+      });
+
+      expect(getRequestContext()?.breadcrumbs[0]?.data).to.deep.equal({
+        body_attempt: 1,
+        max_body_attempts: 3,
+        commit_attempt: 2,
+        max_commit_attempts: 4,
+        subscription: true,
+        shipping: "standard",
+        description: "safe",
+      });
+
+      addRequestContextBreadcrumb("request.marker", {
+        operation: "password=hunter2",
+        reason: "Authorization: Bearer token",
+        ordinary: "safe value",
+      });
+
+      expect(getRequestContext()?.breadcrumbs[1]?.data).to.deep.equal({
+        operation: "[REDACTED_CREDENTIAL]",
+        reason: "[REDACTED_AUTHORIZATION]",
+        ordinary: "safe value",
+      });
+    });
+  });
+
+  it("isolates breadcrumbs across concurrent contexts", async () => {
+    const contexts = await Promise.all(
+      ["first", "second"].map((correlationId) =>
+        runWithRequestContext({ correlationId }, async () => {
+          await Promise.resolve();
+          addRequestContextBreadcrumb("request.concurrent", { correlationId });
+          return getRequestContext();
+        }),
+      ),
+    );
+
+    expect(contexts[0]?.breadcrumbs[0]?.data).to.deep.equal({
+      correlation_id: "first",
+    });
+    expect(contexts[1]?.breadcrumbs[0]?.data).to.deep.equal({
+      correlation_id: "second",
+    });
+  });
 });

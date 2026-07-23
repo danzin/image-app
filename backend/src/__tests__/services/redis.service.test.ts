@@ -10,6 +10,10 @@ import { RedisPubSubModule } from "@/services/redis/redis-pubsub.module";
 import { RedisResilienceModule } from "@/services/redis/redis-resilience.module";
 import { RedisTaggedCacheModule } from "@/services/redis/redis-tagged-cache.module";
 import { EventRegistry } from "@/application/common/events/event-registry";
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
 
 describe("RedisService", () => {
 	let redisService: RedisService;
@@ -112,12 +116,19 @@ describe("RedisService", () => {
 		it("should return fallback value on failure if provided", async () => {
 			const operation = sinon.stub().rejects(new Error("Fatal"));
 
-			const result = await redisService.withResilience(operation, {
-				maxAttempts: 1,
-				fallbackValue: "fallback",
-			});
+			await runWithRequestContext({ correlationId: "redis-123" }, async () => {
+				const result = await redisService.withResilience(operation, {
+					maxAttempts: 1,
+					operation: "cache.read",
+					fallbackValue: "fallback",
+				});
 
-			expect(result).to.equal("fallback");
+				expect(result).to.equal("fallback");
+				expect(getRequestContext()?.breadcrumbs.map(({ event }) => event)).to.deep.equal([
+					"redis.operation.failed",
+					"redis.operation.fallback",
+				]);
+			});
 		});
 
 		it("should run at least once when maxAttempts is zero", async () => {

@@ -6,6 +6,7 @@ import mongoose, {
 } from "mongoose";
 import { IRepository } from "@/types";
 import { handleMongoError } from "@/utils/errors";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 import { sessionALS } from "@/database/UnitOfWork";
 import { MongoId } from "@/types/branded";
 
@@ -34,6 +35,7 @@ export abstract class BaseRepository<
       const doc = new this.model(item);
       return await doc.save({ session });
     } catch (error) {
+      this.recordFailure("create");
       handleMongoError(error);
     }
   }
@@ -55,6 +57,7 @@ export abstract class BaseRepository<
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
+      this.recordFailure("update");
       handleMongoError(error);
     }
   }
@@ -72,6 +75,7 @@ export abstract class BaseRepository<
       const result = await query.exec();
       return result !== null;
     } catch (error) {
+      this.recordFailure("delete");
       handleMongoError(error);
     }
   }
@@ -94,6 +98,7 @@ export abstract class BaseRepository<
       }
       return await query.exec();
     } catch (error) {
+      this.recordFailure("findById");
       handleMongoError(error);
     }
   }
@@ -110,6 +115,7 @@ export abstract class BaseRepository<
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
+      this.recordFailure("findOneAndUpdate");
       handleMongoError(error);
     }
   }
@@ -126,7 +132,15 @@ export abstract class BaseRepository<
       if (session) query.session(session);
       return await query.exec();
     } catch (error) {
+      this.recordFailure("countDocuments");
       handleMongoError(error);
     }
+  }
+
+  private recordFailure(operation: string): void {
+    addRequestContextBreadcrumb("mongodb.repository.failed", {
+      operation,
+      repository: this.model.modelName,
+    });
   }
 }

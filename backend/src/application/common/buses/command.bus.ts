@@ -2,6 +2,7 @@ import { injectable } from "tsyringe";
 import { ICommandHandler } from "../interfaces/command-handler.interface";
 import { ICommand } from "../interfaces/command.interface";
 import { Errors } from "@/utils/errors";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 
 type CommandClass<TCommand extends ICommand> = {
   new (...args: any[]): TCommand;
@@ -59,13 +60,26 @@ export class CommandBus {
    */
   async dispatch<TResult>(command: ICommand): Promise<TResult>{
     const handler = this.handlers.get(command.type) as ICommandHandler<ICommand, TResult> | undefined; 
+    addRequestContextBreadcrumb("cqrs.command.dispatch", {
+      operation: command.type,
+    });
     
 
     if(!handler){
       throw Errors.internal(`No handler found for command ${command.type}`);
     }
 
-    return handler.execute(command);
+    addRequestContextBreadcrumb("cqrs.command.handler.enter", {
+      operation: command.type,
+    });
+    try {
+      return await handler.execute(command);
+    } catch (error) {
+      addRequestContextBreadcrumb("cqrs.command.handler.failed", {
+        operation: command.type,
+      });
+      throw error;
+    }
   }
 
 }

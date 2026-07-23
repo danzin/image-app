@@ -2,6 +2,7 @@ import express from "express";
 import { randomUUID } from "node:crypto";
 import { serializeError } from "./error-serialization";
 import { errorLogger } from "./winston";
+import { getRequestContext } from "@/runtime/request-context";
 
 /**
  * Standard error codes for machine-readable error identification.
@@ -459,6 +460,7 @@ export class ErrorHandler {
         typeof requestStartTime === "number"
           ? Math.max(0, Date.now() - requestStartTime)
           : undefined;
+      const breadcrumbs = getRequestContext()?.breadcrumbs;
 
       errorLogger.error({
         message: "HTTP request failed",
@@ -488,6 +490,9 @@ export class ErrorHandler {
           release: process.env.RELEASE || process.env.GIT_SHA,
         }),
         service: process.env.SERVICE_NAME || "ascendance-backend",
+        ...(breadcrumbs?.length
+          ? { breadcrumbs: [...breadcrumbs] }
+          : {}),
         error: serializedError,
       });
     }

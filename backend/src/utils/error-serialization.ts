@@ -109,7 +109,7 @@ function safeObjectTag(value: object): string {
   }
 }
 
-function redactSensitiveText(value: string): string {
+export function redactSensitiveText(value: string): string {
   return value
     .replace(CONNECTION_STRING_PATTERN, "$1[REDACTED]@")
     .replace(AUTHORIZATION_HEADER_PATTERN, "[REDACTED_AUTHORIZATION]")

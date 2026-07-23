@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { redactSensitiveText } from "@/utils/error-serialization";
 
 export type RequestContextBreadcrumbValue = string | number | boolean;
 
@@ -41,8 +42,79 @@ const MAX_BREADCRUMB_DATA_ENTRIES = 8;
 const MAX_BREADCRUMB_EVENT_LENGTH = 128;
 const MAX_BREADCRUMB_KEY_LENGTH = 64;
 const MAX_BREADCRUMB_STRING_LENGTH = 512;
-const SENSITIVE_BREADCRUMB_KEY_PATTERN =
-  /password|passphrase|token|secret|authorization|cookie|api[-_]?key|jwt|email|username|handle|user[-_]?id|ip|origin|referrer|useragent|session|refresh|body|query|document/i;
+const SENSITIVE_BREADCRUMB_KEYS = new Set([
+  "access_token",
+  "api_key",
+  "authorization",
+  "body",
+  "client_ip",
+  "cause",
+  "cookie",
+  "document",
+  "email",
+  "error_message",
+  "filter",
+  "handle",
+  "ip",
+  "ip_address",
+  "jwt",
+  "origin",
+  "password",
+  "password_hash",
+  "passphrase",
+  "payload",
+  "pipeline",
+  "query",
+  "raw_body",
+  "referrer",
+  "refresh_token",
+  "request_body",
+  "response_body",
+  "session_id",
+  "source_ip",
+  "stack",
+  "secret",
+  "token",
+  "token_family_id",
+  "update",
+  "user_agent",
+  "user_id",
+  "user_public_id",
+  "username",
+]);
+
+const ERROR_BREADCRUMB_SNAPSHOT = Symbol("errorBreadcrumbSnapshot");
+
+type ErrorWithBreadcrumbSnapshot = Error & {
+  [ERROR_BREADCRUMB_SNAPSHOT]?: readonly ReadonlyRequestContextBreadcrumb[];
+};
+
+export function attachErrorBreadcrumbSnapshot<T extends Error>(
+  error: T,
+  breadcrumbs: readonly ReadonlyRequestContextBreadcrumb[],
+): T {
+  const snapshot = Object.freeze(
+    breadcrumbs.map((breadcrumb) =>
+      Object.freeze({
+        ...breadcrumb,
+        ...(breadcrumb.data
+          ? { data: Object.freeze({ ...breadcrumb.data }) }
+          : {}),
+      }),
+    ),
+  );
+  Object.defineProperty(error, ERROR_BREADCRUMB_SNAPSHOT, {
+    value: snapshot,
+  });
+  return error;
+}
+
+export function getErrorBreadcrumbSnapshot(
+  error: unknown,
+): readonly ReadonlyRequestContextBreadcrumb[] | undefined {
+  if (!(error instanceof Error)) return undefined;
+  return (error as ErrorWithBreadcrumbSnapshot)[ERROR_BREADCRUMB_SNAPSHOT];
+}
 
 const requestContextALS = new AsyncLocalStorage<RequestContext>();
 
@@ -161,13 +233,17 @@ function sanitizeBreadcrumbData(
       break;
     }
 
-    const key = rawKey.trim().slice(0, MAX_BREADCRUMB_KEY_LENGTH);
-    if (!key || SENSITIVE_BREADCRUMB_KEY_PATTERN.test(key)) {
+    const normalizedKey = normalizeBreadcrumbKey(rawKey);
+    if (!normalizedKey || isSensitiveBreadcrumbKey(normalizedKey)) {
       continue;
     }
+    const key = normalizedKey.slice(0, MAX_BREADCRUMB_KEY_LENGTH);
 
     if (typeof rawValue === "string") {
-      sanitized[key] = rawValue.slice(0, MAX_BREADCRUMB_STRING_LENGTH);
+      sanitized[key] = redactSensitiveText(rawValue).slice(
+        0,
+        MAX_BREADCRUMB_STRING_LENGTH,
+      );
     } else if (typeof rawValue === "number" && Number.isFinite(rawValue)) {
       sanitized[key] = rawValue;
     } else if (typeof rawValue === "boolean") {
@@ -180,4 +256,33 @@ function sanitizeBreadcrumbData(
   }
 
   return accepted > 0 ? sanitized : undefined;
+}
+
+function normalizeBreadcrumbKey(rawKey: string): string {
+  return rawKey
+    .trim()
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .toLowerCase();
+}
+
+function isSensitiveBreadcrumbKey(key: string): boolean {
+  for (const sensitiveKey of SENSITIVE_BREADCRUMB_KEYS) {
+    if (key === sensitiveKey) {
+      return true;
+    }
+
+    if (
+      sensitiveKey !== "body" &&
+      (key.startsWith(`${sensitiveKey}_`) ||
+        key.endsWith(`_${sensitiveKey}`))
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }

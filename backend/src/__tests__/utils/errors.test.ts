@@ -9,6 +9,7 @@ import { correlationIdMiddleware } from "@/middleware/correlationId.middleware";
 import { buildCorsOptions } from "@/config/corsConfig";
 import { AppError, ErrorHandler, ErrorCode } from "@/utils/errors";
 import { errorLogger } from "@/utils/winston";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 
 function restoreEnvironmentVariable(
   key: string,
@@ -30,7 +31,10 @@ describe("ErrorHandler", () => {
       req.decodedUser = { publicId: "user-public-123" } as never;
       next();
     });
-    app.get("/widgets/:widgetId", (_req, _res, next) => next(error));
+    app.get("/widgets/:widgetId", (_req, _res, next) => {
+      addRequestContextBreadcrumb("http.handler.failed", { operation: "widget.read" });
+      next(error);
+    });
     app.use(ErrorHandler.handleError);
     return app;
   }
@@ -97,6 +101,12 @@ describe("ErrorHandler", () => {
         release: "release-123",
       });
       expect(record.durationMs).to.be.a("number");
+      expect(record.breadcrumbs).to.be.an("array");
+      expect(
+        (record.breadcrumbs as Array<{ event: string; data?: { operation?: string } }>).find(
+          ({ event }) => event === "http.handler.failed",
+        )?.data?.operation,
+      ).to.equal("widget.read");
       expect(JSON.stringify(record)).not.to.include("secret");
       expect(record).not.to.have.property("ip");
       expect(record).not.to.have.property("userAgent");

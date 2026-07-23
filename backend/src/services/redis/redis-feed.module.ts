@@ -1,6 +1,7 @@
 import { RedisClientType } from "redis";
 import { CacheKeyBuilder, RedisFeedType } from "@/utils/cache/CacheKeyBuilder";
 import { redisLogger } from "@/utils/winston";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 import {
   decodeFeedCursor,
   encodeFeedCursor,
@@ -98,11 +99,16 @@ export class RedisFeedModule {
         count: result.length,
       });
       return result;
-    } catch (error) {
-      redisLogger.error("getFeedPage failed", {
-        userId,
+    } catch {
+      addRequestContextBreadcrumb("redis.feed.page.fallback", {
+        operation: "getFeedPage",
         feedType,
-        error: error instanceof Error ? error.message : String(error),
+        page,
+      });
+      redisLogger.warn("Redis feed page fallback", {
+        event: "redis.feed.page.fallback",
+        feedType,
+        page,
       });
       return [];
     }

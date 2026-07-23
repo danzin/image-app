@@ -9,7 +9,11 @@ import { IEvent } from "@/application/common/interfaces/event.interface";
 import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { sessionALS } from "@/database/UnitOfWork";
 import { ClientSession } from "mongoose";
-import { runWithRequestContext } from "@/runtime/request-context";
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
+import { logger } from "@/utils/winston";
 
 class TestEvent implements IEvent {
   readonly type = "TestEvent";
@@ -129,6 +133,7 @@ describe("Transactional Outbox Pattern", () => {
   describe("OutboxWorker.processOutbox", () => {
     it("should process unprocessed events and mark them as processed", async () => {
       const handler = new TestEventHandler();
+      const infoLogger = sandbox.stub(logger, "info");
       const handleSpy = sandbox.stub(handler, "handle").resolves();
       eventBus.subscribe(TestEvent, handler);
 
@@ -207,10 +212,20 @@ describe("Transactional Outbox Pattern", () => {
       expect(metricsService.setOutboxPendingCount.secondCall.args[0]).to.equal(
         0,
       );
+      const [, terminalRecord] = infoLogger.lastCall.args as unknown as [
+        string,
+        {
+          event: string;
+        },
+      ];
+      expect(terminalRecord.event).to.equal("outbox.event.processed");
+      expect(terminalRecord).not.to.have.property("breadcrumbs");
     });
 
     it("should mark event as failed if handler throws an error", async () => {
       const handler = new TestEventHandler();
+      const errorLogger = sandbox.stub(logger, "error");
+      let breadcrumbsAtMark: string[] | undefined;
       const handleSpy = sandbox
         .stub(handler, "handle")
         .rejects(new Error("Handler failed"));
@@ -229,7 +244,12 @@ describe("Transactional Outbox Pattern", () => {
       outboxRepository.countPendingEvents.onFirstCall().resolves(1);
       outboxRepository.countPendingEvents.onSecondCall().resolves(1);
       outboxRepository.claimPendingEvents.resolves(mockEvents as any);
-      outboxRepository.markAsFailed.resolves(true);
+      outboxRepository.markAsFailed.callsFake(async () => {
+        breadcrumbsAtMark = getRequestContext()?.breadcrumbs.map(
+          ({ event }) => event,
+        );
+        return true;
+      });
 
       await (outboxWorker as any).tick();
 
@@ -248,10 +268,163 @@ describe("Transactional Outbox Pattern", () => {
       expect(metricsService.recordOutboxAttempt.firstCall.args[1]).to.equal(
         "failed",
       );
+      expect(breadcrumbsAtMark).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+      ]);
+      sinon.assert.calledOnce(errorLogger);
+      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
+        string,
+        {
+          breadcrumbs: Array<{ event: string; offsetMs?: number }>;
+        },
+      ];
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+        "worker.outbox.retry.scheduled",
+      ]);
+      expect(
+        terminalRecord.breadcrumbs.every(
+          ({ offsetMs }) => typeof offsetMs === "number",
+        ),
+      ).to.equal(true);
+      expect(terminalRecord).not.to.have.property("message");
       sandbox.assert.callOrder(
         metricsService.recordOutboxAttempt as any,
         outboxRepository.markAsFailed as any,
       );
+    });
+
+    it("records processing.failed for checkpoint ownership failures", async () => {
+      const handler = new TestEventHandler();
+      const errorLogger = sandbox.stub(logger, "error");
+      sandbox.stub(handler, "handle").resolves();
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.onFirstCall().resolves(1);
+      outboxRepository.countPendingEvents.onSecondCall().resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markHandlerProcessed.resolves(false);
+      outboxRepository.markAsFailed.resolves(true);
+
+      await (outboxWorker as any).tick();
+
+      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
+        string,
+        { breadcrumbs: Array<{ event: string }> },
+      ];
+      expect(terminalRecord.breadcrumbs.map(({ event }) => event)).to.include(
+        "worker.outbox.processing.failed",
+      );
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).not.to.include("worker.outbox.handler.failed");
+    });
+
+    it("does not schedule a retry after ownership changes", async () => {
+      const handler = new TestEventHandler();
+      const errorLogger = sandbox.stub(logger, "error");
+      const warningLogger = sandbox.stub(logger, "warn");
+      sandbox.stub(handler, "handle").rejects(new Error("Handler failed"));
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.onFirstCall().resolves(1);
+      outboxRepository.countPendingEvents.onSecondCall().resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markAsFailed.resolves(false);
+
+      await (outboxWorker as any).tick();
+
+      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
+        string,
+        { breadcrumbs: Array<{ event: string }> },
+      ];
+      const warningRecord = (
+        warningLogger.firstCall.args as unknown as [string, { event: string }]
+      )[1];
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).not.to.include("worker.outbox.retry.scheduled");
+      expect(warningRecord).to.deep.include({
+        event: "outbox.event.ownership_lost",
+      });
+    });
+
+    it("markAsFailed throwing preserves both primary and secondary errors", async () => {
+      const handler = new TestEventHandler();
+      const primaryFailure = new Error("Handler failed");
+      const markAsFailedFailure = new Error("markAsFailed failed");
+      const errorLogger = sandbox.stub(logger, "error");
+      sandbox.stub(handler, "handle").rejects(primaryFailure);
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markAsFailed.rejects(markAsFailedFailure);
+
+      await (outboxWorker as any).executeTick();
+
+      sinon.assert.calledOnce(errorLogger);
+      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
+        string,
+        {
+          event: string;
+          error: AggregateError;
+          breadcrumbs: Array<{ event: string; offsetMs?: number }>;
+        },
+      ];
+      expect(terminalRecord.event).to.equal("worker.polling.tick.failed");
+      expect(terminalRecord.error).to.be.instanceOf(AggregateError);
+      const aggregate = terminalRecord.error;
+      expect(aggregate.errors).to.deep.equal([
+        primaryFailure,
+        markAsFailedFailure,
+      ]);
+      expect((aggregate as Error).cause).to.equal(primaryFailure);
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+        "worker.polling.tick.failed",
+      ]);
+      expect(terminalRecord.breadcrumbs.every(({ offsetMs }) => typeof offsetMs === "number")).to.equal(true);
     });
 
     it("should continue processing later events when an earlier event fails", async () => {
@@ -294,13 +467,10 @@ describe("Transactional Outbox Pattern", () => {
 
       expect(handleSpy.calledTwice).to.be.true;
       expect(
-        outboxRepository.markAsFailed.calledOnceWith(
-          "event1",
-          "first failed",
-        ),
+        outboxRepository.markAsFailed.calledOnceWith("event1", "first failed"),
       ).to.be.true;
-      expect(outboxRepository.markAsProcessed.calledOnceWith("event2"))
-        .to.be.true;
+      expect(outboxRepository.markAsProcessed.calledOnceWith("event2")).to.be
+        .true;
     });
 
     it("should resume from the first unprocessed handler on retry", async () => {
@@ -342,8 +512,8 @@ describe("Transactional Outbox Pattern", () => {
           sinon.match.string,
         ),
       ).to.be.true;
-      expect(outboxRepository.markAsProcessed.calledOnceWith("event1"))
-        .to.be.true;
+      expect(outboxRepository.markAsProcessed.calledOnceWith("event1")).to.be
+        .true;
     });
   });
 });
