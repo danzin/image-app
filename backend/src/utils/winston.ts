@@ -1,36 +1,11 @@
 import winston from "winston";
 import os from "node:os";
 import { getCorrelationId, getRequestContext } from "@/runtime/request-context";
+import { serializeError } from "./error-serialization";
 
 const SENSITIVE_KEY_PATTERN =
   /password|passphrase|token|secret|authorization|cookie|api[-_]?key|jwt/i;
 const MAX_REDACTION_DEPTH = 4;
-
-function serializeError(
-  error: Error,
-  seen = new WeakSet<object>(),
-): Record<string, unknown> {
-  if (seen.has(error)) {
-    return { message: "[CircularError]" };
-  }
-  seen.add(error);
-
-  const serialized: Record<string, unknown> = {
-    name: error.name,
-    message: error.message,
-    stack: error.stack,
-  };
-
-  if ("code" in error) {
-    serialized.code = (error as { code?: unknown }).code;
-  }
-
-  if (error.cause !== undefined) {
-    serialized.cause = sanitizeValue(error.cause, 1, seen);
-  }
-
-  return serialized;
-}
 
 function sanitizeValue(
   value: unknown,
@@ -38,7 +13,7 @@ function sanitizeValue(
   seen = new WeakSet<object>(),
 ): unknown {
   if (value instanceof Error) {
-    return serializeError(value, seen);
+    return serializeError(value);
   }
 
   if (depth >= MAX_REDACTION_DEPTH) {
