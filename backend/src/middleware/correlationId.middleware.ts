@@ -10,6 +10,7 @@ const CLIENT_REQUEST_ATTEMPT_HEADER = "x-client-request-attempt";
 const AXIOS_RETRY_HEADER = "x-axios-retry";
 const PREVIOUS_CLIENT_REQUEST_ID_HEADER = "x-previous-client-request-id";
 const CAUSED_BY_CLIENT_REQUEST_ID_HEADER = "x-caused-by-client-request-id";
+const MAX_REQUEST_PATH_LENGTH = 2_048;
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -94,6 +95,10 @@ function resolveCausedByClientRequestId(req: Request): string | undefined {
   );
 }
 
+function normalizeRequestPath(path: string): string {
+  return path.slice(0, MAX_REQUEST_PATH_LENGTH);
+}
+
 export function correlationIdMiddleware(
   req: Request,
   res: Response,
@@ -116,7 +121,19 @@ export function correlationIdMiddleware(
   req.causedByClientRequestId = causedByClientRequestId;
   res.setHeader("X-Request-ID", correlationId);
 
-  runWithRequestContext({ correlationId, clientRequestId, clientBootId }, () => {
-    next();
-  });
+  runWithRequestContext(
+    {
+      correlationId,
+      requestStartTime: process.hrtime.bigint(),
+      method: req.method,
+      requestPath: normalizeRequestPath(req.path),
+      clientRequestId,
+      clientBootId,
+      previousClientRequestId,
+      causedByClientRequestId,
+    },
+    () => {
+      next();
+    },
+  );
 }

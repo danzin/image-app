@@ -6,7 +6,9 @@ import {
   AuthenticationMiddleware,
   AuthStrategy,
 } from "@/middleware/authentication.middleware";
+import { correlationIdMiddleware } from "@/middleware/correlationId.middleware";
 import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import { getRequestContext } from "@/runtime/request-context";
 import { asSessionId, asUserPublicId } from "@/types/branded";
 import type { DecodedUser } from "@/types";
 import { logger } from "@/utils/winston";
@@ -63,6 +65,43 @@ describe("AuthenticationMiddleware", () => {
     expect(next.calledOnceWithExactly()).to.equal(true);
     expect(request.decodedUser).to.equal(decodedUser);
     expect(request.decodedUser?.isEmailVerified).to.equal(false);
+  });
+
+  it("enriches context through correlation, authentication, and awaited route work", async () => {
+    const { decodedUser, middleware, request } = buildUnverifiedRequest();
+    (request as Request & { get: (header: string) => string | undefined }).get =
+      sinon.stub().callsFake((header: string) =>
+        header === "x-request-id" ? "request-abc" : undefined,
+      );
+    const response = { setHeader: sinon.stub() } as unknown as Response;
+
+    await new Promise<void>((resolve, reject) => {
+      correlationIdMiddleware(request, response, () => {
+        void middleware.handle({ allowUnverified: true })(
+          request,
+          response,
+          (error?: unknown) => {
+            if (error) {
+              reject(error);
+              return;
+            }
+
+            void (async () => {
+              try {
+                await Promise.resolve();
+                expect(getRequestContext()).to.deep.include({
+                  correlationId: "request-abc",
+                  userId: decodedUser.publicId,
+                });
+                resolve();
+              } catch (assertionError) {
+                reject(assertionError);
+              }
+            })();
+          },
+        );
+      });
+    });
   });
 
   it("continues to reject unverified users on ordinary protected routes", async () => {
