@@ -49,4 +49,4 @@ USER nodejs
 EXPOSE 3000
 
 # The command must now point to the correct path within the container
-CMD ["node", "backend/dist/main.js"]
+CMD ["node", "--enable-source-maps", "backend/dist/main.js"]

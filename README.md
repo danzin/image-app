@@ -223,9 +223,25 @@ npm run build:frontend
 
 - Hybrid JWT + Redis session model with refresh-token rotation.
 - Rate limiting, secure cookies, and hardened proxy headers.
+- Production builds keep `.js.map` files inside `backend/dist` beside their
+  corresponding JavaScript files; production Node processes use
+  `--enable-source-maps`.
 - Input sanitization and validation layers on the backend.
 - Health endpoints and metrics endpoints for runtime checks.
 - Correlation ID propagation through requests, logs, and async outbox work.
+
+### Production Error Metadata
+
+Set these environment variables for production backend and worker processes:
+
+- `SERVICE_NAME`: Compose sets `backend` for the API and `backend-worker` for
+  the worker.
+- `GIT_SHA`: immutable deployed commit SHA. Terminal error logs expose it as
+  `release`; `RELEASE` may be used as an explicit override.
+- `NODE_ENV=production`: selects the production logging contract.
+
+Set `GIT_SHA` in the deployment environment before starting the stack; the
+Compose fallback is `unknown`.
 
 ## Repository Structure
 

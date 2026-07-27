@@ -4,7 +4,7 @@ import {
   addRequestContextBreadcrumb,
   getRequestContext,
 } from "@/runtime/request-context";
-import { logger } from "@/utils/winston";
+import { errorLogger } from "@/utils/winston";
 import { BasePollingWorker } from "@/workers/base/BasePollingWorker";
 
 class FailingWorker extends BasePollingWorker {
@@ -29,20 +29,24 @@ describe("BasePollingWorker", () => {
   afterEach(() => sinon.restore());
 
   it("emits one terminal log with ordered, timed breadcrumbs", async () => {
-    const error = sinon.stub(logger, "error");
+    const error = sinon.stub(errorLogger, "error");
     const worker = new FailingWorker();
 
     await worker.executeForTest();
 
     sinon.assert.calledOnce(error);
-    const [, record] = error.firstCall.args as unknown as [
-      string,
+    const [record] = error.firstCall.args as unknown as [
       {
       event: string;
+      operationId: string;
+      errorId: string;
       breadcrumbs: Array<{ event: string; offsetMs?: number }>;
       },
     ];
     expect(record.event).to.equal("worker.polling.tick.failed");
+    expect(record.operationId).to.be.a("string").and.not.be.empty;
+    expect(record.errorId).to.be.a("string").and.not.be.empty;
+    expect(record).not.to.have.property("attempt");
     expect(worker.requestStartTime).to.be.a("bigint");
     expect(record.breadcrumbs.map(({ event }) => event)).to.deep.equal([
       "worker.polling.tick.entered",

@@ -2,6 +2,7 @@ import { injectable, inject } from "tsyringe";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { RedisService } from "./redis.service";
 import { logger } from "@/utils/winston";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 import { TOKENS } from "@/types/tokens";
 import { RedisClientType } from "redis";
 
@@ -136,9 +137,14 @@ export class TransactionQueueService {
       await this.blockingClient.connect();
       
       // We don't await processLoop because we want it to run in the background
-      this.processLoop().catch(err => {
-        logger.error("[TransactionQueue] Process loop crashed", { error: err instanceof Error ? err.message : String(err) });
+      void this.processLoop().catch((error) => {
         this.isProcessing = false;
+        logNonHttpTerminalError(error, {
+          message: "Transaction queue process loop crashed",
+          event: "background.transaction_queue.process_loop.crashed",
+          worker: "TransactionQueueService",
+          operation: "process_loop",
+        });
       });
     } catch (error) {
       logger.error("[TransactionQueue] Failed to start blocking client", { error: error instanceof Error ? error.message : String(error) });
@@ -198,19 +204,27 @@ export class TransactionQueueService {
         try {
           await this.unitOfWork.executeInTransaction(() => handler(job.payload));
           this.metrics.totalProcessed++;
-        } catch {
+        } catch (error) {
           if (job.attempts < job.maxAttempts) {
             logger.warn(`[TransactionQueue] Retrying job ${job.id}`, { attempt: job.attempts });
             // re-queue (use rPush as we BRPOP from the right)
             await this.redisService.clientInstance.rPush(queueName, JSON.stringify(job));
           } else {
             this.metrics.totalFailed++;
-            logger.error(`[TransactionQueue] Job ${job.id} failed after ${job.attempts} attempts`);
+            logNonHttpTerminalError(error, {
+              message: "Transaction queue job failed",
+              event: "background.transaction_queue.job.failed",
+              worker: "TransactionQueueService",
+              operation: "job_handler",
+              messageType: job.jobName,
+              messageId: job.id,
+              attempt: job.attempts,
+            });
           }
         }
       } catch (error) {
         if (!this.isProcessing) break;
-        logger.error("[TransactionQueue] Error in processing loop", { error: error instanceof Error ? error.message : String(error) });
+        logger.warn("[TransactionQueue] Error in processing loop", { error: error instanceof Error ? error.message : String(error) });
         await new Promise(res => setTimeout(res, 1000));
       }
     }

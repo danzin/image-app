@@ -13,7 +13,7 @@ import {
   getRequestContext,
   runWithRequestContext,
 } from "@/runtime/request-context";
-import { logger } from "@/utils/winston";
+import { errorLogger, logger } from "@/utils/winston";
 
 class TestEvent implements IEvent {
   readonly type = "TestEvent";
@@ -224,7 +224,7 @@ describe("Transactional Outbox Pattern", () => {
 
     it("should mark event as failed if handler throws an error", async () => {
       const handler = new TestEventHandler();
-      const errorLogger = sandbox.stub(logger, "error");
+      const terminalLogger = sandbox.stub(errorLogger, "error");
       let breadcrumbsAtMark: string[] | undefined;
       const handleSpy = sandbox
         .stub(handler, "handle")
@@ -274,9 +274,8 @@ describe("Transactional Outbox Pattern", () => {
         "worker.outbox.handler.failed",
         "worker.outbox.retry.requested",
       ]);
-      sinon.assert.calledOnce(errorLogger);
-      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
-        string,
+      sinon.assert.calledOnce(terminalLogger);
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
         {
           breadcrumbs: Array<{ event: string; offsetMs?: number }>;
         },
@@ -295,7 +294,7 @@ describe("Transactional Outbox Pattern", () => {
           ({ offsetMs }) => typeof offsetMs === "number",
         ),
       ).to.equal(true);
-      expect(terminalRecord).not.to.have.property("message");
+      expect(terminalRecord).to.have.property("message", "Outbox event failed");
       sandbox.assert.callOrder(
         metricsService.recordOutboxAttempt as any,
         outboxRepository.markAsFailed as any,
@@ -304,7 +303,7 @@ describe("Transactional Outbox Pattern", () => {
 
     it("records processing.failed for checkpoint ownership failures", async () => {
       const handler = new TestEventHandler();
-      const errorLogger = sandbox.stub(logger, "error");
+      const terminalLogger = sandbox.stub(errorLogger, "error");
       sandbox.stub(handler, "handle").resolves();
       eventBus.subscribe(TestEvent, handler);
 
@@ -325,8 +324,7 @@ describe("Transactional Outbox Pattern", () => {
 
       await (outboxWorker as any).tick();
 
-      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
-        string,
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
         { breadcrumbs: Array<{ event: string }> },
       ];
       expect(terminalRecord.breadcrumbs.map(({ event }) => event)).to.include(
@@ -339,7 +337,7 @@ describe("Transactional Outbox Pattern", () => {
 
     it("does not schedule a retry after ownership changes", async () => {
       const handler = new TestEventHandler();
-      const errorLogger = sandbox.stub(logger, "error");
+      const terminalLogger = sandbox.stub(errorLogger, "error");
       const warningLogger = sandbox.stub(logger, "warn");
       sandbox.stub(handler, "handle").rejects(new Error("Handler failed"));
       eventBus.subscribe(TestEvent, handler);
@@ -360,8 +358,7 @@ describe("Transactional Outbox Pattern", () => {
 
       await (outboxWorker as any).tick();
 
-      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
-        string,
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
         { breadcrumbs: Array<{ event: string }> },
       ];
       const warningRecord = (
@@ -379,7 +376,7 @@ describe("Transactional Outbox Pattern", () => {
       const handler = new TestEventHandler();
       const primaryFailure = new Error("Handler failed");
       const markAsFailedFailure = new Error("markAsFailed failed");
-      const errorLogger = sandbox.stub(logger, "error");
+      const terminalLogger = sandbox.stub(errorLogger, "error");
       sandbox.stub(handler, "handle").rejects(primaryFailure);
       eventBus.subscribe(TestEvent, handler);
 
@@ -398,23 +395,26 @@ describe("Transactional Outbox Pattern", () => {
 
       await (outboxWorker as any).executeTick();
 
-      sinon.assert.calledOnce(errorLogger);
-      const [, terminalRecord] = errorLogger.firstCall.args as unknown as [
-        string,
+      sinon.assert.calledOnce(terminalLogger);
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
         {
           event: string;
-          error: AggregateError;
+          error: {
+            name: string;
+            message: string;
+            errors?: Array<{ message: string }>;
+            cause?: { message: string };
+          };
           breadcrumbs: Array<{ event: string; offsetMs?: number }>;
         },
       ];
       expect(terminalRecord.event).to.equal("worker.polling.tick.failed");
-      expect(terminalRecord.error).to.be.instanceOf(AggregateError);
-      const aggregate = terminalRecord.error;
-      expect(aggregate.errors).to.deep.equal([
-        primaryFailure,
-        markAsFailedFailure,
+      expect(terminalRecord.error.name).to.equal("AggregateError");
+      expect(terminalRecord.error.errors?.map(({ message }) => message)).to.deep.equal([
+        "Handler failed",
+        "markAsFailed failed",
       ]);
-      expect((aggregate as Error).cause).to.equal(primaryFailure);
+      expect(terminalRecord.error.cause?.message).to.equal("Handler failed");
       expect(
         terminalRecord.breadcrumbs.map(({ event }) => event),
       ).to.deep.equal([

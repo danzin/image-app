@@ -94,6 +94,7 @@ jobs:
             test -s frontend/nginx.conf
 
             export COMPOSE_PROFILES=monitoring
+            export GIT_SHA="$DEPLOY_SHA"
 
             # Validate the committed file with the same profiles used below.
             compose -f docker-compose-prod.yml config --quiet

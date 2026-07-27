@@ -1,10 +1,9 @@
 import { logger } from "@/utils/winston";
 import {
   addRequestContextBreadcrumb,
-  getErrorBreadcrumbSnapshot,
-  getRequestContext,
   runWithRequestContext,
 } from "@/runtime/request-context";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 import { randomUUID } from "node:crypto";
 import type { IWorker } from "./IWorker";
 
@@ -72,9 +71,10 @@ export abstract class BasePollingWorker implements IWorker {
   }
 
   private async executeTick(): Promise<void> {
+    const operationId = randomUUID();
     await runWithRequestContext(
       {
-        correlationId: randomUUID(),
+        correlationId: operationId,
         requestStartTime: process.hrtime.bigint(),
       },
       async () => {
@@ -84,14 +84,12 @@ export abstract class BasePollingWorker implements IWorker {
           addRequestContextBreadcrumb("worker.polling.tick.failed", {
             worker: this.workerName,
           });
-          logger.error("Polling worker tick failed", {
+          logNonHttpTerminalError(error, {
+            message: "Polling worker tick failed",
             event: "worker.polling.tick.failed",
+            operation: "worker.polling.tick",
+            operationId,
             worker: this.workerName,
-            error,
-            breadcrumbs: [
-              ...(getErrorBreadcrumbSnapshot(error) ?? []),
-              ...(getRequestContext()?.breadcrumbs ?? []),
-            ],
           });
         }
       },

@@ -5,6 +5,7 @@ import { TransactionQueueService } from "@/services/transaction-queue.service";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import { RedisService } from "@/services/redis.service";
 import { ClientSession } from "mongoose";
+import { errorLogger } from "@/utils/winston";
 
 describe("TransactionQueueService", () => {
 	let transactionQueueService: TransactionQueueService;
@@ -151,6 +152,26 @@ describe("TransactionQueueService", () => {
 			expect(redisClientStub.lLen.callCount).to.equal(4); // once for each priority
 			expect(metrics.queueSizes.critical).to.equal(5);
 			expect(metrics.queueSizes.low).to.equal(5);
+		});
+	});
+
+	describe("process loop terminal boundary", () => {
+		it("owns an unexpected process loop rejection exactly once", async () => {
+			const logError = sinon.stub(errorLogger, "error");
+			(transactionQueueService as any).processLoop = sinon
+				.stub()
+				.rejects(new Error("process loop crashed"));
+
+			await transactionQueueService.startProcessing();
+			await new Promise((resolve) => setImmediate(resolve));
+
+			expect((transactionQueueService as any).isProcessing).to.equal(false);
+			sinon.assert.calledOnce(logError);
+			expect(logError.firstCall.args[0]).to.include({
+				event: "background.transaction_queue.process_loop.crashed",
+				worker: "TransactionQueueService",
+				operation: "process_loop",
+			});
 		});
 	});
 });

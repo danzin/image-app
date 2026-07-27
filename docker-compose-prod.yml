@@ -33,23 +33,26 @@ services:
     container_name: backend
     restart: always
     logging: *default-logging
-    environment: &backend-environment
-      ENABLE_WORKERS: "false"
-      NODE_ENV: production
-      MONGODB_URI: ${MONGODB_URI}
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
-      JWT_SECRET: ${JWT_SECRET}
-      ALLOWED_ORIGINS: https://${DOMAIN_NAME},https://www.${DOMAIN_NAME}
-      COOKIE_SECURE: "true"
-      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
-      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
-      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      SECURITY_AUDIT_MONGO_TTL_DAYS: ${SECURITY_AUDIT_MONGO_TTL_DAYS:-90}
-      AUDIT_LOG_DIR: /app/audit/logs
-      AUDIT_ARCHIVE_DIR: /app/audit/archives
-      AUDIT_ARCHIVE_ENCRYPTION_KEY_BASE64: ${AUDIT_ARCHIVE_ENCRYPTION_KEY_BASE64:-}
-      AUDIT_ARCHIVE_DELETE_SOURCE: ${AUDIT_ARCHIVE_DELETE_SOURCE:-true}
+    environment:
+      <<: &backend-environment
+        ENABLE_WORKERS: "false"
+        NODE_ENV: production
+        GIT_SHA: ${GIT_SHA:-unknown}
+        MONGODB_URI: ${MONGODB_URI}
+        REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+        JWT_SECRET: ${JWT_SECRET}
+        ALLOWED_ORIGINS: https://${DOMAIN_NAME},https://www.${DOMAIN_NAME}
+        COOKIE_SECURE: "true"
+        CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME}
+        CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
+        CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
+        RESEND_API_KEY: ${RESEND_API_KEY}
+        SECURITY_AUDIT_MONGO_TTL_DAYS: ${SECURITY_AUDIT_MONGO_TTL_DAYS:-90}
+        AUDIT_LOG_DIR: /app/audit/logs
+        AUDIT_ARCHIVE_DIR: /app/audit/archives
+        AUDIT_ARCHIVE_ENCRYPTION_KEY_BASE64: ${AUDIT_ARCHIVE_ENCRYPTION_KEY_BASE64:-}
+        AUDIT_ARCHIVE_DELETE_SOURCE: ${AUDIT_ARCHIVE_DELETE_SOURCE:-true}
+      SERVICE_NAME: backend
 
     depends_on:
       redis:
@@ -211,6 +214,72 @@ services:
 
     mem_limit: 256m
 
+  loki:
+    image: grafana/loki:3.7.4
+    container_name: loki
+    restart: always
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+
+    ports:
+      - "127.0.0.1:3100:3100"
+
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+
+    networks:
+      - app-network
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3100/ready",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    mem_limit: 358m
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    container_name: alloy
+    restart: always
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+
+    ports:
+      - "127.0.0.1:12345:12345"
+
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - app-network
+
+    depends_on:
+      loki:
+        condition: service_healthy
+
+    mem_limit: 128m
+
   grafana:
     image: grafana/grafana:11.1.0
     container_name: grafana
@@ -227,6 +296,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
     networks:
       - app-network
@@ -234,6 +304,8 @@ services:
     depends_on:
       prometheus:
         condition: service_started
+      loki:
+        condition: service_healthy
 
     mem_limit: 256m
 
@@ -276,3 +348,5 @@ volumes:
   caddy_config:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alloy_data:

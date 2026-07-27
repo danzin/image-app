@@ -5,6 +5,7 @@ import { OutboxRepository } from "@/repositories/outbox.repository";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { MetricsService } from "@/metrics/metrics.service";
 import { logger } from "@/utils/winston";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 import { BasePollingWorker } from "@/workers/base/BasePollingWorker";
 import {
   addRequestContextBreadcrumb,
@@ -155,13 +156,15 @@ export class OutboxWorker extends BasePollingWorker {
                 retryAttempt: record.retries + 1,
               });
             }
-            logger.error("Outbox event failed", {
+            logNonHttpTerminalError(error, {
+              message: "Outbox event failed",
               event: "outbox.event.failed",
+              operation: "worker.outbox.handle_message",
+              operationId: correlationId,
               worker: "OutboxWorker",
-              error,
-              eventId,
-              eventType: record.eventType,
-              retries: record.retries,
+              messageType: record.eventType,
+              messageId: eventId,
+              attempt: record.retries + 1,
               traceId,
               correlationId,
               durationMs: Date.now() - attemptStartedAt,
