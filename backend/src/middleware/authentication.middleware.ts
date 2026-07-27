@@ -44,15 +44,17 @@ export abstract class AuthStrategy {
   abstract authenticate(req: Request): Promise<DecodedUser>;
 }
 
-function isExpectedJwtVerificationError(error: unknown): boolean {
+function isExpectedJwtVerificationError(
+  error: unknown,
+): error is jwt.JsonWebTokenError {
   return error instanceof jwt.JsonWebTokenError;
 }
 
 function hasPresentedAccessToken(req: Request): boolean {
   return Boolean(
     req.cookies?.[authCookieNames.accessToken] ||
-      req.cookies?.[authCookieNames.legacyToken] ||
-      req.headers.authorization?.startsWith("Bearer "),
+    req.cookies?.[authCookieNames.legacyToken] ||
+    req.headers.authorization?.startsWith("Bearer "),
   );
 }
 
