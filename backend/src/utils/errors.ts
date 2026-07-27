@@ -193,10 +193,33 @@ class UnauthorizedError extends AppError {
   }
 }
 
-class AuthenticationError extends AppError {
+export class AuthenticationError extends AppError {
   constructor(message: string, options?: ErrorOptions) {
     super("AuthenticationError", message, 401, options);
   }
+}
+
+export class AuthenticationForbiddenError extends AppError {
+  constructor(message: string, options?: ErrorOptions) {
+    super("ForbiddenError", message, 403, options);
+  }
+}
+
+export function isAuthenticationError(
+  error: unknown,
+): error is AuthenticationError {
+  return error instanceof AuthenticationError;
+}
+
+export function isAuthenticationDomainError(error: unknown): boolean {
+  return (
+    error instanceof AuthenticationError ||
+    error instanceof AuthenticationForbiddenError
+  );
+}
+
+export function shouldSuppressInternalResponseDetails(error: AppError): boolean {
+  return error.statusCode === 401 || error instanceof AuthenticationForbiddenError;
 }
 
 class PathError extends AppError {
@@ -445,7 +468,10 @@ export class ErrorHandler {
       ...(appError.errorCode && { errorCode: appError.errorCode }),
     };
 
-    if (exposeInternalDetails) {
+    if (
+      exposeInternalDetails &&
+      !shouldSuppressInternalResponseDetails(appError)
+    ) {
       if (serializedError.context) response.context = serializedError.context;
       if (serializedError.stack) response.stack = serializedError.stack;
       if (serializedError.cause) response.cause = serializedError.cause;
@@ -535,9 +561,18 @@ export const Errors = {
   authentication: (
     message: string = "Authentication required",
     options?: ErrorOptions,
-  ): AppError =>
-    createError("AuthenticationError", message, {
+  ): AuthenticationError =>
+    new AuthenticationError(message, {
       errorCode: ErrorCode.UNAUTHORIZED,
+      ...options,
+    }),
+
+  authenticationForbidden: (
+    message: string = "Access forbidden",
+    options?: ErrorOptions,
+  ): AuthenticationForbiddenError =>
+    new AuthenticationForbiddenError(message, {
+      errorCode: ErrorCode.FORBIDDEN,
       ...options,
     }),
 

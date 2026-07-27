@@ -2,12 +2,13 @@ import { expect } from "chai";
 import express from "express";
 import { describe, it } from "mocha";
 import { Writable } from "node:stream";
+import jwt from "jsonwebtoken";
 import request from "supertest";
 import sinon from "sinon";
 import winston from "winston";
 import { correlationIdMiddleware } from "@/middleware/correlationId.middleware";
 import { buildCorsOptions } from "@/config/corsConfig";
-import { AppError, ErrorHandler, ErrorCode } from "@/utils/errors";
+import { AppError, ErrorHandler, ErrorCode, Errors } from "@/utils/errors";
 import { errorLogger } from "@/utils/winston";
 import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 
@@ -182,6 +183,79 @@ describe("ErrorHandler", () => {
       expect(response.body.error.cause).to.include({ name: "Error" });
       expect(JSON.stringify(response.body.error)).not.to.include("secret");
       expect(JSON.stringify(response.body.error)).not.to.include("not exposed");
+    } finally {
+      restoreEnvironmentVariable("NODE_ENV", previousNodeEnv);
+    }
+  });
+
+  it("never exposes authentication causes or debug details in development", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const jwtCause = new jwt.JsonWebTokenError("invalid signature");
+    const authenticationError = Errors.authentication("Invalid token", {
+      errorCode: ErrorCode.TOKEN_INVALID,
+      cause: jwtCause,
+    });
+
+    try {
+      const response = await request(buildApp(authenticationError))
+        .get("/widgets/widget-123")
+        .expect(401);
+
+      expect(authenticationError.cause).to.equal(jwtCause);
+      expect(response.body.error).to.include({
+        type: "AuthenticationError",
+        message: "Invalid token",
+        code: 401,
+        errorCode: ErrorCode.TOKEN_INVALID,
+      });
+      expect(response.body.error).not.to.have.any.keys("stack", "cause", "errors");
+      expect(JSON.stringify(response.body.error)).not.to.include("JsonWebTokenError");
+      expect(JSON.stringify(response.body.error)).not.to.include("invalid signature");
+    } finally {
+      restoreEnvironmentVariable("NODE_ENV", previousNodeEnv);
+    }
+  });
+
+  it("never exposes unauthorized or authentication-forbidden debug details in development", async () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+    const cases = [
+      {
+        error: Errors.unauthorized("Unauthorized access", {
+          cause: new Error("unauthorized verification detail"),
+        }),
+        statusCode: 401,
+        type: "UnauthorizedError",
+        detail: "unauthorized verification detail",
+      },
+      {
+        error: Errors.authenticationForbidden("Account banned", {
+          cause: new Error("ban verification detail"),
+        }),
+        statusCode: 403,
+        type: "ForbiddenError",
+        detail: "ban verification detail",
+      },
+    ];
+
+    try {
+      for (const testCase of cases) {
+        const response = await request(buildApp(testCase.error))
+          .get("/widgets/widget-123")
+          .expect(testCase.statusCode);
+
+        expect(response.body.error).to.include({ type: testCase.type });
+        expect(response.body.error).not.to.have.any.keys(
+          "context",
+          "stack",
+          "cause",
+          "errors",
+        );
+        expect(JSON.stringify(response.body.error)).not.to.include(
+          testCase.detail,
+        );
+      }
     } finally {
       restoreEnvironmentVariable("NODE_ENV", previousNodeEnv);
     }

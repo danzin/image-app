@@ -82,6 +82,35 @@ loki.process "container_logs" {
     }
   }
 
+  stage.match {
+    selector = "{service_name=\"loki\"}"
+
+    stage.drop {
+      expression          = "^level=info .* caller=metrics\\.go:(285|457) .* status=200"
+      drop_counter_reason = "loki_successful_query_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=(engine\\.go:274|roundtrip\\.go:412) .* msg=\"executing query\""
+      drop_counter_reason = "loki_query_execution_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=table_manager\\.go:195 .* msg=\"get or create table\""
+      drop_counter_reason = "loki_table_manager_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=recalculate_owned_streams\\.go:(49|52) .* msg=\"(starting|completed) recalculate owned streams job\""
+      drop_counter_reason = "loki_stream_recalculation_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=marker\\.go:206 .* msg=\"no marks file found\""
+      drop_counter_reason = "loki_retention_marker_noise"
+    }
+  }
+
   stage.json {
     drop_malformed = false
 
