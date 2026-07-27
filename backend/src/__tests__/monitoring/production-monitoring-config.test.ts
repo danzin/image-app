@@ -11,7 +11,9 @@ function readRepositoryFile(relativePath: string): string {
 
 function serviceBlock(compose: string, serviceName: string): string {
   const match = compose.match(
-    new RegExp(`\\n  ${serviceName}:\\n([\\s\\S]*?)(?=\\n  [a-z0-9-]+:\\n|\\nnetworks:)`),
+    new RegExp(
+      `\\r?\\n  ${serviceName}:\\r?\\n([\\s\\S]*?)(?=\\r?\\n  [a-z0-9-]+:\\r?\\n|\\r?\\nnetworks:)`,
+    ),
   );
 
   expect(match, `${serviceName} service is missing`).to.not.equal(null);
@@ -24,18 +26,17 @@ describe("production monitoring configuration", () => {
     const loki = serviceBlock(compose, "loki");
     const alloy = serviceBlock(compose, "alloy");
 
-    expect(loki).to.include('image: grafana/loki:3.7.4');
+    expect(loki).to.include("image: grafana/loki:3.7.4");
     expect(loki).to.include('profiles: ["monitoring"]');
-    expect(loki).to.include('"-target=all"');
     expect(loki).to.include("loki_data:/loki");
-    expect(loki).to.not.include("ports:");
+    expect(loki).to.include('127.0.0.1:3100:3100');
 
-    expect(alloy).to.include('image: grafana/alloy:v1.18.0');
+    expect(alloy).to.include("image: grafana/alloy:v1.18.0");
     expect(alloy).to.include('profiles: ["monitoring"]');
     expect(alloy).to.include("/var/run/docker.sock:/var/run/docker.sock:ro");
     expect(alloy).to.include("alloy_data:/var/lib/alloy/data");
     expect(alloy).to.include("--storage.path=/var/lib/alloy/data");
-    expect(alloy).to.not.include("ports:");
+    expect(alloy).to.include('127.0.0.1:12345:12345');
 
     expect(compose).to.include("loki_data:");
     expect(compose).to.include("alloy_data:");
@@ -48,7 +49,7 @@ describe("production monitoring configuration", () => {
     expect(config).to.include("store: tsdb");
     expect(config).to.include("object_store: filesystem");
     expect(config).to.include("schema: v13");
-    expect(config).to.include("retention_period: 168h");
+    expect(config).to.include("retention_period: 336h");
     expect(config).to.include("retention_enabled: true");
     expect(config).to.include("delete_request_store: filesystem");
   });
@@ -67,14 +68,25 @@ describe("production monitoring configuration", () => {
     }
 
     expect(config).to.include("loki.source.docker");
-    expect(config).to.include('name   = "label"');
-    expect(config).to.include(
-      '"com.docker.compose.project=ascendance-social"',
+    expect(config).to.include("stage.labels");
+
+    expect(config).to.match(
+      /rule\s*\{[\s\S]*?"__meta_docker_container_label_com_docker_compose_project"[\s\S]*?regex\s*=\s*"ascendance-social"[\s\S]*?action\s*=\s*"keep"[\s\S]*?\}/,
     );
-    expect(config).to.include("relabel_rules = discovery.relabel.docker_logs.rules");
+
+    expect(config).to.match(
+      /targets\s*=\s*discovery\.relabel\.containers\.output/,
+    );
     expect(config).to.not.include("stage.output");
 
-    for (const field of ["correlationId", "errorId", "userId", "requestId", "resourceId"]) {
+    expect(config).to.match(/correlation_id\s*=\s*"correlationId"/);
+    expect(config).to.match(/error_id\s*=\s*"errorId"/);
+
+    for (const field of [
+      "userId",
+      "requestId",
+      "resourceId",
+    ]) {
       expect(config).to.not.include(field);
     }
   });

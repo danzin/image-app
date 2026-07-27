@@ -78,9 +78,9 @@ describe("Winston log contract format", () => {
     });
 
     expect(result.message).to.equal("root failure");
-    expect((result.error as { cause?: { message?: string } }).cause?.message).to.equal(
-      "inner failure",
-    );
+    expect(
+      (result.error as { cause?: { message?: string } }).cause?.message,
+    ).to.equal("inner failure");
   });
 
   it("replaces a throwing root-message getter with a safe message", () => {
@@ -166,9 +166,7 @@ describe("Winston log contract format", () => {
 
     let value: unknown = result.metadata;
     for (let index = 0; index < MAX_LOG_METADATA_DEPTH; index += 1) {
-      value = (value as Record<string, unknown>)[
-        ["a", "b", "c", "d"][index]
-      ];
+      value = (value as Record<string, unknown>)[["a", "b", "c", "d"][index]];
     }
     expect(value).to.equal("[MaxDepth]");
   });
@@ -316,16 +314,17 @@ describe("Winston log contract format", () => {
   });
 
   it("does not retain a non-writable top-level sensitive value", () => {
-    const info = Object.defineProperty(
-      { level: "info", message: "request completed" },
-      "password",
-      {
-        configurable: false,
-        enumerable: true,
-        value: "top-level-secret",
-        writable: false,
-      },
-    );
+    const info: TestLogInfo = {
+      level: "info",
+      message: "request completed",
+    };
+
+    Object.defineProperty(info, "password", {
+      configurable: false,
+      enumerable: true,
+      value: "top-level-secret",
+      writable: false,
+    });
     const result = transform(info);
 
     expect(result.password).to.equal("[REDACTED]");
@@ -334,16 +333,17 @@ describe("Winston log contract format", () => {
 
   it("does not retain a non-writable top-level huge value", () => {
     const hugeValue = "x".repeat(1_000_000);
-    const info = Object.defineProperty(
-      { level: "info", message: "request completed" },
-      "details",
-      {
-        configurable: false,
-        enumerable: true,
-        value: hugeValue,
-        writable: false,
-      },
-    );
+    const info: TestLogInfo = {
+      level: "info",
+      message: "request completed",
+    };
+
+    Object.defineProperty(info, "details", {
+      configurable: false,
+      enumerable: true,
+      value: hugeValue,
+      writable: false,
+    });
     const result = transform(info);
 
     expect(result.details).to.be.a("string");
@@ -420,7 +420,8 @@ describe("Winston log contract format", () => {
     const result = transform(info);
 
     expect(result.details).to.equal("accessor value");
-    expect(Object.getOwnPropertyDescriptor(info, "details")?.set).to.be.undefined;
+    expect(Object.getOwnPropertyDescriptor(info, "details")?.set).to.be
+      .undefined;
   });
 
   it("preserves Winston transport symbol fields", () => {
@@ -507,7 +508,10 @@ describe("Winston log contract format", () => {
 
       expect(stream.lines).to.have.length(4);
       const lines = stream.lines.map((line) => JSON.parse(line));
-      expect(lines[0]).to.include({ event: "widget.read", message: "normal record" });
+      expect(lines[0]).to.include({
+        event: "widget.read",
+        message: "normal record",
+      });
       expect(lines[1].metadata).to.equal("[Unserializable]");
       expect(lines[2]).to.include({ message: "root transport failure" });
       expect(lines[2].error.cause).to.be.undefined;

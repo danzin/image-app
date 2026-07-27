@@ -118,7 +118,6 @@ export class LocalStorageService implements IImageStorageService {
       const url = `${urlPrefix}/${filename}`;
       return { url, publicId: `${publicIdPrefix}/${filename}` };
     } catch (error) {
-      logger.error("Failed to upload image stream", { error });
       throw wrapError(error, "StorageError");
     }
   }
@@ -176,7 +175,6 @@ export class LocalStorageService implements IImageStorageService {
       // Return composite publicId to enable O(1) deletion later
       return { url, publicId: `${publicIdPrefix}/${filename}` };
     } catch (error) {
-      logger.error("Failed to upload image", { error });
       throw wrapError(error, "StorageError");
     }
   }
@@ -210,7 +208,6 @@ export class LocalStorageService implements IImageStorageService {
         await this.deleteLegacyImage(publicId);
       }
     } catch (error) {
-      logger.error("Error deleting asset", { error });
       throw wrapError(error, "StorageError");
     }
   }

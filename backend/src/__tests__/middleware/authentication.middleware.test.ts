@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { describe, it } from "mocha";
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import sinon from "sinon";
 import {
@@ -56,8 +56,7 @@ describe("AuthenticationMiddleware", () => {
   }
 
   it("allows an authenticated unverified user when the route opts in", async () => {
-    const { decodedUser, middleware, request, next } =
-      buildUnverifiedRequest();
+    const { decodedUser, middleware, request, next } = buildUnverifiedRequest();
 
     await middleware.handle({ allowUnverified: true })(
       request,
@@ -73,9 +72,11 @@ describe("AuthenticationMiddleware", () => {
   it("enriches context through correlation, authentication, and awaited route work", async () => {
     const { decodedUser, middleware, request } = buildUnverifiedRequest();
     (request as Request & { get: (header: string) => string | undefined }).get =
-      sinon.stub().callsFake((header: string) =>
-        header === "x-request-id" ? "request-abc" : undefined,
-      );
+      sinon
+        .stub()
+        .callsFake((header: string) =>
+          header === "x-request-id" ? "request-abc" : undefined,
+        );
     const response = { setHeader: sinon.stub() } as unknown as Response;
 
     await new Promise<void>((resolve, reject) => {
@@ -200,7 +201,9 @@ describe("AuthenticationMiddleware", () => {
   });
 
   it("preserves explicit invalid-session authentication errors as 401s", async () => {
-    const invalidSession = Errors.authentication("Session is invalid or expired");
+    const invalidSession = Errors.authentication(
+      "Session is invalid or expired",
+    );
     const strategy = {
       authenticate: sinon.stub().rejects(invalidSession),
     } as unknown as AuthStrategy;
@@ -315,7 +318,9 @@ describe("AuthenticationMiddleware", () => {
       isAdmin: false,
     };
     const unverifiedMiddleware = new AuthenticationMiddleware(
-      { authenticate: sinon.stub().resolves(decodedUser) } as unknown as AuthStrategy,
+      {
+        authenticate: sinon.stub().resolves(decodedUser),
+      } as unknown as AuthStrategy,
       {
         findByPublicId: sinon.stub().resolves({
           isAdmin: false,
@@ -326,7 +331,9 @@ describe("AuthenticationMiddleware", () => {
       null,
     );
     const bannedMiddleware = new AuthenticationMiddleware(
-      { authenticate: sinon.stub().resolves(decodedUser) } as unknown as AuthStrategy,
+      {
+        authenticate: sinon.stub().resolves(decodedUser),
+      } as unknown as AuthStrategy,
       {
         findByPublicId: sinon.stub().resolves({
           isAdmin: false,
@@ -435,7 +442,9 @@ describe("AuthenticationMiddleware", () => {
     };
     const repositoryFailure = new Error("Database unavailable");
     const repositoryMiddleware = new AuthenticationMiddleware(
-      { authenticate: sinon.stub().resolves(decodedUser) } as unknown as AuthStrategy,
+      {
+        authenticate: sinon.stub().resolves(decodedUser),
+      } as unknown as AuthStrategy,
       {
         findByPublicId: sinon.stub().rejects(repositoryFailure),
       } as unknown as IUserReadRepository,
@@ -512,7 +521,9 @@ describe("AuthenticationMiddleware", () => {
     } as unknown as Response;
 
     try {
-      ErrorHandler.handleError(cause, request, response, sinon.stub());
+      const errorHandlerNext = sinon.stub() as unknown as NextFunction;
+
+      ErrorHandler.handleError(cause, request, response, errorHandlerNext);
 
       expect(status.calledOnceWithExactly(500)).to.equal(true);
       sinon.assert.calledOnce(logError);
