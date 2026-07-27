@@ -223,7 +223,7 @@ export class AuthenticationMiddleware {
         reason,
         route,
         method: req.method,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
     }
 

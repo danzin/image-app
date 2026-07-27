@@ -49,7 +49,7 @@ export class RetryService {
           logger.error(
             `[RetryService] Operation failed after ${attempt} attempts`,
             {
-              error: lastError.message,
+              error: lastError,
               stack: lastError.stack?.substring(0, 500),
             },
           );
@@ -63,7 +63,7 @@ export class RetryService {
         logger.warn(
           `[RetryService] Attempt ${attempt}/${cfg.maxAttempts} failed, retrying...`,
           {
-            error: lastError.message.substring(0, 100),
+            error: lastError,
           },
         );
 

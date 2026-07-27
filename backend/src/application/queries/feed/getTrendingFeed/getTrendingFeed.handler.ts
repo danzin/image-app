@@ -178,10 +178,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       };
     } catch (error) {
       if (isAppError(error)) throw error;
-      redisLogger.error("Trending feed error", {
-        error: error instanceof Error ? error.message : String(error),
+      throw Errors.internal("Could not generate trending feed.", {
+        cause: error,
       });
-      throw Errors.internal("Could not generate trending feed.");
     }
   }
 

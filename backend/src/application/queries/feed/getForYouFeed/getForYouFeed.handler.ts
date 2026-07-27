@@ -155,7 +155,7 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
         ).catch((err) => {
           errorLogger.error(`Failed to populate For You feed ZSET`, {
             userId,
-            error: err.message,
+            error: err,
           });
         });
       }
@@ -176,11 +176,9 @@ export class GetForYouFeedQueryHandler implements IQueryHandler<
       };
     } catch (error) {
       if (isAppError(error)) throw error;
-      errorLogger.error("For You feed error", {
-        userId,
-        error: error instanceof Error ? error.message : String(error),
+      throw Errors.internal("Could not generate For You feed.", {
+        cause: error,
       });
-      throw Errors.internal("Could not generate For You feed.");
     }
   }
 

@@ -116,7 +116,10 @@ export class ProfileSyncWorker {
   private async handleMessage(message: ProfileSnapshotMessage): Promise<void> {
     const { type, userPublicId, avatarUrl, username, handle } = message;
 
-    logger.info(`[profile-sync] received ${type} for user ${userPublicId}`);
+    logger.info("Profile sync message received", {
+      event: "worker.profile_sync.message.received",
+      messageType: type,
+    });
 
     // coalesce updates for same user
     const existing = this.pendingUpdates.get(userPublicId) ?? {
@@ -169,7 +172,9 @@ export class ProfileSyncWorker {
           asUserPublicId(userPublicId),
         );
         if (!user) {
-          logger.warn(`[profile-sync] user not found: ${userPublicId}`);
+          logger.warn("Profile sync user not found", {
+            event: "worker.profile_sync.user.not_found",
+          });
           continue;
         }
 

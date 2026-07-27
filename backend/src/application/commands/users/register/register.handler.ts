@@ -88,7 +88,7 @@ export class RegisterUserCommandHandler implements ICommandHandler<
         "[Bloom][username] availability pre-check failed; falling back to DB path",
         {
           username,
-          error: error instanceof Error ? error.message : String(error),
+          error,
         },
       );
       return true;
@@ -106,8 +106,8 @@ export class RegisterUserCommandHandler implements ICommandHandler<
       logger.warn(
         "[Bloom][username] failed to seed bloom filter after registration",
         {
-          username,
-          error: error instanceof Error ? error.message : String(error),
+          event: "user_registration.username_bloom.seed_failed",
+          error,
         },
       );
     }

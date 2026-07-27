@@ -11,7 +11,7 @@ const MAX_CONTEXT_STRING_LENGTH = 1_024;
 const MAX_LABEL_LENGTH = 128;
 
 const SENSITIVE_KEY_PATTERN =
-  /(?:^|_)(?:password|passphrase|token|secret|authorization|cookie|set_cookie|api_key|jwt|bearer|credential|private_key|encryption_key|email|username|handle|session|refresh|request_body|response_body|raw_body|query|filter|update|document|errinfo|origin|referrer|user_agent|ip|ip_address)(?:$|_)/i;
+  /(?:^|_)(?:password|passphrase|token|secret|authorization|cookie|set_cookie|api_key|jwt|bearer|credential|private_key|encryption_key|email|username|handle|user_id|user_public_id|account_id|profile_id|actor_id|subject_id|owner_id|author_id|sender_id|recipient_id|session|refresh|request_body|response_body|raw_body|payload|notification|content|query|filter|update|document|errinfo|origin|referrer|user_agent|ip|ip_address)(?:$|_)/i;
 const CONNECTION_STRING_PATTERN =
   /\b([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]+:[^@\s]+@/gi;
 const AUTHORIZATION_HEADER_PATTERN = /\bauthorization\s*[:=]\s*[^\r\n]*/gi;
@@ -202,7 +202,7 @@ function normalizeKey(key: string): string {
     .toLowerCase();
 }
 
-function isSensitiveKey(key: string): boolean {
+export function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_PATTERN.test(normalizeKey(key));
 }
 

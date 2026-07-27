@@ -101,7 +101,8 @@ export class PostDeleteHandler implements IEventHandler<PostDeletedEvent> {
         await this.userRepository.findUsersFollowing(userPublicId);
       return followers.map((user) => user.publicId);
     } catch (error) {
-      logger.error(`Error getting followers for user ${userPublicId}`, {
+      logger.warn("Failed to load followers for post deletion", {
+        event: "post_deletion.followers.load_failed",
         error,
       });
       throw error;

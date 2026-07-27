@@ -1,10 +1,12 @@
 import winston from "winston";
 import os from "node:os";
 import { getCorrelationId, getRequestContext } from "@/runtime/request-context";
-import { serializeError } from "./error-serialization";
+import {
+  isSensitiveKey,
+  redactSensitiveText,
+  serializeError,
+} from "./error-serialization";
 
-const SENSITIVE_KEY_PATTERN =
-  /password|passphrase|token|secret|authorization|cookie|api[-_]?key|jwt/i;
 const MAX_REDACTION_DEPTH = 4;
 
 function sanitizeValue(
@@ -14,6 +16,10 @@ function sanitizeValue(
 ): unknown {
   if (value instanceof Error) {
     return serializeError(value);
+  }
+
+  if (typeof value === "string") {
+    return redactSensitiveText(value);
   }
 
   if (depth >= MAX_REDACTION_DEPTH) {
@@ -33,7 +39,7 @@ function sanitizeValue(
     const sanitized: Record<string, unknown> = {};
 
     for (const [key, childValue] of Object.entries(value)) {
-      sanitized[key] = SENSITIVE_KEY_PATTERN.test(key)
+      sanitized[key] = isSensitiveKey(key)
         ? "[REDACTED]"
         : sanitizeValue(childValue, depth + 1, seen);
     }
@@ -62,13 +68,16 @@ const attachLogContract = winston.format((info) => {
   info.env = info.env ?? process.env.NODE_ENV ?? "development";
   info.host = info.host ?? os.hostname();
   info.pid = info.pid ?? process.pid;
+  if (typeof info.message === "string") {
+    info.message = redactSensitiveText(info.message);
+  }
 
   for (const [key, value] of Object.entries(info)) {
     if (key === "level" || key === "message" || key === "timestamp") {
       continue;
     }
 
-    info[key] = SENSITIVE_KEY_PATTERN.test(key)
+    info[key] = isSensitiveKey(key)
       ? "[REDACTED]"
       : sanitizeValue(value);
   }

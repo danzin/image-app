@@ -11,6 +11,14 @@ discovery.relabel "containers" {
   targets = discovery.docker.containers.targets
 
   rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_project",
+    ]
+    regex  = "ascendance-social"
+    action = "keep"
+  }
+
+  rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/(.*)"
     replacement   = "$1"
@@ -43,7 +51,37 @@ loki.source.docker "containers" {
   forward_to = [loki.process.container_logs.receiver]
 }
 
+// For dev env
 loki.process "container_logs" {
+  stage.match {
+    selector = "{service_name=\"mongo\"}"
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(22943|22944),.*\"remote\":\"127\\.0\\.0\\.1:"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(51800|5286306|10483900),.*\"(remote|client)\":\"127\\.0\\.0\\.1:[0-9]+\".*\"application\":.*\"name\":\"mongosh"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":5286307,.*\"client\":\"127\\.0\\.0\\.1:[0-9]+\".*\"AuthenticationAbandoned\".*\"application\":.*\"name\":\"mongosh"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(6788604|6788700),"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"c\":\"WTCHKPT\".*\"id\":22430,"
+      drop_counter_reason = "mongo_checkpoint_progress"
+    }
+  }
+
   stage.json {
     drop_malformed = false
 
@@ -52,8 +90,7 @@ loki.process "container_logs" {
       event          = "event",
       correlation_id = "correlationId",
       error_id       = "errorId",
-      user_id        = "userId",
-      error_type     = "error.type",
+      error_type     = "error.name",
       status_code    = "statusCode",
     }
   }
@@ -69,7 +106,6 @@ loki.process "container_logs" {
       event          = "",
       correlation_id = "",
       error_id       = "",
-      user_id        = "",
       error_type     = "",
       status_code    = "",
     }

@@ -6,6 +6,33 @@ import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 import { TOKENS } from "@/types/tokens";
 import { RedisClientType } from "redis";
 
+const RETRYABLE_REDIS_QUEUE_READ_ERROR_CODES = new Set([
+  "EAI_AGAIN",
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTDOWN",
+  "EHOSTUNREACH",
+  "ENETDOWN",
+  "ENETUNREACH",
+  "EPIPE",
+  "ETIMEDOUT",
+]);
+const RETRYABLE_REDIS_QUEUE_READ_ERROR_NAMES = new Set([
+  "ConnectionTimeoutError",
+  "SocketClosedUnexpectedlyError",
+]);
+
+function isRetryableRedisQueueReadError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (RETRYABLE_REDIS_QUEUE_READ_ERROR_NAMES.has(error.name)) return true;
+
+  const code = (error as Error & { code?: unknown }).code;
+  return (
+    typeof code === "string" &&
+    RETRYABLE_REDIS_QUEUE_READ_ERROR_CODES.has(code.toUpperCase())
+  );
+}
+
 /**
  * Priority levels for queued transactions
  */
@@ -82,7 +109,7 @@ export class TransactionQueueService {
     await this.redisService.clientInstance.lPush(queueName, JSON.stringify(job));
     this.metrics.totalEnqueued++;
 
-    this.startProcessing();
+    await this.startProcessing();
   }
 
   /**
@@ -128,27 +155,80 @@ export class TransactionQueueService {
   /**
    * Start the queue processing loop
    */
+  private async disconnectBlockingClientNoThrow(
+    client: RedisClientType,
+    operation: "startup" | "process_loop",
+  ): Promise<void> {
+    try {
+      if (client.isOpen) {
+        await client.disconnect();
+      }
+    } catch (cleanupError) {
+      if (!client.isOpen) return;
+
+      logger.warn("Failed to disconnect transaction queue blocking Redis client", {
+        event: "background.transaction_queue.blocking_client.cleanup_failed",
+        worker: "TransactionQueueService",
+        operation,
+        error: cleanupError,
+      });
+    }
+  }
+
   public async startProcessing(): Promise<void> {
     if (this.isProcessing) return;
     this.isProcessing = true;
 
+    let blockingClient: RedisClientType | null = null;
+
     try {
-      this.blockingClient = this.redisService.clientInstance.duplicate() as RedisClientType;
-      await this.blockingClient.connect();
+      const startedClient =
+        this.redisService.clientInstance.duplicate() as RedisClientType;
+      blockingClient = startedClient;
+      this.blockingClient = startedClient;
+      await startedClient.connect();
       
       // We don't await processLoop because we want it to run in the background
-      void this.processLoop().catch((error) => {
-        this.isProcessing = false;
-        logNonHttpTerminalError(error, {
-          message: "Transaction queue process loop crashed",
-          event: "background.transaction_queue.process_loop.crashed",
-          worker: "TransactionQueueService",
-          operation: "process_loop",
+      void this.processLoop(startedClient)
+        .catch((error) => {
+          if (this.blockingClient === startedClient) {
+            this.blockingClient = null;
+            this.isProcessing = false;
+          }
+
+          logNonHttpTerminalError(error, {
+            message: "Transaction queue process loop crashed",
+            event: "background.transaction_queue.process_loop.crashed",
+            worker: "TransactionQueueService",
+            operation: "process_loop",
+          });
+
+          return this.disconnectBlockingClientNoThrow(
+            startedClient,
+            "process_loop",
+          );
+        })
+        .catch((cleanupError) => {
+          logger.warn("Transaction queue process-loop cleanup did not complete", {
+            event: "background.transaction_queue.blocking_client.cleanup_failed",
+            worker: "TransactionQueueService",
+            operation: "process_loop",
+            error: cleanupError,
+          });
         });
-      });
     } catch (error) {
-      logger.error("[TransactionQueue] Failed to start blocking client", { error: error instanceof Error ? error.message : String(error) });
-      this.isProcessing = false;
+      if (!blockingClient) {
+        this.isProcessing = false;
+        throw error;
+      }
+
+      if (this.blockingClient === blockingClient) {
+        this.blockingClient = null;
+        this.isProcessing = false;
+      }
+
+      await this.disconnectBlockingClientNoThrow(blockingClient, "startup");
+      throw error;
     }
   }
 
@@ -166,8 +246,8 @@ export class TransactionQueueService {
   /**
    * Process the next batch of transactions from the queue
    */
-  private async processLoop() {
-    while (this.isProcessing && this.blockingClient) {
+  private async processLoop(blockingClient: RedisClientType) {
+    while (this.isProcessing && this.blockingClient === blockingClient) {
       try {
         const uowMetrics = this.unitOfWork.getMetrics();
         if (uowMetrics.availablePermits < 5) {
@@ -183,7 +263,21 @@ export class TransactionQueueService {
         ];
         
         // Wait for up to 1 second for a job
-        const popResult = await this.blockingClient.brPop(queues, 1);
+        let popResult: { key: string; element: string } | null;
+        try {
+          popResult = await blockingClient.brPop(queues, 1);
+        } catch (error) {
+          if (!this.isProcessing || this.blockingClient !== blockingClient) break;
+          if (!isRetryableRedisQueueReadError(error)) throw error;
+
+          logger.warn("Transaction queue read failed; retrying", {
+            event: "background.transaction_queue.read.retry",
+            worker: "TransactionQueueService",
+            error,
+          });
+          await new Promise(res => setTimeout(res, 1000));
+          continue;
+        }
         
         if (!popResult) {
           continue;
@@ -196,7 +290,18 @@ export class TransactionQueueService {
         const handler = this.handlers.get(job.jobName);
         
         if (!handler) {
-          logger.error(`[TransactionQueue] No handler found for ${job.jobName}`);
+          logNonHttpTerminalError(
+            new Error("Transaction queue handler is not registered"),
+            {
+              message: "Transaction queue job has no registered handler",
+              event: "background.transaction_queue.handler.missing",
+              worker: "TransactionQueueService",
+              operation: "job_handler",
+              messageType: job.jobName,
+              messageId: job.id,
+              attempt: job.attempts,
+            },
+          );
           this.metrics.totalFailed++;
           continue;
         }
@@ -223,9 +328,8 @@ export class TransactionQueueService {
           }
         }
       } catch (error) {
-        if (!this.isProcessing) break;
-        logger.warn("[TransactionQueue] Error in processing loop", { error: error instanceof Error ? error.message : String(error) });
-        await new Promise(res => setTimeout(res, 1000));
+        if (!this.isProcessing || this.blockingClient !== blockingClient) break;
+        throw error;
       }
     }
   }

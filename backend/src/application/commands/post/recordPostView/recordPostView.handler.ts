@@ -178,7 +178,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
         {
           bloomKey,
           bloomItem,
-          error: error instanceof Error ? error.message : String(error),
+          error,
         },
       );
       return false;
@@ -202,7 +202,7 @@ export class RecordPostViewCommandHandler implements ICommandHandler<
         {
           bloomKey,
           bloomItem,
-          error: error instanceof Error ? error.message : String(error),
+          error,
         },
       );
     }

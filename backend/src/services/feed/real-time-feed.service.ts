@@ -123,8 +123,9 @@ export class RealTimeFeedService {
     channel?: string,
   ): Promise<void> {
     try {
-      logger.info("Real-time service received message:", {
-        message: JSON.stringify(message),
+      logger.info("Real-time service received message", {
+        event: "realtime_feed.message.received",
+        messageType: message.type,
       });
       const io = this.webSocketServer.getIO();
 

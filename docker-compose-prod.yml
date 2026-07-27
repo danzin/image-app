@@ -296,7 +296,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
 
     networks:
       - app-network
@@ -306,7 +306,6 @@ services:
         condition: service_started
       loki:
         condition: service_healthy
-
     mem_limit: 256m
 
   # Dedicated worker container
@@ -343,9 +342,11 @@ networks:
     driver: bridge
 
 volumes:
-  redis_data:
   caddy_data:
   caddy_config:
+  mongo_data:
+  mongo_keyfile:
+  redis_data:
   prometheus_data:
   grafana_data:
   loki_data:

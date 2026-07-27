@@ -49,7 +49,7 @@ export class RedisConnectionModule {
     });
     this.client.on("error", (err) => {
       redisLogger.error("Redis client error", {
-        error: err.message,
+        error: err,
         stack: err.stack,
       });
       this.metricsService.setRedisConnectionState(false);

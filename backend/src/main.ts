@@ -29,6 +29,7 @@ import { NewFeedWarmCacheWorker } from "./workers/_impl/newFeedWarmCache.worker.
 import { IpMonitorWorker } from "./workers/_impl/ip-monitor.worker.impl";
 import { OutboxWorker } from "./workers/outbox.worker";
 import { initializeBackendRuntime } from "./runtime/backend-runtime";
+import { logNonHttpTerminalError } from "./runtime/non-http-error-logger";
 import { registerGlobalProcessHandlers } from "./runtime/process-handlers";
 import { TOKENS } from "./types";
 
@@ -92,12 +93,6 @@ async function bootstrap(): Promise<void> {
         port: metricsPort,
         host: "0.0.0.0",
       });
-
-      logger.info("Standalone metrics server started", {
-        event: "metrics.http.started",
-        host: "0.0.0.0",
-        port: metricsPort,
-      });
     }
 
     // Start workers in-process, same event loop, I/O bound, no need for threads
@@ -130,9 +125,10 @@ async function bootstrap(): Promise<void> {
       });
     }
   } catch (error) {
-    logger.error("Startup failed", {
+    logNonHttpTerminalError(error, {
+      message: "Backend startup failed",
       event: "backend.startup.failed",
-      error,
+      operation: "startup",
     });
     process.exit(1);
   }
@@ -152,12 +148,6 @@ async function startWorker(
     });
   } catch (error) {
     metricsService.markWorkerStopped(metricName);
-    logger.error("Failed to start in-process worker", {
-      event: "worker.in_process.start_failed",
-      worker: metricName,
-      critical,
-      error,
-    });
 
     if (critical) {
       throw error;
@@ -166,6 +156,7 @@ async function startWorker(
     logger.warn("Continuing startup without optional worker", {
       event: "worker.in_process.optional_skipped",
       worker: metricName,
+      error,
     });
   }
 }
@@ -245,10 +236,6 @@ async function startInProcessWorkers(
       event: "worker.in_process.all_started",
     });
   } catch (error) {
-    logger.error("Failed to start in-process workers", {
-      event: "worker.in_process.startup_failed",
-      error,
-    });
     throw error;
   }
 }

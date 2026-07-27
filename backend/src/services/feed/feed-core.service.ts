@@ -62,7 +62,7 @@ export class FeedCoreService {
         } catch (error) {
           logger.warn("[FeedCoreService] Failed to publish cold-start event", {
             userPublicId,
-            error: error instanceof Error ? error.message : String(error),
+            error,
           });
         }
       }
