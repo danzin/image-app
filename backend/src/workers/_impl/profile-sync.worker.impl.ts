@@ -10,6 +10,17 @@ import type {
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 import { EventRegistry } from "@/application/common/events/event-registry";
+import {
+  addRequestContextBreadcrumb,
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
+import { randomUUID } from "node:crypto";
+import {
+  ClientClosedError,
+  DisconnectsClientError,
+} from "@redis/client/dist/lib/errors";
 
 interface ProfileSnapshotMessage {
   type:
@@ -21,6 +32,13 @@ interface ProfileSnapshotMessage {
   handle?: string;
   timestamp: string;
 }
+
+type PendingProfileUpdate = {
+  avatarUrl?: string;
+  username?: string;
+  handle?: string;
+  lastSeen: number;
+};
 
 /**
  * @class ProfileSyncWorker
@@ -36,14 +54,14 @@ interface ProfileSnapshotMessage {
 @injectable()
 export class ProfileSyncWorker {
   private running = false;
+  private stopping = false;
+  private flushing = false;
 
   // debounce multiple rapid changes from same user
-  private pendingUpdates = new Map<
-    string,
-    { avatarUrl?: string; username?: string; handle?: string; lastSeen: number }
-  >();
+  private pendingUpdates = new Map<string, PendingProfileUpdate>();
   private flushTimer?: NodeJS.Timeout;
   private FLUSH_INTERVAL_MS = 2000; // batch updates every 2 seconds
+  private inFlightCallbacks = new Set<Promise<void>>();
 
   constructor(
     @inject(TOKENS.Services.Redis)
@@ -56,50 +74,72 @@ export class ProfileSyncWorker {
 
   async start(): Promise<void> {
     if (this.running) return;
+    this.stopping = false;
 
-    // subscribe to profile_snapshot_updates channel
-    const subscribed =
-      await this.redisService.subscribe<ProfileSnapshotMessage>(
-        [EventRegistry.redisChannels.profileSnapshotUpdates],
-        (channel, message) => {
-          this.handleMessage(message).catch((err) => {
-            logger.error("[profile-sync] error handling message", {
-              error: err,
-            });
-          });
-        },
-        { timeoutMs: 1500 },
-      );
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.profile_sync.startup.started", {
+          worker: "ProfileSyncWorker",
+        });
+        const subscribed =
+          await this.redisService.subscribe<ProfileSnapshotMessage>(
+            [EventRegistry.redisChannels.profileSnapshotUpdates],
+            (_channel, message) => {
+              this.trackBackgroundRoot("handle_message", () =>
+                this.handleMessage(message),
+              );
+            },
+            { timeoutMs: 1500 },
+          );
 
-    if (!subscribed) {
-      logger.warn(
-        "[profile-sync] worker not started because Redis is unavailable",
-      );
-      return;
-    }
+        if (!subscribed) {
+          logger.warn(
+            "[profile-sync] worker not started because Redis is unavailable",
+          );
+          return;
+        }
 
-    this.running = true;
+        this.running = true;
 
-    // start flush timer
-    this.flushTimer = setInterval(() => {
-      this.flushPendingUpdates().catch((err) => {
-        logger.error("[profile-sync] flush error", { error: err });
-      });
-    }, this.FLUSH_INTERVAL_MS);
+        this.flushTimer = setInterval(() => {
+          this.trackBackgroundRoot("flush_pending_updates", () =>
+            this.flushPendingUpdates(),
+          );
+        }, this.FLUSH_INTERVAL_MS);
 
-    logger.info(
-      "[profile-sync] worker started, listening on profile_snapshot_updates channel",
+        addRequestContextBreadcrumb("worker.profile_sync.startup.completed", {
+          worker: "ProfileSyncWorker",
+        });
+        logger.info(
+          "[profile-sync] worker started, listening on profile_snapshot_updates channel",
+        );
+      },
     );
   }
 
   async stop(): Promise<void> {
-    this.running = false;
-    if (this.flushTimer) {
-      clearInterval(this.flushTimer);
-    }
-    // flush any remaining updates
-    await this.flushPendingUpdates();
-    logger.info("[profile-sync] worker stopped");
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.profile_sync.shutdown.started", {
+          worker: "ProfileSyncWorker",
+        });
+        this.stopping = true;
+        this.running = false;
+        if (this.flushTimer) {
+          clearInterval(this.flushTimer);
+        }
+        await Promise.allSettled(this.inFlightCallbacks);
+        await this.flushPendingUpdates();
+        addRequestContextBreadcrumb("worker.profile_sync.shutdown.completed", {
+          worker: "ProfileSyncWorker",
+        });
+        logger.info("[profile-sync] worker stopped");
+      },
+    );
   }
 
   /**
@@ -114,6 +154,9 @@ export class ProfileSyncWorker {
    * @returns {Promise<void>}
    */
   private async handleMessage(message: ProfileSnapshotMessage): Promise<void> {
+    if (this.stopping) {
+      return;
+    }
     const { type, userPublicId, avatarUrl, username, handle } = message;
 
     logger.info("Profile sync message received", {
@@ -156,21 +199,31 @@ export class ProfileSyncWorker {
    * @returns {Promise<void>} Resolves when the batch update is complete.
    */
   private async flushPendingUpdates(): Promise<void> {
-    if (this.pendingUpdates.size === 0) return;
+    if (this.flushing || this.pendingUpdates.size === 0) return;
 
+    this.flushing = true;
     const entries = Array.from(this.pendingUpdates.entries());
     this.pendingUpdates.clear();
 
-    logger.info(
-      `[profile-sync] flushing ${entries.length} pending profile updates`,
-    );
+    try {
+      logger.info(
+        `[profile-sync] flushing ${entries.length} pending profile updates`,
+      );
 
-    for (const [userPublicId, updates] of entries) {
-      try {
-        // find user's ObjectId from publicId
-        const user = await this.userReadRepository.findByPublicId(
-          asUserPublicId(userPublicId),
-        );
+      for (const [userPublicId, updates] of entries) {
+        let user: Awaited<ReturnType<IUserReadRepository["findByPublicId"]>>;
+        try {
+          user = await this.userReadRepository.findByPublicId(
+            asUserPublicId(userPublicId),
+          );
+        } catch (error) {
+          this.requeuePendingUpdate(userPublicId, updates);
+          logger.warn("[profile-sync] failed to read user for snapshot update", {
+            error,
+          });
+          continue;
+        }
+
         if (!user) {
           logger.warn("Profile sync user not found", {
             event: "worker.profile_sync.user.not_found",
@@ -179,12 +232,7 @@ export class ProfileSyncWorker {
         }
 
         const userObjectId = new mongoose.Types.ObjectId(user.id);
-
-        const snapshotUpdates: {
-          username?: string;
-          avatarUrl?: string;
-          handle?: string;
-        } = {};
+        const snapshotUpdates: Omit<PendingProfileUpdate, "lastSeen"> = {};
 
         if (updates.avatarUrl !== undefined) {
           snapshotUpdates.avatarUrl = updates.avatarUrl;
@@ -200,11 +248,19 @@ export class ProfileSyncWorker {
           continue;
         }
 
-        const modifiedCount =
-          await this.postWriteRepository.updateAuthorSnapshot(
+        let modifiedCount: number;
+        try {
+          modifiedCount = await this.postWriteRepository.updateAuthorSnapshot(
             userObjectId,
             snapshotUpdates,
           );
+        } catch (error) {
+          this.requeuePendingUpdate(userPublicId, updates);
+          logger.warn("[profile-sync] failed to update author snapshot", {
+            error,
+          });
+          continue;
+        }
 
         logger.info(
           `[profile-sync] updated ${modifiedCount} posts for user ${userPublicId}:`,
@@ -212,12 +268,101 @@ export class ProfileSyncWorker {
             updates: snapshotUpdates,
           },
         );
-      } catch (error) {
-        logger.error(
-          `[profile-sync] failed to update posts for user ${userPublicId}:`,
-          { error },
-        );
       }
+    } catch (error) {
+      for (const [userPublicId, updates] of entries) {
+        this.requeuePendingUpdate(userPublicId, updates);
+      }
+      throw error;
+    } finally {
+      this.flushing = false;
     }
   }
+
+  private requeuePendingUpdate(
+    userPublicId: string,
+    failedUpdate: PendingProfileUpdate,
+  ): void {
+    const pendingUpdate = this.pendingUpdates.get(userPublicId);
+    if (!pendingUpdate) {
+      this.pendingUpdates.set(userPublicId, { ...failedUpdate });
+      return;
+    }
+
+    const newer =
+      pendingUpdate.lastSeen >= failedUpdate.lastSeen
+        ? pendingUpdate
+        : failedUpdate;
+    const older = newer === pendingUpdate ? failedUpdate : pendingUpdate;
+    this.pendingUpdates.set(userPublicId, {
+      lastSeen: Math.max(pendingUpdate.lastSeen, failedUpdate.lastSeen),
+      avatarUrl: newer.avatarUrl ?? older.avatarUrl,
+      username: newer.username ?? older.username,
+      handle: newer.handle ?? older.handle,
+    });
+  }
+
+  private async runBackgroundRoot(
+    operation: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    if (this.stopping) {
+      return;
+    }
+
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.profile_sync.callback.started", {
+          worker: "ProfileSyncWorker",
+          operation,
+        });
+        try {
+          await work();
+          addRequestContextBreadcrumb("worker.profile_sync.callback.completed", {
+            worker: "ProfileSyncWorker",
+            operation,
+          });
+        } catch (error) {
+          if (
+            this.stopping &&
+            isExpectedRedisClientShutdownError(error)
+          ) {
+            return;
+          }
+          addRequestContextBreadcrumb("worker.profile_sync.callback.failed", {
+            worker: "ProfileSyncWorker",
+            operation,
+          });
+          logNonHttpTerminalError(error, {
+            message: "Profile sync worker background callback failed",
+            event: "worker.profile_sync.callback.failed",
+            operation: `worker.profile_sync.${operation}`,
+            operationId,
+            worker: "ProfileSyncWorker",
+            breadcrumbs: getRequestContext()?.breadcrumbs,
+          });
+        }
+      },
+    );
+  }
+
+  private trackBackgroundRoot(
+    operation: string,
+    work: () => Promise<void>,
+  ): void {
+    const callback = this.runBackgroundRoot(operation, work);
+    this.inFlightCallbacks.add(callback);
+    void callback.then(
+      () => this.inFlightCallbacks.delete(callback),
+      () => this.inFlightCallbacks.delete(callback),
+    );
+  }
+}
+
+function isExpectedRedisClientShutdownError(error: unknown): boolean {
+  return (
+    error instanceof ClientClosedError || error instanceof DisconnectsClientError
+  );
 }

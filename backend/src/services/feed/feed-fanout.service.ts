@@ -113,48 +113,44 @@ export class FeedFanoutService {
 
   public async prewarmNewFeed(): Promise<void> {
     logger.info("Pre-warming New feed cache...");
-    try {
-      const limit = 20;
-      let cursor: string | undefined;
-      for (let page = 1; page <= 3; page++) {
-        const requestCursor = cursor;
-        const key = requestCursor
-          ? CacheKeyBuilder.getNewFeedCursorKey(requestCursor, limit)
-          : CacheKeyBuilder.getNewFeedKey(page, limit);
-        const cursorResult = await this.feedReadDao.getNewFeedWithCursor({
-          limit,
-          cursor: requestCursor,
-        });
-        const core: CoreFeed & { headCursor?: string } = {
-          data: cursorResult.data as FeedPost[],
-          limit,
-          page,
-          total: 0,
-          totalPages: 0,
-          hasMore: cursorResult.hasMore,
-          nextCursor: cursorResult.nextCursor,
-          prevCursor: cursorResult.prevCursor,
-          headCursor: cursorResult.prevCursor,
-        };
-        cursor = cursorResult.nextCursor;
-        await this.redisService.setWithTags(
-          key,
-          core,
-          [
-            CacheKeyBuilder.getNewFeedTag(),
-            CacheKeyBuilder.getFeedPageTag(page),
-            CacheKeyBuilder.getFeedLimitTag(limit),
-          ],
-          3600,
-        );
-        logger.info(`Pre-warmed New feed page ${page}`);
-        if (!cursorResult.nextCursor || !cursorResult.hasMore) {
-          break;
-        }
+    const limit = 20;
+    let cursor: string | undefined;
+    for (let page = 1; page <= 3; page++) {
+      const requestCursor = cursor;
+      const key = requestCursor
+        ? CacheKeyBuilder.getNewFeedCursorKey(requestCursor, limit)
+        : CacheKeyBuilder.getNewFeedKey(page, limit);
+      const cursorResult = await this.feedReadDao.getNewFeedWithCursor({
+        limit,
+        cursor: requestCursor,
+      });
+      const core: CoreFeed & { headCursor?: string } = {
+        data: cursorResult.data as FeedPost[],
+        limit,
+        page,
+        total: 0,
+        totalPages: 0,
+        hasMore: cursorResult.hasMore,
+        nextCursor: cursorResult.nextCursor,
+        prevCursor: cursorResult.prevCursor,
+        headCursor: cursorResult.prevCursor,
+      };
+      cursor = cursorResult.nextCursor;
+      await this.redisService.setWithTags(
+        key,
+        core,
+        [
+          CacheKeyBuilder.getNewFeedTag(),
+          CacheKeyBuilder.getFeedPageTag(page),
+          CacheKeyBuilder.getFeedLimitTag(limit),
+        ],
+        3600,
+      );
+      logger.info(`Pre-warmed New feed page ${page}`);
+      if (!cursorResult.nextCursor || !cursorResult.hasMore) {
+        break;
       }
-      logger.info("New feed cache pre-warming complete");
-    } catch (error) {
-      logger.error("Failed to pre-warm New feed cache", { error });
     }
+    logger.info("New feed cache pre-warming complete");
   }
 }

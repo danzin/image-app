@@ -7,6 +7,22 @@ import { asPostPublicId } from "@/types/branded";
 import type { IPostReadRepository } from "@/repositories/interfaces";
 import { FeedPost } from "@/types";
 import { logger } from "@/utils/winston";
+import {
+  addRequestContextBreadcrumb,
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
+import { randomUUID } from "node:crypto";
+import {
+  ClientOfflineError,
+  ClientClosedError,
+  ConnectionTimeoutError,
+  DisconnectsClientError,
+  ReconnectStrategyError,
+  RootNodesUnavailableError,
+  SocketClosedUnexpectedlyError,
+} from "@redis/client/dist/lib/errors";
 import type { IFeedReadDao } from "@/repositories/interfaces";
 import { TOKENS } from "@/types/tokens";
 import type {
@@ -40,6 +56,25 @@ type PendingDeltas = {
   messageIds: string[];
 };
 
+type TrendingScore = {
+  ageDays: number;
+  comments: number;
+  commentsScore: number;
+  likes: number;
+  popularityScore: number;
+  recencyScore: number;
+  score: number;
+  views: number;
+};
+
+type TrendingCacheUpdate = {
+  comments: number;
+  likes: number;
+  postId: string;
+  score: number;
+  views: number;
+};
+
 @injectable()
 export class TrendingWorker {
   private STREAM = "stream:interactions";
@@ -63,9 +98,11 @@ export class TrendingWorker {
   private pending = new Map<string, PendingDeltas>();
   private flushing = false;
   private running = false;
+  private stopping = false;
   private flushTimer?: NodeJS.Timeout;
   private reclaimTimer?: NodeJS.Timeout;
   private fullRefreshTimer?: NodeJS.Timeout;
+  private inFlightCallbacks = new Set<Promise<void>>();
 
   constructor(
     @inject(TOKENS.Repositories.FeedReadDao)
@@ -78,106 +115,156 @@ export class TrendingWorker {
 
   /** initialize dependencies and create consumer group if necessary */
   async init(): Promise<void> {
-    // ensure redis is connected before creating group or starting read loop
-    const connected = await this.redisService.waitForConnection(
-      this.REDIS_STARTUP_TIMEOUT_MS,
-    );
-    if (!connected) {
-      throw new Error("Redis unavailable; trending worker cannot start");
-    }
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.trending.startup.started", {
+          worker: "TrendingWorker",
+        });
+        const connected = await this.redisService.waitForConnection(
+          this.REDIS_STARTUP_TIMEOUT_MS,
+        );
+        if (!connected) {
+          throw new Error("Redis unavailable; trending worker cannot start");
+        }
 
-    // create group via helper (MKSTREAM)
-    await this.redisService.createStreamConsumerGroup(this.STREAM, this.GROUP);
-    this.redisClient = await this.redisService.createDedicatedClient();
-    logger.info(
-      `[trending] ensured consumer group ${this.GROUP} on ${this.STREAM}`,
+        await this.redisService.createStreamConsumerGroup(this.STREAM, this.GROUP);
+        this.redisClient = await this.redisService.createDedicatedClient();
+        addRequestContextBreadcrumb("worker.trending.startup.completed", {
+          worker: "TrendingWorker",
+        });
+        logger.info(
+          `[trending] ensured consumer group ${this.GROUP} on ${this.STREAM}`,
+        );
+      },
     );
   }
 
   /** start reading stream and flushing batches */
   start(): void {
     if (this.running) return;
+    this.stopping = false;
     this.running = true;
 
-    this.readLoop().catch((err) => {
-      logger.error("[trending] readLoop fatal error", { error: err });
-    });
+    void this.readLoop().catch((error) =>
+      this.runBackgroundRoot("read_loop", async () => {
+        throw error;
+      }),
+    );
 
     this.flushTimer = setInterval(() => {
-      this.flushPending().catch((err) =>
-        logger.error("[trending] flushPending error", { error: err }),
-      );
+      this.trackBackgroundRoot("flush_pending", () => this.flushPending());
     }, this.BATCH_WINDOW_MS);
 
     this.reclaimTimer = setInterval(() => {
-      this.reclaimStalledMessages().catch((err) =>
-        logger.error("[trending] reclaim error", { error: err }),
+      this.trackBackgroundRoot("reclaim_stalled_messages", () =>
+        this.reclaimStalledMessages(),
       );
     }, this.RECLAIM_INTERVAL_MS);
 
     // periodically refresh entire trending feed to catch posts without recent interactions
     this.fullRefreshTimer = setInterval(() => {
-      this.fullRefresh().catch((err) =>
-        logger.error("[trending] full refresh error", { error: err }),
-      );
+      this.trackBackgroundRoot("full_refresh", () => this.fullRefresh());
     }, this.FULL_REFRESH_INTERVAL_MS);
 
     // run initial full refresh on startup
-    this.fullRefresh().catch((err) =>
-      logger.error("[trending] initial refresh error", { error: err }),
-    );
+    this.trackBackgroundRoot("initial_full_refresh", () => this.fullRefresh());
 
     logger.info(`[trending] worker started (consumer=${this.CONSUMER})`);
   }
 
   /** stop reading and gracefully shutdown (flush pending) */
   async stop(): Promise<void> {
-    this.running = false;
-    if (this.flushTimer) clearInterval(this.flushTimer);
-    if (this.reclaimTimer) clearInterval(this.reclaimTimer);
-    if (this.fullRefreshTimer) clearInterval(this.fullRefreshTimer);
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.trending.shutdown.started", {
+          worker: "TrendingWorker",
+        });
+        this.stopping = true;
+        this.running = false;
+        if (this.flushTimer) clearInterval(this.flushTimer);
+        if (this.reclaimTimer) clearInterval(this.reclaimTimer);
+        if (this.fullRefreshTimer) clearInterval(this.fullRefreshTimer);
 
-    await this.flushPending();
-    if (this.redisClient?.isOpen) {
-      await this.redisClient.quit();
-    }
-    this.redisClient = null;
-    logger.info("[trending] worker stopped");
+        await Promise.allSettled(this.inFlightCallbacks);
+        await this.flushPending();
+        if (this.redisClient?.isOpen) {
+          await this.redisClient.quit();
+        }
+        this.redisClient = null;
+        addRequestContextBreadcrumb("worker.trending.shutdown.completed", {
+          worker: "TrendingWorker",
+        });
+        logger.info("[trending] worker stopped");
+      },
+    );
   }
 
   /** main read loop that consumes stream messages using XREADGROUP via clientInstance */
   private async readLoop(): Promise<void> {
     while (this.running && this.redisClient) {
-      try {
-        const responses = await this.redisClient.xReadGroup(
-          this.GROUP,
-          this.CONSUMER,
-          { key: this.STREAM, id: ">" },
-          { COUNT: this.READ_COUNT, BLOCK: 5_000 },
+      await this.runBackgroundRoot("read_loop_iteration", () =>
+        this.readLoopIteration(),
+      );
+    }
+  }
+
+  private async readLoopIteration(): Promise<void> {
+    const redisClient = this.redisClient;
+    if (!redisClient) {
+      throw new Error("Trending Redis client is not initialized");
+    }
+
+    let responses: unknown;
+    try {
+      responses = await redisClient.xReadGroup(
+        this.GROUP,
+        this.CONSUMER,
+        { key: this.STREAM, id: ">" },
+        { COUNT: this.READ_COUNT, BLOCK: 5_000 },
+      );
+    } catch (err) {
+      if (this.stopping && isExpectedRedisClientShutdownError(err)) {
+        return;
+      }
+      if (!isRetryableRedisTransportError(err)) {
+        throw err;
+      }
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn("[trending] readLoop error", {
+        message: errorMessage,
+        error: err,
+      });
+      await this.sleep(1000);
+      return;
+    }
+
+    if (responses === null) {
+      return;
+    }
+    if (!Array.isArray(responses)) {
+      throw new TypeError("Malformed Redis stream response");
+    }
+
+    for (const streamRes of responses) {
+      if (!isRecord(streamRes) || !Array.isArray(streamRes.messages)) {
+        throw new TypeError("Malformed Redis stream response");
+      }
+      for (const message of streamRes.messages) {
+        const messageId = isRecord(message) ? message.id : undefined;
+        const messageFields = isRecord(message) ? message.message : undefined;
+        if (
+          typeof messageId !== "string" ||
+          !isStringRecord(messageFields)
+        ) {
+          throw new TypeError("Malformed Redis stream message");
+        }
+        this.trackBackgroundRoot("handle_stream_message", () =>
+          this.handleStreamMessage(messageId, messageFields),
         );
-
-        if (!responses) {
-          continue;
-        }
-
-        for (const streamRes of responses) {
-          for (const message of streamRes.messages) {
-            this.handleStreamMessage(message.id, message.message).catch((err) =>
-              logger.error("[trending] failed to stage stream message", {
-                id: message.id,
-                error: err,
-              }),
-            );
-          }
-        }
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
-        const errorStack = err instanceof Error ? err.stack : undefined;
-        logger.error("[trending] readLoop error", {
-          message: errorMessage,
-          stack: errorStack,
-        });
-        await this.sleep(1000);
       }
     }
   }
@@ -187,6 +274,9 @@ export class TrendingWorker {
     id: string,
     fields: Record<string, string>,
   ): Promise<void> {
+    if (this.stopping) {
+      return;
+    }
     const postId = fields.postId ?? fields.postPublicId ?? fields.post;
 
     if (!postId) {
@@ -243,20 +333,41 @@ export class TrendingWorker {
 
       for (let i = 0; i < entries.length; i += this.CHUNK_SIZE) {
         const chunk = entries.slice(i, i + this.CHUNK_SIZE);
+        const postIds = chunk.map(([postId]) => postId);
+        let posts: FeedPost[];
+
         try {
-          const postIds = chunk.map(([postId]) => postId);
+          posts = await this.postReadRepository.findPostsByPublicIds(
+            postIds.map(asPostPublicId),
+          );
+        } catch (error) {
+          this.requeueEntries(chunk);
+          logger.warn("[trending] repository read failed during flush", {
+            error,
+          });
+          continue;
+        }
+        if (!Array.isArray(posts)) {
+          this.requeueEntries(chunk);
+          throw new TypeError("Malformed repository result during trending flush");
+        }
 
-          const posts: FeedPost[] =
-            await this.postReadRepository.findPostsByPublicIds(
-              postIds.map(asPostPublicId),
-            );
+        const cacheUpdates: TrendingCacheUpdate[] = [];
+        const messageIdsToAck: string[] = [];
+        try {
           const postMap = new Map<string, FeedPost>();
-          for (const p of posts) {
-            postMap.set(p.publicId, p);
+          for (const post of posts) {
+            if (
+              !isRecord(post) ||
+              typeof post.publicId !== "string" ||
+              post.publicId.length === 0
+            ) {
+              throw new TypeError(
+                "Malformed repository post during trending flush",
+              );
+            }
+            postMap.set(post.publicId, post);
           }
-
-          const updates: Promise<unknown>[] = [];
-          const messageIdsToAck: string[] = [];
 
           for (const [postId, pendingEntry] of chunk) {
             messageIdsToAck.push(...pendingEntry.messageIds);
@@ -268,74 +379,90 @@ export class TrendingWorker {
               continue;
             }
 
-            // use MongoDB as source of truth (it's already updated by like/comment handlers)
-            const likes = post.likes || 0;
-            const comments = post.commentsCount || 0;
-            const views = post.viewsCount || 0;
-
-            const ageDays =
-              (Date.now() - new Date(post.createdAt).getTime()) /
-              (1000 * 60 * 60 * 24);
-            const recencyScore = 1 / (1 + ageDays);
-            const popularityScore = Math.log(likes + 1);
-            const commentsScore = Math.log(comments + 1);
-
-            const score =
-              this.WEIGHTS.recency * recencyScore +
-              this.WEIGHTS.popularity * popularityScore +
-              this.WEIGHTS.comments * commentsScore;
+            const {
+              ageDays,
+              comments,
+              commentsScore,
+              likes,
+              popularityScore,
+              recencyScore,
+              score,
+              views,
+            } = this.calculateTrendingScore(post);
 
             logger.debug(
               `[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
                 `recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`,
             );
 
-            // update trending score in sorted set (use "trending:posts" key to match handler)
-            updates.push(
+            cacheUpdates.push({
+              comments,
+              likes,
+              postId,
+              score,
+              views,
+            });
+          }
+        } catch (error) {
+          this.requeueEntries(chunk);
+          throw error;
+        }
+
+        let updates: Promise<unknown>[];
+        try {
+          updates = cacheUpdates.flatMap(
+            ({ comments, likes, postId, score, views }) => [
               this.redisService.updateTrendingScore(
                 postId,
-                Number(score),
+                score,
                 "trending:posts",
               ),
-            );
-
-            // store computed counts in post_meta cache for handler enrichment
-            const metaKey = `post_meta:${postId}`;
-            const metaTags = [
-              `post_meta:${postId}`,
-              `post_likes:${postId}`,
-              `post_comments:${postId}`,
-            ];
-            updates.push(
               this.redisService.setWithTags(
-                metaKey,
+                `post_meta:${postId}`,
                 {
                   likes,
                   commentsCount: comments,
                   viewsCount: views,
                   lastUpdated: Date.now(),
                 },
-                metaTags,
-                300, // 5 min TTL
+                [
+                  `post_meta:${postId}`,
+                  `post_likes:${postId}`,
+                  `post_comments:${postId}`,
+                ],
+                300,
               ),
-            );
-          }
+            ],
+          );
+        } catch (error) {
+          this.requeueEntries(chunk);
+          throw error;
+        }
 
+        try {
           await Promise.all(updates);
-          if (messageIdsToAck.length > 0) {
+        } catch (error) {
+          this.requeueEntries(chunk);
+          logger.warn("[trending] Redis cache write failed during flush", {
+            error,
+          });
+          continue;
+        }
+
+        if (messageIdsToAck.length > 0) {
+          try {
             await this.redisService.ackStreamMessages(
               this.STREAM,
               this.GROUP,
               ...messageIdsToAck,
             );
+          } catch (error) {
+            this.requeueEntries(chunk);
+            logger.warn("[trending] stream ACK failed during flush", { error });
+            continue;
           }
-        } catch (err) {
-          this.requeueEntries(chunk);
-          throw err;
         }
       }
-    } catch (err) {
-      logger.error("[trending] flushPending failed", { error: err });
     } finally {
       this.flushing = false;
       const dur = performance.now() - start;
@@ -345,60 +472,99 @@ export class TrendingWorker {
 
   /** reclaim messages that are pending (XPENDING) and idle for > RECLAIM_MIN_IDLE_MS using helpers */
   private async reclaimStalledMessages(): Promise<void> {
+    let pendingSummary: XPendingRangeEntry[];
     try {
-      const pendingSummary: XPendingRangeEntry[] =
-        await this.redisService.xPendingRange(
-          this.STREAM,
-          this.GROUP,
-          "-",
-          "+",
-          1000,
-        );
-
-      if (!pendingSummary || pendingSummary.length === 0) return;
-
-      const toClaim: string[] = [];
-      for (const item of pendingSummary) {
-        if (item.millisecondsSinceLastDelivery >= this.RECLAIM_MIN_IDLE_MS) {
-          toClaim.push(item.id);
-        }
+      pendingSummary = await this.redisService.xPendingRange(
+        this.STREAM,
+        this.GROUP,
+        "-",
+        "+",
+        1000,
+      );
+    } catch (err) {
+      if (this.stopping && isExpectedRedisClientShutdownError(err)) {
+        return;
       }
+      if (!isRetryableRedisTransportError(err)) {
+        throw err;
+      }
+      logger.warn("[trending] XPENDING failed; deferring reclaim", {
+        error: err,
+      });
+      return;
+    }
 
-      if (toClaim.length === 0) return;
+    if (!Array.isArray(pendingSummary)) {
+      throw new TypeError("Malformed XPENDING response");
+    }
+    if (pendingSummary.length === 0) return;
 
-      const claimResult: XClaimReply = await this.redisService.xClaim(
+    const toClaim: string[] = [];
+    for (const item of pendingSummary) {
+      if (
+        !isRecord(item) ||
+        typeof item.id !== "string" ||
+        typeof item.millisecondsSinceLastDelivery !== "number" ||
+        !Number.isFinite(item.millisecondsSinceLastDelivery)
+      ) {
+        throw new TypeError("Malformed XPENDING entry");
+      }
+      if (item.millisecondsSinceLastDelivery >= this.RECLAIM_MIN_IDLE_MS) {
+        toClaim.push(item.id);
+      }
+    }
+
+    if (toClaim.length === 0) return;
+
+    let claimResult: XClaimReply;
+    try {
+      claimResult = await this.redisService.xClaim(
         this.STREAM,
         this.GROUP,
         this.CONSUMER,
         this.RECLAIM_MIN_IDLE_MS,
         toClaim,
       );
-
-      // xClaim may return null for IDs that disappeared between XPENDING and XCLAIM
-      const claimed = claimResult.filter(
-        (msg): msg is XClaimEntry => msg !== null,
-      );
-
-      for (const msg of claimed) {
-        try {
-          await this.handleStreamMessage(
-            String(msg.id),
-            msg.message as Record<string, string>,
-          );
-        } catch (err) {
-          logger.error("[trending] error handling reclaimed message", {
-            id: msg.id,
-            error: err,
-          });
-        }
-      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      const errorStack = err instanceof Error ? err.stack : undefined;
-      logger.error("[trending] reclaimStalledMessages failed", {
-        message: errorMessage,
-        stack: errorStack,
-      });
+      if (this.stopping && isExpectedRedisClientShutdownError(err)) {
+        return;
+      }
+      if (!isRetryableRedisTransportError(err)) {
+        throw err;
+      }
+      logger.warn("[trending] XCLAIM failed; deferring reclaim", { error: err });
+      return;
+    }
+
+    if (!Array.isArray(claimResult)) {
+      throw new TypeError("Malformed XCLAIM response");
+    }
+    const claimed = claimResult.filter(
+      (message): message is XClaimEntry => message !== null,
+    );
+
+    for (const message of claimed) {
+      const messageId = isRecord(message) ? message.id : undefined;
+      const messageFields = isRecord(message) ? message.message : undefined;
+      if (
+        typeof messageId !== "string" ||
+        !isStringRecord(messageFields)
+      ) {
+        throw new TypeError("Malformed XCLAIM entry");
+      }
+      try {
+        await this.handleStreamMessage(messageId, messageFields);
+      } catch (err) {
+        if (this.stopping && isExpectedRedisClientShutdownError(err)) {
+          return;
+        }
+        if (!isRetryableRedisTransportError(err)) {
+          throw err;
+        }
+        logger.warn("[trending] reclaimed message remains pending", {
+          error: err,
+        });
+      }
     }
   }
 
@@ -410,83 +576,233 @@ export class TrendingWorker {
     logger.info("[trending] starting full refresh...");
     const start = performance.now();
 
+    const timeWindowDays = 14;
+    const limit = 500;
+    let result: unknown;
     try {
-      // use the repository's trending feed aggregation to get candidate posts
-      const timeWindowDays = 14;
-      const limit = 500; // refresh top 500 posts
-      const result = await this.feedReadDao.getTrendingFeedWithCursor({
+      result = await this.feedReadDao.getTrendingFeedWithCursor({
         limit,
         timeWindowDays,
         minLikes: 0,
       });
-
-      if (!result.data || result.data.length === 0) {
-        logger.warn("[trending] no posts found for full refresh");
-        return;
-      }
-
-      const updates: Promise<unknown>[] = [];
-
-      for (const post of result.data) {
-        const postId = post.publicId;
-        const likes = post.likes || 0;
-        const comments = post.commentsCount || 0;
-        const views = post.viewsCount || 0;
-
-        const ageDays =
-          (Date.now() - new Date(post.createdAt).getTime()) /
-          (1000 * 60 * 60 * 24);
-        const recencyScore = 1 / (1 + ageDays);
-        const popularityScore = Math.log(likes + 1);
-        const commentsScore = Math.log(comments + 1);
-
-        const score =
-          this.WEIGHTS.recency * recencyScore +
-          this.WEIGHTS.popularity * popularityScore +
-          this.WEIGHTS.comments * commentsScore;
-
-        // update sorted set and meta cache
-        updates.push(
-          this.redisService.updateTrendingScore(
-            postId,
-            Number(score),
-            "trending:posts",
-          ),
-        );
-
-        const metaKey = `post_meta:${postId}`;
-        const metaTags = [
-          `post_meta:${postId}`,
-          `post_likes:${postId}`,
-          `post_comments:${postId}`,
-        ];
-        updates.push(
-          this.redisService.setWithTags(
-            metaKey,
-            {
-              likes,
-              commentsCount: comments,
-              viewsCount: views,
-              lastUpdated: Date.now(),
-            },
-            metaTags,
-            300,
-          ),
-        );
-      }
-
-      await Promise.all(updates);
-
-      const dur = performance.now() - start;
-      logger.info(
-        `[trending] full refresh completed: ${result.data.length} posts updated (${dur.toFixed(1)}ms)`,
-      );
-    } catch (err) {
-      logger.error("[trending] full refresh failed", { error: err });
+    } catch (error) {
+      logger.warn("[trending] full refresh DAO query failed", { error });
+      return;
     }
+
+    if (!isRecord(result) || !Array.isArray(result.data)) {
+      throw new TypeError("Malformed trending full-refresh result");
+    }
+    if (result.data.length === 0) {
+      logger.warn("[trending] no posts found for full refresh");
+      return;
+    }
+
+    const cacheUpdates: TrendingCacheUpdate[] = [];
+
+    for (const post of result.data) {
+      const { comments, likes, score, views } =
+        this.calculateTrendingScore(post);
+      const postId = post.publicId;
+      cacheUpdates.push({ comments, likes, postId, score, views });
+    }
+
+    const updates = cacheUpdates.flatMap(
+      ({ comments, likes, postId, score, views }) => [
+        this.redisService.updateTrendingScore(
+          postId,
+          score,
+          "trending:posts",
+        ),
+        this.redisService.setWithTags(
+          `post_meta:${postId}`,
+          {
+            likes,
+            commentsCount: comments,
+            viewsCount: views,
+            lastUpdated: Date.now(),
+          },
+          [
+            `post_meta:${postId}`,
+            `post_likes:${postId}`,
+            `post_comments:${postId}`,
+          ],
+          300,
+        ),
+      ],
+    );
+    try {
+      await Promise.all(updates);
+    } catch (error) {
+      logger.warn("[trending] full refresh Redis cache write failed", { error });
+      return;
+    }
+
+    const dur = performance.now() - start;
+    logger.info(
+      `[trending] full refresh completed: ${result.data.length} posts updated (${dur.toFixed(1)}ms)`,
+    );
+  }
+
+  private calculateTrendingScore(post: FeedPost): TrendingScore {
+    if (
+      !isRecord(post) ||
+      typeof post.publicId !== "string" ||
+      post.publicId.length === 0
+    ) {
+      throw new TypeError("Invalid post data for trending score");
+    }
+
+    const likes = post.likes ?? 0;
+    const comments = post.commentsCount ?? 0;
+    const views = post.viewsCount ?? 0;
+    const createdAt = new Date(post.createdAt).getTime();
+    if (
+      typeof likes !== "number" ||
+      !Number.isFinite(likes) ||
+      likes < 0 ||
+      typeof comments !== "number" ||
+      !Number.isFinite(comments) ||
+      comments < 0 ||
+      typeof views !== "number" ||
+      !Number.isFinite(views) ||
+      views < 0 ||
+      !Number.isFinite(createdAt)
+    ) {
+      throw new TypeError("Invalid post data for trending score");
+    }
+
+    const ageDays =
+      (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
+    const recencyScore = 1 / (1 + ageDays);
+    const popularityScore = Math.log(likes + 1);
+    const commentsScore = Math.log(comments + 1);
+    const score =
+      this.WEIGHTS.recency * recencyScore +
+      this.WEIGHTS.popularity * popularityScore +
+      this.WEIGHTS.comments * commentsScore;
+    if (
+      !Number.isFinite(ageDays) ||
+      !Number.isFinite(recencyScore) ||
+      !Number.isFinite(popularityScore) ||
+      !Number.isFinite(commentsScore) ||
+      !Number.isFinite(score)
+    ) {
+      throw new TypeError("Failed to compute trending score");
+    }
+
+    return {
+      ageDays,
+      comments,
+      commentsScore,
+      likes,
+      popularityScore,
+      recencyScore,
+      score,
+      views,
+    };
+  }
+
+  private async runBackgroundRoot(
+    operation: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    if (this.stopping) {
+      return;
+    }
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
+      async () => {
+        addRequestContextBreadcrumb("worker.trending.callback.started", {
+          worker: "TrendingWorker",
+          operation,
+        });
+        try {
+          await work();
+          addRequestContextBreadcrumb("worker.trending.callback.completed", {
+            worker: "TrendingWorker",
+            operation,
+          });
+        } catch (error) {
+          if (this.stopping && isExpectedRedisClientShutdownError(error)) {
+            return;
+          }
+          addRequestContextBreadcrumb("worker.trending.callback.failed", {
+            worker: "TrendingWorker",
+            operation,
+          });
+          logNonHttpTerminalError(error, {
+            message: "Trending worker background callback failed",
+            event: "worker.trending.callback.failed",
+            operation: `worker.trending.${operation}`,
+            operationId,
+            worker: "TrendingWorker",
+            breadcrumbs: getRequestContext()?.breadcrumbs,
+          });
+        }
+      },
+    );
+  }
+
+  private trackBackgroundRoot(
+    operation: string,
+    work: () => Promise<void>,
+  ): void {
+    const callback = this.runBackgroundRoot(operation, work);
+    this.inFlightCallbacks.add(callback);
+    void callback.then(
+      () => this.inFlightCallbacks.delete(callback),
+      () => this.inFlightCallbacks.delete(callback),
+    );
   }
 
   private sleep(ms: number): Promise<void> {
     return new Promise((r) => setTimeout(r, ms));
   }
+}
+
+function isExpectedRedisClientShutdownError(error: unknown): boolean {
+  return (
+    error instanceof ClientClosedError || error instanceof DisconnectsClientError
+  );
+}
+
+const RETRYABLE_REDIS_TRANSPORT_CODES = new Set([
+  "ECONNREFUSED",
+  "ECONNRESET",
+  "EHOSTUNREACH",
+  "ENETUNREACH",
+  "EPIPE",
+  "ETIMEDOUT",
+]);
+
+function isRetryableRedisTransportError(error: unknown): boolean {
+  if (
+    error instanceof ClientOfflineError ||
+    error instanceof ConnectionTimeoutError ||
+    error instanceof ReconnectStrategyError ||
+    error instanceof RootNodesUnavailableError ||
+    error instanceof SocketClosedUnexpectedlyError
+  ) {
+    return true;
+  }
+  if (!isRecord(error)) {
+    return false;
+  }
+  return (
+    typeof error.code === "string" &&
+    RETRYABLE_REDIS_TRANSPORT_CODES.has(error.code)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  );
 }
