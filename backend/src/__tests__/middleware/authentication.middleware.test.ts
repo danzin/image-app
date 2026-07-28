@@ -270,6 +270,82 @@ describe("AuthenticationMiddleware", () => {
     }
   });
 
+  it("classifies wrapped JWT causes for optional-auth metrics and warnings", async () => {
+    const cases: Array<{
+      cause: jwt.JsonWebTokenError;
+      reason: "token_expired" | "token_not_active" | "invalid_token";
+    }> = [
+      {
+        cause: new jwt.TokenExpiredError("not active", new Date()),
+        reason: "token_expired",
+      },
+      {
+        cause: new jwt.NotBeforeError("expired", new Date()),
+        reason: "token_not_active",
+      },
+      {
+        cause: new jwt.JsonWebTokenError("expired"),
+        reason: "invalid_token",
+      },
+    ];
+    const metrics = {
+      recordOptionalAuthFailure: sinon.stub(),
+    };
+    const warn = sinon.stub(logger, "warn");
+
+    try {
+      for (const { cause, reason } of cases) {
+        const middleware = new AuthenticationMiddleware(
+          {
+            authenticate: sinon
+              .stub()
+              .rejects(Errors.authentication("Authentication failed", { cause })),
+          } as unknown as AuthStrategy,
+          {} as IUserReadRepository,
+          metrics as never,
+        );
+        const request = {
+          method: "GET",
+          originalUrl: "/api/posts",
+          baseUrl: "/api",
+          path: "/posts",
+          headers: { authorization: "Bearer presented-token" },
+        } as Request;
+        const next = sinon.stub();
+        const handleOptional = middleware.handleOptional() as unknown as (
+          req: Request,
+          res: Response,
+          next: NextFunction,
+        ) => Promise<void>;
+
+        await handleOptional(request, {} as Response, next);
+
+        expect(next.calledOnceWithExactly()).to.equal(true);
+        sinon.assert.calledOnce(metrics.recordOptionalAuthFailure);
+        sinon.assert.calledWithExactly(
+          metrics.recordOptionalAuthFailure,
+          reason,
+          "/api/posts",
+        );
+        sinon.assert.calledOnce(warn);
+        const warningMetadata = (
+          warn.firstCall.args as unknown as [
+            message: string,
+            metadata: { reason: string; route: string },
+          ]
+        )[1];
+        expect(warningMetadata).to.include({
+          reason,
+          route: "/api/posts",
+        });
+        metrics.recordOptionalAuthFailure.resetHistory();
+        warn.resetHistory();
+      }
+    } finally {
+      warn.restore();
+    }
+  });
+
   it("continues anonymously for an expected invalid optional session", async () => {
     const secret = "test-secret";
     const strategy = new BearerTokenStrategy(secret, {

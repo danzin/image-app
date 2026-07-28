@@ -226,9 +226,10 @@ export class AuthenticationMiddleware {
     if (!hasPresentedAccessToken(req) && isAuthenticationError(error)) {
       return "missing_token";
     }
-    if (error instanceof jwt.TokenExpiredError) return "token_expired";
-    if (error instanceof jwt.NotBeforeError) return "token_not_active";
-    if (error instanceof jwt.JsonWebTokenError) return "invalid_token";
+    const jwtError = isAuthenticationError(error) ? error.cause : error;
+    if (jwtError instanceof jwt.TokenExpiredError) return "token_expired";
+    if (jwtError instanceof jwt.NotBeforeError) return "token_not_active";
+    if (jwtError instanceof jwt.JsonWebTokenError) return "invalid_token";
 
     return "authentication_failed";
   }

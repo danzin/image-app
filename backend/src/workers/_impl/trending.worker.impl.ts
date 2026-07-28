@@ -145,7 +145,10 @@ export class TrendingWorker {
           throw new Error("Redis unavailable; trending worker cannot start");
         }
 
-        await this.redisService.createStreamConsumerGroup(this.STREAM, this.GROUP);
+        await this.redisService.createStreamConsumerGroup(
+          this.STREAM,
+          this.GROUP,
+        );
         this.redisClient = await this.redisService.createDedicatedClient();
         addRequestContextBreadcrumb("worker.trending.startup.completed", {
           worker: "TrendingWorker",
@@ -158,7 +161,7 @@ export class TrendingWorker {
   }
 
   /** start reading stream and flushing batches */
-  start(): void {
+  async start(): Promise<void> {
     if (this.readLoopTask) return;
     this.stopping = false;
     this.running = true;
@@ -286,8 +289,7 @@ export class TrendingWorker {
   ): void {
     void readLoopTask
       .then(
-        (outcome) =>
-          this.settleReadLoopTask(readLoopTask, generation, outcome),
+        (outcome) => this.settleReadLoopTask(readLoopTask, generation, outcome),
         (error) =>
           this.settleReadLoopTask(readLoopTask, generation, {
             kind: "failed",
@@ -497,10 +499,7 @@ export class TrendingWorker {
       for (const message of streamRes.messages) {
         const messageId = isRecord(message) ? message.id : undefined;
         const messageFields = isRecord(message) ? message.message : undefined;
-        if (
-          typeof messageId !== "string" ||
-          !isStringRecord(messageFields)
-        ) {
+        if (typeof messageId !== "string" || !isStringRecord(messageFields)) {
           throw new TypeError("Malformed Redis stream message");
         }
         this.trackBackgroundRoot("handle_stream_message", () =>
@@ -590,7 +589,9 @@ export class TrendingWorker {
         }
         if (!Array.isArray(posts)) {
           this.requeueEntries(chunk);
-          throw new TypeError("Malformed repository result during trending flush");
+          throw new TypeError(
+            "Malformed repository result during trending flush",
+          );
         }
 
         const cacheUpdates: TrendingCacheUpdate[] = [];
@@ -773,7 +774,9 @@ export class TrendingWorker {
       if (!isRetryableRedisTransportError(err)) {
         throw err;
       }
-      logger.warn("[trending] XCLAIM failed; deferring reclaim", { error: err });
+      logger.warn("[trending] XCLAIM failed; deferring reclaim", {
+        error: err,
+      });
       return;
     }
 
@@ -787,10 +790,7 @@ export class TrendingWorker {
     for (const message of claimed) {
       const messageId = isRecord(message) ? message.id : undefined;
       const messageFields = isRecord(message) ? message.message : undefined;
-      if (
-        typeof messageId !== "string" ||
-        !isStringRecord(messageFields)
-      ) {
+      if (typeof messageId !== "string" || !isStringRecord(messageFields)) {
         throw new TypeError("Malformed XCLAIM entry");
       }
       try {
@@ -850,11 +850,7 @@ export class TrendingWorker {
 
     const updates = cacheUpdates.flatMap(
       ({ comments, likes, postId, score, views }) => [
-        this.redisService.updateTrendingScore(
-          postId,
-          score,
-          "trending:posts",
-        ),
+        this.redisService.updateTrendingScore(postId, score, "trending:posts"),
         this.redisService.setWithTags(
           `post_meta:${postId}`,
           {
@@ -875,7 +871,9 @@ export class TrendingWorker {
     try {
       await Promise.all(updates);
     } catch (error) {
-      logger.warn("[trending] full refresh Redis cache write failed", { error });
+      logger.warn("[trending] full refresh Redis cache write failed", {
+        error,
+      });
       return;
     }
 
@@ -913,8 +911,7 @@ export class TrendingWorker {
       throw new TypeError("Invalid post data for trending score");
     }
 
-    const ageDays =
-      (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
+    const ageDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
     const recencyScore = 1 / (1 + ageDays);
     const popularityScore = Math.log(likes + 1);
     const commentsScore = Math.log(comments + 1);
@@ -1005,7 +1002,8 @@ export class TrendingWorker {
 
 function isExpectedRedisClientShutdownError(error: unknown): boolean {
   return (
-    error instanceof ClientClosedError || error instanceof DisconnectsClientError
+    error instanceof ClientClosedError ||
+    error instanceof DisconnectsClientError
   );
 }
 
