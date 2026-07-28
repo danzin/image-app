@@ -61,6 +61,7 @@ export class TransactionQueueService {
   private handlers = new Map<string, (payload: any) => Promise<any>>();
   private blockingClient: RedisClientType | null = null;
   private isProcessing = false;
+  private startupPromise: Promise<void> | null = null;
   
   // metrics
   private metrics = {
@@ -175,10 +176,21 @@ export class TransactionQueueService {
     }
   }
 
-  public async startProcessing(): Promise<void> {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
+  public startProcessing(): Promise<void> {
+    if (this.startupPromise) return this.startupPromise;
+    if (this.isProcessing) return Promise.resolve();
 
+    let startupPromise: Promise<void>;
+    startupPromise = this.startProcessingGeneration().finally(() => {
+      if (this.startupPromise === startupPromise) {
+        this.startupPromise = null;
+      }
+    });
+    this.startupPromise = startupPromise;
+    return startupPromise;
+  }
+
+  private async startProcessingGeneration(): Promise<void> {
     let blockingClient: RedisClientType | null = null;
 
     try {
@@ -187,6 +199,12 @@ export class TransactionQueueService {
       blockingClient = startedClient;
       this.blockingClient = startedClient;
       await startedClient.connect();
+
+      if (this.blockingClient !== startedClient) {
+        throw new Error("Transaction queue startup was stopped");
+      }
+
+      this.isProcessing = true;
       
       // We don't await processLoop because we want it to run in the background
       void this.processLoop(startedClient)
