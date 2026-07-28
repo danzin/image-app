@@ -20,7 +20,7 @@ import { randomUUID } from "node:crypto";
 import {
   ClientClosedError,
   DisconnectsClientError,
-} from "@redis/client/dist/lib/errors";
+} from "redis";
 
 interface ProfileSnapshotMessage {
   type:

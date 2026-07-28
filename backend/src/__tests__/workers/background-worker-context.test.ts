@@ -4,7 +4,7 @@ import sinon from "sinon";
 import {
   ClientClosedError,
   SocketClosedUnexpectedlyError,
-} from "@redis/client/dist/lib/errors";
+} from "redis";
 import { getRequestContext } from "@/runtime/request-context";
 import { errorLogger, logger } from "@/utils/winston";
 import { FeedFanoutService } from "@/services/feed/feed-fanout.service";
@@ -18,6 +18,25 @@ type RootWorker = {
     work: () => Promise<void>,
   ) => Promise<void>;
 };
+
+function createWorkerMetrics() {
+  return {
+    markWorkerRunning: sinon.stub(),
+    markWorkerStopped: sinon.stub(),
+    markWorkerCrashed: sinon.stub(),
+  };
+}
+
+function createDeferred(): {
+  promise: Promise<void>;
+  resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
 
 async function captureOverlappingRoots(
   worker: RootWorker,
@@ -171,6 +190,235 @@ describe("background worker request-context roots", () => {
     sinon.assert.calledOnce(warning);
     sinon.assert.calledWithExactly((worker as any).sleep, 1000);
     sinon.assert.notCalled(terminal);
+  });
+
+  it("owns one unexpected Trending read-loop failure and transitions it to crashed", async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      const failure = new Error("unexpected iteration failure");
+      const metrics = createWorkerMetrics();
+      const quit = sinon.stub().resolves();
+      const redisClient = { isOpen: true, quit };
+      const worker = new TrendingWorker(
+        {} as any,
+        {} as any,
+        {} as any,
+        metrics as any,
+      );
+      (worker as any).redisClient = redisClient;
+      const iteration = sinon
+        .stub(worker as any, "readLoopIteration")
+        .rejects(failure);
+      sinon.stub(worker as any, "fullRefresh").resolves();
+      const flushPending = sinon
+        .stub(worker as any, "flushPending")
+        .resolves();
+      const terminal = sinon.stub(errorLogger, "error");
+
+      worker.start();
+      const readLoopTask = (worker as any).readLoopTask as Promise<unknown>;
+      await readLoopTask;
+      await Promise.resolve();
+
+      sinon.assert.calledOnce(iteration);
+      sinon.assert.calledOnce(terminal);
+      const terminalRecord = terminal.firstCall.args[0] as any;
+      expect(terminalRecord.operation).to.equal("worker.trending.read_loop");
+      expect(terminalRecord.error.message).to.equal(failure.message);
+      expect((worker as any).running).to.equal(false);
+      expect((worker as any).stopping).to.equal(false);
+      expect((worker as any).redisClient).to.equal(redisClient);
+      expect((worker as any).readLoopTask).to.equal(undefined);
+      expect((worker as any).flushTimer).to.equal(undefined);
+      expect((worker as any).reclaimTimer).to.equal(undefined);
+      expect((worker as any).fullRefreshTimer).to.equal(undefined);
+      sinon.assert.calledWithExactly(
+        metrics.markWorkerCrashed,
+        "trending.worker",
+      );
+      sinon.assert.callOrder(
+        metrics.markWorkerRunning,
+        metrics.markWorkerCrashed,
+      );
+      sinon.assert.notCalled(metrics.markWorkerStopped);
+      sinon.assert.notCalled(flushPending);
+      sinon.assert.notCalled(quit);
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it("restarts one Trending generation without timer duplication or stale settlement", async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      const metrics = createWorkerMetrics();
+      const worker = new TrendingWorker(
+        {} as any,
+        {} as any,
+        {} as any,
+        metrics as any,
+      );
+      (worker as any).redisClient = { isOpen: false };
+      const iteration = sinon
+        .stub(worker as any, "readLoopIteration")
+        .rejects(new Error("first generation failed"));
+      const fullRefresh = sinon
+        .stub(worker as any, "fullRefresh")
+        .resolves();
+      sinon.stub(worker as any, "flushPending").resolves();
+      sinon.stub(errorLogger, "error");
+
+      worker.start();
+      const oldTask = (worker as any).readLoopTask as Promise<unknown>;
+      const oldGeneration = (worker as any).readLoopGeneration as number;
+      await oldTask;
+      await Promise.resolve();
+
+      const activeIteration = createDeferred();
+      iteration.resetHistory();
+      iteration.resetBehavior();
+      iteration.callsFake(() => activeIteration.promise);
+      fullRefresh.resetHistory();
+
+      worker.start();
+      const restartedTask = (worker as any).readLoopTask;
+      const restartedTimers = [
+        (worker as any).flushTimer,
+        (worker as any).reclaimTimer,
+        (worker as any).fullRefreshTimer,
+      ];
+      expect(restartedTimers).not.to.include(undefined);
+      expect(new Set(restartedTimers).size).to.equal(3);
+      worker.start();
+      await Promise.resolve();
+
+      expect((worker as any).readLoopTask).to.equal(restartedTask);
+      expect([
+        (worker as any).flushTimer,
+        (worker as any).reclaimTimer,
+        (worker as any).fullRefreshTimer,
+      ]).to.deep.equal(restartedTimers);
+      sinon.assert.calledOnce(iteration);
+      sinon.assert.calledOnce(fullRefresh);
+      sinon.assert.calledTwice(metrics.markWorkerRunning);
+
+      (worker as any).settleReadLoopTask(oldTask, oldGeneration, {
+        kind: "stopped",
+      });
+      expect((worker as any).readLoopTask).to.equal(restartedTask);
+      expect((worker as any).running).to.equal(true);
+      expect([
+        (worker as any).flushTimer,
+        (worker as any).reclaimTimer,
+        (worker as any).fullRefreshTimer,
+      ]).to.deep.equal(restartedTimers);
+
+      const stopTask = worker.stop();
+      await Promise.resolve();
+      activeIteration.resolve();
+      await stopTask;
+      expect((worker as any).flushTimer).to.equal(undefined);
+      expect((worker as any).reclaimTimer).to.equal(undefined);
+      expect((worker as any).fullRefreshTimer).to.equal(undefined);
+    } finally {
+      clock.restore();
+    }
+  });
+
+  it("owns Trending request-context setup failures without an unhandled rejection", async () => {
+    const failure = new Error("request context setup failed");
+    const metrics = createWorkerMetrics();
+    const worker = new TrendingWorker(
+      {} as any,
+      {} as any,
+      {} as any,
+      metrics as any,
+    );
+    (worker as any).redisClient = {};
+    sinon
+      .stub(worker as any, "runReadLoopInContext")
+      .throws(failure);
+    sinon.stub(worker as any, "fullRefresh").resolves();
+    const terminal = sinon.stub(errorLogger, "error");
+    const unhandled: unknown[] = [];
+    const captureUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", captureUnhandled);
+
+    try {
+      worker.start();
+      const readLoopTask = (worker as any).readLoopTask as Promise<unknown>;
+      await readLoopTask;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+
+      expect(unhandled).to.deep.equal([]);
+      sinon.assert.calledOnce(terminal);
+      expect((terminal.firstCall.args[0] as any).error.message).to.equal(
+        failure.message,
+      );
+      expect((worker as any).running).to.equal(false);
+      expect((worker as any).readLoopTask).to.equal(undefined);
+    } finally {
+      process.off("unhandledRejection", captureUnhandled);
+    }
+  });
+
+  it("waits for the active Trending read loop during ordinary shutdown", async () => {
+    const clock = sinon.useFakeTimers();
+    try {
+      const metrics = createWorkerMetrics();
+      const quit = sinon.stub().resolves();
+      const worker = new TrendingWorker(
+        {} as any,
+        {} as any,
+        {} as any,
+        metrics as any,
+      );
+      (worker as any).redisClient = { isOpen: true, quit };
+      const activeIteration = createDeferred();
+      sinon
+        .stub(worker as any, "readLoopIteration")
+        .callsFake(() => activeIteration.promise);
+      sinon.stub(worker as any, "fullRefresh").resolves();
+      const flushPending = sinon
+        .stub(worker as any, "flushPending")
+        .resolves();
+      const terminal = sinon.stub(errorLogger, "error");
+
+      worker.start();
+      let stopResolved = false;
+      const stopTask = worker.stop().then(() => {
+        stopResolved = true;
+      });
+      await Promise.resolve();
+
+      expect(stopResolved).to.equal(false);
+      expect((worker as any).running).to.equal(false);
+      expect((worker as any).stopping).to.equal(true);
+      expect((worker as any).flushTimer).to.equal(undefined);
+      expect((worker as any).reclaimTimer).to.equal(undefined);
+      expect((worker as any).fullRefreshTimer).to.equal(undefined);
+      sinon.assert.notCalled(flushPending);
+      sinon.assert.notCalled(quit);
+      sinon.assert.calledWithExactly(
+        metrics.markWorkerStopped,
+        "trending.worker",
+      );
+
+      activeIteration.resolve();
+      await stopTask;
+
+      expect((worker as any).readLoopTask).to.equal(undefined);
+      expect((worker as any).redisClient).to.equal(null);
+      sinon.assert.calledOnce(flushPending);
+      sinon.assert.calledOnce(quit);
+      sinon.assert.calledOnce(metrics.markWorkerStopped);
+      sinon.assert.notCalled(metrics.markWorkerCrashed);
+      sinon.assert.notCalled(terminal);
+    } finally {
+      clock.restore();
+    }
   });
 
   it("gives a malformed Trending read response one terminal owner", async () => {
@@ -677,7 +925,9 @@ describe("background worker request-context roots", () => {
     const clock = sinon.useFakeTimers();
     try {
       const trending = new TrendingWorker({} as any, {} as any, {} as any);
-      const readLoop = sinon.stub(trending as any, "readLoop").resolves();
+      const readLoop = sinon
+        .stub(trending as any, "readLoop")
+        .resolves({ kind: "stopped" });
       const flushPending = sinon
         .stub(trending as any, "flushPending")
         .resolves();

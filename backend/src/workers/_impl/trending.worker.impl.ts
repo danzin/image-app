@@ -1,8 +1,18 @@
 import "reflect-metadata";
 import { inject, injectable } from "tsyringe";
 import { performance } from "perf_hooks";
-import type { RedisClientType } from "redis";
+import {
+  ClientClosedError,
+  ClientOfflineError,
+  ConnectionTimeoutError,
+  DisconnectsClientError,
+  ReconnectStrategyError,
+  RootNodesUnavailableError,
+  SocketClosedUnexpectedlyError,
+  type RedisClientType,
+} from "redis";
 import { RedisService } from "@/services/redis.service";
+import { MetricsService } from "@/metrics/metrics.service";
 import { asPostPublicId } from "@/types/branded";
 import type { IPostReadRepository } from "@/repositories/interfaces";
 import { FeedPost } from "@/types";
@@ -14,15 +24,6 @@ import {
 } from "@/runtime/request-context";
 import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 import { randomUUID } from "node:crypto";
-import {
-  ClientOfflineError,
-  ClientClosedError,
-  ConnectionTimeoutError,
-  DisconnectsClientError,
-  ReconnectStrategyError,
-  RootNodesUnavailableError,
-  SocketClosedUnexpectedlyError,
-} from "@redis/client/dist/lib/errors";
 import type { IFeedReadDao } from "@/repositories/interfaces";
 import { TOKENS } from "@/types/tokens";
 import type {
@@ -75,6 +76,16 @@ type TrendingCacheUpdate = {
   views: number;
 };
 
+type ReadLoopOutcome =
+  | { kind: "stopped" }
+  | {
+      kind: "failed";
+      error: unknown;
+      terminalRecorded: boolean;
+      operationId?: string;
+      loggingError?: unknown;
+    };
+
 @injectable()
 export class TrendingWorker {
   private STREAM = "stream:interactions";
@@ -99,10 +110,13 @@ export class TrendingWorker {
   private flushing = false;
   private running = false;
   private stopping = false;
+  private readLoopTask?: Promise<ReadLoopOutcome>;
+  private readLoopGeneration = 0;
   private flushTimer?: NodeJS.Timeout;
   private reclaimTimer?: NodeJS.Timeout;
   private fullRefreshTimer?: NodeJS.Timeout;
   private inFlightCallbacks = new Set<Promise<void>>();
+  private readonly runReadLoopInContext = runWithRequestContext;
 
   constructor(
     @inject(TOKENS.Repositories.FeedReadDao)
@@ -111,6 +125,8 @@ export class TrendingWorker {
     private readonly redisService: RedisService,
     @inject(TOKENS.Repositories.PostRead)
     private readonly postReadRepository: IPostReadRepository,
+    @inject(TOKENS.Services.Metrics)
+    private readonly metricsService?: MetricsService,
   ) {}
 
   /** initialize dependencies and create consumer group if necessary */
@@ -143,15 +159,14 @@ export class TrendingWorker {
 
   /** start reading stream and flushing batches */
   start(): void {
-    if (this.running) return;
+    if (this.readLoopTask) return;
     this.stopping = false;
     this.running = true;
 
-    void this.readLoop().catch((error) =>
-      this.runBackgroundRoot("read_loop", async () => {
-        throw error;
-      }),
-    );
+    const generation = ++this.readLoopGeneration;
+    const readLoopTask = this.readLoop();
+    this.readLoopTask = readLoopTask;
+    this.ownReadLoopTask(readLoopTask, generation);
 
     this.flushTimer = setInterval(() => {
       this.trackBackgroundRoot("flush_pending", () => this.flushPending());
@@ -171,6 +186,7 @@ export class TrendingWorker {
     // run initial full refresh on startup
     this.trackBackgroundRoot("initial_full_refresh", () => this.fullRefresh());
 
+    this.updateWorkerMetric("running");
     logger.info(`[trending] worker started (consumer=${this.CONSUMER})`);
   }
 
@@ -180,14 +196,21 @@ export class TrendingWorker {
     await runWithRequestContext(
       { correlationId: operationId, requestStartTime: process.hrtime.bigint() },
       async () => {
+        this.stopping = true;
+        this.running = false;
+        this.clearTimers();
+        this.updateWorkerMetric("stopped");
         addRequestContextBreadcrumb("worker.trending.shutdown.started", {
           worker: "TrendingWorker",
         });
-        this.stopping = true;
-        this.running = false;
-        if (this.flushTimer) clearInterval(this.flushTimer);
-        if (this.reclaimTimer) clearInterval(this.reclaimTimer);
-        if (this.fullRefreshTimer) clearInterval(this.fullRefreshTimer);
+
+        const readLoopTask = this.readLoopTask;
+        if (readLoopTask) {
+          await readLoopTask;
+          if (this.readLoopTask === readLoopTask) {
+            this.readLoopTask = undefined;
+          }
+        }
 
         await Promise.allSettled(this.inFlightCallbacks);
         await this.flushPending();
@@ -204,11 +227,229 @@ export class TrendingWorker {
   }
 
   /** main read loop that consumes stream messages using XREADGROUP via clientInstance */
-  private async readLoop(): Promise<void> {
-    while (this.running && this.redisClient) {
-      await this.runBackgroundRoot("read_loop_iteration", () =>
-        this.readLoopIteration(),
+  private async readLoop(): Promise<ReadLoopOutcome> {
+    let operationId: string | undefined;
+    try {
+      const readLoopOperationId = randomUUID();
+      operationId = readLoopOperationId;
+      return await this.runReadLoopInContext(
+        {
+          correlationId: readLoopOperationId,
+          requestStartTime: process.hrtime.bigint(),
+        },
+        async (): Promise<ReadLoopOutcome> => {
+          try {
+            addRequestContextBreadcrumb("worker.trending.callback.started", {
+              worker: "TrendingWorker",
+              operation: "read_loop",
+            });
+            while (this.running && this.redisClient) {
+              await this.readLoopIteration();
+            }
+            if (this.stopping || !this.running) {
+              addRequestContextBreadcrumb(
+                "worker.trending.callback.completed",
+                {
+                  worker: "TrendingWorker",
+                  operation: "read_loop",
+                },
+              );
+              return { kind: "stopped" };
+            }
+            return this.recordReadLoopFailure(
+              new Error(
+                "Trending read loop exited while the worker remained running",
+              ),
+              readLoopOperationId,
+            );
+          } catch (error) {
+            if (this.stopping && isExpectedRedisClientShutdownError(error)) {
+              return { kind: "stopped" };
+            }
+            return this.recordReadLoopFailure(error, readLoopOperationId);
+          }
+        },
       );
+    } catch (error) {
+      return {
+        kind: "failed",
+        error,
+        terminalRecorded: false,
+        ...(operationId === undefined ? {} : { operationId }),
+      };
+    }
+  }
+
+  private ownReadLoopTask(
+    readLoopTask: Promise<ReadLoopOutcome>,
+    generation: number,
+  ): void {
+    void readLoopTask
+      .then(
+        (outcome) =>
+          this.settleReadLoopTask(readLoopTask, generation, outcome),
+        (error) =>
+          this.settleReadLoopTask(readLoopTask, generation, {
+            kind: "failed",
+            error,
+            terminalRecorded: false,
+          }),
+      )
+      .catch((ownershipError) => {
+        this.handleReadLoopOwnershipFailure(
+          readLoopTask,
+          generation,
+          ownershipError,
+        );
+      });
+  }
+
+  private settleReadLoopTask(
+    readLoopTask: Promise<ReadLoopOutcome>,
+    generation: number,
+    outcome: ReadLoopOutcome,
+  ): void {
+    if (
+      this.readLoopTask !== readLoopTask ||
+      this.readLoopGeneration !== generation
+    ) {
+      return;
+    }
+
+    this.readLoopTask = undefined;
+    if (outcome.kind !== "failed") {
+      return;
+    }
+
+    if (!this.stopping) {
+      this.running = false;
+      this.clearTimers();
+      this.updateWorkerMetric("crashed");
+    }
+    if (!outcome.terminalRecorded) {
+      this.reportUnrecordedReadLoopFailure(outcome);
+    }
+  }
+
+  private recordReadLoopFailure(
+    error: unknown,
+    operationId: string,
+  ): ReadLoopOutcome {
+    try {
+      addRequestContextBreadcrumb("worker.trending.callback.failed", {
+        worker: "TrendingWorker",
+        operation: "read_loop",
+      });
+      logNonHttpTerminalError(error, {
+        message: "Trending worker background callback failed",
+        event: "worker.trending.callback.failed",
+        operation: "worker.trending.read_loop",
+        operationId,
+        worker: "TrendingWorker",
+        breadcrumbs: getRequestContext()?.breadcrumbs,
+      });
+      return {
+        kind: "failed",
+        error,
+        terminalRecorded: true,
+        operationId,
+      };
+    } catch (loggingError) {
+      return {
+        kind: "failed",
+        error,
+        terminalRecorded: false,
+        operationId,
+        loggingError,
+      };
+    }
+  }
+
+  private reportUnrecordedReadLoopFailure(
+    outcome: Extract<ReadLoopOutcome, { kind: "failed" }>,
+  ): void {
+    try {
+      logNonHttpTerminalError(outcome.error, {
+        message: "Trending worker background callback failed",
+        event: "worker.trending.callback.failed",
+        operation: "worker.trending.read_loop",
+        ...(outcome.operationId === undefined
+          ? {}
+          : { operationId: outcome.operationId }),
+        worker: "TrendingWorker",
+        breadcrumbs: getRequestContext()?.breadcrumbs,
+      });
+    } catch (fallbackLoggingError) {
+      try {
+        logger.error("Trending worker read-loop terminal logging failed", {
+          event: "worker.trending.read_loop.terminal_logging_failed",
+          worker: "TrendingWorker",
+          workerError: outcome.error,
+          loggingError: outcome.loggingError,
+          fallbackLoggingError,
+        });
+      } catch {}
+    }
+  }
+
+  private handleReadLoopOwnershipFailure(
+    readLoopTask: Promise<ReadLoopOutcome>,
+    generation: number,
+    ownershipError: unknown,
+  ): void {
+    try {
+      if (
+        this.readLoopTask === readLoopTask &&
+        this.readLoopGeneration === generation
+      ) {
+        this.readLoopTask = undefined;
+        this.running = false;
+        this.clearTimers();
+        this.updateWorkerMetric("crashed");
+      }
+      try {
+        logger.error("Trending worker read-loop ownership failed", {
+          event: "worker.trending.read_loop.ownership_failed",
+          worker: "TrendingWorker",
+          error: ownershipError,
+        });
+      } catch {}
+    } catch {}
+  }
+
+  private clearTimers(): void {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = undefined;
+    }
+    if (this.reclaimTimer) {
+      clearInterval(this.reclaimTimer);
+      this.reclaimTimer = undefined;
+    }
+    if (this.fullRefreshTimer) {
+      clearInterval(this.fullRefreshTimer);
+      this.fullRefreshTimer = undefined;
+    }
+  }
+
+  private updateWorkerMetric(state: "running" | "stopped" | "crashed"): void {
+    try {
+      if (state === "running") {
+        this.metricsService?.markWorkerRunning("trending.worker");
+      } else if (state === "stopped") {
+        this.metricsService?.markWorkerStopped("trending.worker");
+      } else {
+        this.metricsService?.markWorkerCrashed("trending.worker");
+      }
+    } catch (error) {
+      try {
+        logger.warn("Trending worker metric transition failed", {
+          event: "worker.trending.metric_transition.failed",
+          worker: "TrendingWorker",
+          state,
+          error,
+        });
+      } catch {}
     }
   }
 
