@@ -19,6 +19,14 @@ discovery.relabel "containers" {
   }
 
   rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+    regex  = "backend|backend-worker|frontend|redis|mongo"
+    action = "keep"
+  }
+
+  rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/(.*)"
     replacement   = "$1"
@@ -51,7 +59,7 @@ loki.source.docker "containers" {
   forward_to = [loki.process.container_logs.receiver]
 }
 
-// For dev env
+
 loki.process "container_logs" {
   stage.match {
     selector = "{service_name=\"mongo\"}"
@@ -79,6 +87,11 @@ loki.process "container_logs" {
     stage.drop {
       expression          = "\"s\":\"I\".*\"c\":\"WTCHKPT\".*\"id\":22430,"
       drop_counter_reason = "mongo_checkpoint_progress"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":10621107,.*\"ctx\":\"OplogCapMaintainerThread-local\\.oplog\\.rs\""
+      drop_counter_reason = "mongo_oplog_maintenance"
     }
   }
 

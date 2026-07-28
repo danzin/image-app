@@ -234,21 +234,48 @@ services:
     networks:
       - app-network
 
+    mem_limit: 358m
+
+  loki-readiness:
+    image: curlimages/curl:8.12.1
+    container_name: loki-readiness
+    restart: always
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    entrypoint: ["/bin/sh", "-c", "while :; do sleep 3600; done"]
+
+    networks:
+      - app-network
+
+    depends_on:
+      loki:
+        condition: service_started
+
     healthcheck:
       test:
         [
           "CMD",
-          "wget",
-          "--quiet",
-          "--tries=1",
-          "--spider",
-          "http://127.0.0.1:3100/ready",
+          "curl",
+          "--fail",
+          "--silent",
+          "--show-error",
+          "--max-time",
+          "4",
+          "http://loki:3100/ready",
         ]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 20s
-    mem_limit: 358m
+
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 16
+    mem_limit: 16m
 
   alloy:
     image: grafana/alloy:v1.18.0
@@ -275,7 +302,7 @@ services:
       - app-network
 
     depends_on:
-      loki:
+      loki-readiness:
         condition: service_healthy
 
     mem_limit: 128m
@@ -304,7 +331,7 @@ services:
     depends_on:
       prometheus:
         condition: service_started
-      loki:
+      loki-readiness:
         condition: service_healthy
     mem_limit: 256m
 

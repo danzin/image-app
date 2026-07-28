@@ -42,6 +42,35 @@ describe("production monitoring configuration", () => {
     expect(compose).to.include("alloy_data:");
   });
 
+  it("gates Loki consumers on an internal readiness probe", () => {
+    const compose = readRepositoryFile("docker-compose-prod.yml");
+    const loki = serviceBlock(compose, "loki");
+    const readiness = serviceBlock(compose, "loki-readiness");
+    const alloy = serviceBlock(compose, "alloy");
+    const grafana = serviceBlock(compose, "grafana");
+
+    expect(loki).to.not.include("healthcheck:");
+
+    expect(readiness).to.include("image: curlimages/curl:8.12.1");
+    expect(readiness).to.include('profiles: ["monitoring"]');
+    expect(readiness).to.include("http://loki:3100/ready");
+    expect(readiness).to.include("read_only: true");
+    expect(readiness).to.include("no-new-privileges:true");
+    expect(readiness).to.include("pids_limit: 16");
+    expect(readiness).to.not.include("ports:");
+    expect(readiness).to.not.include("/var/run/docker.sock");
+    expect(readiness).to.match(
+      /depends_on:[\s\S]*?loki:[\s\S]*?condition:\s*service_started/,
+    );
+    expect(readiness).to.match(/cap_drop:[\s\S]*?-\s*ALL/);
+
+    for (const dependent of [alloy, grafana]) {
+      expect(dependent).to.match(
+        /depends_on:[\s\S]*?loki-readiness:[\s\S]*?condition:\s*service_healthy/,
+      );
+    }
+  });
+
   it("uses persistent TSDB v13 filesystem storage with finite retention", () => {
     const config = readRepositoryFile("monitoring/loki/loki-config.yml");
 
