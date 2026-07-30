@@ -135,6 +135,7 @@ export const PostCardHeader: React.FC<PostCardHeaderProps> = ({
 								<IconButton
 									size="small"
 									onClick={onDeleteClick}
+									aria-label="Delete post"
 									sx={{
 										ml: "auto",
 										color: "error.main",

@@ -83,7 +83,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 					gap: 3,
 				}}
 			>
-				<IconButton onClick={onBack} size="small">
+				<IconButton onClick={onBack} size="small" aria-label="Go back">
 					<ArrowBackIcon />
 				</IconButton>
 				<Box>
@@ -110,6 +110,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 					<IconButton
 						size="small"
 						onClick={onOpenCoverModal}
+						aria-label="Change cover image"
 						sx={{
 							position: "absolute",
 							bottom: 16,
@@ -143,6 +144,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 								<IconButton
 									size="small"
 									onClick={onOpenAvatarModal}
+									aria-label="Change profile image"
 									sx={{
 										position: "absolute",
 										bottom: 0,
@@ -182,6 +184,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 								<Tooltip title={t("profile.message")}>
 									<IconButton
 										onClick={onMessage}
+										aria-label="Send message"
 										sx={{
 											border: `1px solid ${theme.palette.divider}`,
 											color: theme.palette.text.primary,
@@ -216,6 +219,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 										<Tooltip title="Account Details (Admin)">
 											<IconButton
 												onClick={onOpenAdminDetails}
+												aria-label="View admin details"
 												sx={{
 													border: `1px solid ${theme.palette.divider}`,
 													color: "info.main",
@@ -227,6 +231,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 										<Tooltip title="Ban User (Admin)">
 											<IconButton
 												onClick={onBanUser}
+												aria-label="Ban user"
 												sx={{
 													border: `1px solid ${theme.palette.divider}`,
 													color: "warning.main",
@@ -238,6 +243,7 @@ export const ProfileHero: React.FC<ProfileHeroProps> = ({
 										<Tooltip title="Delete User (Admin)">
 											<IconButton
 												onClick={onDeleteUser}
+												aria-label="Delete user"
 												sx={{
 													border: `1px solid ${theme.palette.divider}`,
 													color: "error.main",

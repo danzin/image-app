@@ -51,7 +51,11 @@ const Favorites = () => {
 					gap: 2,
 				}}
 			>
-				<IconButton onClick={() => navigate(-1)} size="small">
+				<IconButton
+					onClick={() => navigate(-1)}
+					size="small"
+					aria-label="Go back"
+				>
 					<ArrowBackIcon />
 				</IconButton>
 				<Box>

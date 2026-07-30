@@ -266,6 +266,7 @@ const FollowList: React.FC = () => {
 				<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
 					<IconButton
 						onClick={() => navigate(-1)}
+						aria-label="Go back"
 						sx={{
 							color: "text.primary",
 							"&:hover": { bgcolor: alpha(theme.palette.text.primary, 0.1) },

@@ -81,6 +81,7 @@ const CreateCommunityModal: React.FC<CreateCommunityModalProps> = ({ open, onClo
 									"&:hover": { bgcolor: "error.light", color: "white" },
 								}}
 								onClick={handleRemoveAvatar}
+								aria-label="Remove community avatar"
 							>
 								<DeleteIcon fontSize="small" />
 							</IconButton>

@@ -1,6 +1,6 @@
 import React from "react";
 import { Box } from "@mui/material";
-import { useNavigate } from "react-router-dom";
+import { Link as RouterLink } from "react-router-dom";
 
 interface RichTextProps {
   text: string;
@@ -10,43 +10,28 @@ const clickableTokenSx = {
   color: "primary.main",
   cursor: "pointer",
   fontWeight: 700,
+  textDecoration: "none",
   "&:hover": {
     color: "primary.light",
     textDecoration: "underline",
+  },
+  "&:focus-visible": {
+    borderRadius: 0.5,
+    outline: "2px solid",
+    outlineColor: "primary.main",
+    outlineOffset: 2,
   },
 };
 
 /**
  * This component detects hashtags and mentions in text and makes them clickable
- * Hashtags - #word - /search/tags?tags=word
+ * Hashtags - #word - /results/?q=#word
  * Mentions - @handle - /profile/handle
  */
 const RichText: React.FC<RichTextProps> = ({ text }) => {
-  const navigate = useNavigate();
-
   // Regex to match hashtags for words and mentions with '#' or '@'
   // Matches alphanumeric and underscores, including unicode characters for hashtags
   const tokenRegex = /((?:#[\p{L}\p{N}_]+)|(?:@[a-zA-Z0-9._]+))/gu;
-
-  const handleHashtagClick = (tag: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // strip '#'
-    const cleanTag = tag.substring(1);
-
-    if (!cleanTag) return;
-
-    navigate(`/results/?q=${encodeURIComponent(`#${cleanTag}`)}`);
-  };
-
-  const handleMentionClick = (mention: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Strip '@'
-    const handle = mention.substring(1);
-
-    if (!handle) return;
-
-    navigate(`/profile/${encodeURIComponent(handle)}`);
-  };
 
   const renderContent = () => {
     if (!text) return null;
@@ -70,10 +55,11 @@ const RichText: React.FC<RichTextProps> = ({ text }) => {
       if (token.startsWith("#")) {
         parts.push(
           <Box
-            component="span"
+            component={RouterLink}
+            to={`/results/?q=${encodeURIComponent(token)}`}
             key={`hashtag-${matchIndex}`}
             sx={clickableTokenSx}
-            onClick={(e) => handleHashtagClick(token, e)}
+            onClick={(event) => event.stopPropagation()}
           >
             {token}
           </Box>,
@@ -81,10 +67,11 @@ const RichText: React.FC<RichTextProps> = ({ text }) => {
       } else if (token.startsWith("@")) {
         parts.push(
           <Box
-            component="span"
+            component={RouterLink}
+            to={`/profile/${encodeURIComponent(token.substring(1))}`}
             key={`mention-${matchIndex}`}
             sx={clickableTokenSx}
-            onClick={(e) => handleMentionClick(token, e)}
+            onClick={(event) => event.stopPropagation()}
           >
             {token}
           </Box>,

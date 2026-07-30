@@ -226,6 +226,7 @@ export const useNotifications = () => {
     notifications,
     isLoading: notificationsQuery.isLoading,
     isError: notificationsQuery.isError,
+    refetch: notificationsQuery.refetch,
     isFetchingNextPage: notificationsQuery.isFetchingNextPage,
     hasNextPage: notificationsQuery.hasNextPage,
     fetchNextPage: notificationsQuery.fetchNextPage,

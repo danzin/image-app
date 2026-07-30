@@ -1,5 +1,9 @@
 import React, { useEffect } from "react";
-import { Link as RouterLink, useNavigate } from "react-router-dom";
+import {
+	Link as RouterLink,
+	useLocation,
+	useNavigate,
+} from "react-router-dom";
 import { useLogin } from "../hooks/user/useUserLogin";
 import AuthForm from "../components/AuthForm";
 import { ToastContainer } from "react-toastify";
@@ -8,16 +12,34 @@ import { Box, Container, Link, Typography } from "@mui/material";
 
 const Login: React.FC = () => {
 	const navigate = useNavigate();
+	const location = useLocation();
 	const { mutate: loginMutation, isPending, data } = useLogin();
 
 	useEffect(() => {
 		if (data?.user) {
 			const isVerified = data.user.isEmailVerified !== false;
-			const destination = isVerified ? "/" : `/verify-email?email=${encodeURIComponent(data.user.email)}`;
+			const from = (
+				location.state as
+					| {
+							from?: {
+								pathname?: string;
+								search?: string;
+								hash?: string;
+							};
+					  }
+					| null
+			)?.from;
+			const returnPath =
+				from?.pathname?.startsWith("/") && !from.pathname.startsWith("//")
+				? `${from.pathname}${from.search ?? ""}${from.hash ?? ""}`
+				: "/";
+			const destination = isVerified
+				? returnPath
+				: `/verify-email?email=${encodeURIComponent(data.user.email)}`;
 			const timer = setTimeout(() => navigate(destination), 1000);
 			return () => clearTimeout(timer);
 		}
-	}, [data, navigate]);
+	}, [data, location.state, navigate]);
 
 	const handleLogin = (formData: { email: string; password: string }) => {
 		loginMutation(formData);

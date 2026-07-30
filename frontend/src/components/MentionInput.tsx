@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { getCaretCoordinates } from "../utils/caretCoordinates";
 import { useHandleSuggestions } from "../hooks/user/useHandleSuggestions";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { HandleSuggestion, HandleSuggestionContext } from "../types";
 
 interface MentionInputProps {
@@ -58,8 +59,18 @@ const MentionInput: React.FC<MentionInputProps> = ({
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
 	// Suggestion fetching
-	const suggestionsQuery = useHandleSuggestions(mentionQuery?.query || "", context, 5, Boolean(mentionQuery));
-	const suggestions = suggestionsQuery.data?.users || [];
+	const mentionSearch = mentionQuery?.query || "";
+	const debouncedMentionSearch = useDebouncedValue(mentionSearch, 250);
+	const isMentionSearchSettled = mentionSearch === debouncedMentionSearch;
+	const suggestionsQuery = useHandleSuggestions(
+		debouncedMentionSearch,
+		context,
+		5,
+		Boolean(mentionQuery) && isMentionSearchSettled,
+	);
+	const suggestions = isMentionSearchSettled
+		? suggestionsQuery.data?.users || []
+		: [];
 	const showSuggestions = Boolean(mentionQuery && suggestions.length > 0);
 
 	const handleScroll = (e: React.UIEvent<HTMLInputElement | HTMLTextAreaElement>) => {

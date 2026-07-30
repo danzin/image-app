@@ -14,10 +14,6 @@ import {
   CircularProgress,
   Fab,
   IconButton,
-  List,
-  ListItemAvatar,
-  ListItemButton,
-  ListItemText,
   Paper,
   TextField,
   Typography,
@@ -31,23 +27,17 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  Input,
   Badge,
   Alert,
 } from "@mui/material";
 import SendRoundedIcon from "@mui/icons-material/SendRounded";
 import ArrowBackIosNewRoundedIcon from "@mui/icons-material/ArrowBackIosNewRounded";
 import {
-  InfoOutlined as InfoOutlinedIcon,
-  Image as ImageIcon,
-  Gif as GifIcon,
-  EmojiEmotions as EmojiEmotionsIcon,
   CheckCircle as CheckCircleIcon,
   Done as DoneIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
   Cancel as CancelIcon,
-  Close as CloseIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
 } from "@mui/icons-material";
 import { useConversations } from "../hooks/messaging/useConversations";
@@ -58,63 +48,19 @@ import { useEditMessage } from "../hooks/messaging/useEditMessage";
 import { useDeleteMessage } from "../hooks/messaging/useDeleteMessage";
 import { useAuth } from "../hooks/context/useAuth";
 import { useSocket } from "../hooks/context/useSocket";
-import { ConversationSummaryDTO, MessageDTO } from "../types";
+import {
+  getConversationTitle,
+  getOtherParticipant,
+  formatTimestamp,
+  MessagesConversationList,
+} from "../components/messages/MessagesConversationList";
+import { MessageDTO } from "../types";
 
 const CONVERSATION_PANEL_WIDTH = 380;
 const CONVERSATION_PRESENCE_HEARTBEAT_MS = 30_000;
 
-const formatTimestamp = (timestamp: string) => {
-  try {
-    const date = new Date(timestamp);
-    return new Intl.DateTimeFormat("en", {
-      hour: "numeric",
-      minute: "numeric",
-      month: "short",
-      day: "numeric",
-    }).format(date);
-  } catch {
-    return timestamp;
-  }
-};
-
-const getConversationTitle = (
-  conversation: ConversationSummaryDTO,
-  currentUserId?: string | null,
-) => {
-  if (conversation.title) {
-    return conversation.title;
-  }
-
-  const others = conversation.participants.filter(
-    (participant) => participant.publicId !== currentUserId,
-  );
-  if (others.length === 0 && conversation.participants.length > 0) {
-    return conversation.participants[0].username;
-  }
-
-  const label = others.map((participant) => participant.username).join(", ");
-  return label || "Direct Message";
-};
-
-const getOtherParticipant = (
-  conversation: ConversationSummaryDTO,
-  currentUserId?: string | null,
-) => {
-  const others = conversation.participants.filter(
-    (participant) => participant.publicId !== currentUserId,
-  );
-  // return the first other participant, or null if somehow there are none
-  return others[0] || null;
-};
-
-const getConversationAvatar = (
-  conversation: ConversationSummaryDTO,
-  currentUserId?: string | null,
-) => {
-  const other = getOtherParticipant(conversation, currentUserId);
-  // only return the other participant's avatar, never fall back to current user's avatar
-  return other?.avatar || "";
-};
+const getActionErrorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback;
 
 const Messages = () => {
   const theme = useTheme();
@@ -127,7 +73,6 @@ const Messages = () => {
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const markedAsReadRef = useRef<Set<string>>(new Set());
   const markReadPendingRef = useRef<Set<string>>(new Set());
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMessage, setSelectedMessage] = useState<MessageDTO | null>(
@@ -135,7 +80,7 @@ const Messages = () => {
   );
   const [isEditing, setIsEditing] = useState(false);
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // scroll position tracking for "new messages" indicator
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -186,6 +131,13 @@ const Messages = () => {
   const selectedConversation = useMemo(() => {
     return conversations.find((c) => c.publicId === selectedConversationId);
   }, [conversations, selectedConversationId]);
+  const selectedOtherParticipant = selectedConversation
+    ? getOtherParticipant(selectedConversation, user?.publicId)
+    : null;
+  const canOpenSelectedParticipant =
+    !!selectedOtherParticipant &&
+    !selectedOtherParticipant.isUnavailable &&
+    !!(selectedOtherParticipant.handle || selectedOtherParticipant.publicId);
 
   useEffect(() => {
     if (
@@ -312,42 +264,53 @@ const Messages = () => {
   const deleteMessage = useDeleteMessage();
 
   const handleSelectConversation = (conversationId: string) => {
+    setActionError(null);
     navigate(`?conversation=${conversationId}`);
   };
 
   const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (
-      (!draftBody.trim() && !imageFile) ||
+      !draftBody.trim() ||
       !selectedConversationId ||
-      selectedConversation?.isClosed
+      selectedConversation?.isClosed ||
+      sendMessage.isPending ||
+      editMessage.isPending
     )
       return;
 
-    if (isEditing && selectedMessage) {
-      await editMessage.mutateAsync({
-        messageId: selectedMessage.publicId,
-        body: draftBody.trim(),
-      });
-      setIsEditing(false);
-      setSelectedMessage(null);
-    } else {
-      const payload = new FormData();
-      payload.append("conversationPublicId", selectedConversationId);
-      payload.append("body", draftBody.trim());
-      if (imageFile) {
-        payload.append("image", imageFile);
+    setActionError(null);
+
+    try {
+      if (isEditing && selectedMessage) {
+        await editMessage.mutateAsync({
+          messageId: selectedMessage.publicId,
+          body: draftBody.trim(),
+        });
+        setIsEditing(false);
+        setSelectedMessage(null);
+      } else {
+        const payload = new FormData();
+        payload.append("conversationPublicId", selectedConversationId);
+        payload.append("body", draftBody.trim());
+        await sendMessage.mutateAsync(payload);
       }
 
-      await sendMessage.mutateAsync(payload);
+      setDraftBody("");
+    } catch (error) {
+      setActionError(
+        getActionErrorMessage(
+          error,
+          isEditing
+            ? "Unable to update the message."
+            : "Unable to send the message.",
+        ),
+      );
     }
-
-    setDraftBody("");
-    setImageFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleBackToList = () => {
+    setActionError(null);
     navigate("/messages");
   };
 
@@ -367,6 +330,7 @@ const Messages = () => {
   };
 
   const handleEditStart = () => {
+    setActionError(null);
     if (selectedMessage) {
       setDraftBody(selectedMessage.body);
       setIsEditing(true);
@@ -375,36 +339,43 @@ const Messages = () => {
   };
 
   const handleDeleteStart = () => {
+    setActionError(null);
     setDeleteConfirmationOpen(true);
     setAnchorEl(null);
   };
 
   const handleDeleteConfirm = async () => {
-    if (selectedMessage && selectedConversationId) {
+    if (!selectedMessage || !selectedConversationId) return;
+
+    setActionError(null);
+
+    try {
       await deleteMessage.mutateAsync({
         messageId: selectedMessage.publicId,
         conversationId: selectedConversationId,
       });
+      setDeleteConfirmationOpen(false);
+      setSelectedMessage(null);
+    } catch (error) {
+      setActionError(
+        getActionErrorMessage(error, "Unable to delete the message."),
+      );
     }
+  };
+
+  const handleDeleteDialogClose = () => {
+    if (deleteMessage.isPending) return;
+
     setDeleteConfirmationOpen(false);
     setSelectedMessage(null);
+    setActionError(null);
   };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
     setDraftBody("");
     setSelectedMessage(null);
-  };
-
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files && event.target.files[0]) {
-      setImageFile(event.target.files[0]);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setImageFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    setActionError(null);
   };
 
   const renderMessageBubble = (message: MessageDTO) => {
@@ -424,11 +395,9 @@ const Messages = () => {
         <DoneIcon sx={{ fontSize: 12, color: statusColor }} />
       );
 
-    const hasImage =
-      message.attachments &&
-      message.attachments.length > 0 &&
-      message.attachments[0].type === "image";
     const hasText = message.body && message.body.trim().length > 0;
+    const isDeletedMessage = message.body === "message deleted by user";
+    const displayBody = hasText ? message.body : "Attachment unavailable";
 
     return (
       <Box
@@ -441,149 +410,74 @@ const Messages = () => {
           maxWidth: "100%",
         }}
       >
-        {/* Image Only Message */}
-        {hasImage && !hasText ? (
+        <>
           <Box
             onContextMenu={(e) => handleMenuOpen(e, message)}
             sx={{
-              position: "relative",
               maxWidth: "70%",
+              px: 2,
+              py: 1.5,
+              borderRadius: isOwnMessage
+                ? "22px 22px 4px 22px"
+                : "22px 22px 22px 4px",
+              bgcolor: isOwnMessage
+                ? "primary.main"
+                : alpha(theme.palette.text.primary, 0.05),
+              color: isOwnMessage ? "#fff" : "text.primary",
+              position: "relative",
+              wordBreak: "break-word",
+              boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
               cursor: isOwnMessage ? "pointer" : "default",
             }}
           >
-            <Box
-              component="img"
-              src={message.attachments![0].url}
-              alt="attachment"
+            <Typography
+              variant="body1"
               sx={{
-                maxWidth: "100%",
-                maxHeight: 300,
-                borderRadius: 4,
-                display: "block",
-                boxShadow: 2,
-              }}
-            />
-            {/* Timestamp overlay for image-only */}
-            <Box
-              sx={{
-                position: "absolute",
-                bottom: 8,
-                right: 8,
-                bgcolor: "rgba(0,0,0,0.5)",
-                borderRadius: 2,
-                px: 0.75,
-                py: 0.25,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                backdropFilter: "blur(2px)",
+                fontSize: "0.95rem",
+                lineHeight: 1.5,
+                fontStyle: isDeletedMessage || !hasText ? "italic" : "normal",
+                color:
+                  isDeletedMessage || !hasText
+                    ? isOwnMessage
+                      ? "rgba(255,255,255,0.7)"
+                      : "text.secondary"
+                    : "inherit",
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{ color: "white", fontSize: "0.7rem", fontWeight: 500 }}
-              >
-                {formatTimestamp(message.createdAt)}
-              </Typography>
-              {isOwnMessage && statusLabel && (
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  {message.status === "read" ? (
-                    <CheckCircleIcon sx={{ fontSize: 10, color: "white" }} />
-                  ) : (
-                    <DoneIcon sx={{ fontSize: 10, color: "white" }} />
-                  )}
-                </Box>
-              )}
-            </Box>
+              {displayBody}
+            </Typography>
           </Box>
-        ) : (
-          /* Text (with optional Image) Message */
-          <>
-            <Box
-              onContextMenu={(e) => handleMenuOpen(e, message)}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+              mt: 0.5,
+              px: 1,
+            }}
+          >
+            <Typography
+              variant="caption"
               sx={{
-                maxWidth: "70%",
-                px: 2,
-                py: 1.5,
-                borderRadius: isOwnMessage
-                  ? "22px 22px 4px 22px"
-                  : "22px 22px 22px 4px",
-                bgcolor: isOwnMessage
-                  ? "primary.main"
-                  : alpha(theme.palette.text.primary, 0.05),
-                color: isOwnMessage ? "#fff" : "text.primary",
-                position: "relative",
-                wordBreak: "break-word",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                cursor: isOwnMessage ? "pointer" : "default",
+                color: "text.secondary",
+                fontSize: "0.75rem",
               }}
             >
-              {hasImage && (
-                <Box
-                  component="img"
-                  src={message.attachments![0].url}
-                  alt="attachment"
-                  sx={{
-                    maxWidth: "100%",
-                    maxHeight: 200,
-                    borderRadius: 2,
-                    mb: 1,
-                    display: "block",
-                  }}
-                />
-              )}
-              <Typography
-                variant="body1"
-                sx={{
-                  fontSize: "0.95rem",
-                  lineHeight: 1.5,
-                  fontStyle:
-                    message.body === "message delete by user"
-                      ? "italic"
-                      : "normal",
-                  color:
-                    message.body === "message delete by user"
-                      ? isOwnMessage
-                        ? "rgba(255,255,255,0.7)"
-                        : "text.secondary"
-                      : "inherit",
-                }}
-              >
-                {message.body}
-              </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 0.5,
-                mt: 0.5,
-                px: 1,
-              }}
-            >
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "text.secondary",
-                  fontSize: "0.75rem",
-                }}
-              >
-                {formatTimestamp(message.createdAt)}
-              </Typography>
-              {isOwnMessage && statusLabel && (
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
-                  {statusIcon}
-                  <Typography
-                    variant="caption"
-                    sx={{ fontSize: "0.7rem", color: statusColor }}
-                  >
-                    {statusLabel}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </>
-        )}
+              {formatTimestamp(message.createdAt)}
+            </Typography>
+            {isOwnMessage && statusLabel && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.35 }}>
+                {statusIcon}
+                <Typography
+                  variant="caption"
+                  sx={{ fontSize: "0.7rem", color: statusColor }}
+                >
+                  {statusLabel}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        </>
       </Box>
     );
   };
@@ -622,140 +516,18 @@ const Messages = () => {
           </Typography>
         </Box>
 
-        {/* Conversation List */}
-        <Box sx={{ flex: 1, overflowY: "auto" }}>
-          {conversationsQuery.isLoading ? (
-            <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : conversations.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: "center" }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom>
-                Welcome to your inbox!
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Drop a line, share posts and more with private conversations
-                between you and others.
-              </Typography>
-            </Box>
-          ) : (
-            <List disablePadding>
-              {conversations.map((conversation) => {
-                const title = getConversationTitle(
-                  conversation,
-                  user?.publicId,
-                );
-                const avatarUrl = getConversationAvatar(
-                  conversation,
-                  user?.publicId,
-                );
-                const otherParticipant = getOtherParticipant(
-                  conversation,
-                  user?.publicId,
-                );
-                const lastMessagePreview =
-                  conversation.lastMessage?.body ?? "No messages yet";
-                const isSelected =
-                  conversation.publicId === selectedConversationId;
-
-                return (
-                  <ListItemButton
-                    key={conversation.publicId}
-                    selected={isSelected}
-                    onClick={() =>
-                      handleSelectConversation(conversation.publicId)
-                    }
-                    sx={{
-                      alignItems: "flex-start",
-                      py: 2,
-                      px: 2,
-                      borderRight: isSelected
-                        ? `2px solid ${theme.palette.primary.main}`
-                        : "2px solid transparent",
-                      bgcolor: isSelected
-                        ? alpha(theme.palette.primary.main, 0.05)
-                        : "transparent",
-                      "&:hover": {
-                        bgcolor: alpha(theme.palette.text.primary, 0.03),
-                      },
-                    }}
-                  >
-                    <ListItemAvatar sx={{ minWidth: 56 }}>
-                      <Avatar
-                        src={avatarUrl}
-                        alt={title}
-                        sx={{ width: 40, height: 40 }}
-                      >
-                        {otherParticipant?.username?.charAt(0).toUpperCase()}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "baseline",
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 0.5,
-                              overflow: "hidden",
-                            }}
-                          >
-                            <Typography
-                              variant="subtitle1"
-                              fontWeight={700}
-                              noWrap
-                            >
-                              {title}
-                            </Typography>
-                            {otherParticipant?.handle && (
-                              <Typography
-                                variant="body2"
-                                color="text.secondary"
-                                noWrap
-                              >
-                                @{otherParticipant.handle}
-                              </Typography>
-                            )}
-                          </Box>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ ml: 1, whiteSpace: "nowrap" }}
-                          >
-                            {conversation.lastMessageAt
-                              ? formatTimestamp(conversation.lastMessageAt)
-                              : ""}
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Typography
-                          variant="body2"
-                          color={
-                            conversation.unreadCount > 0
-                              ? "text.primary"
-                              : "text.secondary"
-                          }
-                          fontWeight={conversation.unreadCount > 0 ? 700 : 400}
-                          noWrap
-                          sx={{ mt: 0.5 }}
-                        >
-                          {lastMessagePreview}
-                        </Typography>
-                      }
-                    />
-                  </ListItemButton>
-                );
-              })}
-            </List>
-          )}
-        </Box>
+        <MessagesConversationList
+          conversations={conversations}
+          currentUserId={user?.publicId}
+          selectedConversationId={selectedConversationId}
+          isLoading={conversationsQuery.isLoading}
+          isError={conversationsQuery.isError}
+          hasNextPage={!!conversationsQuery.hasNextPage}
+          isFetchingNextPage={conversationsQuery.isFetchingNextPage}
+          onRetry={() => void conversationsQuery.refetch()}
+          onLoadMore={() => void conversationsQuery.fetchNextPage()}
+          onSelect={handleSelectConversation}
+        />
       </Box>
 
       {/* Chat Window  */}
@@ -784,16 +556,8 @@ const Messages = () => {
               Select a message
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Choose from your existing conversations, start a new one, or just
-              keep swimming.
+              Choose from your existing conversations.
             </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              sx={{ mt: 3, borderRadius: 9999, px: 4, py: 1.5 }}
-            >
-              New Message
-            </Button>
           </Box>
         ) : (
           <>
@@ -815,41 +579,69 @@ const Messages = () => {
             >
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 {isMobile && (
-                  <IconButton size="small" onClick={handleBackToList}>
+                  <IconButton
+                    size="small"
+                    onClick={handleBackToList}
+                    aria-label="Back to conversations"
+                  >
                     <ArrowBackIosNewRoundedIcon fontSize="small" />
                   </IconButton>
                 )}
                 {selectedConversation && (
                   <Box
+                    component="button"
+                    type="button"
+                    disabled={!canOpenSelectedParticipant}
+                    aria-label={
+                      canOpenSelectedParticipant
+                        ? `View ${
+                            selectedOtherParticipant?.username || "participant"
+                          } profile`
+                        : undefined
+                    }
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       gap: 1.5,
-                      cursor: "pointer",
-                      "&:hover": { opacity: 0.8 },
+                      p: 0,
+                      border: 0,
+                      bgcolor: "transparent",
+                      color: "inherit",
+                      font: "inherit",
+                      textAlign: "left",
+                      cursor: canOpenSelectedParticipant
+                        ? "pointer"
+                        : "default",
+                      "&:hover": canOpenSelectedParticipant
+                        ? { opacity: 0.8 }
+                        : undefined,
+                      "&:focus-visible": {
+                        borderRadius: 1,
+                        outline: `2px solid ${theme.palette.primary.main}`,
+                        outlineOffset: 2,
+                      },
                     }}
                     onClick={() => {
-                      const otherUser = getOtherParticipant(
-                        selectedConversation,
-                        user?.publicId,
+                      if (
+                        !canOpenSelectedParticipant ||
+                        !selectedOtherParticipant
+                      )
+                        return;
+
+                      navigate(
+                        `/profile/${
+                          selectedOtherParticipant.handle ||
+                          selectedOtherParticipant.publicId
+                        }`,
                       );
-                      if (otherUser?.isUnavailable) return;
-                      if (otherUser?.handle || otherUser?.publicId) {
-                        navigate(
-                          `/profile/${otherUser?.handle || otherUser?.publicId}`,
-                        );
-                      }
                     }}
                   >
                     <Avatar
-                      src={getConversationAvatar(
-                        selectedConversation,
-                        user?.publicId,
-                      )}
+                      src={selectedOtherParticipant?.avatar || ""}
                       sx={{ width: 32, height: 32 }}
                     >
-                      {getOtherParticipant(selectedConversation, user?.publicId)
-                        ?.username?.charAt(0)
+                      {selectedOtherParticipant?.username
+                        ?.charAt(0)
                         .toUpperCase()}
                     </Avatar>
                     <Typography variant="h6" fontWeight={700} fontSize="1.1rem">
@@ -861,9 +653,6 @@ const Messages = () => {
                   </Box>
                 )}
               </Box>
-              <IconButton>
-                <InfoOutlinedIcon />
-              </IconButton>
             </Box>
 
             {/* Messages Area */}
@@ -879,6 +668,23 @@ const Messages = () => {
                 flexDirection: "column",
               }}
             >
+              {messagesQuery.isError && (
+                <Alert
+                  severity="error"
+                  action={
+                    <Button
+                      color="inherit"
+                      size="small"
+                      onClick={() => void messagesQuery.refetch()}
+                    >
+                      Retry
+                    </Button>
+                  }
+                  sx={{ alignSelf: "center", mt: 2 }}
+                >
+                  Unable to load messages.
+                </Alert>
+              )}
               {messagesQuery.isLoading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
                   <CircularProgress size={32} />
@@ -887,7 +693,7 @@ const Messages = () => {
                 <>
                   {messagesQuery.hasNextPage && (
                     <Button
-                      onClick={() => messagesQuery.fetchNextPage()}
+                      onClick={() => void messagesQuery.fetchNextPage()}
                       disabled={messagesQuery.isFetchingNextPage}
                       sx={{ alignSelf: "center", mb: 2 }}
                     >
@@ -905,6 +711,9 @@ const Messages = () => {
                 size="small"
                 color="primary"
                 onClick={handleScrollToNewMessages}
+                aria-label={`${newMessageCount} new ${
+                  newMessageCount === 1 ? "message" : "messages"
+                }`}
                 sx={{
                   position: "absolute",
                   bottom: 100,
@@ -942,45 +751,15 @@ const Messages = () => {
                   readable, but no new replies can be sent.
                 </Alert>
               )}
-              {/* Image Preview */}
-              {imageFile && (
-                <Box
-                  sx={{ display: "flex", alignItems: "center", mb: 1, gap: 1 }}
+              {actionError && !deleteConfirmationOpen && (
+                <Alert
+                  severity="error"
+                  onClose={() => setActionError(null)}
+                  sx={{ mb: 1 }}
                 >
-                  <Box sx={{ position: "relative" }}>
-                    <Box
-                      component="img"
-                      src={URL.createObjectURL(imageFile)}
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        borderRadius: 1,
-                        objectFit: "cover",
-                      }}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={handleRemoveImage}
-                      sx={{
-                        position: "absolute",
-                        top: -5,
-                        right: -5,
-                        bgcolor: "background.paper",
-                        boxShadow: 1,
-                        width: 18,
-                        height: 18,
-                        "&:hover": { bgcolor: "error.light", color: "white" },
-                      }}
-                    >
-                      <CloseIcon sx={{ fontSize: 12 }} />
-                    </IconButton>
-                  </Box>
-                  <Typography variant="caption" noWrap sx={{ maxWidth: 200 }}>
-                    {imageFile.name}
-                  </Typography>
-                </Box>
+                  {actionError}
+                </Alert>
               )}
-
               {/* Edit Mode Indicator */}
               {isEditing && (
                 <Box
@@ -996,7 +775,11 @@ const Messages = () => {
                   <Typography variant="body2" color="primary" sx={{ flex: 1 }}>
                     Editing message
                   </Typography>
-                  <IconButton size="small" onClick={handleCancelEdit}>
+                  <IconButton
+                    size="small"
+                    onClick={handleCancelEdit}
+                    aria-label="Cancel message editing"
+                  >
                     <CancelIcon fontSize="small" />
                   </IconButton>
                 </Box>
@@ -1013,35 +796,17 @@ const Messages = () => {
                   bgcolor: alpha(theme.palette.text.primary, 0.05),
                 }}
               >
-                <Input
-                  type="file"
-                  inputRef={fileInputRef}
-                  onChange={handleImageSelect}
-                  sx={{ display: "none" }}
-                  inputProps={{ accept: "image/*" }}
-                />
-                <IconButton
-                  size="small"
-                  color="primary"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isEditing || selectedConversation?.isClosed}
-                >
-                  <ImageIcon />
-                </IconButton>
-                <IconButton size="small" color="primary">
-                  <GifIcon />
-                </IconButton>
-                <IconButton size="small" color="primary">
-                  <EmojiEmotionsIcon />
-                </IconButton>
-
                 <TextField
                   fullWidth
                   variant="standard"
                   placeholder="Write a message"
                   value={draftBody}
                   onChange={(event) => setDraftBody(event.target.value)}
-                  disabled={selectedConversation?.isClosed}
+                  disabled={
+                    sendMessage.isPending ||
+                    editMessage.isPending ||
+                    selectedConversation?.isClosed
+                  }
                   InputProps={{
                     disableUnderline: true,
                     sx: {
@@ -1054,14 +819,17 @@ const Messages = () => {
                 <IconButton
                   type="submit"
                   color="primary"
+                  aria-label={
+                    isEditing ? "Save edited message" : "Send message"
+                  }
                   disabled={
-                    (!draftBody.trim() && !imageFile) ||
+                    !draftBody.trim() ||
                     sendMessage.isPending ||
                     editMessage.isPending ||
                     selectedConversation?.isClosed
                   }
                   sx={{
-                    opacity: draftBody.trim() || imageFile ? 1 : 0.5,
+                    opacity: draftBody.trim() ? 1 : 0.5,
                   }}
                 >
                   <SendRoundedIcon />
@@ -1099,7 +867,7 @@ const Messages = () => {
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteConfirmationOpen}
-        onClose={() => setDeleteConfirmationOpen(false)}
+        onClose={handleDeleteDialogClose}
       >
         <DialogTitle>Delete Message?</DialogTitle>
         <DialogContent>
@@ -1107,13 +875,26 @@ const Messages = () => {
             Are you sure you want to delete this message? This action cannot be
             undone.
           </DialogContentText>
+          {actionError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {actionError}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmationOpen(false)}>
+          <Button
+            onClick={handleDeleteDialogClose}
+            disabled={deleteMessage.isPending}
+          >
             Cancel
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" autoFocus>
-            Delete
+          <Button
+            onClick={handleDeleteConfirm}
+            color="error"
+            autoFocus
+            disabled={deleteMessage.isPending}
+          >
+            {deleteMessage.isPending ? "Deleting..." : "Delete"}
           </Button>
         </DialogActions>
       </Dialog>
