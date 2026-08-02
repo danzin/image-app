@@ -7,7 +7,7 @@ name: ascendance-social
 services:
   # --- CACHE ---
   redis:
-    image: redis:7.4-alpine
+    image: redis:alpine
     container_name: redis
     restart: always
     logging: *default-logging
