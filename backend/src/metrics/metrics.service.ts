@@ -19,6 +19,8 @@ export class MetricsService {
   private readonly realtimeEventsPublishedTotal: client.Counter<string>;
   private readonly socketEventsEmittedTotal: client.Counter<string>;
   private readonly outboxPendingEvents: client.Gauge<string>;
+  private readonly outboxExhaustedEvents: client.Gauge<string>;
+  private readonly outboxOldestPendingAgeSeconds: client.Gauge<string>;
   private readonly outboxEventsTotal: client.Counter<string>;
   private readonly outboxBatchSize: client.Histogram<string>;
   private readonly outboxEventDuration: client.Histogram<string>;
@@ -108,6 +110,18 @@ export class MetricsService {
     this.outboxPendingEvents = new client.Gauge({
       name: "outbox_pending_events",
       help: "Outbox events waiting to be dispatched",
+      registers: [this.registry],
+    });
+
+    this.outboxExhaustedEvents = new client.Gauge({
+      name: "outbox_exhausted_events",
+      help: "Outbox events that exhausted automatic retries",
+      registers: [this.registry],
+    });
+
+    this.outboxOldestPendingAgeSeconds = new client.Gauge({
+      name: "outbox_oldest_pending_age_seconds",
+      help: "Age in seconds of the oldest retryable outbox event",
       registers: [this.registry],
     });
 
@@ -235,6 +249,17 @@ export class MetricsService {
 
   public setOutboxPendingCount(count: number): void {
     this.outboxPendingEvents.set(Math.max(0, count));
+  }
+
+  public setOutboxBacklogStatus(
+    exhaustedCount: number,
+    oldestPendingAt?: Date,
+  ): void {
+    this.outboxExhaustedEvents.set(Math.max(0, exhaustedCount));
+    const oldestAgeSeconds = oldestPendingAt
+      ? Math.max(0, (Date.now() - oldestPendingAt.getTime()) / 1000)
+      : 0;
+    this.outboxOldestPendingAgeSeconds.set(oldestAgeSeconds);
   }
 
   public recordOutboxBatchSize(size: number): void {

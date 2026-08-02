@@ -4,13 +4,27 @@ import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+/**
+ * This is a hybrid integration harness:
+ * Mocha runs on Windows/Node, while disposable MongoDB and Redis instances run in an isolated compose project
+ */
+
+const repositoryRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
 const backendRoot = path.join(repositoryRoot, "backend");
 const backendSourceRoot = path.join(backendRoot, "src");
 const composeFile = path.join(repositoryRoot, "docker-compose.test.yml");
 const composeProject = "ascendance-integration-tests";
-const mongoPort = Number.parseInt(process.env.INTEGRATION_MONGO_PORT ?? "37017", 10);
-const redisPort = Number.parseInt(process.env.INTEGRATION_REDIS_PORT ?? "36379", 10);
+const mongoPort = Number.parseInt(
+  process.env.INTEGRATION_MONGO_PORT ?? "37017",
+  10,
+);
+const redisPort = Number.parseInt(
+  process.env.INTEGRATION_REDIS_PORT ?? "36379",
+  10,
+);
 const dependencyTimeoutMs = 60_000;
 const integrationTimeoutMs = 240_000;
 
@@ -27,7 +41,10 @@ async function discoverIntegrationSuites(directory) {
       continue;
     }
 
-    const relativePath = path.relative(backendRoot, absolutePath).split(path.sep).join("/");
+    const relativePath = path
+      .relative(backendRoot, absolutePath)
+      .split(path.sep)
+      .join("/");
     if (
       entry.isFile() &&
       relativePath.includes("/__tests__/integration/") &&
@@ -40,7 +57,11 @@ async function discoverIntegrationSuites(directory) {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
-function runCommand(command, args, { cwd = repositoryRoot, env = process.env, timeoutMs, quiet = false } = {}) {
+function runCommand(
+  command,
+  args,
+  { cwd = repositoryRoot, env = process.env, timeoutMs, quiet = false } = {},
+) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -68,11 +89,19 @@ function runCommand(command, args, { cwd = repositoryRoot, env = process.env, ti
       if (timer) clearTimeout(timer);
       activeChild = null;
       if (timedOut) {
-        reject(new Error(`${command} exceeded its ${timeoutMs}ms deadline and was terminated`));
+        reject(
+          new Error(
+            `${command} exceeded its ${timeoutMs}ms deadline and was terminated`,
+          ),
+        );
       } else if (code === 0) {
         resolve();
       } else {
-        reject(new Error(`${command} exited with code ${code ?? "null"}${signal ? ` (${signal})` : ""}`));
+        reject(
+          new Error(
+            `${command} exited with code ${code ?? "null"}${signal ? ` (${signal})` : ""}`,
+          ),
+        );
       }
     });
   });
@@ -94,11 +123,20 @@ async function waitForPort(name, port) {
     if (connected) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  throw new Error(`${name} did not accept host connections on 127.0.0.1:${port} within 5 seconds`);
+  throw new Error(
+    `${name} did not accept host connections on 127.0.0.1:${port} within 5 seconds`,
+  );
 }
 
 function composeArgs(...args) {
-  return ["compose", "--project-name", composeProject, "--file", composeFile, ...args];
+  return [
+    "compose",
+    "--project-name",
+    composeProject,
+    "--file",
+    composeFile,
+    ...args,
+  ];
 }
 
 async function stopDependencies() {
@@ -114,7 +152,9 @@ async function stopDependencies() {
 async function main() {
   const suites = await discoverIntegrationSuites(backendSourceRoot);
   if (suites.length === 0) {
-    throw new Error("No backend integration suites were discovered under src/**/__tests__/integration");
+    throw new Error(
+      "No backend integration suites were discovered under src/**/__tests__/integration",
+    );
   }
 
   console.log(`[integration] discovered ${suites.length} suite files:`);
@@ -128,16 +168,28 @@ async function main() {
       quiet: true,
     });
   } catch (error) {
-    throw new Error(`Docker Compose is required for integration tests: ${error.message}`);
+    throw new Error(
+      `Docker Compose is required for integration tests: ${error.message}`,
+    );
   }
 
   await stopDependencies();
 
   try {
-    console.log("[integration] starting isolated Mongo replica set and Redis dependencies");
+    console.log(
+      "[integration] starting isolated Mongo replica set and Redis dependencies",
+    );
     await runCommand(
       "docker",
-      composeArgs("up", "--detach", "--wait", "--wait-timeout", "60", "mongodb", "redis"),
+      composeArgs(
+        "up",
+        "--detach",
+        "--wait",
+        "--wait-timeout",
+        "60",
+        "mongodb",
+        "redis",
+      ),
       { timeoutMs: dependencyTimeoutMs },
     );
     await runCommand("docker", composeArgs("run", "--rm", "mongo-rs-init"), {
@@ -148,7 +200,13 @@ async function main() {
       waitForPort("Redis", redisPort),
     ]);
 
-    const mochaEntry = path.join(backendRoot, "node_modules", "mocha", "bin", "mocha.js");
+    const mochaEntry = path.join(
+      backendRoot,
+      "node_modules",
+      "mocha",
+      "bin",
+      "mocha.js",
+    );
     const testEnvironment = {
       ...process.env,
       NODE_ENV: "test",
@@ -159,7 +217,9 @@ async function main() {
       INTEGRATION_MONGODB_URI: `mongodb://127.0.0.1:${mongoPort}/ascendance_integration?replicaSet=rs0&directConnection=true`,
     };
 
-    console.log(`[integration] running all ${suites.length} discovered suites (deadline: ${integrationTimeoutMs / 1000}s)`);
+    console.log(
+      `[integration] running all ${suites.length} discovered suites (deadline: ${integrationTimeoutMs / 1000}s)`,
+    );
     await runCommand(
       process.execPath,
       [

@@ -93,7 +93,11 @@ const EditCommunityModal: React.FC<EditCommunityModalProps> = ({ open, onClose, 
 		<Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
 			<DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 				Edit Community
-				<IconButton onClick={onClose} size="small">
+				<IconButton
+					onClick={onClose}
+					size="small"
+					aria-label="Close community editor"
+				>
 					<CloseIcon />
 				</IconButton>
 			</DialogTitle>
@@ -124,6 +128,7 @@ const EditCommunityModal: React.FC<EditCommunityModalProps> = ({ open, onClose, 
 							"&:hover": { bgcolor: "rgba(0,0,0,0.8)" },
 						}}
 						onClick={() => coverInputRef.current?.click()}
+						aria-label="Change community cover"
 					>
 						<CameraIcon />
 					</IconButton>
@@ -156,6 +161,7 @@ const EditCommunityModal: React.FC<EditCommunityModalProps> = ({ open, onClose, 
 							height: 32,
 						}}
 						onClick={() => avatarInputRef.current?.click()}
+						aria-label="Change community avatar"
 					>
 						<CameraIcon sx={{ fontSize: 16 }} />
 					</IconButton>

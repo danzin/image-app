@@ -37,7 +37,7 @@ describe("EmailService", () => {
       emailType: "email_verification",
       recipientDomain: "example.com",
       previewUrl:
-        "http://localhost:8080/verify-email?token=12345&email=dev%40example.com",
+        "http://localhost:8080/verify-email#token=12345&email=dev%40example.com",
     });
   });
 
@@ -57,7 +57,7 @@ describe("EmailService", () => {
       emailType: "password_reset",
       recipientDomain: "example.com",
       previewUrl:
-        "http://localhost:8080/reset-password?token=reset-token",
+        "http://localhost:8080/reset-password#token=reset-token",
     });
   });
 });

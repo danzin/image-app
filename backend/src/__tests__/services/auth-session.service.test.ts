@@ -3,7 +3,7 @@ import { expect } from "chai";
 import sinon from "sinon";
 import crypto from "crypto";
 import { AuthSessionService } from "@/services/auth-session.service";
-import { RedisService } from "@/services/redis.service";
+import type { AuthSessionStore } from "@/application/ports/auth-session-store";
 import { AuthSessionRecord } from "@/types";
 
 describe("AuthSessionService", () => {
@@ -31,20 +31,20 @@ describe("AuthSessionService", () => {
 		getUserAuthSessionIdsStub = sinon.stub().resolves([]);
 		deleteUserAuthSessionsStub = sinon.stub().resolves();
 
-		const mockRedisService = {
-			getAuthSession: getAuthSessionStub,
-			saveAuthSession: saveAuthSessionStub,
-			compareAndRotateAuthSession: compareAndRotateAuthSessionStub,
-			touchAuthSession: touchAuthSessionStub,
-			markAuthSessionEmailVerified: markAuthSessionEmailVerifiedStub,
-			revokeAuthSessionByRefreshToken: revokeAuthSessionByRefreshTokenStub,
-			removeAuthSession: removeAuthSessionStub,
-			removeAuthSessionMembership: removeAuthSessionMembershipStub,
-			getUserAuthSessionIds: getUserAuthSessionIdsStub,
-			deleteUserAuthSessions: deleteUserAuthSessionsStub,
-		} as unknown as RedisService;
+		const mockAuthSessionStore = {
+			get: getAuthSessionStub,
+			save: saveAuthSessionStub,
+			compareAndRotate: compareAndRotateAuthSessionStub,
+			revokeByRefreshToken: revokeAuthSessionByRefreshTokenStub,
+			remove: removeAuthSessionStub,
+			removeMembership: removeAuthSessionMembershipStub,
+			getUserSessionIds: getUserAuthSessionIdsStub,
+			deleteUserSessions: deleteUserAuthSessionsStub,
+			markEmailVerified: markAuthSessionEmailVerifiedStub,
+			touch: touchAuthSessionStub,
+		} as AuthSessionStore;
 
-		authSessionService = new AuthSessionService(mockRedisService);
+		authSessionService = new AuthSessionService(mockAuthSessionStore);
 	});
 
 	afterEach(() => {

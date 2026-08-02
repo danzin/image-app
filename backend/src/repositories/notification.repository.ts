@@ -94,7 +94,9 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			logger.warn(`[NotificationRepository] Invalid notificationId format: ${notificationId}`);
 			return null;
 		}
-		logger.info(`[NotificationRepository] markAsRead start id=${notificationId} userId=${userId}`);
+		logger.info("Marking notification as read", {
+			event: "notification.mark_as_read.started",
+		});
 		try {
 			const updated = await this.model
 				.findOneAndUpdate({ _id: notificationId, userId }, { $set: { isRead: true } }, { new: true })
@@ -111,7 +113,6 @@ export class NotificationRepository extends BaseRepository<INotification> {
 			}
 			return updated;
 		} catch (e) {
-			logger.error(`[NotificationRepository] markAsRead error id=${notificationId} userId=${userId}:`, e);
 			throw e;
 		}
 	}

@@ -2,7 +2,6 @@ import { Model, PipelineStage } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { FeedPost, IPost, PaginationOptions, PaginationResult } from "@/types";
 import type { IPostReadRepository } from "../interfaces/IPostReadRepository";
-import { BaseRepository } from "../base.repository";
 import { TOKENS } from "@/types/tokens";
 import {
   MongoId,
@@ -10,7 +9,10 @@ import {
   UserPublicId,
   asMongoId,
 } from "@/types/branded";
-import { Errors } from "@/utils/errors";
+import { Errors, handleMongoError } from "@/utils/errors";
+import { sessionALS } from "@/database/UnitOfWork";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
+import type { PostSearchLookup } from "@/application/ports/post-search-lookup";
 import {
   buildFacetPipeline,
   buildSort,
@@ -27,11 +29,34 @@ type PaginationFacetResult<T> = { data: T[]; totalCount: CountFacetResult[] };
 
 @injectable()
 export class PostReadRepository
-  extends BaseRepository<IPost>
-  implements IPostReadRepository
+  implements IPostReadRepository, PostSearchLookup
 {
+  private readonly model: Model<IPost>;
+
   constructor(@inject(TOKENS.Models.Post) model: Model<IPost>) {
-    super(model);
+    this.model = model;
+  }
+
+  private getSession() {
+    return sessionALS.getStore() ?? undefined;
+  }
+
+  async findById(
+    id: MongoId,
+    options?: { selectPassword?: boolean },
+  ): Promise<IPost | null> {
+    try {
+      const query = this.model.findById(id);
+      const session = this.getSession();
+      if (session) query.session(session);
+      if (options?.selectPassword) {
+        query.select("+password");
+      }
+      return await query.exec();
+    } catch (error) {
+      this.recordFailure("findById");
+      handleMongoError(error);
+    }
   }
 
   async searchByText(terms: string[], limit: number = 20): Promise<FeedPost[]> {
@@ -203,7 +228,6 @@ export class PostReadRepository
         {
           $project: {
             ...getStandardProjectionFields(),
-            inputOrder: 0,
           },
         },
       ];
@@ -376,5 +400,12 @@ export class PostReadRepository
 
   async countByCommunityId(communityId: string): Promise<number> {
     return this.model.countDocuments({ communityId }).exec();
+  }
+
+  private recordFailure(operation: string): void {
+    addRequestContextBreadcrumb("mongodb.repository.failed", {
+      operation,
+      repository: this.model.modelName,
+    });
   }
 }

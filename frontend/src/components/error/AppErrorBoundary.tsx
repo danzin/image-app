@@ -21,9 +21,21 @@ export class AppErrorBoundary extends React.Component<
 		return { hasError: true };
 	}
 
-	override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-		if (import.meta.env.DEV) {
+	override componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+		const errorReporter = (
+			globalThis as {
+				reportError?: (reportedError: unknown) => void;
+			}
+		).reportError;
+
+		if (typeof errorReporter === "function") {
+			errorReporter(error);
+		} else {
 			console.error("AppErrorBoundary caught an error", error, errorInfo);
+		}
+
+		if (import.meta.env.DEV && errorInfo.componentStack) {
+			console.error("React component stack", errorInfo.componentStack);
 		}
 	}
 
@@ -35,6 +47,7 @@ export class AppErrorBoundary extends React.Component<
 		if (this.state.hasError) {
 			return (
 				<Box
+					role="alert"
 					sx={{
 						minHeight: "100vh",
 						display: "flex",
@@ -52,7 +65,11 @@ export class AppErrorBoundary extends React.Component<
 							The app hit an unexpected UI error. Reloading usually gets things
 							back into a healthy state.
 						</Typography>
-						<Button variant="contained" sx={{ mt: 3, borderRadius: 9999 }} onClick={this.handleReload}>
+						<Button
+							variant="contained"
+							sx={{ mt: 3, borderRadius: 9999 }}
+							onClick={this.handleReload}
+						>
 							Reload app
 						</Button>
 					</Box>

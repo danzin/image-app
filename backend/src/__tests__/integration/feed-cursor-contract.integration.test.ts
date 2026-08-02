@@ -1,12 +1,5 @@
 import "reflect-metadata";
-import {
-  after,
-  afterEach,
-  before,
-  beforeEach,
-  describe,
-  it,
-} from "mocha";
+import { after, afterEach, before, beforeEach, describe, it } from "mocha";
 import { expect } from "chai";
 import express, {
   NextFunction,
@@ -53,6 +46,8 @@ import { FeedMetaService } from "@/services/feed/feed-meta.service";
 import { FeedReadService } from "@/services/feed/feed-read.service";
 import { FeedService } from "@/services/feed/feed.service";
 import { RedisService } from "@/services/redis.service";
+import { RedisFeedCache } from "@/services/redis/capabilities/redis-feed-cache";
+import { RedisUserLookup } from "@/services/redis/capabilities/redis-user-lookup";
 import type { CoreFeed, FeedPost, PostDTO } from "@/types";
 import { asPostPublicId, asUserPublicId } from "@/types/branded";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
@@ -67,7 +62,7 @@ import {
 } from "@/utils/feedCursor";
 import { AppError } from "@/utils/errors";
 import { NewFeedWarmCacheWorker } from "@/workers/_impl/newFeedWarmCache.worker.impl";
-import { TrendingWorker } from "@/workers/_impl/trending.worker.impl";
+import { createTrendingWorker } from "@/__tests__/workers/trending-worker.test-helper";
 
 const mongoUri = process.env.INTEGRATION_MONGODB_URI;
 const redisUrl = process.env.REDIS_URL;
@@ -75,7 +70,8 @@ const feedCursorTestSecret =
   process.env.FEED_CURSOR_SECRET ??
   process.env.JWT_SECRET ??
   "ascendance-feed-cursor-test-secret-v2";
-const fixedCreatedAt = new Date("2026-07-16T12:00:00.000Z");
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const fixedCreatedAt = new Date(Date.now() - ONE_DAY_MS);
 const viewerPublicId = asUserPublicId("feed-contract-viewer");
 const viewerInternalId = objectIdFor(90_000);
 const followedAuthorId = objectIdFor(90_001);
@@ -159,9 +155,7 @@ function toPostDocument(spec: SeedPost): Record<string, unknown> {
     type: spec.type ?? "original",
     status: "active",
     repostOf:
-      spec.repostOfOrder === undefined
-        ? null
-        : objectIdFor(spec.repostOfOrder),
+      spec.repostOfOrder === undefined ? null : objectIdFor(spec.repostOfOrder),
     createdAt,
     updatedAt: createdAt,
   };
@@ -169,8 +163,8 @@ function toPostDocument(spec: SeedPost): Record<string, unknown> {
 
 async function seedPosts(specs: SeedPost[]): Promise<void> {
   if (specs.length === 0) return;
-  await mongoose.connection.db!
-    .collection("posts")
+  await mongoose.connection
+    .db!.collection("posts")
     .insertMany(specs.map(toPostDocument));
 }
 
@@ -406,10 +400,12 @@ describe("Feed cursor/source contract integration", function () {
       redisService,
     );
     postReadRepository = new PostReadRepository(Post);
-    feedEnrichmentService = new FeedEnrichmentService(
+    const userLookup = new RedisUserLookup(
       redisService,
       userReadRepository as unknown as IUserReadRepository,
     );
+    const feedCache = new RedisFeedCache(redisService);
+    feedEnrichmentService = new FeedEnrichmentService(userLookup, feedCache);
     feedCoreService = new FeedCoreService(
       feedReadDao,
       postReadRepository,
@@ -496,13 +492,10 @@ describe("Feed cursor/source contract integration", function () {
       };
       next();
     };
-    const routes = new FeedRoutes(
-      new FeedController(queryBus),
-      {
-        required: () => attachViewer,
-        optional: () => attachViewer,
-      } as unknown as AuthMiddlewareService,
-    );
+    const routes = new FeedRoutes(new FeedController(queryBus), {
+      required: () => attachViewer,
+      optional: () => attachViewer,
+    } as unknown as AuthMiddlewareService);
     const app = express();
     app.use("/api/feed", routes.getRouter());
     app.use(appErrorMiddleware);
@@ -512,18 +505,12 @@ describe("Feed cursor/source contract integration", function () {
   function buildLegacyPostsApp(): express.Express {
     const queryBus = new QueryBus();
     queryBus.register(GetPostsQuery, new GetPostsQueryHandler(feedService));
-    const controller = new PostController(
-      {} as CommandBus,
-      queryBus,
-    );
+    const controller = new PostController({} as CommandBus, queryBus);
     const passThrough: RequestHandler = (_req, _res, next) => next();
-    const routes = new PostRoutes(
-      controller,
-      {
-        required: () => passThrough,
-        optional: () => passThrough,
-      } as unknown as AuthMiddlewareService,
-    );
+    const routes = new PostRoutes(controller, {
+      required: () => passThrough,
+      optional: () => passThrough,
+    } as unknown as AuthMiddlewareService);
     const app = express();
     app.use("/api/posts", routes.getRouter());
     app.use(appErrorMiddleware);
@@ -765,9 +752,7 @@ describe("Feed cursor/source contract integration", function () {
     expect(
       progression.every(
         (entry) =>
-          entry.seen === 0 &&
-          entry.seenPublicIds === 0 &&
-          entry.pending === 0,
+          entry.seen === 0 && entry.seenPublicIds === 0 && entry.pending === 0,
       ),
       diagnostics,
     ).to.equal(true);
@@ -795,11 +780,7 @@ describe("Feed cursor/source contract integration", function () {
       ),
       dataSource: "mongo:personalized+new",
     }));
-    const expected = expectedJourney(
-      expectedIds,
-      2,
-      "mongo:personalized+new",
-    );
+    const expected = expectedJourney(expectedIds, 2, "mongo:personalized+new");
 
     assertContract(
       "F03 personalized exhaustion",
@@ -907,9 +888,7 @@ describe("Feed cursor/source contract integration", function () {
       const inNewPhase = cursor?.startsWith("new_phase:") === true;
       return {
         result,
-        dataSource: inNewPhase
-          ? "mongo:new"
-          : "mongo:trending+new",
+        dataSource: inNewPhase ? "mongo:new" : "mongo:trending+new",
         cursorSource: "mongo:new",
       };
     });
@@ -1184,9 +1163,8 @@ describe("Feed cursor/source contract integration", function () {
       warm: withDiagnostics(warm, expectedIds),
     };
 
-    const cursorCacheKeys = await redisService.clientInstance.keys(
-      "new_feed:*",
-    );
+    const cursorCacheKeys =
+      await redisService.clientInstance.keys("new_feed:*");
     expect(cursorCacheKeys).not.to.be.empty;
     const cursorCacheTtls = await Promise.all(
       cursorCacheKeys.map((key) => redisService.clientInstance.ttl(key)),
@@ -1210,22 +1188,26 @@ describe("Feed cursor/source contract integration", function () {
         likes: index + 1,
       })),
     );
-    const worker = new TrendingWorker(
+
+    const worker = createTrendingWorker(
       feedReadDao,
       redisService,
       postReadRepository,
     );
-    await (
-      worker as unknown as { fullRefresh(): Promise<void> }
-    ).fullRefresh();
+
+    await (worker as unknown as { fullRefresh(): Promise<void> }).fullRefresh();
+
     const daoSpy = sinon.spy(feedReadDao, "getTrendingFeedWithCursor");
+
     const result = await trendingHandler.execute(
       new GetTrendingFeedQuery(1, 2),
     );
+
     const observed = {
       page: observePage(result, "redis:trending-warmer"),
       requestMongoCalls: daoSpy.callCount,
     };
+
     const expected = {
       page: {
         ids: [publicIdFor(6), publicIdFor(5)],
@@ -1244,7 +1226,6 @@ describe("Feed cursor/source contract integration", function () {
       observed,
     );
   });
-
   it("consumes every page created by the New warmer through the cursor request path", async () => {
     await seedPosts(
       Array.from({ length: 45 }, (_, index) => ({ order: index + 1 })),
@@ -1253,7 +1234,8 @@ describe("Feed cursor/source contract integration", function () {
     await worker.init();
     const daoSpy = sinon.spy(feedReadDao, "getNewFeedWithCursor");
     const first = await feedReadService.getNewFeed(1, 20, false);
-    const firstSource = daoSpy.callCount === 0 ? "redis:new-warmer" : "mongo:new";
+    const firstSource =
+      daoSpy.callCount === 0 ? "redis:new-warmer" : "mongo:new";
     const beforeSecond = daoSpy.callCount;
     const second = await feedReadService.getNewFeed(
       2,
@@ -1311,16 +1293,19 @@ describe("Feed cursor/source contract integration", function () {
       { kind: "malformed", value: "not-base64-json" },
       {
         kind: "wrong-version",
-        value: encodeAuthenticatedCursor({
-          version: 999,
-          feed: "new",
-          order: FEED_CURSOR_ORDER.NEW,
-          source: "mongo",
-          phase: "new",
-          expiresAt: Math.floor(Date.now() / 1000) + 3600,
-          createdAt: fixedCreatedAt.toISOString(),
-          _id: objectIdFor(3).toHexString(),
-        }, feedCursorTestSecret),
+        value: encodeAuthenticatedCursor(
+          {
+            version: 999,
+            feed: "new",
+            order: FEED_CURSOR_ORDER.NEW,
+            source: "mongo",
+            phase: "new",
+            expiresAt: Math.floor(Date.now() / 1000) + 3600,
+            createdAt: fixedCreatedAt.toISOString(),
+            _id: objectIdFor(3).toHexString(),
+          },
+          feedCursorTestSecret,
+        ),
       },
       {
         kind: "wrong-feed",
@@ -1436,9 +1421,7 @@ describe("Feed cursor/source contract integration", function () {
       pages: journey.pages,
       transportIds: allPosts.map((post) => post.publicId),
       visibleIdentities,
-      repeatedTransportIds: duplicateIds(
-        allPosts.map((post) => post.publicId),
-      ),
+      repeatedTransportIds: duplicateIds(allPosts.map((post) => post.publicId)),
       repeatedVisibleIdentities: duplicateIds(visibleIdentities),
     };
     const expected = {
@@ -1528,11 +1511,35 @@ describe("Feed cursor/source contract integration", function () {
       .get("/api/posts")
       .query({ page: 1, limit: 2 })
       .expect(200);
+    if (
+      !Array.isArray(firstResponse.body.data) ||
+      firstResponse.body.data.length === 0
+    ) {
+      throw new Error(
+        `[F01] Unexpected first /api/posts response:\n${JSON.stringify(
+          firstResponse.body,
+          null,
+          2,
+        )}`,
+      );
+    }
     await seedPosts([{ order: 7, likes: 1 }]);
     const secondResponse = await request(app)
       .get("/api/posts")
       .query({ page: 2, limit: 2 })
       .expect(200);
+    if (
+      !Array.isArray(secondResponse.body.data) ||
+      secondResponse.body.data.length === 0
+    ) {
+      throw new Error(
+        `[F01] Unexpected second /api/posts response:\n${JSON.stringify(
+          secondResponse.body,
+          null,
+          2,
+        )}`,
+      );
+    }
     const firstBody = firstResponse.body as {
       data: Array<{ publicId: string }>;
       page: number;
@@ -1564,10 +1571,7 @@ describe("Feed cursor/source contract integration", function () {
     const expected = {
       route: "/api/posts",
       contract: "offset",
-      pages: [
-        expectedIds.slice(0, 2),
-        [publicIdFor(5), publicIdFor(4)],
-      ],
+      pages: [expectedIds.slice(0, 2), [publicIdFor(5), publicIdFor(4)]],
       pageNumbers: [1, 2],
       repeated: [publicIdFor(5)],
       missing: [publicIdFor(3)],

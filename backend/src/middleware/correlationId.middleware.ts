@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextFunction, Request, Response } from "express";
 import { runWithRequestContext } from "@/runtime/request-context";
 
-const MAX_CORRELATION_ID_LENGTH = 128;
+const SAFE_REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
 const CLIENT_REQUEST_ID_HEADER = "x-client-request-id";
 const CLIENT_BOOT_ID_HEADER = "x-client-boot-id";
@@ -10,6 +10,7 @@ const CLIENT_REQUEST_ATTEMPT_HEADER = "x-client-request-attempt";
 const AXIOS_RETRY_HEADER = "x-axios-retry";
 const PREVIOUS_CLIENT_REQUEST_ID_HEADER = "x-previous-client-request-id";
 const CAUSED_BY_CLIENT_REQUEST_ID_HEADER = "x-caused-by-client-request-id";
+const MAX_REQUEST_PATH_LENGTH = 2_048;
 
 declare module "express-serve-static-core" {
   interface Request {
@@ -25,7 +26,7 @@ declare module "express-serve-static-core" {
 
 function normalizeHeaderValue(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
-  if (!trimmed || trimmed.length > MAX_CORRELATION_ID_LENGTH) {
+  if (!trimmed || !SAFE_REQUEST_ID_PATTERN.test(trimmed)) {
     return undefined;
   }
   return trimmed;
@@ -68,11 +69,18 @@ function resolveClientRequestAttempt(req: Request): number | undefined {
 
 function resolveAxiosRetry(req: Request): boolean | undefined {
   const raw = normalizeHeaderValue(req.get(AXIOS_RETRY_HEADER) ?? undefined);
-  if (!raw) {
+  if (raw === undefined) {
     return undefined;
   }
 
-  return raw.toLowerCase() === "true";
+  switch (raw.toLowerCase()) {
+    case "true":
+      return true;
+    case "false":
+      return false;
+    default:
+      return undefined;
+  }
 }
 
 function resolvePreviousClientRequestId(req: Request): string | undefined {
@@ -85,6 +93,10 @@ function resolveCausedByClientRequestId(req: Request): string | undefined {
   return normalizeHeaderValue(
     req.get(CAUSED_BY_CLIENT_REQUEST_ID_HEADER) ?? undefined,
   );
+}
+
+function normalizeRequestPath(path: string): string {
+  return path.slice(0, MAX_REQUEST_PATH_LENGTH);
 }
 
 export function correlationIdMiddleware(
@@ -109,7 +121,19 @@ export function correlationIdMiddleware(
   req.causedByClientRequestId = causedByClientRequestId;
   res.setHeader("X-Request-ID", correlationId);
 
-  runWithRequestContext({ correlationId, clientRequestId, clientBootId }, () => {
-    next();
-  });
+  runWithRequestContext(
+    {
+      correlationId,
+      requestStartTime: process.hrtime.bigint(),
+      method: req.method,
+      requestPath: normalizeRequestPath(req.path),
+      clientRequestId,
+      clientBootId,
+      previousClientRequestId,
+      causedByClientRequestId,
+    },
+    () => {
+      next();
+    },
+  );
 }

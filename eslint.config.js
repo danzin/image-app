@@ -57,22 +57,6 @@ export default [
 							name: "../../../../repositories/post.repository",
 							message: "Use PostReadRepository or PostWriteRepository instead",
 						},
-						{
-							name: "../repositories/user.repository",
-							message: "Use UserReadRepository or UserWriteRepository instead",
-						},
-						{
-							name: "../../repositories/user.repository",
-							message: "Use UserReadRepository or UserWriteRepository instead",
-						},
-						{
-							name: "../../../repositories/user.repository",
-							message: "Use UserReadRepository or UserWriteRepository instead",
-						},
-						{
-							name: "../../../../repositories/user.repository",
-							message: "Use UserReadRepository or UserWriteRepository instead",
-						},
 					],
 				},
 			],

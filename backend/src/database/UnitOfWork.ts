@@ -1,12 +1,7 @@
 import mongoose, { ClientSession } from "mongoose";
 import { injectable } from "tsyringe";
-import { logger } from "@/utils/winston";
-import {
-  Errors,
-  getErrorMessage,
-  getErrorCode,
-  getErrorLabels,
-} from "@/utils/errors";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
+import { Errors } from "@/utils/errors";
 import { AsyncLocalStorage } from "async_hooks";
 import {
   DEFAULT_TRANSACTION_SEMAPHORE_WAIT_TIMEOUT_MS,
@@ -146,6 +141,10 @@ export class UnitOfWork {
     const cfg = resolveTransactionConfig(config);
 
     await this.transactionSemaphore.acquire(cfg.semaphoreWaitTimeoutMs);
+    addRequestContextBreadcrumb("transaction.begin", {
+      maxBodyAttempts: cfg.maxBodyAttempts,
+      maxCommitAttempts: cfg.maxCommitAttempts,
+    });
     let session: ClientSession | undefined;
 
     try {
@@ -165,8 +164,11 @@ export class UnitOfWork {
           result = await sessionALS.run(activeSession, async () => {
             return await work(activeSession);
           });
+          addRequestContextBreadcrumb("transaction.callback.completed", {
+            bodyAttempt,
+          });
         } catch (error: unknown) {
-          const abortSucceeded = await this.abortIfActive(activeSession, error);
+          const abortSucceeded = await this.abortIfActive(activeSession);
           const retryable = this.isRetryableError(error);
           const shouldRetry =
             abortSucceeded &&
@@ -174,14 +176,7 @@ export class UnitOfWork {
             bodyAttempt < cfg.maxBodyAttempts;
 
           if (shouldRetry) {
-            logger.warn(
-              `[UnitOfWork] Retrying transaction body after attempt ${bodyAttempt}/${cfg.maxBodyAttempts}`,
-              {
-                errorCode: getErrorCode(error),
-                errorLabels: getErrorLabels(error),
-                message: getErrorMessage(error).substring(0, 100),
-              },
-            );
+            addRequestContextBreadcrumb("transaction.body.retry", { bodyAttempt });
             await this.backoffWithJitter(
               bodyAttempt,
               cfg.baseDelayMs,
@@ -190,7 +185,7 @@ export class UnitOfWork {
             continue;
           }
 
-          this.recordDefiniteFailure(error, bodyAttempt, retryable);
+          this.recordDefiniteFailure(bodyAttempt, retryable);
           throw error;
         }
 
@@ -205,6 +200,10 @@ export class UnitOfWork {
           commitAttempt <= cfg.maxCommitAttempts;
           commitAttempt++
         ) {
+          addRequestContextBreadcrumb("transaction.commit.attempt", {
+            bodyAttempt,
+            commitAttempt,
+          });
           try {
             await activeSession.commitTransaction();
             this.metrics.recordSuccess(bodyAttempt);
@@ -216,14 +215,9 @@ export class UnitOfWork {
                 commitAttempt < cfg.maxCommitAttempts;
 
               if (shouldRetryCommit) {
-                logger.warn(
-                  `[UnitOfWork] Commit result unknown on attempt ${commitAttempt}/${cfg.maxCommitAttempts}; retrying commit only`,
-                  {
-                    errorCode: getErrorCode(error),
-                    errorLabels: getErrorLabels(error),
-                    message: getErrorMessage(error).substring(0, 100),
-                  },
-                );
+                addRequestContextBreadcrumb("transaction.commit.retry", {
+                  commitAttempt,
+                });
                 await this.backoffWithJitter(
                   commitAttempt,
                   cfg.baseDelayMs,
@@ -236,36 +230,21 @@ export class UnitOfWork {
                 commitAttempt,
                 error,
               );
-              logger.error(
-                `[UnitOfWork] Transaction commit outcome unresolved after ${commitAttempt} attempts`,
-                {
-                  errorCode: getErrorCode(error),
-                  errorLabels: getErrorLabels(error),
-                  message: getErrorMessage(error),
-                },
-              );
+              addRequestContextBreadcrumb("transaction.commit.ambiguous", {
+                commitAttempt,
+              });
               throw ambiguousError;
             }
 
             const retryable = this.isRetryableError(error);
-            const abortSucceeded = await this.abortIfActive(
-              activeSession,
-              error,
-            );
+            const abortSucceeded = await this.abortIfActive(activeSession);
             const shouldRetryBody =
               abortSucceeded &&
               isTransientTransactionError(error) &&
               bodyAttempt < cfg.maxBodyAttempts;
 
             if (shouldRetryBody) {
-              logger.warn(
-                `[UnitOfWork] Commit proved the transaction transiently failed; retrying body after attempt ${bodyAttempt}/${cfg.maxBodyAttempts}`,
-                {
-                  errorCode: getErrorCode(error),
-                  errorLabels: getErrorLabels(error),
-                  message: getErrorMessage(error).substring(0, 100),
-                },
-              );
+              addRequestContextBreadcrumb("transaction.body.retry", { bodyAttempt });
               await this.backoffWithJitter(
                 bodyAttempt,
                 cfg.baseDelayMs,
@@ -275,7 +254,7 @@ export class UnitOfWork {
               break;
             }
 
-            this.recordDefiniteFailure(error, bodyAttempt, retryable);
+            this.recordDefiniteFailure(bodyAttempt, retryable);
             throw error;
           }
         }
@@ -293,42 +272,22 @@ export class UnitOfWork {
     }
   }
 
-  private async abortIfActive(
-    session: ClientSession,
-    primaryError: unknown,
-  ): Promise<boolean> {
+  private async abortIfActive(session: ClientSession): Promise<boolean> {
     if (!session.inTransaction()) return true;
 
     try {
       await session.abortTransaction();
+      addRequestContextBreadcrumb("transaction.abort", { succeeded: true });
       return true;
-    } catch (abortError: unknown) {
-      logger.error(
-        "[UnitOfWork] Abort failed; preserving the original transaction error",
-        {
-          primaryError: getErrorMessage(primaryError),
-          abortError: getErrorMessage(abortError),
-        },
-      );
+    } catch {
+      addRequestContextBreadcrumb("transaction.abort", { succeeded: false });
       return false;
     }
   }
 
-  private recordDefiniteFailure(
-    error: unknown,
-    bodyAttempt: number,
-    retryable: boolean,
-  ): void {
+  private recordDefiniteFailure(bodyAttempt: number, retryable: boolean): void {
     this.metrics.recordFailure();
-    logger.error(
-      `[UnitOfWork] Transaction failed after ${bodyAttempt} body attempts`,
-      {
-        errorCode: getErrorCode(error),
-        errorLabels: getErrorLabels(error),
-        message: getErrorMessage(error),
-        retryable,
-      },
-    );
+    addRequestContextBreadcrumb("transaction.failed", { bodyAttempt, retryable });
   }
 
   /**

@@ -4,18 +4,16 @@ import { inject, injectable } from "tsyringe";
 import {
   Errors,
   ErrorCode,
-  isErrorWithStatusCode,
-  getErrorMessage,
-  getErrorName,
+  isAuthenticationError,
+  AuthenticationForbiddenError,
 } from "@/utils/errors";
 import { DecodedUser, AdminContext } from "@/types";
 import { asUserPublicId, asSessionId } from "@/types/branded";
-import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { UserIdentityLookup } from "@/application/ports/user-identity-lookup";
 import { logger } from "@/utils/winston";
 import { authCookieNames } from "@/config/cookieConfig";
 import { AuthSessionService } from "@/services/auth-session.service";
 import { MetricsService } from "@/metrics/metrics.service";
-import { getClientIp } from "@/utils/request-ip";
 import { TOKENS } from "@/types/tokens";
 import { setRequestContextUserId } from "@/runtime/request-context";
 import { createAdminOnlyMiddleware } from "@/middleware/admin-auth.middleware";
@@ -44,6 +42,35 @@ export {
 
 export abstract class AuthStrategy {
   abstract authenticate(req: Request): Promise<DecodedUser>;
+}
+
+function isExpectedJwtVerificationError(
+  error: unknown,
+): error is jwt.JsonWebTokenError {
+  return error instanceof jwt.JsonWebTokenError;
+}
+
+function hasPresentedAccessToken(req: Request): boolean {
+  return Boolean(
+    req.cookies?.[authCookieNames.accessToken] ||
+    req.cookies?.[authCookieNames.legacyToken] ||
+    req.headers.authorization?.startsWith("Bearer "),
+  );
+}
+
+function isExpectedOptionalAuthenticationRejection(error: unknown): boolean {
+  return (
+    isAuthenticationError(error) ||
+    (error instanceof AuthenticationForbiddenError &&
+      error.errorCode === ErrorCode.EMAIL_NOT_VERIFIED) ||
+    isExpectedJwtVerificationError(error)
+  );
+}
+
+function clearOptionalAuthenticationState(req: Request): void {
+  req.decodedUser = undefined;
+  req.authSource = undefined;
+  req.authLogMetadata = undefined;
 }
 
 export interface RequiredAuthOptions {
@@ -78,12 +105,6 @@ export class BearerTokenStrategy extends AuthStrategy {
       }
     }
     if (!token) {
-      logger.warn("Missing authentication token", {
-        event: "auth.missing_token",
-        method: req.method,
-        route: req.originalUrl.split("?")[0],
-        ip: getClientIp(req),
-      });
       throw Errors.authentication("Missing token", {
         errorCode: ErrorCode.TOKEN_INVALID,
       });
@@ -129,26 +150,30 @@ export class BearerTokenStrategy extends AuthStrategy {
       }
 
       return payload;
-    } catch (err) {
-      if (isErrorWithStatusCode(err)) {
-        throw err;
+    } catch (error) {
+      if (isAuthenticationError(error)) {
+        throw error;
       }
-      const errorMessage = err instanceof Error ? err.message : String(err);
+
+      if (!isExpectedJwtVerificationError(error)) {
+        throw error;
+      }
+
       logger.warn("Token verification failed", {
         event: "auth.token_verification_failed",
         method: req.method,
         route: req.originalUrl.split("?")[0],
-        reason: errorMessage,
+        reason: error.name,
       });
       const errorCode =
-        err instanceof Error && err.name === "TokenExpiredError"
+        error instanceof jwt.TokenExpiredError
           ? ErrorCode.TOKEN_EXPIRED
           : ErrorCode.TOKEN_INVALID;
       const message =
-        err instanceof Error && err.name === "TokenExpiredError"
+        error instanceof jwt.TokenExpiredError
           ? "Access token expired"
           : "Invalid token";
-      throw Errors.authentication(message, { errorCode });
+      throw Errors.authentication(message, { errorCode, cause: error });
     }
   }
 }
@@ -156,7 +181,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 export class AuthenticationMiddleware {
   constructor(
     private strategy: AuthStrategy,
-    private readonly userReadRepository: IUserReadRepository,
+    private readonly userReadRepository: UserIdentityLookup,
     private readonly metricsService: MetricsService | null,
   ) {}
 
@@ -175,7 +200,7 @@ export class AuthenticationMiddleware {
     }
 
     if (user.isBanned) {
-      throw Errors.forbidden("Account banned", {
+      throw Errors.authenticationForbidden("Account banned", {
         context: {
           userId: decodedUser.publicId,
           banned: true,
@@ -184,7 +209,7 @@ export class AuthenticationMiddleware {
     }
 
     if (!options.allowUnverified && user.isEmailVerified === false) {
-      throw Errors.forbidden("Email verification required", {
+      throw Errors.authenticationForbidden("Email verification required", {
         context: {
           userId: decodedUser.publicId,
           emailVerified: false,
@@ -197,24 +222,20 @@ export class AuthenticationMiddleware {
     decodedUser.isEmailVerified = user.isEmailVerified !== false;
   }
 
-  private getOptionalAuthFailureReason(error: unknown): string {
-    const message = getErrorMessage(error).toLowerCase();
-
-    if (message.includes("missing token")) return "missing_token";
-    if (message.includes("expired")) return "token_expired";
-    if (message.includes("invalid token")) return "invalid_token";
-    if (message.includes("email verification")) return "email_not_verified";
-    if (message.includes("session")) return "invalid_session";
-
-    const name = getErrorName(error);
-    if (name) {
-      return name.toLowerCase();
+  private getOptionalAuthFailureReason(req: Request, error: unknown): string {
+    if (!hasPresentedAccessToken(req) && isAuthenticationError(error)) {
+      return "missing_token";
     }
-    return "unknown";
+    const jwtError = isAuthenticationError(error) ? error.cause : error;
+    if (jwtError instanceof jwt.TokenExpiredError) return "token_expired";
+    if (jwtError instanceof jwt.NotBeforeError) return "token_not_active";
+    if (jwtError instanceof jwt.JsonWebTokenError) return "invalid_token";
+
+    return "authentication_failed";
   }
 
   private recordOptionalAuthFailure(req: Request, error: unknown): void {
-    const reason = this.getOptionalAuthFailureReason(error);
+    const reason = this.getOptionalAuthFailureReason(req, error);
     const route = `${req.baseUrl || ""}${req.path || req.originalUrl || "/"}`;
 
     if (reason !== "missing_token") {
@@ -223,7 +244,7 @@ export class AuthenticationMiddleware {
         reason,
         route,
         method: req.method,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
     }
 
@@ -253,21 +274,12 @@ export class AuthenticationMiddleware {
         setRequestContextUserId(req.decodedUser.publicId);
         next();
       } catch (error) {
-        const reason = this.getOptionalAuthFailureReason(error);
         req.authLogMetadata = {
           ...req.authLogMetadata,
           authState: "auth_failed",
-          authSource: reason === "missing_token" ? "none" : "access_token",
+          authSource: hasPresentedAccessToken(req) ? "access_token" : "none",
         };
-        // Preserve original AppError Wwith statusCode
-        if (isErrorWithStatusCode(error)) {
-          return next(error);
-        }
-        const message = getErrorMessage(error) || "Unauthorized";
-        // Default missing/other errors to AuthenticationError (401)
-        next(
-          Errors.authentication(message, { errorCode: ErrorCode.UNAUTHORIZED }),
-        );
+        next(error);
       }
     };
   }
@@ -291,8 +303,12 @@ export class AuthenticationMiddleware {
         };
         setRequestContextUserId(req.decodedUser.publicId);
       } catch (error) {
-        req.decodedUser = undefined;
-        const reason = this.getOptionalAuthFailureReason(error);
+        if (!isExpectedOptionalAuthenticationRejection(error)) {
+          return next(error);
+        }
+
+        clearOptionalAuthenticationState(req);
+        const reason = this.getOptionalAuthFailureReason(req, error);
         if (reason !== "missing_token") {
           req.authLogMetadata = {
             ...req.authLogMetadata,
@@ -314,8 +330,8 @@ export class AuthMiddlewareService {
   constructor(
     @inject(TOKENS.Services.AuthSession)
     private readonly authSessionService: AuthSessionService,
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserIdentityLookup)
+    private readonly userReadRepository: UserIdentityLookup,
     @inject(TOKENS.Services.Metrics)
     private readonly metricsService: MetricsService,
   ) {

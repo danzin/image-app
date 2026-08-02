@@ -72,7 +72,11 @@ const CommunityMembers: React.FC = () => {
 					gap: 3,
 				}}
 			>
-				<IconButton onClick={() => navigate(-1)} sx={{ color: "text.primary" }}>
+				<IconButton
+					onClick={() => navigate(-1)}
+					aria-label="Go back"
+					sx={{ color: "text.primary" }}
+				>
 					<ArrowBackIcon />
 				</IconButton>
 				<Box>
@@ -144,6 +148,7 @@ const CommunityMembers: React.FC = () => {
 									disabled={isKicking}
 									size="small"
 									title="Kick member"
+									aria-label="Remove member"
 								>
 									<PersonRemoveIcon />
 								</IconButton>

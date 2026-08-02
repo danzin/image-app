@@ -1,0 +1,163 @@
+logging {
+  level  = "info"
+  format = "logfmt"
+}
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_project",
+    ]
+    regex  = "ascendance-social"
+    action = "keep"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+    regex  = "backend|backend-worker|frontend|redis|mongo"
+    action = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    replacement   = "$1"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_service",
+    ]
+    target_label = "service_name"
+  }
+
+  rule {
+    source_labels = [
+      "__meta_docker_container_label_com_docker_compose_project",
+    ]
+    target_label = "compose_project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.process.container_logs.receiver]
+}
+
+
+loki.process "container_logs" {
+  stage.match {
+    selector = "{service_name=\"mongo\"}"
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(22943|22944),.*\"remote\":\"127\\.0\\.0\\.1:"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(51800|5286306|10483900),.*\"(remote|client)\":\"127\\.0\\.0\\.1:[0-9]+\".*\"application\":.*\"name\":\"mongosh"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":5286307,.*\"client\":\"127\\.0\\.0\\.1:[0-9]+\".*\"AuthenticationAbandoned\".*\"application\":.*\"name\":\"mongosh"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":(6788604|6788700),"
+      drop_counter_reason = "mongo_healthcheck_noise"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"c\":\"WTCHKPT\".*\"id\":22430,"
+      drop_counter_reason = "mongo_checkpoint_progress"
+    }
+
+    stage.drop {
+      expression          = "\"s\":\"I\".*\"id\":10621107,.*\"ctx\":\"OplogCapMaintainerThread-local\\.oplog\\.rs\""
+      drop_counter_reason = "mongo_oplog_maintenance"
+    }
+  }
+
+  stage.match {
+    selector = "{service_name=\"loki\"}"
+
+    stage.drop {
+      expression          = "^level=info .* caller=metrics\\.go:(285|457) .* status=200"
+      drop_counter_reason = "loki_successful_query_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=(engine\\.go:274|roundtrip\\.go:412) .* msg=\"executing query\""
+      drop_counter_reason = "loki_query_execution_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=table_manager\\.go:195 .* msg=\"get or create table\""
+      drop_counter_reason = "loki_table_manager_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=recalculate_owned_streams\\.go:(49|52) .* msg=\"(starting|completed) recalculate owned streams job\""
+      drop_counter_reason = "loki_stream_recalculation_noise"
+    }
+
+    stage.drop {
+      expression          = "^level=info .* caller=marker\\.go:206 .* msg=\"no marks file found\""
+      drop_counter_reason = "loki_retention_marker_noise"
+    }
+  }
+
+  stage.json {
+    drop_malformed = false
+
+    expressions = {
+      level          = "level",
+      event          = "event",
+      correlation_id = "correlationId",
+      error_id       = "errorId",
+      error_type     = "error.name",
+      status_code    = "statusCode",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+    }
+  }
+
+  stage.structured_metadata {
+    values = {
+      event          = "",
+      correlation_id = "",
+      error_id       = "",
+      error_type     = "",
+      status_code    = "",
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

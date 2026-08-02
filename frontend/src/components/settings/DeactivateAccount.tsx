@@ -49,7 +49,7 @@ const DeactivateAccount = ({ onBack }: DeactivateAccountProps) => {
 		<Box>
 			{/* header */}
 			<Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-				<IconButton onClick={onBack} size="small">
+				<IconButton onClick={onBack} size="small" aria-label="Back to settings">
 					<ArrowBackIcon />
 				</IconButton>
 				<Typography variant="h6" fontWeight={700}>

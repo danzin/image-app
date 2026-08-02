@@ -232,22 +232,32 @@ class TelemetryService {
 		this.events = [];
 
 		const payload = JSON.stringify({ events: eventsToSend });
+		const requeue = () => {
+			this.events = [...eventsToSend, ...this.events].slice(0, 100);
+		};
 
 		if (sync && navigator.sendBeacon) {
-			// use sendBeacon for reliable delivery on page unload
-			navigator.sendBeacon("/api/telemetry", payload);
+			try {
+				const queued = navigator.sendBeacon(
+					"/api/telemetry",
+					new Blob([payload], { type: "application/json" }),
+				);
+				if (!queued) requeue();
+			} catch {
+				requeue();
+			}
 		} else {
 			try {
-				await fetch("/api/telemetry", {
+				const response = await fetch("/api/telemetry", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
 					body: payload,
 					keepalive: true,
 				});
+				if (!response.ok) requeue();
 			} catch {
 				// silently fail - telemetry should never break the app
-				// optionally re-queue events for retry
-				this.events = [...eventsToSend, ...this.events].slice(0, 100);
+				requeue();
 			}
 		}
 	}

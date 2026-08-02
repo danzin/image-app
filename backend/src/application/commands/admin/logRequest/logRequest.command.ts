@@ -5,7 +5,6 @@ export interface LogRequestPayload {
   route: string;
   ip: string;
   origin?: string;
-  referer?: string;
   statusCode: number;
   responseTimeMs: number;
   correlationId?: string;

@@ -35,6 +35,7 @@ const Favorites = lazy(() => import("./screens/Favorites"));
 const Messages = lazy(() => import("./screens/Messages"));
 const Notifications = lazy(() => import("./screens/Notifications"));
 const Settings = lazy(() => import("./screens/Settings"));
+const NotFound = lazy(() => import("./screens/NotFound"));
 const AdminUserDetail = lazy(() => import("./screens/AdminUserDetail"));
 const AdminDashboard = lazy(() => import("./screens/Admin").then((module) => ({ default: module.AdminDashboard })));
 const CommentThreadView = lazy(() =>
@@ -113,6 +114,7 @@ function App() {
 											<Route path="settings" element={<ProtectedRoute element={<Settings />} />} />
 											<Route path="admin" element={<AdminRoute element={<AdminDashboard />} />} />
 											<Route path="admin/users/:id" element={<AdminRoute element={<AdminUserDetail />} />} />
+											<Route path="*" element={<NotFound />} />
 										</Route>
 									</Routes>
 								</Suspense>

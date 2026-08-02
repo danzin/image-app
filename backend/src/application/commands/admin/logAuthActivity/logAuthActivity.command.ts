@@ -4,7 +4,6 @@ export interface LogAuthActivityPayload {
   action: string;
   ip: string;
   origin?: string;
-  referer?: string;
   userAgent?: string;
   route?: string;
   statusCode?: number;

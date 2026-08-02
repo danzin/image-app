@@ -1,18 +1,17 @@
 import { inject, injectable } from "tsyringe";
-import { RedisService } from "../redis.service";
-import type { IUserReadRepository } from "@/repositories/interfaces";
 import { FeedPost, UserLookupData } from "@/types";
-import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
-import { CacheConfig } from "@/config/cacheConfig";
 import { TOKENS } from "@/types/tokens";
-import { asUserPublicId, asPostPublicId } from "@/types/branded";
+import { asPostPublicId } from "@/types/branded";
+import type { UserLookup } from "@/application/ports/user-lookup";
+import type { FeedCache } from "@/application/ports/feed-cache";
 
 @injectable()
 export class FeedEnrichmentService {
   constructor(
-    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Services.UserLookup)
+    private readonly userLookup: UserLookup,
+    @inject(TOKENS.Services.FeedCache)
+    private readonly feedCache: FeedCache,
   ) {}
 
   /**
@@ -42,22 +41,15 @@ export class FeedEnrichmentService {
         ...new Set(coreFeedData.map((item) => item.userPublicId)),
       ];
 
-      const userData = await this.getUsersWithCache(userPublicIds);
+      const userData = await this.userLookup.findMany(userPublicIds);
       userMap = new Map<string, UserLookupData>(
         userData.map((user: UserLookupData) => [user.publicId, user]),
       );
     }
 
-    // attempt to load per-post metadata with tag-based caching
-    // Assuming granular key is better: post_meta:{id}
-    const postMetaKeys = postPublicIds.map((id) =>
-      CacheKeyBuilder.getPostMetaKey(id),
-    );
+    const metaResults = await this.feedCache.getPostMetadata(postPublicIds);
 
-    // single MGET round-trip instead of N individual GET calls
-    const metaResults = await this.redisService.mGet<any>(postMetaKeys);
-
-    const metaMap = new Map<string, any>();
+    const metaMap = new Map<string, (typeof metaResults)[number]>();
     postPublicIds.forEach((id, idx) => {
       if (metaResults[idx]) metaMap.set(id, metaResults[idx]);
     });
@@ -83,53 +75,4 @@ export class FeedEnrichmentService {
     });
   }
 
-  /**
-   * Fetches users with granular caching strategy.
-   * Prevents duplication of cache keys for overlapping sets of users.
-   */
-  private async getUsersWithCache(
-    userPublicIds: string[],
-  ): Promise<UserLookupData[]> {
-    if (userPublicIds.length === 0) return [];
-
-    const keys = userPublicIds.map((id) =>
-      CacheKeyBuilder.getUserDataKey(asUserPublicId(id)),
-    );
-
-    // single MGET round-trip to check all users at once
-    const cached = await this.redisService.mGet<UserLookupData>(keys);
-
-    const results: UserLookupData[] = [];
-    const missingIds: string[] = [];
-
-    for (let i = 0; i < userPublicIds.length; i++) {
-      if (cached[i]) {
-        results.push(cached[i]!);
-      } else {
-        missingIds.push(userPublicIds[i]);
-      }
-    }
-
-    if (missingIds.length > 0) {
-      const fetchedUsers = await this.userReadRepository.findUsersByPublicIds(
-        missingIds.map(asUserPublicId),
-      );
-
-      // Store missing back to cache using a pipeline to batch the operations
-      if (fetchedUsers.length > 0) {
-        await this.redisService.setManyWithTags(
-          fetchedUsers.map((user) => ({
-            key: CacheKeyBuilder.getUserDataKey(user.publicId),
-            value: user,
-            tags: [`user_data:${user.publicId}`],
-          })),
-          CacheConfig.FEED.USER_DATA,
-        );
-      }
-
-      results.push(...fetchedUsers);
-    }
-
-    return results;
-  }
 }

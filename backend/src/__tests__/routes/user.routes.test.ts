@@ -22,7 +22,9 @@ describe("UserRoutes", () => {
     const authController = {
       register: sinon.stub(),
       login: sinon.stub(),
-      logout: sinon.stub(),
+      logout: sinon.stub().callsFake((_req, res) => {
+        res.status(200).json({ message: "Logged out successfully" });
+      }),
       refresh: sinon.stub(),
       requestPasswordReset: sinon.stub(),
       resetPassword: sinon.stub(),
@@ -72,8 +74,23 @@ describe("UserRoutes", () => {
     app.use(express.json());
     app.use("/api/users", routes.getRouter());
 
-    return { app, regularAuth, unverifiedAuth };
+    return {
+      app,
+      authController,
+      optionalAuth,
+      regularAuth,
+      unverifiedAuth,
+    };
   }
+
+  it("exposes refresh-aware logout without requiring a live access token", async () => {
+    const { app, authController, optionalAuth } = buildApp();
+
+    await request(app).post("/api/users/refresh/logout").expect(200);
+
+    expect(authController.logout.calledOnce).to.equal(true);
+    expect((optionalAuth as sinon.SinonStub).called).to.equal(false);
+  });
 
   it("routes account deletion through authenticated unverified access", async () => {
     const { app, regularAuth, unverifiedAuth } = buildApp();

@@ -4,7 +4,8 @@ import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
 import sinon, { SinonStub } from "sinon";
 import { Model, Types } from "mongoose";
-import { UserRepository } from "@/repositories/user.repository";
+import { UserReadRepository } from "@/repositories/read/UserReadRepository";
+import { UserWriteRepository } from "@/repositories/write/UserWriteRepository";
 import { IUser } from "@/types";
 import { asMongoId } from "@/types/branded";
 
@@ -65,8 +66,9 @@ const createUserModel = (query: MockQuery): MockUserModel => {
 	return model;
 };
 
-describe("UserRepository", () => {
-	let repository: UserRepository;
+describe("User read and write repositories", () => {
+	let userReadRepository: UserReadRepository;
+	let userWriteRepository: UserWriteRepository;
 	let model: MockUserModel;
 	let query: MockQuery;
 
@@ -78,9 +80,12 @@ describe("UserRepository", () => {
 			getFollowingObjectIds: sinon.stub().resolves([]),
 		};
 
-		repository = new UserRepository(
+		userReadRepository = new UserReadRepository(
 			model as unknown as Model<IUser>,
 			followRepository as never,
+		);
+		userWriteRepository = new UserWriteRepository(
+			model as unknown as Model<IUser>,
 		);
 	});
 
@@ -88,7 +93,7 @@ describe("UserRepository", () => {
 		sinon.restore();
 	});
 
-	describe("create", () => {
+	describe("UserWriteRepository.create", () => {
 		const userData: Partial<IUser> = {
 			username: "testuser",
 			email: "test@example.com",
@@ -100,7 +105,7 @@ describe("UserRepository", () => {
 			model.withArgs(userData).returns(expectedDoc);
 			expectedDoc.save.resolves(expectedDoc);
 
-			const result = await repository.create(userData);
+			const result = await userWriteRepository.create(userData);
 
 			expect(result).to.equal(expectedDoc);
 			expect(expectedDoc.save.calledOnce).to.be.true;
@@ -118,7 +123,7 @@ describe("UserRepository", () => {
 			model.withArgs(userData).returns(doc);
 			doc.save.rejects(duplicateError);
 
-			await expect(repository.create(userData))
+			await expect(userWriteRepository.create(userData))
 				.to.be.rejectedWith("username already exists")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DuplicateError");
@@ -138,7 +143,7 @@ describe("UserRepository", () => {
 			model.withArgs(userData).returns(doc);
 			doc.save.rejects(duplicateError);
 
-			await expect(repository.create(userData))
+			await expect(userWriteRepository.create(userData))
 				.to.be.rejectedWith("email already exists")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DuplicateError");
@@ -151,7 +156,7 @@ describe("UserRepository", () => {
 			model.withArgs(userData).returns(doc);
 			doc.save.rejects(new Error("Operation failed"));
 
-			await expect(repository.create(userData))
+			await expect(userWriteRepository.create(userData))
 				.to.be.rejectedWith("Operation failed")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DatabaseError");
@@ -160,7 +165,7 @@ describe("UserRepository", () => {
 		});
 	});
 
-	describe("update", () => {
+	describe("UserWriteRepository.update", () => {
 		const userId = asMongoId(new Types.ObjectId().toString());
 		const updateData = { username: "updatedUser" };
 		const updatedUser = { _id: userId, ...updateData } as unknown as IUser;
@@ -168,7 +173,7 @@ describe("UserRepository", () => {
 		it("returns the updated user when found", async () => {
 			query.exec.resolves(updatedUser);
 
-			const result = await repository.update(userId, updateData);
+			const result = await userWriteRepository.update(userId, updateData);
 
 			expect(result).to.equal(updatedUser);
 			expect(model.findOneAndUpdate.calledOnceWith(
@@ -181,7 +186,7 @@ describe("UserRepository", () => {
 		it("returns null when no user matches", async () => {
 			query.exec.resolves(null);
 
-			const result = await repository.update(userId, updateData);
+			const result = await userWriteRepository.update(userId, updateData);
 
 			expect(result).to.be.null;
 		});
@@ -195,7 +200,7 @@ describe("UserRepository", () => {
 			duplicateError.keyValue = { username: "existingUser" };
 			query.exec.rejects(duplicateError);
 
-			await expect(repository.update(userId, { username: "existingUser" }))
+			await expect(userWriteRepository.update(userId, { username: "existingUser" }))
 				.to.be.rejectedWith("username already exists")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DuplicateError");
@@ -206,7 +211,7 @@ describe("UserRepository", () => {
 		it("wraps unexpected update failures", async () => {
 			query.exec.rejects(new Error("Update failed"));
 
-			await expect(repository.update(userId, updateData))
+			await expect(userWriteRepository.update(userId, updateData))
 				.to.be.rejectedWith("Update failed")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DatabaseError");
@@ -215,7 +220,7 @@ describe("UserRepository", () => {
 		});
 	});
 
-	describe("getAll", () => {
+	describe("UserReadRepository.getAll", () => {
 		const users = [
 			{ _id: new Types.ObjectId(), username: "user1" },
 			{ _id: new Types.ObjectId(), username: "user2" },
@@ -224,7 +229,7 @@ describe("UserRepository", () => {
 		it("applies default pagination", async () => {
 			query.exec.resolves(users);
 
-			const result = await repository.getAll({});
+			const result = await userReadRepository.getAll({});
 
 			expect(result).to.deep.equal(users);
 			expect(model.find.calledOnceWith({})).to.be.true;
@@ -235,7 +240,7 @@ describe("UserRepository", () => {
 		it("builds the search query from provided terms", async () => {
 			query.exec.resolves(users);
 
-			await repository.getAll({ search: ["test", "user"], page: 2, limit: 5 });
+			await userReadRepository.getAll({ search: ["test", "user"], page: 2, limit: 5 });
 
 			expect(model.find.calledOnceWith(sinon.match({
 				$or: [
@@ -252,7 +257,7 @@ describe("UserRepository", () => {
 		it("returns null when no users are found", async () => {
 			query.exec.resolves([]);
 
-			const result = await repository.getAll({ search: [""], page: 1, limit: 20 });
+			const result = await userReadRepository.getAll({ search: [""], page: 1, limit: 20 });
 
 			expect(result).to.be.null;
 		});
@@ -260,7 +265,7 @@ describe("UserRepository", () => {
 		it("wraps unexpected read failures", async () => {
 			query.exec.rejects(new Error("DatabaseError"));
 
-			await expect(repository.getAll({}))
+			await expect(userReadRepository.getAll({}))
 				.to.be.rejectedWith("DatabaseError")
 				.and.eventually.satisfy((error: Error) => {
 					expect(error.name).to.equal("DatabaseError");

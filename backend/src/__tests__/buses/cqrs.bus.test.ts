@@ -2,9 +2,15 @@ import { describe, it } from "mocha";
 import { expect } from "chai";
 import sinon from "sinon";
 import { CommandBus } from "@/application/common/buses/command.bus";
+import { EventBus } from "@/application/common/buses/event.bus";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { ICommand } from "@/application/common/interfaces/command.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 import { IQuery } from "@/application/common/interfaces/query.interface";
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
 
 class ClassNameDoesNotMatterCommand implements ICommand {
   static readonly type = "StableCommandType";
@@ -38,6 +44,12 @@ class StaticTypeOnlyQuery implements IQuery {
   }
 }
 
+class ClassNameDoesNotMatterEvent implements IEvent {
+  static readonly type = "StableEventType";
+  readonly type = ClassNameDoesNotMatterEvent.type;
+  readonly timestamp = new Date();
+}
+
 describe("CQRS buses", () => {
   it("dispatches commands by explicit type rather than constructor.name", async () => {
     const bus = new CommandBus();
@@ -67,6 +79,86 @@ describe("CQRS buses", () => {
 
     expect(result).to.deep.equal({ data: [] });
     expect(handler.execute.calledOnceWith(query)).to.be.true;
+  });
+
+  it("publishes and persists events by explicit type", async () => {
+    const saveEvent = sinon.stub().resolves();
+    const recordDomainEventPublished = sinon.stub();
+    const bus = new EventBus(
+      { saveEvent } as any,
+      { recordDomainEventPublished } as any,
+    );
+    const handler = {
+      handle: sinon.stub().resolves(),
+    };
+    const event = new ClassNameDoesNotMatterEvent();
+
+    bus.subscribe(ClassNameDoesNotMatterEvent, handler);
+    await bus.publish(event);
+    await bus.queueDurable(event);
+
+    expect(handler.handle.calledOnceWith(event)).to.be.true;
+    expect(saveEvent.firstCall.args[0]).to.equal("StableEventType");
+    expect(
+      recordDomainEventPublished.calledWith(
+        "StableEventType",
+        "immediate",
+      ),
+    ).to.be.true;
+    expect(
+      recordDomainEventPublished.calledWith(
+        "StableEventType",
+        "durable_outbox",
+      ),
+    ).to.be.true;
+  });
+
+  it("orders handler breadcrumbs and rethrows the original command error", async () => {
+    const bus = new CommandBus();
+    const failure = new Error("handler failed");
+    const handler = {
+      execute: sinon.stub().rejects(failure),
+    };
+    bus.register(ClassNameDoesNotMatterCommand, handler as any);
+
+    await runWithRequestContext({ correlationId: "command-123" }, async () => {
+      try {
+        await bus.dispatch(new ClassNameDoesNotMatterCommand("payload"));
+        expect.fail("Expected dispatch() to throw");
+      } catch (error) {
+        expect(error).to.equal(failure);
+      }
+
+      expect(getRequestContext()?.breadcrumbs.map(({ event }) => event)).to.deep.equal([
+        "cqrs.command.dispatch",
+        "cqrs.command.handler.enter",
+        "cqrs.command.handler.failed",
+      ]);
+    });
+  });
+
+  it("orders query breadcrumbs and rethrows the original query error", async () => {
+    const bus = new QueryBus();
+    const failure = new Error("query failed");
+    const handler = {
+      execute: sinon.stub().rejects(failure),
+    };
+    bus.register(ClassNameDoesNotMatterQuery, handler as any);
+
+    await runWithRequestContext({ correlationId: "query-123" }, async () => {
+      try {
+        await bus.execute(new ClassNameDoesNotMatterQuery(1));
+        expect.fail("Expected execute() to throw");
+      } catch (error) {
+        expect(error).to.equal(failure);
+      }
+
+      expect(getRequestContext()?.breadcrumbs.map(({ event }) => event)).to.deep.equal([
+        "cqrs.query.dispatch",
+        "cqrs.query.handler.enter",
+        "cqrs.query.handler.failed",
+      ]);
+    });
   });
 
   it("uses the explicit command type in missing-handler errors", async () => {

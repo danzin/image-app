@@ -16,7 +16,8 @@ export interface NotificationPayload {
 }
 
 export class NotificationRequestedEvent implements IEvent {
-	readonly type = EventRegistry.domain.NotificationRequested;
+	static readonly type = EventRegistry.domain.NotificationRequested;
+	readonly type = NotificationRequestedEvent.type;
 	readonly timestamp: Date = new Date();
 
 	constructor(public readonly payload: NotificationPayload) {}

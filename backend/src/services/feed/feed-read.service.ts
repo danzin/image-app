@@ -3,7 +3,7 @@ import type { RedisService } from "../redis.service";
 import type { DTOService } from "../dto.service";
 import type { FeedEnrichmentService } from "./feed-enrichment.service";
 import type { FeedCoreService } from "./feed-core.service";
-import { Errors } from "@/utils/errors";
+import { AppError, Errors } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { CacheConfig } from "@/config/cacheConfig";
 import { CacheKeyBuilder } from "@/utils/cache/CacheKeyBuilder";
@@ -93,15 +93,13 @@ export class FeedReadService {
         limit: coreFeed!.limit ?? safeLimit,
       };
     } catch (error) {
-      logger.error("Failed to generate personalized feed", {
-        userId,
-        page: safePage,
-        limit: safeLimit,
-        error,
+      if (error instanceof AppError) {
+        throw error;
+      }
+
+      throw Errors.internal("Could not generate personalized feed", {
+        cause: error,
       });
-      throw Errors.internal(
-        `Could not generate personalized feed for user ${userId}: ${(error as Error).message}`,
-      );
     }
   }
 

@@ -1,9 +1,9 @@
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { UserIdentityLookup } from "@/application/ports/user-identity-lookup";
 import { logger } from "@/utils/winston";
 
 export function createAdminOnlyMiddleware(
-  userReadRepository: IUserReadRepository,
+  userReadRepository: UserIdentityLookup,
 ): RequestHandler {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {

@@ -6,6 +6,10 @@ import sinon, { SinonStub } from "sinon";
 import { ClientSession, Model, Types, Document } from "mongoose";
 import { BaseRepository } from "@/repositories/base.repository";
 import { asMongoId } from "@/types/branded";
+import {
+	getRequestContext,
+	runWithRequestContext,
+} from "@/runtime/request-context";
 
 chai.use(chaiAsPromised);
 
@@ -125,13 +129,23 @@ describe("BaseRepository", () => {
 			mockModel.withArgs(testData).returns(expectedDoc);
 			expectedDoc.save.rejects(saveError);
 
-			try {
-				await repository.create(testData);
-				throw new Error("Expected create() to throw");
-			} catch (err: any) {
-				expect(err.name).to.equal("DatabaseError");
-				expect(err.message).to.equal(saveError.message);
-			}
+			await runWithRequestContext({ correlationId: "repository-123" }, async () => {
+				try {
+					await repository.create(testData);
+					throw new Error("Expected create() to throw");
+				} catch (err: any) {
+					expect(err.name).to.equal("DatabaseError");
+					expect(err.message).to.equal(saveError.message);
+					expect(err.cause).to.equal(saveError);
+				}
+
+				expect(getRequestContext()?.breadcrumbs[0]).to.deep.include({
+					event: "mongodb.repository.failed",
+				});
+				expect(getRequestContext()?.breadcrumbs[0]?.data).to.include({
+					operation: "create",
+				});
+			});
 		});
 	});
 

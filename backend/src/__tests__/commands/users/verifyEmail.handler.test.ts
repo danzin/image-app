@@ -10,7 +10,7 @@ chai.use(chaiAsPromised);
 
 describe("VerifyEmailHandler", () => {
 	let handler: VerifyEmailHandler;
-	let mockUserReadRepository: {
+	let mockUserAuthenticationLookup: {
 		findByEmailVerificationToken: SinonStub;
 	};
 	let mockUserWriteRepository: {
@@ -25,7 +25,7 @@ describe("VerifyEmailHandler", () => {
 	};
 
 	beforeEach(() => {
-		mockUserReadRepository = {
+		mockUserAuthenticationLookup = {
 			findByEmailVerificationToken: sinon.stub(),
 		};
 		mockUserWriteRepository = {
@@ -40,7 +40,7 @@ describe("VerifyEmailHandler", () => {
 		};
 
 		handler = new VerifyEmailHandler(
-			mockUserReadRepository as any,
+			mockUserAuthenticationLookup as any,
 			mockUserWriteRepository as any,
 			mockDtoService as any,
 			mockAuthSessionService as any,
@@ -49,7 +49,7 @@ describe("VerifyEmailHandler", () => {
 
 	it("should throw when token is invalid", async () => {
 		const command = new VerifyEmailCommand("user@example.com", "12345");
-		mockUserReadRepository.findByEmailVerificationToken.resolves(null);
+		mockUserAuthenticationLookup.findByEmailVerificationToken.resolves(null);
 
 		await expect(handler.execute(command)).to.be.rejectedWith("Invalid or expired verification token");
 	});
@@ -63,7 +63,7 @@ describe("VerifyEmailHandler", () => {
 			isEmailVerified: true,
 		};
 		const dto = { publicId: "p1", email: "user@example.com", isEmailVerified: true };
-		mockUserReadRepository.findByEmailVerificationToken.resolves(user);
+		mockUserAuthenticationLookup.findByEmailVerificationToken.resolves(user);
 		mockDtoService.toAuthenticatedUserDTO.returns(dto);
 
 		const result = await handler.execute(command);
@@ -90,7 +90,7 @@ describe("VerifyEmailHandler", () => {
 		};
 		const dto = { publicId: "p1", email: "user@example.com", isEmailVerified: true };
 
-		mockUserReadRepository.findByEmailVerificationToken.resolves(user);
+		mockUserAuthenticationLookup.findByEmailVerificationToken.resolves(user);
 		mockUserWriteRepository.update.resolves(updatedUser);
 		mockDtoService.toAuthenticatedUserDTO.returns(dto);
 

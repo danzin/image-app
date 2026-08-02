@@ -15,6 +15,11 @@ import {
   TransactionSemaphoreTimeoutError,
 } from "@/database/transaction-semaphore";
 import { getErrorCode, getErrorLabels, getErrorMessage } from "@/utils/errors";
+import { logger } from "@/utils/winston";
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
 
 type FinalOutcome =
   | { kind: "pending" }
@@ -334,14 +339,39 @@ describe("UnitOfWork deterministic transaction fault injection", () => {
     );
     installSessionFactory(evidence);
 
-    await captureOutcome(
-      evidence,
-      unitOfWork.executeInTransaction(
-        instrumentBody(evidence, async (invocation) => {
-          if (invocation === 1) throw transient;
-          return "retried";
-        }),
-      ),
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await captureOutcome(
+          evidence,
+          unitOfWork.executeInTransaction(
+            instrumentBody(evidence, async (invocation) => {
+              if (invocation === 1) throw transient;
+              return "retried";
+            }),
+          ),
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.abort",
+          "transaction.body.retry",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+        ]);
+        expect(breadcrumbs?.[0]?.data).to.deep.include({
+          max_body_attempts: 8,
+          max_commit_attempts: 8,
+        });
+        expect(breadcrumbs?.[1]?.data).to.deep.include({ succeeded: true });
+        expect(breadcrumbs?.[2]?.data).to.deep.include({ body_attempt: 1 });
+        expect(breadcrumbs?.[3]?.data).to.deep.include({ body_attempt: 2 });
+        expect(breadcrumbs?.[4]?.data).to.deep.include({
+          body_attempt: 2,
+          commit_attempt: 1,
+        });
+      },
     );
 
     expect(evidence).to.deep.equal({
@@ -710,6 +740,7 @@ describe("UnitOfWork deterministic transaction fault injection", () => {
   });
 
   it("6. propagates a definite non-retryable commit failure", async () => {
+    const terminalLogger = sinon.stub(logger, "error");
     const evidence = createEvidence();
     const unitOfWork = createUnitOfWorkHarness(evidence);
     const commitFailure = createMongoError("definite commit failure", 121);
@@ -719,11 +750,28 @@ describe("UnitOfWork deterministic transaction fault injection", () => {
       },
     }));
 
-    await captureOutcome(
-      evidence,
-      unitOfWork.executeInTransaction(
-        instrumentBody(evidence, async () => "uncommitted"),
-      ),
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await captureOutcome(
+          evidence,
+          unitOfWork.executeInTransaction(
+            instrumentBody(evidence, async () => "uncommitted"),
+          ),
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+          "transaction.failed",
+        ]);
+        expect(breadcrumbs?.[3]?.data).to.deep.include({
+          body_attempt: 1,
+          retryable: false,
+        });
+      },
     );
 
     expect(evidence).to.deep.equal({
@@ -741,6 +789,7 @@ describe("UnitOfWork deterministic transaction fault injection", () => {
       finalOutcome: describeFinalError(commitFailure),
       finalError: commitFailure,
     });
+    sinon.assert.notCalled(terminalLogger);
   });
 
   it("restarts the body after a direct transient commit failure only after the prior transaction ended", async () => {
@@ -888,6 +937,176 @@ describe("UnitOfWork deterministic transaction fault injection", () => {
         }
       ).transaction.state,
     ).to.equal("TRANSACTION_ABORTED");
+  });
+
+  it("records commit retry and ambiguous commit breadcrumbs with attempt metadata", async () => {
+    const evidence = createEvidence();
+    const unitOfWork = createUnitOfWorkHarness(evidence);
+    const unknownCommit = createMongoError(
+      "commit acknowledgement lost",
+      91,
+      "UnknownTransactionCommitResult",
+    );
+    installSessionFactory(evidence, () => ({
+      commit: async (invocation) => {
+        if (invocation === 1) throw unknownCommit;
+      },
+    }));
+
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await captureOutcome(
+          evidence,
+          unitOfWork.executeInTransaction(
+            instrumentBody(evidence, async () => "committed"),
+          ),
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+          "transaction.commit.retry",
+          "transaction.commit.attempt",
+        ]);
+        expect(breadcrumbs?.[2]?.data).to.deep.include({
+          body_attempt: 1,
+          commit_attempt: 1,
+        });
+        expect(breadcrumbs?.[3]?.data).to.deep.include({ commit_attempt: 1 });
+        expect(breadcrumbs?.[4]?.data).to.deep.include({
+          body_attempt: 1,
+          commit_attempt: 2,
+        });
+      },
+    );
+
+    expect(evidence.finalOutcome).to.deep.equal({
+      kind: "value",
+      value: "committed",
+    });
+  });
+
+  it("records ambiguous commit exhaustion without rerunning the body", async () => {
+    const evidence = createEvidence();
+    const unitOfWork = createUnitOfWorkHarness(evidence);
+    const unknownCommit = createMongoError(
+      "commit remains ambiguous",
+      91,
+      "UnknownTransactionCommitResult",
+    );
+    installSessionFactory(evidence, () => ({
+      commit: async () => {
+        throw unknownCommit;
+      },
+    }));
+
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await captureOutcome(
+          evidence,
+          unitOfWork.executeInTransaction(
+            instrumentBody(evidence, async () => "body-result"),
+            { maxCommitAttempts: 2 },
+          ),
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+          "transaction.commit.retry",
+          "transaction.commit.attempt",
+          "transaction.commit.ambiguous",
+        ]);
+        expect(breadcrumbs?.[5]?.data).to.deep.include({ commit_attempt: 2 });
+      },
+    );
+
+    expect(evidence.bodyInvocationCount).to.equal(1);
+    expect(evidence.finalError).to.be.instanceOf(AmbiguousTransactionCommitError);
+  });
+
+  it("records a transient commit body restart in causal order", async () => {
+    const evidence = createEvidence();
+    const unitOfWork = createUnitOfWorkHarness(evidence);
+    const transientCommit = createMongoError(
+      "commit transaction transiently failed",
+      112,
+      "TransientTransactionError",
+    );
+    installSessionFactory(evidence, () => ({
+      commit: async (invocation) => {
+        if (invocation === 1) throw transientCommit;
+      },
+    }));
+
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await unitOfWork.executeInTransaction(
+          instrumentBody(evidence, async (invocation) => `body-${invocation}`),
+          { maxBodyAttempts: 2 },
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+          "transaction.body.retry",
+          "transaction.callback.completed",
+          "transaction.commit.attempt",
+        ]);
+        expect(breadcrumbs?.[3]?.data).to.deep.include({ body_attempt: 1 });
+      },
+    );
+  });
+
+  it("records abort failure and transaction.failed while preserving the original callback error", async () => {
+    const terminalLogger = sinon.stub(logger, "error");
+    const evidence = createEvidence();
+    const unitOfWork = createUnitOfWorkHarness(evidence);
+    const callbackFailure = new Error("original callback failure");
+    installSessionFactory(evidence, () => ({
+      abort: async () => {
+        throw new Error("abort failed");
+      },
+    }));
+
+    await runWithRequestContext(
+      { correlationId: "transaction-123", requestStartTime: process.hrtime.bigint() },
+      async () => {
+        await captureOutcome(
+          evidence,
+          unitOfWork.executeInTransaction(
+            instrumentBody(evidence, async () => {
+              throw callbackFailure;
+            }),
+            { maxBodyAttempts: 1 },
+          ),
+        );
+
+        const breadcrumbs = getRequestContext()?.breadcrumbs;
+        expect(breadcrumbs?.map(({ event }) => event)).to.deep.equal([
+          "transaction.begin",
+          "transaction.abort",
+          "transaction.failed",
+        ]);
+        expect(breadcrumbs?.[1]?.data).to.deep.include({ succeeded: false });
+        expect(breadcrumbs?.[2]?.data).to.deep.include({
+          body_attempt: 1,
+          retryable: false,
+        });
+      },
+    );
+
+    expect(evidence.finalError).to.equal(callbackFailure);
+    sinon.assert.notCalled(terminalLogger);
   });
 
   for (const [configuredLimit, expectedAttempts] of [

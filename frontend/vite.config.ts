@@ -58,13 +58,10 @@ const resolveManualChunk = (id: string): string | undefined => {
 };
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), "");
+  const { PORT: loadedPort } = loadEnv(mode, process.cwd(), "");
+  const backendPort = process.env.PORT || loadedPort || "8000";
 
   return {
-    // Allows using processs.env
-    define: {
-      "process.env": JSON.stringify(env),
-    },
     plugins: [react()],
     resolve: {
       alias: {
@@ -83,7 +80,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         "/api": {
-          target: `http://localhost:${env.PORT || 8000}`,
+          target: `http://localhost:${backendPort}`,
           changeOrigin: true,
           secure: false,
           ws: true,
@@ -91,12 +88,12 @@ export default defineConfig(({ mode }) => {
           timeout: 120_000,
         },
         "/uploads": {
-          target: `http://localhost:${env.PORT || 8000}`,
+          target: `http://localhost:${backendPort}`,
           changeOrigin: true,
           secure: false,
         },
         "/socket.io": {
-          target: `http://localhost:${env.PORT || 8000}`,
+          target: `http://localhost:${backendPort}`,
           changeOrigin: true,
           secure: false,
           ws: true,

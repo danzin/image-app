@@ -100,7 +100,7 @@ export class GetNotificationsQueryHandler implements IQueryHandler<
           .catch((err: Error) => {
             errorLogger.error(`Failed to backfill notification cache`, {
               userId,
-              error: err.message,
+              error: err,
             });
           });
       }
@@ -109,10 +109,6 @@ export class GetNotificationsQueryHandler implements IQueryHandler<
         .slice(0, limit)
         .map((notification) => this.toPlainNotification(notification));
     } catch (error) {
-      errorLogger.error(`getNotifications error`, {
-        userId,
-        error: error instanceof Error ? error.message : String(error),
-      });
       throw wrapError(error, "InternalServerError", {
         context: { operation: "getNotifications", userId: query.userId },
       });

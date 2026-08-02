@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetUsersQuery } from "./getUsers.query";
-import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { UserDirectoryLookup } from "@/application/ports/user-directory-lookup";
 import { DTOService, PublicUserDTO } from "@/services/dto.service";
 import { PaginationResult } from "@/types";
 import { TOKENS } from "@/types/tokens";
@@ -12,8 +12,8 @@ export class GetUsersQueryHandler implements IQueryHandler<
   PaginationResult<PublicUserDTO>
 > {
   constructor(
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserDirectoryLookup)
+    private readonly userReadRepository: UserDirectoryLookup,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}
 

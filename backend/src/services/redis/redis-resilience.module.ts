@@ -1,10 +1,12 @@
 import { getErrorMessage } from "@/utils/errors";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 import { redisLogger } from "@/utils/winston";
 
 export interface ResilienceConfigBase {
   maxAttempts?: number;
   baseDelayMs?: number;
   maxDelayMs?: number;
+  operation?: string;
 }
 
 interface ResilienceConfigWithFallback<T> extends ResilienceConfigBase {
@@ -15,7 +17,7 @@ export type ResilienceConfig<T> =
   | ResilienceConfigBase
   | ResilienceConfigWithFallback<T>;
 
-const DEFAULT_RESILIENCE: Required<ResilienceConfigBase> = {
+const DEFAULT_RESILIENCE: Required<Omit<ResilienceConfigBase, "operation">> = {
   maxAttempts: 3,
   baseDelayMs: 50,
   maxDelayMs: 1000,
@@ -36,11 +38,21 @@ export class RedisResilienceModule {
       } catch (error: unknown) {
         const message = getErrorMessage(error) || String(error);
         lastError = error instanceof Error ? error : new Error(message);
+        const operationName = config?.operation ?? "redis.operation";
+        addRequestContextBreadcrumb("redis.operation.failed", {
+          operation: operationName,
+          attempt,
+        });
 
         if (!this.isRetryableRedisError(error) || attempt >= maxAttempts) {
           if (this.hasFallback(config)) {
+            addRequestContextBreadcrumb("redis.operation.fallback", {
+              operation: operationName,
+              attempt,
+            });
             redisLogger.warn("Redis operation failed, using fallback", {
-              error: lastError.message,
+              event: "redis.operation.fallback",
+              operation: operationName,
               attempt,
             });
             return config.fallbackValue;
@@ -49,7 +61,8 @@ export class RedisResilienceModule {
         }
 
         redisLogger.warn("Redis operation failed, retrying", {
-          error: lastError.message,
+          event: "redis.operation.retry",
+          operation: operationName,
           attempt,
           maxAttempts,
         });

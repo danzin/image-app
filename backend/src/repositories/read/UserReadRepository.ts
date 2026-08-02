@@ -7,25 +7,58 @@ import {
   UserSuggestion,
 } from "@/types";
 import type { IUserReadRepository } from "../interfaces/IUserReadRepository";
-import { BaseRepository } from "../base.repository";
 import { FollowRepository } from "../follow.repository";
 import { TOKENS } from "@/types/tokens";
 import { MongoId, UserPublicId, asMongoId } from "@/types/branded";
-import { Errors } from "@/utils/errors";
+import { Errors, handleMongoError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { escapeRegex } from "@/utils/sanitizers";
+import { sessionALS } from "@/database/UnitOfWork";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
+import type { UserAuthenticationLookup } from "@/application/ports/user-authentication-lookup";
+import type { UserDirectoryLookup } from "@/application/ports/user-directory-lookup";
+import type { UserIdentityLookup } from "@/application/ports/user-identity-lookup";
+import type { UserSuggestionsLookup } from "@/application/ports/user-suggestions-lookup";
 
 @injectable()
 export class UserReadRepository
-  extends BaseRepository<IUser>
-  implements IUserReadRepository
+  implements
+    IUserReadRepository,
+    UserAuthenticationLookup,
+    UserDirectoryLookup,
+    UserIdentityLookup,
+    UserSuggestionsLookup
 {
+  private readonly model: Model<IUser>;
+
   constructor(
     @inject(TOKENS.Models.User) model: Model<IUser>,
     @inject(TOKENS.Repositories.Follow)
     private readonly followRepository: FollowRepository,
   ) {
-    super(model);
+    this.model = model;
+  }
+
+  private getSession() {
+    return sessionALS.getStore() ?? undefined;
+  }
+
+  async findById(
+    id: MongoId,
+    options?: { selectPassword?: boolean },
+  ): Promise<IUser | null> {
+    try {
+      const query = this.model.findById(id);
+      const session = this.getSession();
+      if (session) query.session(session);
+      if (options?.selectPassword) {
+        query.select("+password");
+      }
+      return await query.exec();
+    } catch (error) {
+      this.recordFailure("findById");
+      handleMongoError(error);
+    }
   }
 
   private withSession<TQuery extends { session(session: unknown): TQuery }>(
@@ -80,6 +113,13 @@ export class UserReadRepository
 
   private buildCaseInsensitiveRegexes(values: string[]): RegExp[] {
     return values.map((value) => new RegExp(`^${escapeRegex(value)}$`, "i"));
+  }
+
+  private recordFailure(operation: string): void {
+    addRequestContextBreadcrumb("mongodb.repository.failed", {
+      operation,
+      repository: this.model.modelName,
+    });
   }
 
   private async findPublicUsers(

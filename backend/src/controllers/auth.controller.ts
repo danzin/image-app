@@ -67,7 +67,8 @@ export class AuthController {
       revocationTasks.push(
         this.authService.revokeSessionByRefreshToken(refreshToken),
       );
-    } else if (typeof accessToken === "string" && accessToken.length > 0) {
+    }
+    if (typeof accessToken === "string" && accessToken.length > 0) {
       revocationTasks.push(
         this.authService.revokeSessionByAccessToken(accessToken),
       );

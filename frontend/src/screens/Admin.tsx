@@ -73,6 +73,7 @@ import {
 } from "../hooks/admin/useAdmin";
 import type { AuthActivityLog, RequestLog } from "../api/adminApi";
 import { AdminUserDTO, IPost } from "../types";
+import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { buildAvatarUrl, transformCloudinaryUrl } from "../lib/media";
 
 const MIN_TELEMETRY_SAMPLES = 20;
@@ -458,6 +459,9 @@ export const AdminDashboard: React.FC = () => {
   const [authLogsStartDate, setAuthLogsStartDate] = useState("");
   const [authLogsEndDate, setAuthLogsEndDate] = useState("");
   const [selectedLog, setSelectedLog] = useState<AdminLog | null>(null);
+  const debouncedUserSearch = useDebouncedValue(userSearch);
+  const debouncedLogsSearch = useDebouncedValue(logsSearch);
+  const debouncedAuthLogsSearch = useDebouncedValue(authLogsSearch);
 
   const {
     data: stats,
@@ -472,7 +476,7 @@ export const AdminDashboard: React.FC = () => {
     {
       page: userPage + 1,
       limit: rowsPerPage,
-      search: userSearch,
+      search: debouncedUserSearch,
       sortBy,
       sortOrder,
     },
@@ -540,7 +544,7 @@ export const AdminDashboard: React.FC = () => {
       limit: logsRowsPerPage,
       method: logsMethodFilter || undefined,
       statusCode: logsStatusFilter ? parseInt(logsStatusFilter, 10) : undefined,
-      search: logsSearch || undefined,
+      search: debouncedLogsSearch || undefined,
       startDate: logsStartDate || undefined,
       endDate: logsEndDate || undefined,
     },
@@ -558,7 +562,7 @@ export const AdminDashboard: React.FC = () => {
       statusCode: authLogsStatusFilter
         ? parseInt(authLogsStatusFilter, 10)
         : undefined,
-      search: authLogsSearch || undefined,
+      search: debouncedAuthLogsSearch || undefined,
       startDate: authLogsStartDate || undefined,
       endDate: authLogsEndDate || undefined,
     },

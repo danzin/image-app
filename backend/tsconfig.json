@@ -5,6 +5,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "noEmit": false,
+    "sourceMap": true,
     "target": "ESNEXT",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",

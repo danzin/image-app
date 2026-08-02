@@ -60,6 +60,15 @@ describe("TagService", () => {
 			expect(result).to.include("world");
 			expect(result).to.include("nature");
 		});
+
+		it("should enforce a five-tag limit across hashtags and explicit tags", () => {
+			expect(() =>
+				tagService.collectTagNames(
+					"#one #two #three",
+					["four", "five", "six"],
+				),
+			).to.throw("You can add up to 5 tags.");
+		});
 	});
 
 	describe("ensureTagsExist", () => {
