@@ -6,7 +6,8 @@ import { EventRegistry } from "@/application/common/events/event-registry";
  * Fired when a new post is created
  */
 export class PostUploadedEvent implements IEvent {
-  readonly type = EventRegistry.domain.PostUploaded;
+  static readonly type = EventRegistry.domain.PostUploaded;
+  readonly type = PostUploadedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -20,7 +21,8 @@ export class PostUploadedEvent implements IEvent {
  * Fired when a post is deleted
  */
 export class PostDeletedEvent implements IEvent {
-  readonly type = EventRegistry.domain.PostDeleted;
+  static readonly type = EventRegistry.domain.PostDeleted;
+  readonly type = PostDeletedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -30,7 +32,8 @@ export class PostDeletedEvent implements IEvent {
 }
 
 export class PostLikeCountReconciledEvent implements IEvent {
-  readonly type = EventRegistry.domain.PostLikeCountReconciled;
+  static readonly type = EventRegistry.domain.PostLikeCountReconciled;
+  readonly type = PostLikeCountReconciledEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(

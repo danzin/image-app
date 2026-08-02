@@ -5,7 +5,6 @@ import sinon from "sinon";
 import { Types } from "mongoose";
 import { BanUserCommand } from "@/application/commands/admin/banUser/banUser.command";
 import { BanUserCommandHandler } from "@/application/commands/admin/banUser/banUser.handler";
-import { UserBannedEvent } from "@/application/events/user/user-interaction.event";
 import { asUserPublicId } from "@/types/branded";
 
 chai.use(chaiAsPromised);
@@ -55,7 +54,6 @@ describe("BanUserCommandHandler", () => {
       unitOfWork: {
         executeInTransaction: sinon.stub().callsFake(async (work) => work({})),
       },
-      eventBus: { queueTransactional: sinon.stub().resolves() },
       lifecycle: {
         purgeUser: sinon.stub().resolves({
           deletedPosts: [],
@@ -74,7 +72,6 @@ describe("BanUserCommandHandler", () => {
     handler = new BanUserCommandHandler(
       mocks.userRead,
       mocks.unitOfWork,
-      mocks.eventBus,
       mocks.lifecycle,
       mocks.audit,
       mocks.authSession,
@@ -84,7 +81,7 @@ describe("BanUserCommandHandler", () => {
 
   afterEach(() => sinon.restore());
 
-  it("captures evidence and destructively purges before emitting the ban event", async () => {
+  it("captures evidence and destructively purges", async () => {
     const result = await handler.execute(
       new BanUserCommand(TARGET_PUBLIC_ID, ADMIN_PUBLIC_ID, "abusive behavior"),
     );
@@ -100,10 +97,8 @@ describe("BanUserCommandHandler", () => {
     expect(mocks.lifecycle.purgeUser.firstCall.args[1]).to.include({
       action: "ban",
       reason: "abusive behavior",
+      requestedByPublicId: ADMIN_PUBLIC_ID,
     });
-    expect(
-      mocks.eventBus.queueTransactional.firstCall.args[0],
-    ).to.be.instanceOf(UserBannedEvent);
     expect(result.user).to.deep.equal({ publicId: TARGET_PUBLIC_ID });
   });
 

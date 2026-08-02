@@ -10,7 +10,7 @@ import { errorLogger, logger } from "@/utils/winston";
 import { FeedFanoutService } from "@/services/feed/feed-fanout.service";
 import { NewFeedWarmCacheWorker } from "@/workers/_impl/newFeedWarmCache.worker.impl";
 import { ProfileSyncWorker } from "@/workers/_impl/profile-sync.worker.impl";
-import { TrendingWorker } from "@/workers/_impl/trending.worker.impl";
+import { createTrendingWorker } from "./trending-worker.test-helper";
 
 type RootWorker = {
   runBackgroundRoot: (
@@ -96,7 +96,7 @@ describe("background worker request-context roots", () => {
   afterEach(() => sinon.restore());
 
   it("isolates trending callback contexts and terminally logs unrelated failures that complete during shutdown", async () => {
-    const worker = new TrendingWorker(
+    const worker = createTrendingWorker(
       {} as any,
       {
         updateTrendingScore: sinon
@@ -177,7 +177,7 @@ describe("background worker request-context roots", () => {
     const xReadGroup = sinon.stub();
     xReadGroup.onFirstCall().rejects(new SocketClosedUnexpectedlyError());
     xReadGroup.onSecondCall().resolves(null);
-    const worker = new TrendingWorker({} as any, {} as any, {} as any);
+    const worker = createTrendingWorker({} as any, {} as any, {} as any);
     (worker as any).redisClient = { xReadGroup };
     sinon.stub(worker as any, "sleep").resolves();
     const warning = sinon.stub(logger, "warn");
@@ -199,7 +199,7 @@ describe("background worker request-context roots", () => {
       const metrics = createWorkerMetrics();
       const quit = sinon.stub().resolves();
       const redisClient = { isOpen: true, quit };
-      const worker = new TrendingWorker(
+      const worker = createTrendingWorker(
         {} as any,
         {} as any,
         {} as any,
@@ -252,7 +252,7 @@ describe("background worker request-context roots", () => {
     const clock = sinon.useFakeTimers();
     try {
       const metrics = createWorkerMetrics();
-      const worker = new TrendingWorker(
+      const worker = createTrendingWorker(
         {} as any,
         {} as any,
         {} as any,
@@ -328,7 +328,7 @@ describe("background worker request-context roots", () => {
   it("owns Trending request-context setup failures without an unhandled rejection", async () => {
     const failure = new Error("request context setup failed");
     const metrics = createWorkerMetrics();
-    const worker = new TrendingWorker(
+    const worker = createTrendingWorker(
       {} as any,
       {} as any,
       {} as any,
@@ -369,7 +369,7 @@ describe("background worker request-context roots", () => {
     try {
       const metrics = createWorkerMetrics();
       const quit = sinon.stub().resolves();
-      const worker = new TrendingWorker(
+      const worker = createTrendingWorker(
         {} as any,
         {} as any,
         {} as any,
@@ -422,7 +422,7 @@ describe("background worker request-context roots", () => {
   });
 
   it("gives a malformed Trending read response one terminal owner", async () => {
-    const worker = new TrendingWorker({} as any, {} as any, {} as any);
+    const worker = createTrendingWorker({} as any, {} as any, {} as any);
     (worker as any).redisClient = {
       xReadGroup: sinon.stub().resolves([{ messages: null }]),
     };
@@ -458,12 +458,13 @@ describe("background worker request-context roots", () => {
 
   it("requeues recoverable Trending flush reads and writes without acknowledging", async () => {
     const repositoryFailure = new Error("repository unavailable");
-    const repositoryWorker = new TrendingWorker(
+    const repositoryAckStreamMessages = sinon.stub().resolves(1);
+    const repositoryWorker = createTrendingWorker(
       {} as any,
       {
         updateTrendingScore: sinon.stub().resolves(),
         setWithTags: sinon.stub().resolves(),
-        ackStreamMessages: sinon.stub().resolves(1),
+        ackStreamMessages: repositoryAckStreamMessages,
       } as any,
       {
         findPostsByPublicIds: sinon.stub().rejects(repositoryFailure),
@@ -484,19 +485,18 @@ describe("background worker request-context roots", () => {
       (repositoryWorker as any).pending.get("post-1").messageIds,
     ).to.deep.equal(["1-0"]);
     sinon.assert.calledOnce(warning);
-    sinon.assert.notCalled(
-      (repositoryWorker as any).redisService.ackStreamMessages,
-    );
+    sinon.assert.notCalled(repositoryAckStreamMessages);
     sinon.assert.notCalled(terminal);
 
     warning.resetHistory();
     const redisFailure = new Error("Redis unavailable");
-    const redisWorker = new TrendingWorker(
+    const redisAckStreamMessages = sinon.stub().resolves(1);
+    const redisWorker = createTrendingWorker(
       {} as any,
       {
         updateTrendingScore: sinon.stub().rejects(redisFailure),
         setWithTags: sinon.stub().resolves(),
-        ackStreamMessages: sinon.stub().resolves(1),
+        ackStreamMessages: redisAckStreamMessages,
       } as any,
       {
         findPostsByPublicIds: sinon.stub().resolves([
@@ -523,12 +523,12 @@ describe("background worker request-context roots", () => {
       ["2-0"],
     );
     sinon.assert.calledOnce(warning);
-    sinon.assert.notCalled((redisWorker as any).redisService.ackStreamMessages);
+    sinon.assert.notCalled(redisAckStreamMessages);
     sinon.assert.notCalled(terminal);
   });
 
   it("gives structural Trending flush failures one terminal owner", async () => {
-    const worker = new TrendingWorker(
+    const worker = createTrendingWorker(
       {} as any,
       {
         updateTrendingScore: sinon.stub().resolves(),
@@ -565,7 +565,7 @@ describe("background worker request-context roots", () => {
   it("gives malformed reclaim and full-refresh data one terminal owner each", async () => {
     const terminal = sinon.stub(errorLogger, "error");
     const warning = sinon.stub(logger, "warn");
-    const reclaimWorker = new TrendingWorker(
+    const reclaimWorker = createTrendingWorker(
       {} as any,
       {
         xPendingRange: sinon.stub().resolves({ malformed: true }),
@@ -585,7 +585,7 @@ describe("background worker request-context roots", () => {
     );
 
     terminal.resetHistory();
-    const refreshWorker = new TrendingWorker(
+    const refreshWorker = createTrendingWorker(
       {
         getTrendingFeedWithCursor: sinon
           .stub()
@@ -732,7 +732,7 @@ describe("background worker request-context roots", () => {
     await Promise.resolve();
     sinon.assert.calledOnce((profile as any).handleMessage);
 
-    const trending = new TrendingWorker({} as any, {} as any, {} as any);
+    const trending = createTrendingWorker({} as any, {} as any, {} as any);
     (trending as any).running = true;
     (trending as any).redisClient = {
       xReadGroup: sinon
@@ -924,7 +924,7 @@ describe("background worker request-context roots", () => {
   it("preserves the existing interval cadence and overlap controls", async () => {
     const clock = sinon.useFakeTimers();
     try {
-      const trending = new TrendingWorker({} as any, {} as any, {} as any);
+      const trending = createTrendingWorker({} as any, {} as any, {} as any);
       const readLoop = sinon
         .stub(trending as any, "readLoop")
         .resolves({ kind: "stopped" });

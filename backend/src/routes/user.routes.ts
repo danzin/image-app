@@ -89,6 +89,10 @@ export class UserRoutes {
 
     this.router.post("/logout", asyncHandler(this.authController.logout));
     this.router.post("/refresh", asyncHandler(this.authController.refresh));
+    this.router.post(
+      "/refresh/logout",
+      asyncHandler(this.authController.logout),
+    );
 
     this.router.post(
       "/forgot-password",

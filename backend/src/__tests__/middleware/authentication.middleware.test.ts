@@ -9,7 +9,7 @@ import {
   BearerTokenStrategy,
 } from "@/middleware/authentication.middleware";
 import { correlationIdMiddleware } from "@/middleware/correlationId.middleware";
-import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { UserIdentityLookup } from "@/application/ports/user-identity-lookup";
 import { getRequestContext } from "@/runtime/request-context";
 import { asSessionId, asUserPublicId } from "@/types/branded";
 import type { DecodedUser } from "@/types";
@@ -37,7 +37,7 @@ describe("AuthenticationMiddleware", () => {
         isBanned: false,
         isEmailVerified: false,
       }),
-    } as unknown as IUserReadRepository;
+    } as unknown as UserIdentityLookup;
     const middleware = new AuthenticationMiddleware(
       strategy,
       userReadRepository,
@@ -126,7 +126,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const request = {
@@ -157,7 +157,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const request = {
@@ -209,7 +209,7 @@ describe("AuthenticationMiddleware", () => {
     } as unknown as AuthStrategy;
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const request = {
@@ -234,7 +234,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const expiredToken = jwt.sign(
@@ -301,7 +301,7 @@ describe("AuthenticationMiddleware", () => {
               .stub()
               .rejects(Errors.authentication("Authentication failed", { cause })),
           } as unknown as AuthStrategy,
-          {} as IUserReadRepository,
+      {} as UserIdentityLookup,
           metrics as never,
         );
         const request = {
@@ -355,7 +355,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const token = jwt.sign(
@@ -403,7 +403,7 @@ describe("AuthenticationMiddleware", () => {
           isBanned: false,
           isEmailVerified: false,
         }),
-      } as unknown as IUserReadRepository,
+      } as unknown as UserIdentityLookup,
       null,
     );
     const bannedMiddleware = new AuthenticationMiddleware(
@@ -416,7 +416,7 @@ describe("AuthenticationMiddleware", () => {
           isBanned: true,
           isEmailVerified: true,
         }),
-      } as unknown as IUserReadRepository,
+      } as unknown as UserIdentityLookup,
       null,
     );
 
@@ -468,7 +468,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const token = jwt.sign(
@@ -523,7 +523,7 @@ describe("AuthenticationMiddleware", () => {
       } as unknown as AuthStrategy,
       {
         findByPublicId: sinon.stub().rejects(repositoryFailure),
-      } as unknown as IUserReadRepository,
+      } as unknown as UserIdentityLookup,
       null,
     );
     const programmingFailure = new TypeError("Unexpected state");
@@ -531,7 +531,7 @@ describe("AuthenticationMiddleware", () => {
       {
         authenticate: sinon.stub().rejects(programmingFailure),
       } as unknown as AuthStrategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
 
@@ -562,7 +562,7 @@ describe("AuthenticationMiddleware", () => {
     } as never);
     const middleware = new AuthenticationMiddleware(
       strategy,
-      {} as IUserReadRepository,
+      {} as UserIdentityLookup,
       null,
     );
     const token = jwt.sign(

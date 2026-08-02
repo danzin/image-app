@@ -3,9 +3,9 @@ import { ICommandHandler } from "@/application/common/interfaces/command-handler
 import { ResetPasswordCommand } from "./ResetPasswordCommand";
 import { Errors } from "@/utils/errors";
 import type {
-  IUserReadRepository,
   IUserWriteRepository,
 } from "@/repositories/interfaces";
+import type { UserAuthenticationLookup } from "@/application/ports/user-authentication-lookup";
 import { TOKENS } from "@/types/tokens";
 
 @injectable()
@@ -14,8 +14,8 @@ export class ResetPasswordHandler implements ICommandHandler<
   void
 > {
   constructor(
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserAuthenticationLookup)
+    private readonly userReadRepository: UserAuthenticationLookup,
     @inject(TOKENS.Repositories.UserWrite)
     private readonly userWriteRepository: IUserWriteRepository,
   ) {}

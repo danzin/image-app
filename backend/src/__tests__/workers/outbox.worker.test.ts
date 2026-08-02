@@ -3,7 +3,10 @@ import { expect } from "chai";
 import sinon from "sinon";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { MetricsService } from "@/metrics/metrics.service";
-import { OutboxRepository } from "@/repositories/outbox.repository";
+import {
+  MAX_OUTBOX_RETRIES,
+  OutboxRepository,
+} from "@/repositories/outbox.repository";
 import { OutboxWorker } from "@/workers/outbox.worker";
 import { IEvent } from "@/application/common/interfaces/event.interface";
 import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
@@ -131,6 +134,24 @@ describe("Transactional Outbox Pattern", () => {
   });
 
   describe("OutboxWorker.processOutbox", () => {
+    it("adds retry jitter within a bounded twenty-percent window", () => {
+      const originalBaseDelay = process.env.OUTBOX_RETRY_BASE_DELAY_MS;
+      const originalMaxDelay = process.env.OUTBOX_RETRY_MAX_DELAY_MS;
+      process.env.OUTBOX_RETRY_BASE_DELAY_MS = "5000";
+      process.env.OUTBOX_RETRY_MAX_DELAY_MS = "10000";
+      const random = sandbox.stub(Math, "random");
+      random.onFirstCall().returns(0);
+      random.onSecondCall().returns(1);
+
+      try {
+        expect((outboxWorker as any).retryDelayMs(1)).to.equal(4000);
+        expect((outboxWorker as any).retryDelayMs(1)).to.equal(6000);
+      } finally {
+        restoreEnv("OUTBOX_RETRY_BASE_DELAY_MS", originalBaseDelay);
+        restoreEnv("OUTBOX_RETRY_MAX_DELAY_MS", originalMaxDelay);
+      }
+    });
+
     it("should process unprocessed events and mark them as processed", async () => {
       const handler = new TestEventHandler();
       const infoLogger = sandbox.stub(logger, "info");
@@ -225,6 +246,9 @@ describe("Transactional Outbox Pattern", () => {
     it("should mark event as failed if handler throws an error", async () => {
       const handler = new TestEventHandler();
       const terminalLogger = sandbox.stub(errorLogger, "error");
+      const failureTime = Date.parse("2026-07-30T12:00:00.000Z");
+      sandbox.stub(Date, "now").returns(failureTime);
+      sandbox.stub(Math, "random").returns(0.5);
       let breadcrumbsAtMark: string[] | undefined;
       const handleSpy = sandbox
         .stub(handler, "handle")
@@ -264,6 +288,12 @@ describe("Transactional Outbox Pattern", () => {
         "Handler failed",
       );
       expect(outboxRepository.markAsFailed.firstCall.args[2]).to.be.a("string");
+      expect(
+        outboxRepository.markAsFailed.firstCall.args[3],
+      ).to.deep.equal({
+        nextAttemptAt: new Date(failureTime + 60_000),
+        exhaustedAt: undefined,
+      });
       expect(metricsService.recordOutboxAttempt.calledOnce).to.be.true;
       expect(metricsService.recordOutboxAttempt.firstCall.args[1]).to.equal(
         "failed",
@@ -299,6 +329,74 @@ describe("Transactional Outbox Pattern", () => {
         metricsService.recordOutboxAttempt as any,
         outboxRepository.markAsFailed as any,
       );
+    });
+
+    it("marks exhausted events, updates the metric, and emits replay guidance", async () => {
+      const now = Date.parse("2026-07-30T12:00:00.000Z");
+      const createdAt = new Date(now - 90_000);
+      sandbox.stub(Date, "now").returns(now);
+      sandbox.stub(Math, "random").returns(0.5);
+      const handler = new TestEventHandler();
+      sandbox
+        .stub(handler, "handle")
+        .rejects(new Error("terminal handler failure"));
+      eventBus.subscribe(TestEvent, handler);
+      const exhaustionLog = sandbox.stub(logger, "error");
+      sandbox.stub(errorLogger, "error");
+      (outboxRepository as any).getBacklogStats = sandbox
+        .stub()
+        .onFirstCall()
+        .resolves({
+          pendingCount: 1,
+          exhaustedCount: 0,
+          oldestPendingAt: createdAt,
+        })
+        .onSecondCall()
+        .resolves({
+          pendingCount: 0,
+          exhaustedCount: 1,
+        });
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          createdAt,
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          processedHandlers: [],
+          retries: MAX_OUTBOX_RETRIES - 1,
+          traceId: "trace-1",
+        },
+      ] as any);
+      outboxRepository.markAsFailed.resolves(true);
+
+      await (outboxWorker as any).tick();
+
+      const failureState = outboxRepository.markAsFailed.firstCall.args[3];
+      if (!failureState) {
+        throw new Error("Expected outbox failure state");
+      }
+      expect(failureState.nextAttemptAt).to.equal(undefined);
+      expect(failureState.exhaustedAt).to.be.instanceOf(Date);
+      if (!(failureState.exhaustedAt instanceof Date)) {
+        throw new Error("Expected an exhaustion timestamp");
+      }
+      expect(failureState.exhaustedAt.getTime()).to.equal(now);
+      expect(
+        metricsService.setOutboxBacklogStatus.secondCall.args[0],
+      ).to.equal(1);
+      expect(exhaustionLog.calledOnce).to.equal(true);
+      expect(exhaustionLog.firstCall.args).to.deep.equal([
+        "Outbox event exhausted automatic retries",
+        {
+          event: "worker.outbox.event_exhausted",
+          eventId: "event1",
+          eventType: "TestEvent",
+          retryCount: MAX_OUTBOX_RETRIES,
+          ageMs: 90_000,
+          replayGuidance:
+            "Resolve the underlying failure, then run requeue-outbox-event with this event ID.",
+        },
+      ]);
     });
 
     it("records processing.failed for checkpoint ownership failures", async () => {
@@ -517,3 +615,11 @@ describe("Transactional Outbox Pattern", () => {
     });
   });
 });
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}

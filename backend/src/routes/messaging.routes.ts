@@ -1,12 +1,12 @@
-import express from "express";
-import { RequestHandler } from "express";
+import express, { type RequestHandler } from "express";
 import { asyncHandler } from "@/middleware/async-handler.middleware";
 import { inject, injectable } from "tsyringe";
 import { AuthMiddlewareService } from "../middleware/authentication.middleware";
 import { MessagingController } from "../controllers/messaging.controller";
 import { ValidationMiddleware } from "../middleware/validation.middleware";
-import upload, { validateImageUpload } from "../config/multer";
+import upload from "../config/multer";
 import { TOKENS } from "@/types/tokens";
+import { Errors } from "@/utils/errors";
 import {
   paginationSchema,
   conversationParamsSchema,
@@ -15,6 +15,19 @@ import {
   messageParamsSchema,
   editMessageSchema,
 } from "@/utils/schemas/messaging.schemas";
+
+const parseMessageBody: RequestHandler = (req, res, next) => {
+  upload.none()(req, res, (error) => {
+    if (error) {
+      return next(
+        Errors.validation("Message attachments are not supported", {
+          cause: error,
+        }),
+      );
+    }
+    next();
+  });
+};
 
 @injectable()
 export class MessagingRoutes {
@@ -64,10 +77,7 @@ export class MessagingRoutes {
 
     this.router.post(
       "/messages",
-      upload.single("image"),
-      validateImageUpload,
-      // Note: validation middleware for body might fail if multipart form data is used and body is not JSON.
-      // Multer parses body. ValidationMiddleware should handle parsed body.
+      parseMessageBody,
       new ValidationMiddleware({ body: sendMessageSchema }).validate(),
       asyncHandler(this.messagingController.sendMessage),
     );

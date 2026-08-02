@@ -28,6 +28,7 @@ import { ProfileSyncWorker } from "./workers/_impl/profile-sync.worker.impl";
 import { NewFeedWarmCacheWorker } from "./workers/_impl/newFeedWarmCache.worker.impl";
 import { IpMonitorWorker } from "./workers/_impl/ip-monitor.worker.impl";
 import { OutboxWorker } from "./workers/outbox.worker";
+import { isRequestLogPersistenceEnabled } from "./config/requestLogConfig";
 import { initializeBackendRuntime } from "./runtime/backend-runtime";
 import { logNonHttpTerminalError } from "./runtime/non-http-error-logger";
 import { registerGlobalProcessHandlers } from "./runtime/process-handlers";
@@ -223,16 +224,23 @@ async function startInProcessWorkers(
       },
     });
 
-    await startWorker(metricsService, {
-      metricName: "ip-monitor.worker",
-      displayName: "ip-monitor",
-      start: async () => {
-        const ipMonitorWorker = container.resolve(IpMonitorWorker);
-        await ipMonitorWorker.start();
-      },
-    });
+    if (isRequestLogPersistenceEnabled()) {
+      await startWorker(metricsService, {
+        metricName: "ip-monitor.worker",
+        displayName: "ip-monitor",
+        start: async () => {
+          const ipMonitorWorker = container.resolve(IpMonitorWorker);
+          await ipMonitorWorker.start();
+        },
+      });
+    } else {
+      logger.info(
+        "IP monitor disabled because request-log persistence is disabled",
+        { event: "worker.ip_monitor.disabled" },
+      );
+    }
 
-    logger.info("All in-process workers started successfully", {
+    logger.info("All enabled in-process workers started successfully", {
       event: "worker.in_process.all_started",
     });
   } catch (error) {

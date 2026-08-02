@@ -5,6 +5,7 @@ import { Errors, getErrorMessage, wrapError } from "@/utils/errors";
 import {
   CloudinaryDeleteResponse,
   DeletionResult,
+  ImageAssetDeletionResult,
   ImageUploadInput,
   ImageUploadResult,
 } from "@/types";
@@ -29,7 +30,7 @@ export class CloudinaryService implements IImageStorageService {
     try {
       const cleanUrl = url.trim();
       const parsedUrl = new URL(cleanUrl);
-      const segments = parsedUrl.pathname.split("/");
+      const segments = decodeURIComponent(parsedUrl.pathname).split("/");
 
       if (segments.length < 2) return null;
 
@@ -221,15 +222,16 @@ export class CloudinaryService implements IImageStorageService {
   }
 
   async deleteAssetByUrl(
-    requesterId: string,
-    ownerId: string,
+    _requesterId: string,
+    _ownerId: string,
     url: string,
-  ): Promise<{ result: string }> {
-    const actualUrl = url || ownerId;
-    const publicId = this.extractPublicId(actualUrl);
+  ): Promise<ImageAssetDeletionResult> {
+    const publicId = this.extractPublicId(url);
 
     if (!publicId) {
-      logger.error("Invalid URL format for deletion", { url: actualUrl });
+      logger.warn("Skipping Cloudinary deletion for an invalid asset URL", {
+        url,
+      });
       return { result: "skipped" };
     }
 
@@ -247,7 +249,9 @@ export class CloudinaryService implements IImageStorageService {
           publicId,
           result: result.result,
         });
-        return { result: result.result };
+        return {
+          result: result.result === "ok" ? "ok" : "skipped",
+        };
       },
       {
         ...RetryPresets.externalApi(),

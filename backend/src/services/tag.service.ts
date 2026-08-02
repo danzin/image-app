@@ -5,9 +5,11 @@ import { RedisService } from "./redis.service";
 import { ITag } from "@/types/index";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
+import { Errors } from "@/utils/errors";
 
 // key for tracking tag activity metrics
 export const TAG_ACTIVITY_METRICS_KEY = "trending_tags:activity_metrics";
+export const MAX_POST_TAGS = 5;
 
 export interface TagActivityMetrics {
   // rolling count of tags used (with exponential decay)
@@ -192,7 +194,19 @@ export class TagService {
   collectTagNames(body: string | undefined, explicitTags?: string[]): string[] {
     const hashtags = this.extractHashtags(body);
     const provided = Array.isArray(explicitTags) ? explicitTags : [];
-    return [...hashtags, ...provided];
+    const tagNames = [
+      ...new Set(
+        [...hashtags, ...provided]
+          .map((tag) => this.normalize(tag))
+          .filter(Boolean),
+      ),
+    ];
+
+    if (tagNames.length > MAX_POST_TAGS) {
+      throw Errors.validation(`You can add up to ${MAX_POST_TAGS} tags.`);
+    }
+
+    return tagNames;
   }
 
   /**

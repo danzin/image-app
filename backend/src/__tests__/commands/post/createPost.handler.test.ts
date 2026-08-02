@@ -193,6 +193,21 @@ describe("CreatePostCommandHandler", () => {
 			await expect(handler.execute(command)).to.be.rejectedWith("User not found");
 		});
 
+		it("should count unique mentions and reject more than ten", () => {
+			const repeatedMention = Array.from({ length: 20 }, () => "@same").join(" ");
+			const elevenUniqueMentions = Array.from(
+				{ length: 11 },
+				(_, index) => `@user${index}`,
+			).join(" ");
+
+			expect(() =>
+				(handler as any).validateMentionCount(repeatedMention),
+			).to.not.throw();
+			expect(() =>
+				(handler as any).validateMentionCount(elevenUniqueMentions),
+			).to.throw("You can mention up to 10 users.");
+		});
+
 		it("should create post successfully with image and tags", async () => {
 			const mockUser = {
 				_id: new Types.ObjectId(),

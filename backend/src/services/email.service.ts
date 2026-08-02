@@ -11,10 +11,35 @@ function getEmailDomain(email: string): string | undefined {
 export class EmailService {
   private resend: Resend | null;
   private readonly logOnly: boolean;
+  private readonly frontendUrl: string;
 
   constructor() {
     this.logOnly = process.env.EMAIL_DELIVERY_MODE === "log";
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = process.env.RESEND_API_KEY?.trim();
+    const configuredFrontendUrl = process.env.FRONTEND_URL?.replace(/\/+$/, "");
+
+    if (process.env.NODE_ENV === "production") {
+      if (this.logOnly) {
+        throw new Error("EMAIL_DELIVERY_MODE=log is not allowed in production");
+      }
+      if (!apiKey) {
+        throw new Error("RESEND_API_KEY is required in production");
+      }
+      if (!configuredFrontendUrl) {
+        throw new Error("FRONTEND_URL is required in production");
+      }
+      let parsedFrontendUrl: URL;
+      try {
+        parsedFrontendUrl = new URL(configuredFrontendUrl);
+      } catch {
+        throw new Error("FRONTEND_URL must be a valid URL");
+      }
+      if (parsedFrontendUrl.protocol !== "https:") {
+        throw new Error("FRONTEND_URL must use HTTPS in production");
+      }
+    }
+
+    this.frontendUrl = configuredFrontendUrl || "http://localhost:5173";
     this.resend = !this.logOnly && apiKey ? new Resend(apiKey) : null;
   }
 
@@ -22,7 +47,7 @@ export class EmailService {
     recipientEmail: string,
     resetToken: string,
   ): Promise<void> {
-    const link = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const link = `${this.frontendUrl}/reset-password#token=${encodeURIComponent(resetToken)}`;
     if (this.logOnly) {
       this.logLocalEmail("password_reset", recipientEmail, link);
       return;
@@ -63,7 +88,7 @@ export class EmailService {
     recipientEmail: string,
     verificationToken: string,
   ): Promise<void> {
-    const link = `${process.env.FRONTEND_URL}/verify-email?token=${verificationToken}&email=${encodeURIComponent(
+    const link = `${this.frontendUrl}/verify-email#token=${encodeURIComponent(verificationToken)}&email=${encodeURIComponent(
       recipientEmail,
     )}`;
     if (this.logOnly) {

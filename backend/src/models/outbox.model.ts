@@ -11,6 +11,8 @@ export interface IOutboxEvent extends Document {
   processing: boolean;
   processingOwner?: string;
   processingStartedAt?: Date;
+  nextAttemptAt?: Date;
+  exhaustedAt?: Date;
   processedHandlers: string[];
   createdAt: Date;
   processedAt?: Date;
@@ -60,6 +62,12 @@ const outboxSchema = new Schema<IOutboxEvent>(
     processingStartedAt: {
       type: Date,
     },
+    nextAttemptAt: {
+      type: Date,
+    },
+    exhaustedAt: {
+      type: Date,
+    },
     processedHandlers: {
       type: [String],
       default: [],
@@ -71,7 +79,14 @@ const outboxSchema = new Schema<IOutboxEvent>(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-outboxSchema.index({ processed: 1, processing: 1, retries: 1, createdAt: 1 }); // Compound index for background worker
+outboxSchema.index({
+  processed: 1,
+  exhaustedAt: 1,
+  retries: 1,
+  nextAttemptAt: 1,
+  processing: 1,
+  createdAt: 1,
+});
 
 export const OutboxModel: Model<IOutboxEvent> = mongoose.model<IOutboxEvent>(
   "Outbox",

@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { inject, injectable } from "tsyringe";
 import { TOKENS } from "@/types/tokens";
-import { OutboxRepository } from "@/repositories/outbox.repository";
+import {
+  MAX_OUTBOX_RETRIES,
+  OutboxRepository,
+  type OutboxBacklogStats,
+} from "@/repositories/outbox.repository";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { MetricsService } from "@/metrics/metrics.service";
 import { logger } from "@/utils/winston";
@@ -13,6 +17,9 @@ import {
   getRequestContext,
   runWithRequestContext,
 } from "@/runtime/request-context";
+import { serializeError } from "@/utils/error-serialization";
+
+const OUTBOX_RETRY_JITTER_RATIO = 0.2;
 
 @injectable()
 export class OutboxWorker extends BasePollingWorker {
@@ -34,8 +41,13 @@ export class OutboxWorker extends BasePollingWorker {
       process.env.OUTBOX_CLAIM_TIMEOUT_MS || "60000",
       10,
     );
-    const pendingCount = await this.outboxRepository.countPendingEvents();
+    const backlog = await this.readBacklogStats();
+    const pendingCount = backlog.pendingCount;
     this.metricsService.setOutboxPendingCount(pendingCount);
+    this.metricsService.setOutboxBacklogStatus(
+      backlog.exhaustedCount,
+      backlog.oldestPendingAt,
+    );
 
     if (pendingCount === 0) return;
 
@@ -126,7 +138,13 @@ export class OutboxWorker extends BasePollingWorker {
               retryAttempt: record.retries,
               },
             );
-            const message = error instanceof Error ? error.message : String(error);
+            const message = serializeError(error).message;
+            const retryAttempt = record.retries + 1;
+            const exhausted = retryAttempt >= MAX_OUTBOX_RETRIES;
+            const failureTime = Date.now();
+            const nextAttemptAt = exhausted
+              ? undefined
+              : new Date(failureTime + this.retryDelayMs(retryAttempt));
             this.metricsService.recordOutboxAttempt(
               record.eventType,
               "failed",
@@ -134,7 +152,8 @@ export class OutboxWorker extends BasePollingWorker {
             );
             addRequestContextBreadcrumb("worker.outbox.retry.requested", {
               eventId,
-              retryAttempt: record.retries + 1,
+              retryAttempt,
+              exhausted,
             });
             let failedMarked: boolean;
             try {
@@ -142,6 +161,12 @@ export class OutboxWorker extends BasePollingWorker {
                 eventId,
                 message,
                 this.workerId,
+                {
+                  nextAttemptAt,
+                  exhaustedAt: exhausted
+                    ? new Date(failureTime)
+                    : undefined,
+                },
               );
             } catch (markFailure) {
               throw attachErrorBreadcrumbSnapshot(new AggregateError(
@@ -151,10 +176,33 @@ export class OutboxWorker extends BasePollingWorker {
               ), getRequestContext()?.breadcrumbs ?? []);
             }
             if (failedMarked) {
-              addRequestContextBreadcrumb("worker.outbox.retry.scheduled", {
-                eventId,
-                retryAttempt: record.retries + 1,
-              });
+              if (exhausted) {
+                logger.error("Outbox event exhausted automatic retries", {
+                  event: "worker.outbox.event_exhausted",
+                  eventId,
+                  eventType: record.eventType,
+                  retryCount: retryAttempt,
+                  ageMs: Math.max(
+                    0,
+                    failureTime - record.createdAt.getTime(),
+                  ),
+                  replayGuidance:
+                    "Resolve the underlying failure, then run requeue-outbox-event with this event ID.",
+                });
+              }
+
+              addRequestContextBreadcrumb(
+                exhausted
+                  ? "worker.outbox.exhausted"
+                  : "worker.outbox.retry.scheduled",
+                {
+                  eventId,
+                  retryAttempt,
+                  ...(nextAttemptAt
+                    ? { nextAttemptAt: nextAttemptAt.toISOString() }
+                    : {}),
+                },
+              );
             }
             logNonHttpTerminalError(error, {
               message: "Outbox event failed",
@@ -164,7 +212,7 @@ export class OutboxWorker extends BasePollingWorker {
               worker: "OutboxWorker",
               messageType: record.eventType,
               messageId: eventId,
-              attempt: record.retries + 1,
+              attempt: retryAttempt,
               traceId,
               correlationId,
               durationMs: Date.now() - attemptStartedAt,
@@ -203,8 +251,50 @@ export class OutboxWorker extends BasePollingWorker {
       }
     }
 
-    this.metricsService.setOutboxPendingCount(
-      await this.outboxRepository.countPendingEvents(),
+    const updatedBacklog = await this.readBacklogStats();
+    this.metricsService.setOutboxPendingCount(updatedBacklog.pendingCount);
+    this.metricsService.setOutboxBacklogStatus(
+      updatedBacklog.exhaustedCount,
+      updatedBacklog.oldestPendingAt,
     );
+  }
+
+  private async readBacklogStats(): Promise<OutboxBacklogStats> {
+    if (typeof this.outboxRepository.getBacklogStats === "function") {
+      return this.outboxRepository.getBacklogStats();
+    }
+
+    return {
+      pendingCount: await this.outboxRepository.countPendingEvents(),
+      exhaustedCount: 0,
+    };
+  }
+
+  private retryDelayMs(retryAttempt: number): number {
+    const parsedBaseDelay = Number.parseInt(
+      process.env.OUTBOX_RETRY_BASE_DELAY_MS ?? "15000",
+      10,
+    );
+    const parsedMaxDelay = Number.parseInt(
+      process.env.OUTBOX_RETRY_MAX_DELAY_MS ?? "300000",
+      10,
+    );
+    const baseDelay =
+      Number.isFinite(parsedBaseDelay) && parsedBaseDelay > 0
+        ? parsedBaseDelay
+        : 15000;
+    const maxDelay =
+      Number.isFinite(parsedMaxDelay) && parsedMaxDelay >= baseDelay
+        ? parsedMaxDelay
+        : 300000;
+    const exponentialDelay = Math.min(
+      maxDelay,
+      baseDelay * 2 ** Math.max(0, retryAttempt - 1),
+    );
+    const jitterWindow = exponentialDelay * OUTBOX_RETRY_JITTER_RATIO;
+    const jitteredDelay =
+      exponentialDelay - jitterWindow + Math.random() * jitterWindow * 2;
+
+    return Math.min(maxDelay, Math.max(1, Math.round(jitteredDelay)));
   }
 }

@@ -2,8 +2,10 @@ import { describe, it } from "mocha";
 import { expect } from "chai";
 import sinon from "sinon";
 import { CommandBus } from "@/application/common/buses/command.bus";
+import { EventBus } from "@/application/common/buses/event.bus";
 import { QueryBus } from "@/application/common/buses/query.bus";
 import { ICommand } from "@/application/common/interfaces/command.interface";
+import { IEvent } from "@/application/common/interfaces/event.interface";
 import { IQuery } from "@/application/common/interfaces/query.interface";
 import {
   getRequestContext,
@@ -42,6 +44,12 @@ class StaticTypeOnlyQuery implements IQuery {
   }
 }
 
+class ClassNameDoesNotMatterEvent implements IEvent {
+  static readonly type = "StableEventType";
+  readonly type = ClassNameDoesNotMatterEvent.type;
+  readonly timestamp = new Date();
+}
+
 describe("CQRS buses", () => {
   it("dispatches commands by explicit type rather than constructor.name", async () => {
     const bus = new CommandBus();
@@ -71,6 +79,38 @@ describe("CQRS buses", () => {
 
     expect(result).to.deep.equal({ data: [] });
     expect(handler.execute.calledOnceWith(query)).to.be.true;
+  });
+
+  it("publishes and persists events by explicit type", async () => {
+    const saveEvent = sinon.stub().resolves();
+    const recordDomainEventPublished = sinon.stub();
+    const bus = new EventBus(
+      { saveEvent } as any,
+      { recordDomainEventPublished } as any,
+    );
+    const handler = {
+      handle: sinon.stub().resolves(),
+    };
+    const event = new ClassNameDoesNotMatterEvent();
+
+    bus.subscribe(ClassNameDoesNotMatterEvent, handler);
+    await bus.publish(event);
+    await bus.queueDurable(event);
+
+    expect(handler.handle.calledOnceWith(event)).to.be.true;
+    expect(saveEvent.firstCall.args[0]).to.equal("StableEventType");
+    expect(
+      recordDomainEventPublished.calledWith(
+        "StableEventType",
+        "immediate",
+      ),
+    ).to.be.true;
+    expect(
+      recordDomainEventPublished.calledWith(
+        "StableEventType",
+        "durable_outbox",
+      ),
+    ).to.be.true;
   });
 
   it("orders handler breadcrumbs and rethrows the original command error", async () => {

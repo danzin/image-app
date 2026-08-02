@@ -225,6 +225,8 @@ import { GetCommunityMembersQueryHandler } from "@/application/queries/community
 import { LogRequestCommand } from "@/application/commands/admin/logRequest/logRequest.command";
 import { LogRequestCommandHandler } from "@/application/commands/admin/logRequest/logRequest.handler";
 import { LogAuthActivityCommand } from "@/application/commands/admin/logAuthActivity/logAuthActivity.command";
+import { UpdateUserActivityCommand } from "@/application/commands/admin/updateUserActivity/updateUserActivity.command";
+import { UpdateUserActivityCommandHandler } from "@/application/commands/admin/updateUserActivity/updateUserActivity.handler";
 import { LogSecurityAuditCommand } from "@/application/commands/admin/logSecurityAudit/logSecurityAudit.command";
 import { GetRequestLogsQuery } from "@/application/queries/admin/getRequestLogs/getRequestLogs.query";
 import { GetRequestLogsQueryHandler } from "@/application/queries/admin/getRequestLogs/getRequestLogs.handler";
@@ -289,6 +291,7 @@ const commandHandlerRegistrations: readonly ContainerRegistration[] = [
   [TOKENS.CQRS.Commands.LogRequest, LogRequestCommandHandler],
   [TOKENS.CQRS.Commands.LogAuthActivity, LogAuthActivityCommandHandler],
   [TOKENS.CQRS.Commands.LogSecurityAudit, LogSecurityAuditCommandHandler],
+  [TOKENS.CQRS.Commands.UpdateUserActivity, UpdateUserActivityCommandHandler],
   [TOKENS.CQRS.Commands.CreateCommunity, CreateCommunityCommandHandler],
   [TOKENS.CQRS.Commands.JoinCommunity, JoinCommunityCommandHandler],
   [TOKENS.CQRS.Commands.LeaveCommunity, LeaveCommunityCommandHandler],
@@ -422,6 +425,7 @@ const commandBusRegistrations: readonly CommandBusRegistration[] = [
   [LogRequestCommand, TOKENS.CQRS.Commands.LogRequest],
   [LogAuthActivityCommand, TOKENS.CQRS.Commands.LogAuthActivity],
   [LogSecurityAuditCommand, TOKENS.CQRS.Commands.LogSecurityAudit],
+  [UpdateUserActivityCommand, TOKENS.CQRS.Commands.UpdateUserActivity],
   [CreateCommunityCommand, TOKENS.CQRS.Commands.CreateCommunity],
   [JoinCommunityCommand, TOKENS.CQRS.Commands.JoinCommunity],
   [LeaveCommunityCommand, TOKENS.CQRS.Commands.LeaveCommunity],

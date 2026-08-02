@@ -4,7 +4,8 @@ import { EventRegistry } from "@/application/common/events/event-registry";
 
 // Event triggered when a cold start feed is generated for a user
 export class ColdStartFeedGeneratedEvent implements IEvent {
-  readonly type = EventRegistry.domain.ColdStartFeedGenerated;
+  static readonly type = EventRegistry.domain.ColdStartFeedGenerated;
+  readonly type = ColdStartFeedGeneratedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(public readonly userId: UserPublicId) {}

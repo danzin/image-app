@@ -9,7 +9,7 @@ import {
 } from "@/utils/errors";
 import { DecodedUser, AdminContext } from "@/types";
 import { asUserPublicId, asSessionId } from "@/types/branded";
-import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
+import type { UserIdentityLookup } from "@/application/ports/user-identity-lookup";
 import { logger } from "@/utils/winston";
 import { authCookieNames } from "@/config/cookieConfig";
 import { AuthSessionService } from "@/services/auth-session.service";
@@ -181,7 +181,7 @@ export class BearerTokenStrategy extends AuthStrategy {
 export class AuthenticationMiddleware {
   constructor(
     private strategy: AuthStrategy,
-    private readonly userReadRepository: IUserReadRepository,
+    private readonly userReadRepository: UserIdentityLookup,
     private readonly metricsService: MetricsService | null,
   ) {}
 
@@ -330,8 +330,8 @@ export class AuthMiddlewareService {
   constructor(
     @inject(TOKENS.Services.AuthSession)
     private readonly authSessionService: AuthSessionService,
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserIdentityLookup)
+    private readonly userReadRepository: UserIdentityLookup,
     @inject(TOKENS.Services.Metrics)
     private readonly metricsService: MetricsService,
   ) {

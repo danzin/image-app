@@ -18,6 +18,11 @@ import {
 import { asUserPublicId } from "@/types/branded";
 
 describe("user auth response helpers", () => {
+	it("scopes refresh cookies to the refresh route", () => {
+		expect(refreshCookieOptions.path).to.equal("/api/users/refresh");
+		expect(clearRefreshCookieOptions.path).to.equal("/api/users/refresh");
+	});
+
 	it("builds request context from the trusted request IP", () => {
 		const req = {
 			headers: {

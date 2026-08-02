@@ -39,7 +39,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
 
   async execute(query: GetTrendingFeedQuery): Promise<PaginatedFeedResult> {
     const { page, limit, cursor } = query;
-    redisLogger.info(`getTrendingFeed called`, {
+
+    redisLogger.info("getTrendingFeed called", {
       page,
       limit,
       hasCursor: !!cursor,
@@ -61,7 +62,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
           limit,
           cursor: this.toNewCursor(decodedCursor),
         });
+
         const transformedPosts = normalizeFeedPosts(result.data);
+
         const enriched =
           await this.feedEnrichmentService.enrichFeedWithCurrentData(
             transformedPosts,
@@ -69,7 +72,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
 
         return {
           data: enriched,
-          page: page,
+          page,
           limit,
           total: 0,
           totalPages: 0,
@@ -81,25 +84,44 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       }
 
       if (!decodedCursor || decodedCursor.source === "redis") {
+        let redisResult: Awaited<
+          ReturnType<RedisService["getTrendingFeedWithCursor"]>
+        > | null = null;
+
         try {
-          const redisResult = await this.redisService.getTrendingFeedWithCursor(
+          redisResult = await this.redisService.getTrendingFeedWithCursor(
             limit,
             cursor,
           );
+        } catch (error) {
+          if (isAppError(error)) {
+            throw error;
+          }
+
+          redisLogger.warn(
+            "Failed to read trending feed from Redis, falling back to DB",
+            { error },
+          );
+        }
+
+        if (redisResult !== null) {
           if (redisResult.ids.length > 0) {
-            redisLogger.info(`Trending feed ZSET HIT`, {
+            redisLogger.info("Trending feed ZSET HIT", {
               count: redisResult.ids.length,
             });
+
             const posts = await this.postReadRepository.findPostsByPublicIds(
               redisResult.ids.map(asPostPublicId),
             );
 
-            const postMap = new Map(posts.map((p) => [p.publicId, p]));
+            const postMap = new Map(posts.map((post) => [post.publicId, post]));
+
             const orderedPosts = redisResult.ids
               .map((id) => postMap.get(id))
-              .filter((p): p is FeedPost => p !== undefined);
+              .filter((post): post is FeedPost => post !== undefined);
 
             const transformedPosts = normalizeFeedPosts(orderedPosts);
+
             if (!redisResult.hasMore) {
               return this.completeWithNewFeed(
                 transformedPosts,
@@ -109,6 +131,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
                 limit,
               );
             }
+
             const enriched =
               await this.feedEnrichmentService.enrichFeedWithCurrentData(
                 transformedPosts,
@@ -124,6 +147,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
               hasMore: redisResult.hasMore,
             };
           }
+
           if (decodedCursor?.source === "redis") {
             return this.completeWithNewFeed(
               [],
@@ -133,25 +157,22 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
               limit,
             );
           }
-        } catch (error) {
-          if (isAppError(error)) throw error;
-          redisLogger.warn(
-            "Failed to get trending feed from Redis, falling back to DB",
-            { error },
-          );
         }
       }
 
       redisLogger.info(
         "Falling back to DB cursor pagination for trending feed",
       );
+
       const result = await this.feedReadDao.getTrendingFeedWithCursor({
         limit,
         cursor,
         timeWindowDays: 30,
         minLikes: 1,
       });
+
       const transformedPosts = normalizeFeedPosts(result.data);
+
       if (!result.hasMore) {
         return this.completeWithNewFeed(
           transformedPosts,
@@ -169,7 +190,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
 
       return {
         data: enriched,
-        page: page,
+        page,
         limit,
         total: 0,
         totalPages: 0,
@@ -177,7 +198,10 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
         hasMore: result.hasMore,
       };
     } catch (error) {
-      if (isAppError(error)) throw error;
+      if (isAppError(error)) {
+        throw error;
+      }
+
       throw Errors.internal("Could not generate trending feed.", {
         cause: error,
       });
@@ -210,16 +234,15 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
             }),
           )
         : null;
-    const newStartCursor =
-      exclusionSnapshot
-        ? encodeFeedCursor({
-            feed: "new",
-            order: FEED_CURSOR_ORDER.NEW,
-            source: "mongo",
-            phase: "new",
-            snapshotId: exclusionSnapshot.id,
-          })
-        : undefined;
+    const newStartCursor = exclusionSnapshot
+      ? encodeFeedCursor({
+          feed: "new",
+          order: FEED_CURSOR_ORDER.NEW,
+          source: "mongo",
+          phase: "new",
+          snapshotId: exclusionSnapshot.id,
+        })
+      : undefined;
     const needed = limit - trendingPosts.length;
 
     let data = trendingPosts;
@@ -246,9 +269,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       }
     }
 
-    const enriched = await this.feedEnrichmentService.enrichFeedWithCurrentData(
-      data,
-    );
+    const enriched =
+      await this.feedEnrichmentService.enrichFeedWithCurrentData(data);
     return {
       data: enriched,
       page,
@@ -280,7 +302,8 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       currentPosts.map((post) => post.repostOf?.publicId ?? post.publicId),
     );
     if (snapshotId && consumedOffset !== undefined) {
-      const snapshot = await this.redisService.getFeedCursorSnapshot(snapshotId);
+      const snapshot =
+        await this.redisService.getFeedCursorSnapshot(snapshotId);
       if (!snapshot) {
         throw Errors.validation("Feed cursor snapshot is missing or expired");
       }
@@ -296,7 +319,9 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
         }
       }
     }
-    for (const id of await this.resolveVisibleInternalIds([...visiblePublicIds])) {
+    for (const id of await this.resolveVisibleInternalIds([
+      ...visiblePublicIds,
+    ])) {
       internalIds.add(id);
     }
     return [...internalIds];
@@ -332,5 +357,4 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
         : {}),
     });
   }
-
 }

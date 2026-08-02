@@ -25,14 +25,21 @@ The repo is intentionally opinionated where it matters:
 
 ## What Changed Recently
 
-The README was falling behind the codebase. The current project shape is:
+The codebase recently went through both observability hardening and a broad
+backend responsibility split. The current project shape is:
 
 - No dedicated API gateway anymore. The frontend container serves the built React app and proxies API, upload, WebSocket, and telemetry traffic directly to the backend.
 - The monorepo now centers on two workspaces: `backend` and `frontend`.
 - Workers can run in-process during app startup, or as a dedicated `backend-worker` container in Docker deployments.
-- Backend internals have been moving toward specialized read/write repositories instead of broader generic repository abstractions.
-- Request correlation IDs, telemetry ingestion, and stronger async workflow observability were added to improve debugging and operations.
-- The frontend has expanded with communities, messaging, notifications, admin views, richer profile UX, and browser-language-aware internationalization.
+- The broad `user.repository.ts` and unused `post.service.ts` were removed. User reads now live in `UserReadRepository`, while handlers depend on narrow lookup/suggestion ports instead of one oversized repository contract.
+- Redis consumers now depend on focused capabilities for auth sessions, feed caching, user lookup, user suggestions, and trending-stream/cache operations.
+- Account deletion and banning remain one transaction, but cleanup is delegated to content, social, conversation, community, record, and outbox participants.
+- Trending processing is split into stream consumption, score policy/projection, and Redis storage while keeping one restartable worker lifecycle owner.
+- Request completion now fans out to separate request-audit, optional request-log persistence, and throttled user-activity paths. Production disables high-volume request-log persistence by default without disabling security/auth audits.
+- Outbox events use stable explicit event types, exponential backoff with jitter, terminal exhaustion state, backlog metrics, and an operator requeue command.
+- Structured JSON error logging now has bounded/redacted metadata, request-context correlation, one terminal HTTP owner, worker/process terminal boundaries, and Loki/Alloy collection with a provisioned Grafana logs dashboard.
+- The frontend gained stronger retry/error states, protected-login return paths, token-fragment cleanup, debounced searches, safer telemetry requeueing, a focused messaging conversation-list component, and a real not-found route.
+- Production deployment now uses immutable commit-SHA image tags, serialized deploys, host fingerprint verification, preflight checks, and post-deploy image assertions.
 
 ## Architecture At A Glance
 
@@ -44,8 +51,11 @@ flowchart LR
   B --> R[(Redis)]
   W[Worker Runtime\nOutbox + Trending + Profile Sync + Feed Warm Cache + IP Monitor] --> M
   W --> R
-  P[Prometheus] -. scrapes /metrics .-> B
+  P[Prometheus] -. scrapes API metrics .-> B
+  P -. scrapes worker metrics .-> W
+  A[Alloy] -. collects container logs .-> L[Loki]
   G[Grafana] -. queries .-> P
+  G -. queries .-> L
 ```
 
 This is the containerized runtime view. In local development, the Vite dev server replaces the frontend container and proxies to the dynamically selected backend port. In production compose, an outer edge/TLS layer can sit in front of the frontend container, but it is omitted here so the primary application runtime stays readable.
@@ -61,6 +71,9 @@ flowchart LR
   C -->|prometheus subdomain| P[Prometheus]
   C -->|grafana subdomain| G[Grafana]
   P -. scrapes /metrics .-> B
+  P -. scrapes :9464/metrics .-> W[Backend Worker]
+  A[Alloy] -. ships selected container logs .-> L[Loki]
+  G -. queries .-> L
 ```
 
 The production edge is more specific than the runtime view above: Caddy terminates TLS, trusts Cloudflare proxy headers, forwards the real client IP downstream, sends app traffic to the frontend container, and exposes Prometheus and Grafana on separate subdomains.
@@ -74,7 +87,7 @@ The production edge is more specific than the runtime view above: Caddy terminat
 | API         | Express + Socket.IO backend                  | HTTP API, auth, uploads, read/write flows, real-time events, telemetry                |
 | Workers     | Same backend codebase, separate runtime mode | Isolates async processing and lets the API stay focused on request handling           |
 | Data        | MongoDB replica set + Redis                  | Transactions, caching, session state, queue-like coordination                         |
-| Monitoring  | Prometheus + Grafana                         | Prometheus scrapes backend metrics and Grafana queries them for dashboards            |
+| Monitoring  | Prometheus + Grafana + Loki + Alloy          | Metrics, bounded structured logs, and provisioned operational dashboards              |
 
 ## Product Surface
 
@@ -95,25 +108,31 @@ Ascendance currently includes:
 - TypeScript + Express with `tsyringe`-based dependency injection.
 - CQRS-style application layer with commands, queries, handlers, and bus wiring.
 - Transaction-aware Unit of Work patterns on MongoDB.
-- Outbox processing with correlation IDs and resumable handler progress.
-- Redis-backed session management, cache coordination, and real-time support.
-- Health, metrics, telemetry, and request logging surfaces for debugging and operations.
+- Narrow read/write repositories, application ports, and Redis capability adapters.
+- Transactional account-lifecycle participants for content, social, conversation, community, record, and outbox cleanup.
+- Outbox processing with stable event names, ownership-safe claims, resumable handler progress, delayed retry, exhaustion metrics, and manual requeue support.
+- Redis-backed session management, cache coordination, real-time support, feed structures, and consumer-group streaming.
+- Split request auditing, optional request-log persistence, and throttled user-activity updates.
+- Health, metrics, telemetry, correlation-aware structured logging, and non-HTTP terminal error boundaries.
 
 ### Frontend
 
 - React 18 + Vite + TypeScript.
 - Route-level lazy loading and error boundaries in the app shell.
 - TanStack Query for server-state orchestration.
-- Material UI plus TailwindCSS for UI composition.
+- Material UI with Emotion for component styling.
 - Socket.IO client integration for live features.
 - i18next-based language detection and translation resources.
+- Retryable feed/notification/message states, protected-route return navigation, semantic rich-text links, and URL-fragment token cleanup.
+- Stable swipe gesture listeners, safer media-preview lifecycle handling, debounced high-churn inputs, and telemetry delivery requeueing.
 
 ### Infra And Operations
 
-- Docker Compose for local full-stack startup.
+- `docker-compose-dev.yml` for a local full-stack replica-set environment.
 - Separate production-oriented Compose file.
 - Production ingress uses Caddy for TLS termination, trusted proxy handling, and routing to the app plus monitoring subdomains.
-- Prometheus and Grafana included in-repo.
+- Prometheus, Grafana, Loki, and Alloy are included in-repo; monitoring host ports are loopback-only.
+- Production images are deployed by immutable Git SHA and the worker has a metrics-based health check.
 - Nginx serving the built frontend and proxying API, uploads, telemetry, and WebSocket traffic directly to the backend.
 
 ## Trade-Offs, On Purpose
@@ -131,10 +150,10 @@ The value here is not "more architecture." The value is demonstrating where that
 
 | Area     | Stack                                                                                        |
 | -------- | -------------------------------------------------------------------------------------------- |
-| Frontend | React, Vite, TypeScript, TanStack Query, Material UI, TailwindCSS, Socket.IO client, i18next |
+| Frontend | React, Vite, TypeScript, TanStack Query, Material UI, Emotion, Socket.IO client, i18next   |
 | Backend  | Node.js, Express, TypeScript, TSyringe, Mongoose, Redis, Socket.IO, Zod, Winston             |
 | Testing  | Mocha, Chai, Sinon, Supertest, Cypress                                                       |
-| Infra    | Docker, Docker Compose, Nginx, Prometheus, Grafana                                           |
+| Infra    | Docker, Docker Compose, Nginx, Caddy, Prometheus, Grafana, Loki, Alloy                       |
 | Storage  | MongoDB, Redis, Cloudinary in production, local uploads in development                       |
 
 ## Running The Project
@@ -150,14 +169,23 @@ The value here is not "more architecture." The value is demonstrating where that
 ```bash
 git clone https://github.com/sunsetstack/ascendance-social.git
 cd ascendance-social
-docker compose up --build
+docker compose -f docker-compose-dev.yml up --build
 ```
 
 After startup:
 
-- App: `http://localhost`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001`
+- App: `http://localhost:8080`
+- Backend: `http://localhost:8000`
+
+The monitoring profile is opt-in:
+
+```bash
+docker compose -f docker-compose-dev.yml --profile monitoring up --build
+```
+
+With that profile enabled, Prometheus is at `http://localhost:9090`, Grafana at
+`http://localhost:3001`, Loki at `http://localhost:3100`, and Alloy at
+`http://localhost:12345`. These monitoring ports bind to loopback.
 
 The backend health endpoint is available internally to the stack at `/health` and is exposed directly during local non-Docker development.
 
@@ -183,6 +211,10 @@ ADMIN_EMAILS=replace-me
 VITE_API_URL=http://localhost:8000
 VITE_SOCKET_URL=http://localhost:8000
 DNS_SERVERS=1.1.1.1,8.8.8.8
+REQUEST_LOG_PERSISTENCE_ENABLED=true
+OUTBOX_MAX_ATTEMPTS=5
+OUTBOX_RETRY_BASE_DELAY_MS=15000
+OUTBOX_RETRY_MAX_DELAY_MS=300000
 
 ```
 
@@ -197,8 +229,8 @@ What `npm run dev` does now:
 
 - Picks the first available backend port from a small candidate list.
 - Writes that port to root `.env.local` and `frontend/.env.local`.
-- Starts the backend API.
-- Starts the trending, profile sync, and feed warm-cache workers.
+- Starts the backend API with scheduled in-process workers disabled.
+- Starts trending, profile sync, and feed warm-cache as dedicated development processes.
 - Starts the Vite frontend.
 
 That means local dev no longer depends on a dedicated gateway process. The frontend proxies to whichever backend port was selected.
@@ -210,10 +242,13 @@ That means local dev no longer depends on a dedicated gateway process. The front
 npm run build
 
 # backend tests
-npm run test-backend
+npm run test:backend
 
 # backend integration suite
-npm run test-integration
+npm run test:integration
+
+# list the integration suites discovered by the harness
+npm run test:integration:list
 
 # frontend production build
 npm run build:frontend
@@ -229,6 +264,17 @@ npm run build:frontend
 - Input sanitization and validation layers on the backend.
 - Health endpoints and metrics endpoints for runtime checks.
 - Correlation ID propagation through requests, logs, and async outbox work.
+- Stable event `type` values are persisted in the outbox instead of relying on minifiable constructor names.
+- Failed outbox work is retried with bounded exponential backoff and jitter, then marked exhausted for operator review.
+- Production requires Cloudinary credentials; local image storage is a non-production fallback.
+- Password-reset and verification tokens are placed in URL fragments so they are not sent in ordinary HTTP request targets.
+
+To requeue one exhausted outbox record after fixing its root cause, run the
+compiled operator script with the Mongo ObjectId:
+
+```bash
+node backend/dist/scripts/requeue-outbox-event.js <outbox-object-id>
+```
 
 ### Production Error Metadata
 
@@ -249,8 +295,9 @@ Compose fallback is `unknown`.
 .
 ├── backend/      # API, CQRS application layer, workers, data access, tests
 ├── frontend/     # React client, screens, shared UI, i18n, telemetry
-├── monitoring/   # Prometheus configuration
+├── monitoring/   # Prometheus, Loki, Alloy, and Grafana provisioning
 ├── scripts/      # local-dev helpers such as dynamic port selection
-├── docker-compose.yml
+├── docker-compose-dev.yml
+├── docker-compose.test.yml
 └── docker-compose-prod.yml
 ```

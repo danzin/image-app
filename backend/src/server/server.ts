@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import http from "http";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 
 import helmet from "helmet";
 import { injectable, inject } from "tsyringe";
@@ -36,6 +37,7 @@ import { buildCorsOptions } from "@/config/corsConfig";
 import { getClientIp } from "@/utils/request-ip";
 import { getRateLimitStoreOptions } from "@/config/rateLimit";
 import { csrfOriginMiddleware } from "@/middleware/csrf-origin.middleware";
+import { RedisService } from "@/services/redis.service";
 
 @injectable()
 export class Server {
@@ -73,7 +75,12 @@ export class Server {
     @inject(CommunityRoutes) private readonly communityRoutes: CommunityRoutes,
     @inject(TOKENS.Routes.Telemetry)
     private readonly telemetryRoutes: TelemetryRoutes,
+    @inject(TOKENS.Services.Redis, { isOptional: true })
+    private readonly redisService?: RedisService,
   ) {
+    if (process.env.NODE_ENV === "production" && !this.redisService) {
+      throw new Error("Redis service is required in production");
+    }
     this.app = express();
     this.initializeMiddlewares();
     this.initializeRoutes();
@@ -130,15 +137,27 @@ export class Server {
       uploadsPath,
     });
     this.app.use("/uploads", express.static(uploadsPath));
+    this.app.use("/api/uploads", express.static(uploadsPath));
 
     this.app.use("/metrics", this.metricsRoutes.getRouter());
 
-    // Add health check endpoint
     this.app.get("/health", (_req, res) => {
-      res.status(200).json({
-        status: "ok",
+      const dependenciesConfigured = Boolean(this.redisService);
+      const mongoReady =
+        !dependenciesConfigured || mongoose.connection.readyState === 1;
+      const redisReady =
+        !dependenciesConfigured ||
+        Boolean(this.redisService?.clientInstance.isReady);
+      const healthy = mongoReady && redisReady;
+
+      res.status(healthy ? 200 : 503).json({
+        status: healthy ? "ok" : "unhealthy",
         timestamp: new Date().toISOString(),
         service: "backend",
+        dependencies: {
+          mongodb: mongoReady ? "ready" : "unavailable",
+          redis: redisReady ? "ready" : "unavailable",
+        },
       });
     });
 

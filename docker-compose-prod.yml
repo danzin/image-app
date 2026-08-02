@@ -7,7 +7,7 @@ name: ascendance-social
 services:
   # --- CACHE ---
   redis:
-    image: redis:alpine
+    image: redis:7.4-alpine
     container_name: redis
     restart: always
     logging: *default-logging
@@ -29,7 +29,7 @@ services:
 
   # --- APP LAYER ---
   backend:
-    image: ghcr.io/sunsetstack/ascendance-backend:latest
+    image: ghcr.io/sunsetstack/ascendance-backend:${IMAGE_TAG:-latest}
     container_name: backend
     restart: always
     logging: *default-logging
@@ -47,6 +47,8 @@ services:
         CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY}
         CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET}
         RESEND_API_KEY: ${RESEND_API_KEY}
+        FRONTEND_URL: https://${DOMAIN_NAME}
+        REQUEST_LOG_PERSISTENCE_ENABLED: "false"
         SECURITY_AUDIT_MONGO_TTL_DAYS: ${SECURITY_AUDIT_MONGO_TTL_DAYS:-90}
         AUDIT_LOG_DIR: /app/audit/logs
         AUDIT_ARCHIVE_DIR: /app/audit/archives
@@ -72,7 +74,7 @@ services:
       retries: 5
 
   frontend:
-    image: ghcr.io/sunsetstack/ascendance-frontend:latest
+    image: ghcr.io/sunsetstack/ascendance-frontend:${IMAGE_TAG:-latest}
     container_name: frontend
     restart: always
     logging: *default-logging
@@ -337,7 +339,7 @@ services:
 
   # Dedicated worker container
   backend-worker:
-    image: ghcr.io/sunsetstack/ascendance-backend:latest
+    image: ghcr.io/sunsetstack/ascendance-backend:${IMAGE_TAG:-latest}
     container_name: backend-worker
     restart: always
     logging: *default-logging
@@ -351,6 +353,17 @@ services:
 
     expose:
       - "9464"
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O - http://localhost:9464/metrics | grep -q 'worker_thread_status{[^}]*worker=\"outbox.worker\"[^}]*} 1$'",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
     depends_on:
       redis:

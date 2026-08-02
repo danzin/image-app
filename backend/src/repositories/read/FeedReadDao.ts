@@ -36,6 +36,10 @@ import {
   withActivePostFilter,
 } from "@/repositories/post-pipeline.helpers";
 import { RedisService } from "@/services/redis.service";
+import {
+  buildTrendingScoreStages,
+  resolveTrendingScoreWeights,
+} from "@/services/feed/trending-score.policy";
 
 type ProjectedFeedPost = FeedPost & {
   _id?: mongoose.Types.ObjectId;
@@ -189,14 +193,11 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
     try {
       const timeWindowDays = options?.timeWindowDays ?? 14;
       const minLikes = options?.minLikes ?? 0;
-      const weights = {
-        recency: options?.weights?.recency ?? 0.4,
-        popularity: options?.weights?.popularity ?? 0.5,
-        comments: options?.weights?.comments ?? 0.1,
-      };
+      const weights = resolveTrendingScoreWeights(options?.weights);
 
+      const asOf = new Date();
       const sinceDate = new Date(
-        Date.now() - timeWindowDays * 24 * 60 * 60 * 1000,
+        asOf.getTime() - timeWindowDays * 24 * 60 * 60 * 1000,
       );
 
       const pipeline: PipelineStage[] = [
@@ -207,48 +208,7 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
           }),
         },
         // compute trend scores before $lookup to sort/paginate early
-        {
-          $addFields: {
-            recencyScore: {
-              $divide: [
-                1,
-                {
-                  $add: [
-                    1,
-                    {
-                      $divide: [
-                        { $subtract: [new Date(), "$createdAt"] },
-                        1000 * 60 * 60 * 24,
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-            // using natural logarithm to dampen the effect of very high like counts allowing newer posts to compete
-            popularityScore: {
-              $ln: {
-                $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1],
-              },
-            },
-            commentsScore: {
-              $ln: {
-                $add: [{ $max: [0, { $ifNull: ["$commentsCount", 0] }] }, 1],
-              },
-            },
-          },
-        },
-        {
-          $addFields: {
-            trendScore: {
-              $add: [
-                { $multiply: [weights.recency, "$recencyScore"] },
-                { $multiply: [weights.popularity, "$popularityScore"] },
-                { $multiply: [weights.comments, "$commentsScore"] },
-              ],
-            },
-          },
-        },
+        ...buildTrendingScoreStages(asOf, weights),
         { $sort: { trendScore: -1, _id: -1 } },
         { $skip: skip },
         { $limit: limit },
@@ -559,11 +519,7 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
       const limit = options.limit ?? 20;
       const timeWindowDays = options.timeWindowDays ?? 14;
       const minLikes = options.minLikes ?? 0;
-      const weights = {
-        recency: options.weights?.recency ?? 0.4,
-        popularity: options.weights?.popularity ?? 0.5,
-        comments: options.weights?.comments ?? 0.1,
-      };
+      const weights = resolveTrendingScoreWeights(options.weights);
       const decodedCursor = options.cursor
         ? decodeFeedCursor(options.cursor, {
             feed: "trending",
@@ -608,7 +564,7 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
                       likesCount: { $gte: minLikes },
                     }),
                   },
-                  ...this.getTrendScoreStages(asOf, weights),
+                  ...buildTrendingScoreStages(asOf, weights),
                   { $sort: { trendScore: -1, _id: -1 } },
                   ...this.getVisibleIdentityStages(),
                   { $sort: { trendScore: -1, _id: -1 } },
@@ -906,58 +862,6 @@ export class FeedReadDao extends BaseRepository<IPost> implements IFeedReadDao {
         ? { snapshotId: previous.snapshotId }
         : {}),
     });
-  }
-
-  private getTrendScoreStages(
-    asOf: Date,
-    weights: { recency: number; popularity: number; comments: number },
-  ): PipelineStage[] {
-    return [
-      {
-        $addFields: {
-          recencyScore: {
-            $divide: [
-              1,
-              {
-                $add: [
-                  1,
-                  {
-                    $divide: [
-                      { $subtract: [asOf, "$createdAt"] },
-                      1000 * 60 * 60 * 24,
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-          popularityScore: {
-            $ln: {
-              $add: [{ $max: [0, { $ifNull: ["$likesCount", 0] }] }, 1],
-            },
-          },
-          commentsScore: {
-            $ln: {
-              $add: [
-                { $max: [0, { $ifNull: ["$commentsCount", 0] }] },
-                1,
-              ],
-            },
-          },
-        },
-      },
-      {
-        $addFields: {
-          trendScore: {
-            $add: [
-              { $multiply: [weights.recency, "$recencyScore"] },
-              { $multiply: [weights.popularity, "$popularityScore"] },
-              { $multiply: [weights.comments, "$commentsScore"] },
-            ],
-          },
-        },
-      },
-    ];
   }
 
   private getRankScoreStages(

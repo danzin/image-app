@@ -42,19 +42,59 @@ import { TOKENS } from "@/types/tokens";
 import { AccountAuditSnapshotService } from "@/services/lifecycle/account-audit-snapshot.service";
 import { AccountLifecycleService } from "@/services/lifecycle/account-lifecycle.service";
 import { ContentCleanupService } from "@/services/lifecycle/content-cleanup.service";
+import { MongoAccountCommunityCleanupParticipant } from "@/services/lifecycle/account-community-cleanup.participant";
+import { MongoAccountContentCleanupParticipant } from "@/services/lifecycle/account-content-cleanup.participant";
+import { MongoAccountConversationCleanupParticipant } from "@/services/lifecycle/account-conversation-cleanup.participant";
+import { EventBusAccountOutboxParticipant } from "@/services/lifecycle/account-outbox.participant";
+import { MongoAccountRecordCleanupParticipant } from "@/services/lifecycle/account-record-cleanup.participant";
+import { MongoAccountSocialCleanupParticipant } from "@/services/lifecycle/account-social-cleanup.participant";
+import { RedisAuthSessionStore } from "@/services/redis/capabilities/redis-auth-session.store";
+import { RedisFeedCache } from "@/services/redis/capabilities/redis-feed-cache";
+import { RedisUserLookup } from "@/services/redis/capabilities/redis-user-lookup";
+import { RedisUserSuggestions } from "@/services/redis/capabilities/redis-user-suggestions";
+import {
+  RedisTrendingCacheStore,
+  RedisTrendingStreamStore,
+} from "@/workers/trending/redis-trending.store";
+import { TrendingStreamConsumer } from "@/workers/trending/trending-stream.consumer";
+import { TrendingProjectionService } from "@/workers/trending/trending-projection.service";
+import type {
+  ITrendingCacheStore,
+  ITrendingProjectionService,
+  ITrendingStreamConsumer,
+  ITrendingStreamStore,
+} from "@/workers/trending/trending.ports";
+import type { AuthSessionStore } from "@/application/ports/auth-session-store";
+import type { FeedCache } from "@/application/ports/feed-cache";
+import type { UserLookup } from "@/application/ports/user-lookup";
+import type { UserSuggestions } from "@/application/ports/user-suggestions";
+import type {
+  AccountCommunityCleanupParticipant,
+  AccountContentCleanupParticipant,
+  AccountConversationCleanupParticipant,
+  AccountOutboxParticipant,
+  AccountRecordCleanupParticipant,
+  AccountSocialCleanupParticipant,
+} from "@/services/lifecycle/account-lifecycle.ports";
 
 export function registerServices(): void {
-  const isCloudinaryConfigured =
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET;
+  const isCloudinaryConfigured = [
+    process.env.CLOUDINARY_CLOUD_NAME,
+    process.env.CLOUDINARY_API_KEY,
+    process.env.CLOUDINARY_API_SECRET,
+  ].every((value) => typeof value === "string" && value.trim().length > 0);
 
   const ImageStorageService = isCloudinaryConfigured
     ? CloudinaryService
     : LocalStorageService;
   if (!isCloudinaryConfigured) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "Cloudinary credentials are required when NODE_ENV=production",
+      );
+    }
     logger.info(
-      "No Cloudinary credentials detected. \r\nDefaulting to local storage.",
+      "No Cloudinary credentials detected. Defaulting to local storage.",
     );
   }
 
@@ -62,6 +102,30 @@ export function registerServices(): void {
   container.registerSingleton(
     TOKENS.Services.ContentCleanup,
     ContentCleanupService,
+  );
+  container.registerSingleton<AccountContentCleanupParticipant>(
+    TOKENS.Services.AccountContentCleanup,
+    MongoAccountContentCleanupParticipant,
+  );
+  container.registerSingleton<AccountSocialCleanupParticipant>(
+    TOKENS.Services.AccountSocialCleanup,
+    MongoAccountSocialCleanupParticipant,
+  );
+  container.registerSingleton<AccountConversationCleanupParticipant>(
+    TOKENS.Services.AccountConversationCleanup,
+    MongoAccountConversationCleanupParticipant,
+  );
+  container.registerSingleton<AccountCommunityCleanupParticipant>(
+    TOKENS.Services.AccountCommunityCleanup,
+    MongoAccountCommunityCleanupParticipant,
+  );
+  container.registerSingleton<AccountRecordCleanupParticipant>(
+    TOKENS.Services.AccountRecordCleanup,
+    MongoAccountRecordCleanupParticipant,
+  );
+  container.registerSingleton<AccountOutboxParticipant>(
+    TOKENS.Services.AccountOutbox,
+    EventBusAccountOutboxParticipant,
   );
   container.registerSingleton(
     TOKENS.Services.AccountLifecycle,
@@ -100,6 +164,38 @@ export function registerServices(): void {
   container.registerSingleton(TOKENS.Services.FeedFanout, FeedFanoutService);
   container.registerSingleton(TOKENS.Services.Feed, FeedService);
   container.registerSingleton(TOKENS.Services.Redis, RedisService);
+  container.registerSingleton<AuthSessionStore>(
+    TOKENS.Services.AuthSessionStore,
+    RedisAuthSessionStore,
+  );
+  container.registerSingleton<FeedCache>(
+    TOKENS.Services.FeedCache,
+    RedisFeedCache,
+  );
+  container.registerSingleton<UserLookup>(
+    TOKENS.Services.UserLookup,
+    RedisUserLookup,
+  );
+  container.registerSingleton<UserSuggestions>(
+    TOKENS.Services.UserSuggestions,
+    RedisUserSuggestions,
+  );
+  container.registerSingleton<ITrendingStreamStore>(
+    TOKENS.Services.TrendingStreamStore,
+    RedisTrendingStreamStore,
+  );
+  container.registerSingleton<ITrendingCacheStore>(
+    TOKENS.Services.TrendingCacheStore,
+    RedisTrendingCacheStore,
+  );
+  container.registerSingleton<ITrendingStreamConsumer>(
+    TOKENS.Services.TrendingStreamConsumer,
+    TrendingStreamConsumer,
+  );
+  container.registerSingleton<ITrendingProjectionService>(
+    TOKENS.Services.TrendingProjection,
+    TrendingProjectionService,
+  );
   container.registerSingleton(TOKENS.Services.UserAction, UserActionService);
   container.registerSingleton(
     TOKENS.Services.SecurityAudit,
@@ -114,7 +210,11 @@ export function registerServices(): void {
     TOKENS.Services.TransactionQueue,
     TransactionQueueService,
   );
-  container.registerSingleton(TOKENS.Services.Email, EmailService);
+  if (process.env.ENABLE_API === "false") {
+    container.registerSingleton(TOKENS.Services.Email, EmailService);
+  } else {
+    container.registerInstance(TOKENS.Services.Email, new EmailService());
+  }
 
   const realtimeHandlers = [
     container.resolve(NewPostMessageHandler),

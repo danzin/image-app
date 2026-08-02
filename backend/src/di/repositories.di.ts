@@ -82,6 +82,21 @@ export function registerRepositories(): void {
 
   container.registerSingleton(TOKENS.Repositories.PostRead, PostReadRepository);
   container.registerSingleton(TOKENS.Repositories.UserRead, UserReadRepository);
+  container.register(TOKENS.Repositories.PostSearchLookup, {
+    useToken: TOKENS.Repositories.PostRead,
+  });
+  container.register(TOKENS.Repositories.UserAuthenticationLookup, {
+    useToken: TOKENS.Repositories.UserRead,
+  });
+  container.register(TOKENS.Repositories.UserDirectoryLookup, {
+    useToken: TOKENS.Repositories.UserRead,
+  });
+  container.register(TOKENS.Repositories.UserIdentityLookup, {
+    useToken: TOKENS.Repositories.UserRead,
+  });
+  container.register(TOKENS.Repositories.UserSuggestionsLookup, {
+    useToken: TOKENS.Repositories.UserRead,
+  });
   container.registerSingleton(
     TOKENS.Repositories.PostWrite,
     PostWriteRepository,

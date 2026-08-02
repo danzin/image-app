@@ -2,26 +2,31 @@ import { describe, beforeEach, afterEach, it } from "mocha";
 import * as chai from "chai";
 import { expect } from "chai";
 import chaiAsPromised from "chai-as-promised";
-import sinon from "sinon";
+import sinon, { SinonStub } from "sinon";
 import { SearchAllQueryHandler } from "@/application/queries/search/searchAll/searchAll.handler";
 import { SearchAllQuery } from "@/application/queries/search/searchAll/searchAll.query";
+import type { PostSearchLookup } from "@/application/ports/post-search-lookup";
+import type { UserDirectoryLookup } from "@/application/ports/user-directory-lookup";
 
 chai.use(chaiAsPromised);
 
 describe("SearchAllQueryHandler", () => {
 	let handler: SearchAllQueryHandler;
-	let mockPostReadRepository: any;
-	let mockUserRepository: any;
+	let mockPostSearchLookup: {
+		findByTags: SinonStub;
+		searchByText: SinonStub;
+	};
+	let mockUserDirectoryLookup: { getAll: SinonStub };
 	let mockTagRepository: any;
 	let mockCommunityRepository: any;
 	let mockDTOService: any;
 
 	beforeEach(() => {
-		mockPostReadRepository = {
+		mockPostSearchLookup = {
 			findByTags: sinon.stub(),
 			searchByText: sinon.stub(),
 		};
-		mockUserRepository = {
+		mockUserDirectoryLookup = {
 			getAll: sinon.stub(),
 		};
 		mockTagRepository = {
@@ -37,8 +42,8 @@ describe("SearchAllQueryHandler", () => {
 		};
 
 		handler = new SearchAllQueryHandler(
-			mockPostReadRepository,
-			mockUserRepository,
+			mockPostSearchLookup as unknown as PostSearchLookup,
+			mockUserDirectoryLookup as unknown as UserDirectoryLookup,
 			mockTagRepository,
 			mockCommunityRepository,
 			mockDTOService,
@@ -53,19 +58,19 @@ describe("SearchAllQueryHandler", () => {
 		it("should call searchByText and include results", async () => {
 			const query = new SearchAllQuery(["test"]);
 
-			mockUserRepository.getAll.resolves([]);
+			mockUserDirectoryLookup.getAll.resolves([]);
 			mockCommunityRepository.search.resolves([]);
 			mockTagRepository.searchTags.resolves([]);
 
 			const textPost = { publicId: "p1", body: "test post" };
-			mockPostReadRepository.searchByText.resolves([textPost]);
-			mockPostReadRepository.findByTags.resolves({ data: [] });
+			mockPostSearchLookup.searchByText.resolves([textPost]);
+			mockPostSearchLookup.findByTags.resolves({ data: [] });
 
 			mockDTOService.toPostDTO.withArgs(textPost).returns({ publicId: "p1", body: "test post" });
 
 			const result = await handler.execute(query);
 
-			expect(mockPostReadRepository.searchByText.calledWith(query.query)).to.be.true;
+			expect(mockPostSearchLookup.searchByText.calledWith(query.query)).to.be.true;
 			expect(result.posts).to.have.lengthOf(1);
 			expect(result.posts![0].publicId).to.equal("p1");
 		});
@@ -73,7 +78,7 @@ describe("SearchAllQueryHandler", () => {
 		it("should deduplicate posts found by text and by tags", async () => {
 			const query = new SearchAllQuery(["test"]);
 
-			mockUserRepository.getAll.resolves([]);
+			mockUserDirectoryLookup.getAll.resolves([]);
 			mockCommunityRepository.search.resolves([]);
 
 			const tag = { _id: "tag1" };
@@ -83,16 +88,16 @@ describe("SearchAllQueryHandler", () => {
 			const post2 = { publicId: "p2", body: "other post" };
 
 			// post1 found by text
-			mockPostReadRepository.searchByText.resolves([post1]);
+			mockPostSearchLookup.searchByText.resolves([post1]);
 			// post1 AND post2 found by tag
-			mockPostReadRepository.findByTags.resolves({ data: [post1, post2] });
+			mockPostSearchLookup.findByTags.resolves({ data: [post1, post2] });
 
 			mockDTOService.toPostDTO.callsFake((post: any) => post);
 
 			const result = await handler.execute(query);
 
-			expect(mockPostReadRepository.searchByText.calledWith(query.query)).to.be.true;
-			expect(mockPostReadRepository.findByTags.called).to.be.true;
+			expect(mockPostSearchLookup.searchByText.calledWith(query.query)).to.be.true;
+			expect(mockPostSearchLookup.findByTags.called).to.be.true;
 
 			expect(result.posts).to.have.lengthOf(2);
 			// Verify IDs present
@@ -104,11 +109,11 @@ describe("SearchAllQueryHandler", () => {
 		it("should handle null results from repositories", async () => {
 			const query = new SearchAllQuery(["test"]);
 
-			mockUserRepository.getAll.resolves(null);
+			mockUserDirectoryLookup.getAll.resolves(null);
 			mockCommunityRepository.search.resolves(null);
 			mockTagRepository.searchTags.resolves([]); 
-			mockPostReadRepository.searchByText.resolves(null); 
-			mockPostReadRepository.findByTags.resolves(null); 
+			mockPostSearchLookup.searchByText.resolves(null);
+			mockPostSearchLookup.findByTags.resolves(null);
 
 			const result = await handler.execute(query);
 

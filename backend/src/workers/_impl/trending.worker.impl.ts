@@ -9,13 +9,9 @@ import {
   ReconnectStrategyError,
   RootNodesUnavailableError,
   SocketClosedUnexpectedlyError,
-  type RedisClientType,
 } from "redis";
-import { RedisService } from "@/services/redis.service";
 import { MetricsService } from "@/metrics/metrics.service";
-import { asPostPublicId } from "@/types/branded";
-import type { IPostReadRepository } from "@/repositories/interfaces";
-import { FeedPost } from "@/types";
+import type { FeedPost } from "@/types";
 import { logger } from "@/utils/winston";
 import {
   addRequestContextBreadcrumb,
@@ -27,12 +23,16 @@ import { randomUUID } from "node:crypto";
 import type { IFeedReadDao } from "@/repositories/interfaces";
 import { TOKENS } from "@/types/tokens";
 import type {
-  XPendingRangeEntry,
-  XClaimEntry,
-  XClaimReply,
-} from "@/services/redis/redis-stream.module";
+  ITrendingProjectionService,
+  ITrendingStreamConsumer,
+  TrendingProjectionBatch,
+  TrendingStreamClient,
+  TrendingStreamConfig,
+  TrendingStreamMessage,
+} from "@/workers/trending/trending.ports";
 
-/** Handles trending feed updates and calculations
+/**
+ * Coordinates trending feed stream processing and cache projection.
  * This worker uses a classic write-behind cache pattern. It runs the expensive mongo aggregation once
  * and updates the top 500(can be adjusted) posts in Redis sorted set
  * Stores post metadata in Redis cache
@@ -55,25 +55,6 @@ type PendingDeltas = {
   likesDelta: number;
   lastSeen: number;
   messageIds: string[];
-};
-
-type TrendingScore = {
-  ageDays: number;
-  comments: number;
-  commentsScore: number;
-  likes: number;
-  popularityScore: number;
-  recencyScore: number;
-  score: number;
-  views: number;
-};
-
-type TrendingCacheUpdate = {
-  comments: number;
-  likes: number;
-  postId: string;
-  score: number;
-  views: number;
 };
 
 type ReadLoopOutcome =
@@ -102,9 +83,7 @@ export class TrendingWorker {
     Number(process.env.TRENDING_FULL_REFRESH_MS) || 300_000; // full refresh every 5 min
   private REDIS_STARTUP_TIMEOUT_MS = 5000;
 
-  private WEIGHTS = { recency: 0.4, popularity: 0.5, comments: 0.1 };
-
-  private redisClient: RedisClientType | null = null; // dedicated client for blocking xReadGroup use
+  private redisClient: TrendingStreamClient | null = null;
 
   private pending = new Map<string, PendingDeltas>();
   private flushing = false;
@@ -121,13 +100,23 @@ export class TrendingWorker {
   constructor(
     @inject(TOKENS.Repositories.FeedReadDao)
     private readonly feedReadDao: IFeedReadDao,
-    @inject(TOKENS.Services.Redis)
-    private readonly redisService: RedisService,
-    @inject(TOKENS.Repositories.PostRead)
-    private readonly postReadRepository: IPostReadRepository,
+    @inject(TOKENS.Services.TrendingStreamConsumer)
+    private readonly streamConsumer: ITrendingStreamConsumer,
+    @inject(TOKENS.Services.TrendingProjection)
+    private readonly projectionService: ITrendingProjectionService,
     @inject(TOKENS.Services.Metrics)
     private readonly metricsService?: MetricsService,
   ) {}
+
+  private getStreamConfig(): TrendingStreamConfig {
+    return {
+      stream: this.STREAM,
+      group: this.GROUP,
+      consumer: this.CONSUMER,
+      readCount: this.READ_COUNT,
+      reclaimMinIdleMs: this.RECLAIM_MIN_IDLE_MS,
+    };
+  }
 
   /** initialize dependencies and create consumer group if necessary */
   async init(): Promise<void> {
@@ -138,18 +127,10 @@ export class TrendingWorker {
         addRequestContextBreadcrumb("worker.trending.startup.started", {
           worker: "TrendingWorker",
         });
-        const connected = await this.redisService.waitForConnection(
+        this.redisClient = await this.streamConsumer.initialize(
+          this.getStreamConfig(),
           this.REDIS_STARTUP_TIMEOUT_MS,
         );
-        if (!connected) {
-          throw new Error("Redis unavailable; trending worker cannot start");
-        }
-
-        await this.redisService.createStreamConsumerGroup(
-          this.STREAM,
-          this.GROUP,
-        );
-        this.redisClient = await this.redisService.createDedicatedClient();
         addRequestContextBreadcrumb("worker.trending.startup.completed", {
           worker: "TrendingWorker",
         });
@@ -217,8 +198,9 @@ export class TrendingWorker {
 
         await Promise.allSettled(this.inFlightCallbacks);
         await this.flushPending();
-        if (this.redisClient?.isOpen) {
-          await this.redisClient.quit();
+        const redisClient = this.redisClient;
+        if (redisClient?.isOpen) {
+          await this.streamConsumer.close(redisClient);
         }
         this.redisClient = null;
         addRequestContextBreadcrumb("worker.trending.shutdown.completed", {
@@ -461,13 +443,11 @@ export class TrendingWorker {
       throw new Error("Trending Redis client is not initialized");
     }
 
-    let responses: unknown;
+    let messages: TrendingStreamMessage[];
     try {
-      responses = await redisClient.xReadGroup(
-        this.GROUP,
-        this.CONSUMER,
-        { key: this.STREAM, id: ">" },
-        { COUNT: this.READ_COUNT, BLOCK: 5_000 },
+      messages = await this.streamConsumer.read(
+        redisClient,
+        this.getStreamConfig(),
       );
     } catch (err) {
       if (this.stopping && isExpectedRedisClientShutdownError(err)) {
@@ -485,27 +465,10 @@ export class TrendingWorker {
       return;
     }
 
-    if (responses === null) {
-      return;
-    }
-    if (!Array.isArray(responses)) {
-      throw new TypeError("Malformed Redis stream response");
-    }
-
-    for (const streamRes of responses) {
-      if (!isRecord(streamRes) || !Array.isArray(streamRes.messages)) {
-        throw new TypeError("Malformed Redis stream response");
-      }
-      for (const message of streamRes.messages) {
-        const messageId = isRecord(message) ? message.id : undefined;
-        const messageFields = isRecord(message) ? message.message : undefined;
-        if (typeof messageId !== "string" || !isStringRecord(messageFields)) {
-          throw new TypeError("Malformed Redis stream message");
-        }
-        this.trackBackgroundRoot("handle_stream_message", () =>
-          this.handleStreamMessage(messageId, messageFields),
-        );
-      }
+    for (const message of messages) {
+      this.trackBackgroundRoot("handle_stream_message", () =>
+        this.handleStreamMessage(message.id, message.fields),
+      );
     }
   }
 
@@ -521,7 +484,7 @@ export class TrendingWorker {
 
     if (!postId) {
       logger.warn(`[trending] malformed message ${id} missing postId - acking`);
-      await this.redisService.ackStreamMessages(this.STREAM, this.GROUP, id);
+      await this.streamConsumer.acknowledge(this.getStreamConfig(), [id]);
       return;
     }
 
@@ -577,9 +540,8 @@ export class TrendingWorker {
         let posts: FeedPost[];
 
         try {
-          posts = await this.postReadRepository.findPostsByPublicIds(
-            postIds.map(asPostPublicId),
-          );
+          posts =
+            await this.projectionService.findPostsByPublicIds(postIds);
         } catch (error) {
           this.requeueEntries(chunk);
           logger.warn("[trending] repository read failed during flush", {
@@ -587,102 +549,35 @@ export class TrendingWorker {
           });
           continue;
         }
-        if (!Array.isArray(posts)) {
-          this.requeueEntries(chunk);
-          throw new TypeError(
-            "Malformed repository result during trending flush",
-          );
-        }
 
-        const cacheUpdates: TrendingCacheUpdate[] = [];
-        const messageIdsToAck: string[] = [];
+        const messageIdsToAck = chunk.flatMap(
+          ([, pendingEntry]) => pendingEntry.messageIds,
+        );
+        let projection: TrendingProjectionBatch;
         try {
-          const postMap = new Map<string, FeedPost>();
-          for (const post of posts) {
-            if (
-              !isRecord(post) ||
-              typeof post.publicId !== "string" ||
-              post.publicId.length === 0
-            ) {
-              throw new TypeError(
-                "Malformed repository post during trending flush",
-              );
-            }
-            postMap.set(post.publicId, post);
-          }
-
-          for (const [postId, pendingEntry] of chunk) {
-            messageIdsToAck.push(...pendingEntry.messageIds);
-            const post = postMap.get(postId);
-            if (!post) {
-              logger.warn(
-                `[trending] post ${postId} missing during flush; acknowledging pending messages`,
-              );
-              continue;
-            }
-
-            const {
-              ageDays,
-              comments,
-              commentsScore,
-              likes,
-              popularityScore,
-              recencyScore,
-              score,
-              views,
-            } = this.calculateTrendingScore(post);
-
-            logger.debug(
-              `[trending] ${postId}: likes=${likes}, comments=${comments}, age=${ageDays.toFixed(1)}d, ` +
-                `recency=${recencyScore.toFixed(3)}, popularity=${popularityScore.toFixed(3)}, score=${score.toFixed(3)}`,
-            );
-
-            cacheUpdates.push({
-              comments,
-              likes,
-              postId,
-              score,
-              views,
-            });
-          }
-        } catch (error) {
-          this.requeueEntries(chunk);
-          throw error;
-        }
-
-        let updates: Promise<unknown>[];
-        try {
-          updates = cacheUpdates.flatMap(
-            ({ comments, likes, postId, score, views }) => [
-              this.redisService.updateTrendingScore(
-                postId,
-                score,
-                "trending:posts",
-              ),
-              this.redisService.setWithTags(
-                `post_meta:${postId}`,
-                {
-                  likes,
-                  commentsCount: comments,
-                  viewsCount: views,
-                  lastUpdated: Date.now(),
-                },
-                [
-                  `post_meta:${postId}`,
-                  `post_likes:${postId}`,
-                  `post_comments:${postId}`,
-                ],
-                300,
-              ),
-            ],
+          projection = this.projectionService.preparePendingUpdates(
+            posts,
+            postIds,
           );
         } catch (error) {
           this.requeueEntries(chunk);
           throw error;
         }
 
+        for (const postId of projection.missingPostIds) {
+          logger.warn(
+            `[trending] post ${postId} missing during flush; acknowledging pending messages`,
+          );
+        }
+        for (const update of projection.updates) {
+          logger.debug(
+            `[trending] ${update.postId}: likes=${update.likes}, comments=${update.comments}, age=${update.ageDays.toFixed(1)}d, ` +
+              `recency=${update.recencyScore.toFixed(3)}, popularity=${update.popularityScore.toFixed(3)}, score=${update.score.toFixed(3)}`,
+          );
+        }
+
         try {
-          await Promise.all(updates);
+          await this.projectionService.writeUpdates(projection.updates);
         } catch (error) {
           this.requeueEntries(chunk);
           logger.warn("[trending] Redis cache write failed during flush", {
@@ -693,10 +588,9 @@ export class TrendingWorker {
 
         if (messageIdsToAck.length > 0) {
           try {
-            await this.redisService.ackStreamMessages(
-              this.STREAM,
-              this.GROUP,
-              ...messageIdsToAck,
+            await this.streamConsumer.acknowledge(
+              this.getStreamConfig(),
+              messageIdsToAck,
             );
           } catch (error) {
             this.requeueEntries(chunk);
@@ -714,13 +608,10 @@ export class TrendingWorker {
 
   /** reclaim messages that are pending (XPENDING) and idle for > RECLAIM_MIN_IDLE_MS using helpers */
   private async reclaimStalledMessages(): Promise<void> {
-    let pendingSummary: XPendingRangeEntry[];
+    let toClaim: string[];
     try {
-      pendingSummary = await this.redisService.xPendingRange(
-        this.STREAM,
-        this.GROUP,
-        "-",
-        "+",
+      toClaim = await this.streamConsumer.findReclaimableMessageIds(
+        this.getStreamConfig(),
         1000,
       );
     } catch (err) {
@@ -736,35 +627,12 @@ export class TrendingWorker {
       return;
     }
 
-    if (!Array.isArray(pendingSummary)) {
-      throw new TypeError("Malformed XPENDING response");
-    }
-    if (pendingSummary.length === 0) return;
-
-    const toClaim: string[] = [];
-    for (const item of pendingSummary) {
-      if (
-        !isRecord(item) ||
-        typeof item.id !== "string" ||
-        typeof item.millisecondsSinceLastDelivery !== "number" ||
-        !Number.isFinite(item.millisecondsSinceLastDelivery)
-      ) {
-        throw new TypeError("Malformed XPENDING entry");
-      }
-      if (item.millisecondsSinceLastDelivery >= this.RECLAIM_MIN_IDLE_MS) {
-        toClaim.push(item.id);
-      }
-    }
-
     if (toClaim.length === 0) return;
 
-    let claimResult: XClaimReply;
+    let claimed: TrendingStreamMessage[];
     try {
-      claimResult = await this.redisService.xClaim(
-        this.STREAM,
-        this.GROUP,
-        this.CONSUMER,
-        this.RECLAIM_MIN_IDLE_MS,
+      claimed = await this.streamConsumer.claim(
+        this.getStreamConfig(),
         toClaim,
       );
     } catch (err) {
@@ -780,21 +648,9 @@ export class TrendingWorker {
       return;
     }
 
-    if (!Array.isArray(claimResult)) {
-      throw new TypeError("Malformed XCLAIM response");
-    }
-    const claimed = claimResult.filter(
-      (message): message is XClaimEntry => message !== null,
-    );
-
     for (const message of claimed) {
-      const messageId = isRecord(message) ? message.id : undefined;
-      const messageFields = isRecord(message) ? message.message : undefined;
-      if (typeof messageId !== "string" || !isStringRecord(messageFields)) {
-        throw new TypeError("Malformed XCLAIM entry");
-      }
       try {
-        await this.handleStreamMessage(messageId, messageFields);
+        await this.handleStreamMessage(message.id, message.fields);
       } catch (err) {
         if (this.stopping && isExpectedRedisClientShutdownError(err)) {
           return;
@@ -839,37 +695,11 @@ export class TrendingWorker {
       return;
     }
 
-    const cacheUpdates: TrendingCacheUpdate[] = [];
-
-    for (const post of result.data) {
-      const { comments, likes, score, views } =
-        this.calculateTrendingScore(post);
-      const postId = post.publicId;
-      cacheUpdates.push({ comments, likes, postId, score, views });
-    }
-
-    const updates = cacheUpdates.flatMap(
-      ({ comments, likes, postId, score, views }) => [
-        this.redisService.updateTrendingScore(postId, score, "trending:posts"),
-        this.redisService.setWithTags(
-          `post_meta:${postId}`,
-          {
-            likes,
-            commentsCount: comments,
-            viewsCount: views,
-            lastUpdated: Date.now(),
-          },
-          [
-            `post_meta:${postId}`,
-            `post_likes:${postId}`,
-            `post_comments:${postId}`,
-          ],
-          300,
-        ),
-      ],
+    const cacheUpdates = this.projectionService.prepareRefreshUpdates(
+      result.data,
     );
     try {
-      await Promise.all(updates);
+      await this.projectionService.writeUpdates(cacheUpdates);
     } catch (error) {
       logger.warn("[trending] full refresh Redis cache write failed", {
         error,
@@ -881,64 +711,6 @@ export class TrendingWorker {
     logger.info(
       `[trending] full refresh completed: ${result.data.length} posts updated (${dur.toFixed(1)}ms)`,
     );
-  }
-
-  private calculateTrendingScore(post: FeedPost): TrendingScore {
-    if (
-      !isRecord(post) ||
-      typeof post.publicId !== "string" ||
-      post.publicId.length === 0
-    ) {
-      throw new TypeError("Invalid post data for trending score");
-    }
-
-    const likes = post.likes ?? 0;
-    const comments = post.commentsCount ?? 0;
-    const views = post.viewsCount ?? 0;
-    const createdAt = new Date(post.createdAt).getTime();
-    if (
-      typeof likes !== "number" ||
-      !Number.isFinite(likes) ||
-      likes < 0 ||
-      typeof comments !== "number" ||
-      !Number.isFinite(comments) ||
-      comments < 0 ||
-      typeof views !== "number" ||
-      !Number.isFinite(views) ||
-      views < 0 ||
-      !Number.isFinite(createdAt)
-    ) {
-      throw new TypeError("Invalid post data for trending score");
-    }
-
-    const ageDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
-    const recencyScore = 1 / (1 + ageDays);
-    const popularityScore = Math.log(likes + 1);
-    const commentsScore = Math.log(comments + 1);
-    const score =
-      this.WEIGHTS.recency * recencyScore +
-      this.WEIGHTS.popularity * popularityScore +
-      this.WEIGHTS.comments * commentsScore;
-    if (
-      !Number.isFinite(ageDays) ||
-      !Number.isFinite(recencyScore) ||
-      !Number.isFinite(popularityScore) ||
-      !Number.isFinite(commentsScore) ||
-      !Number.isFinite(score)
-    ) {
-      throw new TypeError("Failed to compute trending score");
-    }
-
-    return {
-      ageDays,
-      comments,
-      commentsScore,
-      likes,
-      popularityScore,
-      recencyScore,
-      score,
-      views,
-    };
   }
 
   private async runBackgroundRoot(
@@ -1037,11 +809,4 @@ function isRetryableRedisTransportError(error: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isStringRecord(value: unknown): value is Record<string, string> {
-  return (
-    isRecord(value) &&
-    Object.values(value).every((entry) => typeof entry === "string")
-  );
 }

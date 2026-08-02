@@ -5,7 +5,6 @@ import sinon from "sinon";
 import { Types } from "mongoose";
 import { DeleteUserCommand } from "@/application/commands/users/deleteUser/deleteUser.command";
 import { DeleteUserCommandHandler } from "@/application/commands/users/deleteUser/deleteUser.handler";
-import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { asUserPublicId } from "@/types/branded";
 
 chai.use(chaiAsPromised);
@@ -36,7 +35,6 @@ describe("DeleteUserCommandHandler", () => {
       unitOfWork: {
         executeInTransaction: sinon.stub().callsFake(async (work) => work({})),
       },
-      eventBus: { queueTransactional: sinon.stub().resolves() },
       lifecycle: {
         purgeUser: sinon.stub().resolves({
           deletedPosts: [],
@@ -55,7 +53,6 @@ describe("DeleteUserCommandHandler", () => {
     handler = new DeleteUserCommandHandler(
       mocks.userRead,
       mocks.unitOfWork,
-      mocks.eventBus,
       mocks.lifecycle,
       mocks.audit,
       mocks.userModel,
@@ -65,7 +62,7 @@ describe("DeleteUserCommandHandler", () => {
 
   afterEach(() => sinon.restore());
 
-  it("captures evidence, revokes sessions, purges, and queues deletion", async () => {
+  it("captures evidence, revokes sessions, and purges", async () => {
     await handler.execute(
       new DeleteUserCommand(
         USER_PUBLIC_ID,
@@ -79,10 +76,10 @@ describe("DeleteUserCommandHandler", () => {
     expect(mocks.authSession.revokeAllSessionsForUser.calledWith(USER_PUBLIC_ID))
       .to.equal(true);
     expect(mocks.lifecycle.purgeUser.calledOnce).to.equal(true);
-    expect(mocks.eventBus.queueTransactional.calledOnce).to.equal(true);
-    expect(
-      mocks.eventBus.queueTransactional.firstCall.args[0],
-    ).to.be.instanceOf(UserDeletedEvent);
+    expect(mocks.lifecycle.purgeUser.firstCall.args[1]).to.include({
+      action: "delete",
+      requestedByPublicId: USER_PUBLIC_ID,
+    });
     expect(mocks.audit.capture.calledBefore(mocks.lifecycle.purgeUser)).to.equal(
       true,
     );

@@ -21,6 +21,13 @@ function serviceBlock(compose: string, serviceName: string): string {
 }
 
 describe("production monitoring configuration", () => {
+  it("keeps the monitoring profile enabled during production deployment", () => {
+    const workflow = readRepositoryFile(".github/workflows/deploy.yml");
+
+    expect(workflow).to.include("export COMPOSE_PROFILES=monitoring");
+    expect(workflow).to.not.include('export COMPOSE_PROFILES=""');
+  });
+
   it("keeps Loki and Alloy profile-gated and private", () => {
     const compose = readRepositoryFile("docker-compose-prod.yml");
     const loki = serviceBlock(compose, "loki");

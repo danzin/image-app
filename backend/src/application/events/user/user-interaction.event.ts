@@ -3,7 +3,8 @@ import { IEvent } from "@/application/common/interfaces/event.interface";
 import { EventRegistry } from "@/application/common/events/event-registry";
 
 export class UserInteractedWithPostEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserInteractedWithPost;
+  static readonly type = EventRegistry.domain.UserInteractedWithPost;
+  readonly type = UserInteractedWithPostEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -20,7 +21,8 @@ export class UserInteractedWithPostEvent implements IEvent {
 }
 
 export class UserAvatarChangedEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserAvatarChanged;
+  static readonly type = EventRegistry.domain.UserAvatarChanged;
+  readonly type = UserAvatarChangedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -31,7 +33,8 @@ export class UserAvatarChangedEvent implements IEvent {
 }
 
 export class UserUsernameChangedEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserUsernameChanged;
+  static readonly type = EventRegistry.domain.UserUsernameChanged;
+  readonly type = UserUsernameChangedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -42,7 +45,8 @@ export class UserUsernameChangedEvent implements IEvent {
 }
 
 export class UserCoverChangedEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserCoverChanged;
+  static readonly type = EventRegistry.domain.UserCoverChanged;
+  readonly type = UserCoverChangedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -53,7 +57,8 @@ export class UserCoverChangedEvent implements IEvent {
 }
 
 export class UserDeletedEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserDeleted;
+  static readonly type = EventRegistry.domain.UserDeleted;
+  readonly type = UserDeletedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -67,7 +72,8 @@ export class UserDeletedEvent implements IEvent {
 }
 
 export class UserBannedEvent implements IEvent {
-  readonly type = EventRegistry.domain.UserBanned;
+  static readonly type = EventRegistry.domain.UserBanned;
+  readonly type = UserBannedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
