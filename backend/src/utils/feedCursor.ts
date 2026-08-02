@@ -87,7 +87,7 @@ export interface TrendingNewFeedCursorPayload extends FeedCursorBase {
   order: typeof FEED_CURSOR_ORDER.TRENDING_NEW;
   source: "mongo";
   phase: "new";
-  snapshotId: string;
+  snapshotId?: string;
   createdAt?: string;
   _id?: string;
 }
@@ -299,8 +299,11 @@ function assertFeedCursorPayload(
       assertLiteral(payload.feed, "trending");
       assertLiteral(payload.source, "mongo");
       assertLiteral(payload.phase, "new");
-      assertSnapshotId(payload.snapshotId);
+      assertOptionalSnapshotId(payload.snapshotId);
       assertOptionalAnchor(payload);
+      if (payload.createdAt === undefined && payload.snapshotId === undefined) {
+        throw Errors.validation("Invalid feed cursor continuation state");
+      }
       if (!hasTrendingNewEnvelope) {
         throw Errors.validation("Feed cursor ordering is not supported");
       }

@@ -333,7 +333,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       order: FEED_CURSOR_ORDER.NEW,
       source: "mongo",
       phase: "new",
-      snapshotId: cursor.snapshotId,
+      ...(cursor.snapshotId ? { snapshotId: cursor.snapshotId } : {}),
       ...("createdAt" in cursor && cursor.createdAt
         ? { createdAt: cursor.createdAt, _id: cursor._id }
         : {}),
@@ -351,7 +351,7 @@ export class GetTrendingFeedQueryHandler implements IQueryHandler<
       order: FEED_CURSOR_ORDER.TRENDING_NEW,
       source: "mongo",
       phase: "new",
-      snapshotId: decoded.snapshotId!,
+      ...(decoded.snapshotId ? { snapshotId: decoded.snapshotId } : {}),
       ...(decoded.createdAt
         ? { createdAt: decoded.createdAt, _id: decoded._id }
         : {}),
