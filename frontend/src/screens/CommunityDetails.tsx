@@ -94,6 +94,7 @@ const CommunityDetails: React.FC = () => {
 					{community.isAdmin && (
 						<IconButton
 							onClick={() => setEditModalOpen(true)}
+							aria-label="Edit community"
 							sx={{
 								position: "absolute",
 								right: 16,

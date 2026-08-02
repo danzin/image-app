@@ -6,6 +6,28 @@ import { TOKENS } from "@/types/tokens";
 import { Errors } from "@/utils/errors";
 import { EventRegistry } from "@/application/common/events/event-registry";
 
+const DEFAULT_MAX_OUTBOX_ATTEMPTS = 5;
+const configuredMaxOutboxAttempts = Number(
+  process.env.OUTBOX_MAX_ATTEMPTS,
+);
+
+export const MAX_OUTBOX_RETRIES =
+  Number.isSafeInteger(configuredMaxOutboxAttempts) &&
+  configuredMaxOutboxAttempts > 0
+    ? configuredMaxOutboxAttempts
+    : DEFAULT_MAX_OUTBOX_ATTEMPTS;
+
+export interface OutboxBacklogStats {
+  pendingCount: number;
+  exhaustedCount: number;
+  oldestPendingAt?: Date;
+}
+
+export interface OutboxFailureState {
+  nextAttemptAt?: Date;
+  exhaustedAt?: Date;
+}
+
 @injectable()
 export class OutboxRepository extends BaseRepository<IOutboxEvent> {
   constructor(@inject(TOKENS.Models.Outbox) model: Model<IOutboxEvent>) {
@@ -46,8 +68,17 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
 
   async getUnprocessedEvents(limit: number = 100): Promise<IOutboxEvent[]> {
     try {
+      const now = new Date();
       return await this.model
-        .find({ processed: false, retries: { $lt: 5 } })
+        .find({
+          processed: false,
+          retries: { $lt: MAX_OUTBOX_RETRIES },
+          exhaustedAt: { $exists: false },
+          $or: [
+            { nextAttemptAt: { $exists: false } },
+            { nextAttemptAt: { $lte: now } },
+          ],
+        })
         .sort({ createdAt: 1 })
         .limit(limit)
         .exec();
@@ -67,17 +98,29 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
     try {
       const claimed: IOutboxEvent[] = [];
       const staleBefore = new Date(Date.now() - staleAfterMs);
+      const now = new Date();
 
       while (claimed.length < limit) {
         const nextEvent = await this.model
           .findOneAndUpdate(
             {
               processed: false,
-              retries: { $lt: 5 },
-              $or: [
-                { processing: { $ne: true } },
-                { processingStartedAt: { $exists: false } },
-                { processingStartedAt: { $lt: staleBefore } },
+              retries: { $lt: MAX_OUTBOX_RETRIES },
+              exhaustedAt: { $exists: false },
+              $and: [
+                {
+                  $or: [
+                    { nextAttemptAt: { $exists: false } },
+                    { nextAttemptAt: { $lte: now } },
+                  ],
+                },
+                {
+                  $or: [
+                    { processing: { $ne: true } },
+                    { processingStartedAt: { $exists: false } },
+                    { processingStartedAt: { $lt: staleBefore } },
+                  ],
+                },
               ],
             },
             {
@@ -113,12 +156,70 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
   async countPendingEvents(): Promise<number> {
     try {
       return await this.model
-        .countDocuments({ processed: false, retries: { $lt: 5 } })
+        .countDocuments({
+          processed: false,
+          retries: { $lt: MAX_OUTBOX_RETRIES },
+          exhaustedAt: { $exists: false },
+        })
         .exec();
     } catch (error: unknown) {
       throw Errors.database(
         (error instanceof Error ? error.message : String(error)) ??
           "failed to count pending outbox events",
+      );
+    }
+  }
+
+  async getBacklogStats(): Promise<OutboxBacklogStats> {
+    try {
+      const [result] = await this.model
+        .aggregate<{
+          pending: Array<{ count: number; oldestPendingAt?: Date }>;
+          exhausted: Array<{ count: number }>;
+        }>([
+          { $match: { processed: false } },
+          {
+            $facet: {
+              pending: [
+                {
+                  $match: {
+                    retries: { $lt: MAX_OUTBOX_RETRIES },
+                    exhaustedAt: { $exists: false },
+                  },
+                },
+                {
+                  $group: {
+                    _id: null,
+                    count: { $sum: 1 },
+                    oldestPendingAt: { $min: "$createdAt" },
+                  },
+                },
+              ],
+              exhausted: [
+                {
+                  $match: {
+                    $or: [
+                      { retries: { $gte: MAX_OUTBOX_RETRIES } },
+                      { exhaustedAt: { $exists: true } },
+                    ],
+                  },
+                },
+                { $count: "count" },
+              ],
+            },
+          },
+        ])
+        .exec();
+
+      return {
+        pendingCount: result?.pending[0]?.count ?? 0,
+        exhaustedCount: result?.exhausted[0]?.count ?? 0,
+        oldestPendingAt: result?.pending[0]?.oldestPendingAt,
+      };
+    } catch (error: unknown) {
+      throw Errors.database(
+        (error instanceof Error ? error.message : String(error)) ??
+          "failed to inspect outbox backlog",
       );
     }
   }
@@ -141,6 +242,8 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
               processingOwner: 1,
               processingStartedAt: 1,
               error: 1,
+              nextAttemptAt: 1,
+              exhaustedAt: 1,
             },
           },
         )
@@ -179,15 +282,33 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
     eventId: string,
     errorMessage: string,
     workerId?: string,
+    failureState: OutboxFailureState = {},
   ): Promise<boolean> {
     try {
+      const fieldsToSet: Record<string, unknown> = {
+        error: errorMessage,
+        processing: false,
+      };
+      const fieldsToUnset: Record<string, 1> = {
+        processingOwner: 1,
+        processingStartedAt: 1,
+      };
+
+      if (failureState.exhaustedAt) {
+        fieldsToSet.exhaustedAt = failureState.exhaustedAt;
+        fieldsToUnset.nextAttemptAt = 1;
+      } else if (failureState.nextAttemptAt) {
+        fieldsToSet.nextAttemptAt = failureState.nextAttemptAt;
+        fieldsToUnset.exhaustedAt = 1;
+      }
+
       const result = await this.model
         .updateOne(
           this.buildOwnedFilter(eventId, workerId),
           {
             $inc: { retries: 1 },
-            $set: { error: errorMessage, processing: false },
-            $unset: { processingOwner: 1, processingStartedAt: 1 },
+            $set: fieldsToSet,
+            $unset: fieldsToUnset,
           },
         )
         .exec();
@@ -196,6 +317,43 @@ export class OutboxRepository extends BaseRepository<IOutboxEvent> {
       throw Errors.database(
         (error instanceof Error ? error.message : String(error)) ??
           "failed to mark event as failed",
+      );
+    }
+  }
+
+  async requeueExhaustedEvent(eventId: string): Promise<boolean> {
+    try {
+      const result = await this.model
+        .updateOne(
+          {
+            _id: eventId,
+            processed: false,
+            processing: { $ne: true },
+            $or: [
+              { retries: { $gte: MAX_OUTBOX_RETRIES } },
+              { exhaustedAt: { $exists: true } },
+            ],
+          },
+          {
+            $set: {
+              retries: 0,
+              processing: false,
+            },
+            $unset: {
+              error: 1,
+              exhaustedAt: 1,
+              nextAttemptAt: 1,
+              processingOwner: 1,
+              processingStartedAt: 1,
+            },
+          },
+        )
+        .exec();
+      return result.modifiedCount > 0;
+    } catch (error: unknown) {
+      throw Errors.database(
+        (error instanceof Error ? error.message : String(error)) ??
+          "failed to requeue exhausted outbox event",
       );
     }
   }

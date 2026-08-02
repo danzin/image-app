@@ -4,7 +4,11 @@ import * as fs from "fs";
 import * as path from "path";
 import { pipeline } from "stream/promises";
 import { Readable } from "stream";
-import { IImageStorageService, ImageUploadInput } from "@/types";
+import {
+  IImageStorageService,
+  ImageAssetDeletionResult,
+  ImageUploadInput,
+} from "@/types";
 import { injectable } from "tsyringe";
 import { Errors, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
@@ -78,7 +82,7 @@ export class LocalStorageService implements IImageStorageService {
       logger.info("UserID in local storage service:", { safeUserId });
 
       let userDir = this.safeJoin(this.uploadsDir, safeUserId);
-      let urlPrefix = `/uploads/${safeUserId}`;
+      let urlPrefix = `/api/uploads/${safeUserId}`;
       let publicIdPrefix = safeUserId;
 
       if (folder) {
@@ -90,7 +94,7 @@ export class LocalStorageService implements IImageStorageService {
 
         if (safeFolder) {
           userDir = this.safeJoin(this.uploadsDir, safeFolder);
-          urlPrefix = `/uploads/${safeFolder}`;
+          urlPrefix = `/api/uploads/${safeFolder}`;
           publicIdPrefix = safeFolder;
         }
       }
@@ -118,7 +122,6 @@ export class LocalStorageService implements IImageStorageService {
       const url = `${urlPrefix}/${filename}`;
       return { url, publicId: `${publicIdPrefix}/${filename}` };
     } catch (error) {
-      logger.error("Failed to upload image stream", { error });
       throw wrapError(error, "StorageError");
     }
   }
@@ -139,7 +142,7 @@ export class LocalStorageService implements IImageStorageService {
       logger.info("UserID in local storage service:", { safeUserId });
 
       let userDir = this.safeJoin(this.uploadsDir, safeUserId);
-      let urlPrefix = `/uploads/${safeUserId}`;
+      let urlPrefix = `/api/uploads/${safeUserId}`;
       let publicIdPrefix = safeUserId;
 
       if (folder) {
@@ -155,7 +158,7 @@ export class LocalStorageService implements IImageStorageService {
 
         if (safeFolder) {
           userDir = this.safeJoin(this.uploadsDir, safeFolder);
-          urlPrefix = `/uploads/${safeFolder}`;
+          urlPrefix = `/api/uploads/${safeFolder}`;
           publicIdPrefix = safeFolder;
         }
       }
@@ -176,7 +179,6 @@ export class LocalStorageService implements IImageStorageService {
       // Return composite publicId to enable O(1) deletion later
       return { url, publicId: `${publicIdPrefix}/${filename}` };
     } catch (error) {
-      logger.error("Failed to upload image", { error });
       throw wrapError(error, "StorageError");
     }
   }
@@ -210,7 +212,6 @@ export class LocalStorageService implements IImageStorageService {
         await this.deleteLegacyImage(publicId);
       }
     } catch (error) {
-      logger.error("Error deleting asset", { error });
       throw wrapError(error, "StorageError");
     }
   }
@@ -247,23 +248,19 @@ export class LocalStorageService implements IImageStorageService {
     _requesterPublicId: string,
     ownerPublicId: UserPublicId,
     url: string,
-  ): Promise<{ result: string }> {
-    // parse & decode URL robustly
-    const parsed = (() => {
-      try {
-        return new URL(url, "http://localhost");
-      } catch {
-        return null;
-      }
-    })();
-    if (!parsed) throw Errors.storage("Invalid URL");
-    const pathname = decodeURIComponent(parsed.pathname);
-
-    const publicId = this.extractPublicId(pathname);
-    if (!publicId) throw Errors.storage("Could not extract publicId from URL");
+  ): Promise<ImageAssetDeletionResult> {
+    const publicId = this.extractPublicId(url);
+    if (!publicId) {
+      return { result: "skipped" };
+    }
 
     // validate filename and ownerPublicId
-    const safeFileName = this.validateFileName(publicId);
+    let safeFileName: string;
+    try {
+      safeFileName = this.validateFileName(publicId);
+    } catch {
+      return { result: "skipped" };
+    }
     const safeOwner = this.validateUserId(ownerPublicId);
 
     const assetPath = this.safeJoin(this.uploadsDir, safeOwner, safeFileName);

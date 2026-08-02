@@ -80,7 +80,8 @@ export class ImageDeleteHandler implements IEventHandler<ImageDeletedEvent> {
         await this.userRepository.findUsersFollowing(userPublicId);
       return followers.map((user) => user.publicId);
     } catch (error) {
-      logger.error(`Error getting followers for user ${userPublicId}`, {
+      logger.warn("Failed to load followers for image deletion", {
+        event: "image_deletion.followers.load_failed",
         error,
       });
       return [];

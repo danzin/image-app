@@ -19,7 +19,6 @@ describe("DeleteMessageCommandHandler", () => {
     updateMessage: sinon.SinonStub;
   };
   let unitOfWork: { executeInTransaction: sinon.SinonStub };
-  let eventBus: { queueTransactional: sinon.SinonStub };
   let handler: DeleteMessageCommandHandler;
 
   beforeEach(() => {
@@ -35,15 +34,10 @@ describe("DeleteMessageCommandHandler", () => {
         .stub()
         .callsFake(async (work: () => Promise<void>) => await work()),
     };
-    eventBus = {
-      queueTransactional: sinon.stub().resolves(),
-    };
-
     handler = new DeleteMessageCommandHandler(
       messageRepository as any,
       userRepository as any,
       unitOfWork as any,
-      eventBus as any,
     );
   });
 
@@ -51,11 +45,16 @@ describe("DeleteMessageCommandHandler", () => {
     sinon.restore();
   });
 
-  it("allows deletion when the populated sender only exposes the matching publicId", async () => {
+  it("tombstones legacy attachment messages without scheduling storage deletion", async () => {
     messageRepository.findByPublicId.resolves({
       publicId: messagePublicId,
       sender: { publicId: userPublicId },
-      attachments: [],
+      attachments: [
+        {
+          url: "https://attacker.example/untrusted-resource",
+          publicId: "untrusted-public-id",
+        },
+      ],
       body: "hello",
       status: "sent",
       readBy: [],
@@ -69,7 +68,6 @@ describe("DeleteMessageCommandHandler", () => {
       body: "message deleted by user",
       attachments: [],
     })).to.be.true;
-    expect(eventBus.queueTransactional.called).to.be.false;
   });
 
   it("throws NotFoundError when the message does not exist", async () => {

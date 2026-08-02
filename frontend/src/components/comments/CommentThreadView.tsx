@@ -433,6 +433,7 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
             <IconButton
               size="small"
               onClick={handleMenuClick}
+              aria-label="Comment actions"
               sx={{ ml: "auto", p: 0.5 }}
             >
               <MoreVertIcon fontSize="small" />
@@ -519,7 +520,14 @@ const ThreadCommentItem: React.FC<ThreadCommentItemProps> = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <IconButton size="small" onClick={handleLike} sx={{ p: 0.5 }}>
+            <IconButton
+              size="small"
+              onClick={handleLike}
+              aria-label={
+                comment.isLikedByViewer ? "Unlike comment" : "Like comment"
+              }
+              sx={{ p: 0.5 }}
+            >
               {comment.isLikedByViewer ? (
                 <FavoriteIcon fontSize="small" color="primary" />
               ) : (
@@ -671,7 +679,7 @@ const CommentThreadView: React.FC = () => {
           zIndex: 10,
         }}
       >
-        <IconButton onClick={handleBack} size="small">
+        <IconButton onClick={handleBack} size="small" aria-label="Go back">
           <ArrowBackIcon />
         </IconButton>
         <Typography variant={isMobile ? "subtitle1" : "h6"} fontWeight={700}>

@@ -392,6 +392,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ onPostClick }) => {
 							<IconButton
 								size="small"
 								onClick={handleMenuClick}
+								aria-label="Open account menu"
 								sx={{
 									color: theme.palette.text.primary,
 									"&:hover": {

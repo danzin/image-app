@@ -33,9 +33,10 @@ export class FeedInteractionService {
     targetIdentifier: string,
     tags: string[],
   ): Promise<void> {
-    logger.info(
-      `Running recordInteraction... for ${userPublicId}, actionType: ${actionType}, targetId: ${targetIdentifier}, tags: ${tags}`,
-    );
+    logger.info("Recording feed interaction", {
+      event: "feed.interaction.recording",
+      actionType,
+    });
 
     const user = await this.userReadRepository.findByPublicId(userPublicId);
     if (!user) throw Errors.notFound("User not found");
@@ -102,7 +103,10 @@ export class FeedInteractionService {
       }),
     );
 
-    logger.info("Feed invalidation completed for user interaction");
+    logger.info("Feed invalidation completed for user interaction", {
+      event: "feed.interaction.invalidation.completed",
+      actionType,
+    });
   }
 
   private getScoreIncrementForAction(actionType: "like" | "unlike"): number {

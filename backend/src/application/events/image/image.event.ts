@@ -7,7 +7,8 @@ import { EventRegistry } from "@/application/common/events/event-registry";
  * This is separate from interaction events because it affects different users
  */
 export class ImageUploadedEvent implements IEvent {
-  readonly type = EventRegistry.domain.ImageUploaded;
+  static readonly type = EventRegistry.domain.ImageUploaded;
+  readonly type = ImageUploadedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -21,7 +22,8 @@ export class ImageUploadedEvent implements IEvent {
  * Fired when an image is deleted
  */
 export class ImageDeletedEvent implements IEvent {
-  readonly type = EventRegistry.domain.ImageDeleted;
+  static readonly type = EventRegistry.domain.ImageDeleted;
+  readonly type = ImageDeletedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(
@@ -35,7 +37,8 @@ export class ImageDeletedEvent implements IEvent {
  * the MongoDB transaction boundary.
  */
 export class ImageAssetCleanupRequestedEvent implements IEvent {
-  readonly type = EventRegistry.domain.ImageAssetCleanupRequested;
+  static readonly type = EventRegistry.domain.ImageAssetCleanupRequested;
+  readonly type = ImageAssetCleanupRequestedEvent.type;
   readonly timestamp: Date = new Date();
 
   constructor(

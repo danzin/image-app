@@ -3,7 +3,7 @@ import {
   Box,
   Typography,
   List,
-  ListItem,
+  ListItemButton,
   ListItemAvatar,
   ListItemText,
   Avatar,
@@ -11,8 +11,8 @@ import {
   alpha,
   useTheme,
   Chip,
-  IconButton,
   Button,
+  Alert,
 } from "@mui/material";
 import {
   Favorite as FavoriteIcon,
@@ -39,6 +39,8 @@ const Notifications: React.FC = () => {
   const {
     notifications,
     isLoading,
+    isError,
+    refetch,
     markAsRead,
     markAllAsRead,
     isMarkingAllAsRead,
@@ -124,7 +126,7 @@ const Notifications: React.FC = () => {
     if (notification.targetId && notification.targetType === "post") {
       navigate(`/posts/${notification.targetId}`);
     } else if (notification.targetId && notification.targetType === "image") {
-      navigate(`/images/${notification.targetId}`);
+      navigate(`/posts/${notification.targetId}`);
     } else if (notification.targetId && notification.targetType === "comment") {
       // for comment replies, navigate to the post containing the comment
       // the targetId should be the post publicId from the backend
@@ -210,7 +212,25 @@ const Notifications: React.FC = () => {
         )}
       </Box>
 
-      {notifications.length === 0 ? (
+      {isError && (
+        <Alert
+          severity="error"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              onClick={() => void refetch()}
+            >
+              Retry
+            </Button>
+          }
+          sx={{ mb: 2 }}
+        >
+          Unable to load notifications.
+        </Alert>
+      )}
+
+      {!isError && notifications.length === 0 ? (
         <Box
           sx={{
             textAlign: "center",
@@ -227,13 +247,14 @@ const Notifications: React.FC = () => {
             When someone interacts with your posts, you'll see it here
           </Typography>
         </Box>
-      ) : (
+      ) : notifications.length > 0 ? (
         <List sx={{ p: 0 }}>
           {notifications.map((notification) => {
             const avatarUrl = buildAvatarUrl(notification.actorAvatar, 40);
 
             return (
-              <ListItem
+              <ListItemButton
+                component="li"
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
                 sx={{
@@ -371,12 +392,14 @@ const Notifications: React.FC = () => {
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   {getActionIcon(notification.actionType)}
                   {notification.isRead && (
-                    <IconButton size="small" sx={{ color: "success.main" }}>
-                      <CheckCircleIcon fontSize="small" />
-                    </IconButton>
+                    <CheckCircleIcon
+                      fontSize="small"
+                      color="success"
+                      titleAccess="Read"
+                    />
                   )}
                 </Box>
-              </ListItem>
+              </ListItemButton>
             );
           })}
 
@@ -393,7 +416,7 @@ const Notifications: React.FC = () => {
           {hasNextPage && !isFetchingNextPage && (
             <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
               <Button
-                onClick={() => fetchNextPage()}
+                onClick={() => void fetchNextPage()}
                 startIcon={<ExpandMoreIcon />}
                 sx={{
                   background:
@@ -426,7 +449,7 @@ const Notifications: React.FC = () => {
             </Typography>
           )}
         </List>
-      )}
+      ) : null}
     </Box>
   );
 };

@@ -3,9 +3,9 @@ import { ICommandHandler } from "@/application/common/interfaces/command-handler
 import { VerifyEmailCommand } from "./VerifyEmailCommand";
 import { Errors } from "@/utils/errors";
 import type {
-  IUserReadRepository,
   IUserWriteRepository,
 } from "@/repositories/interfaces";
+import type { UserAuthenticationLookup } from "@/application/ports/user-authentication-lookup";
 import {
   DTOService,
   AdminUserDTO,
@@ -23,8 +23,8 @@ export class VerifyEmailHandler implements ICommandHandler<
   VerifyEmailResult
 > {
   constructor(
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserAuthenticationLookup)
+    private readonly userReadRepository: UserAuthenticationLookup,
     @inject(TOKENS.Repositories.UserWrite)
     private readonly userWriteRepository: IUserWriteRepository,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,

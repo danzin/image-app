@@ -81,7 +81,9 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 
 			const pipeline: mongoose.PipelineStage[] = [
 				{ $match: { participants: objectId } },
-				{ $sort: { lastMessageAt: -1, updatedAt: -1 } },
+				{ $sort: { lastMessageAt: -1, _id: -1 } },
+				{ $skip: skip },
+				{ $limit: limit },
 				{
 					$lookup: {
 						from: "messages",
@@ -152,8 +154,6 @@ export class ConversationRepository extends BaseRepository<IConversation> {
 						updatedAt: 1,
 					},
 				},
-				{ $skip: skip },
-				{ $limit: limit },
 			];
 
 			const [data, total] = await Promise.all([

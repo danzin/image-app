@@ -324,6 +324,7 @@ const CreatePost: React.FC<CreatePostProps> = ({ onClose, defaultCommunityPublic
 									},
 								}}
 								size="small"
+								aria-label="Remove selected image"
 							>
 								<CloseIcon fontSize="small" />
 							</IconButton>

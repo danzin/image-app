@@ -26,8 +26,8 @@ function getRateLimitClient(): {
     rateLimitClient = createClient({ url: resolveRedisUrl() });
     rateLimitClient.on("error", (error) => {
       logger.error("[RateLimit] Redis client error", {
-        error: error.message,
-        stack: error.stack,
+        event: "rate_limit.redis.client_error",
+        error,
       });
     });
 

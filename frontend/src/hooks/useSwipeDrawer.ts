@@ -30,6 +30,9 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 	const [isOpen, setIsOpen] = useState(false);
 	const [dragOffset, setDragOffset] = useState(0);
 	const [isDragging, setIsDragging] = useState(false);
+	const isOpenRef = useRef(isOpen);
+	const dragOffsetRef = useRef(dragOffset);
+	const isDraggingRef = useRef(isDragging);
 
 	const drawerRef = useRef<HTMLDivElement>(null);
 	const backdropRef = useRef<HTMLDivElement>(null);
@@ -44,23 +47,31 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 		direction: null as "open" | "close" | null,
 	});
 
-	const open = useCallback(() => {
-		setIsOpen(true);
+	const resetDrag = useCallback(() => {
+		dragOffsetRef.current = 0;
+		isDraggingRef.current = false;
 		setDragOffset(0);
 		setIsDragging(false);
 	}, []);
+
+	const open = useCallback(() => {
+		isOpenRef.current = true;
+		setIsOpen(true);
+		resetDrag();
+	}, [resetDrag]);
 
 	const close = useCallback(() => {
+		isOpenRef.current = false;
 		setIsOpen(false);
-		setDragOffset(0);
-		setIsDragging(false);
-	}, []);
+		resetDrag();
+	}, [resetDrag]);
 
 	const toggle = useCallback(() => {
-		setIsOpen((prev) => !prev);
-		setDragOffset(0);
-		setIsDragging(false);
-	}, []);
+		const next = !isOpenRef.current;
+		isOpenRef.current = next;
+		setIsOpen(next);
+		resetDrag();
+	}, [resetDrag]);
 
 	useEffect(() => {
 		const handleTouchStart = (e: TouchEvent) => {
@@ -77,7 +88,7 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 			};
 
 			// determine if we should track this touch
-			if (isOpen) {
+			if (isOpenRef.current) {
 				// when open, track any touch to potentially close
 				touchState.current.isTracking = true;
 				touchState.current.direction = "close";
@@ -96,7 +107,10 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 			const deltaY = touch.clientY - touchState.current.startY;
 
 			// if this is early in the gesture, check if it's more vertical than horizontal
-			if (!isDragging && Math.abs(deltaY) > Math.abs(deltaX) + 10) {
+			if (
+				!isDraggingRef.current &&
+				Math.abs(deltaY) > Math.abs(deltaX) + 10
+			) {
 				// user is scrolling vertically, abort
 				touchState.current.isTracking = false;
 				return;
@@ -109,15 +123,19 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 			if (direction === "open") {
 				// opening: only respond to rightward movement
 				if (deltaX > 10) {
+					isDraggingRef.current = true;
 					setIsDragging(true);
 					const offset = Math.min(DRAWER_WIDTH, Math.max(0, deltaX));
+					dragOffsetRef.current = offset;
 					setDragOffset(offset);
 				}
 			} else if (direction === "close") {
 				// closing: only respond to leftward movement
 				if (deltaX < -10) {
+					isDraggingRef.current = true;
 					setIsDragging(true);
 					const offset = Math.min(0, Math.max(-DRAWER_WIDTH, deltaX));
+					dragOffsetRef.current = offset;
 					setDragOffset(offset);
 				}
 			}
@@ -136,22 +154,22 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 			if (direction === "open") {
 				// check if should open
 				const shouldOpen =
-					(deltaX > minSwipeDistance && isFastSwipe) || dragOffset > DRAWER_WIDTH / 3;
+					(deltaX > minSwipeDistance && isFastSwipe) ||
+					dragOffsetRef.current > DRAWER_WIDTH / 3;
 				if (shouldOpen) {
 					open();
 				} else {
-					setDragOffset(0);
-					setIsDragging(false);
+					resetDrag();
 				}
 			} else if (direction === "close") {
 				// check if should close
 				const shouldClose =
-					(deltaX < -minSwipeDistance && isFastSwipe) || dragOffset < -DRAWER_WIDTH / 3;
+					(deltaX < -minSwipeDistance && isFastSwipe) ||
+					dragOffsetRef.current < -DRAWER_WIDTH / 3;
 				if (shouldClose) {
 					close();
 				} else {
-					setDragOffset(0);
-					setIsDragging(false);
+					resetDrag();
 				}
 			}
 
@@ -159,16 +177,31 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 			touchState.current.direction = null;
 		};
 
+		const handleTouchCancel = () => {
+			touchState.current.isTracking = false;
+			touchState.current.direction = null;
+			resetDrag();
+		};
+
 		document.addEventListener("touchstart", handleTouchStart, { passive: true });
 		document.addEventListener("touchmove", handleTouchMove, { passive: true });
 		document.addEventListener("touchend", handleTouchEnd, { passive: true });
+		document.addEventListener("touchcancel", handleTouchCancel, { passive: true });
 
 		return () => {
 			document.removeEventListener("touchstart", handleTouchStart);
 			document.removeEventListener("touchmove", handleTouchMove);
 			document.removeEventListener("touchend", handleTouchEnd);
+			document.removeEventListener("touchcancel", handleTouchCancel);
 		};
-	}, [isOpen, isDragging, dragOffset, edgeWidth, velocityThreshold, minSwipeDistance, open, close]);
+	}, [
+		edgeWidth,
+		velocityThreshold,
+		minSwipeDistance,
+		open,
+		close,
+		resetDrag,
+	]);
 
 	// handle backdrop click to close
 	useEffect(() => {
@@ -195,9 +228,12 @@ export function useSwipeDrawer(options: SwipeDrawerOptions = {}): SwipeDrawerRet
 
 	// prevent body scroll when open
 	useEffect(() => {
-		document.body.style.overflow = isOpen ? "hidden" : "";
+		if (!isOpen) return;
+
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
 		return () => {
-			document.body.style.overflow = "";
+			document.body.style.overflow = previousOverflow;
 		};
 	}, [isOpen]);
 

@@ -3,13 +3,20 @@ import { expect } from "chai";
 import sinon from "sinon";
 import { EventBus } from "@/application/common/buses/event.bus";
 import { MetricsService } from "@/metrics/metrics.service";
-import { OutboxRepository } from "@/repositories/outbox.repository";
+import {
+  MAX_OUTBOX_RETRIES,
+  OutboxRepository,
+} from "@/repositories/outbox.repository";
 import { OutboxWorker } from "@/workers/outbox.worker";
 import { IEvent } from "@/application/common/interfaces/event.interface";
 import { IEventHandler } from "@/application/common/interfaces/event-handler.interface";
 import { sessionALS } from "@/database/UnitOfWork";
 import { ClientSession } from "mongoose";
-import { runWithRequestContext } from "@/runtime/request-context";
+import {
+  getRequestContext,
+  runWithRequestContext,
+} from "@/runtime/request-context";
+import { errorLogger, logger } from "@/utils/winston";
 
 class TestEvent implements IEvent {
   readonly type = "TestEvent";
@@ -127,8 +134,27 @@ describe("Transactional Outbox Pattern", () => {
   });
 
   describe("OutboxWorker.processOutbox", () => {
+    it("adds retry jitter within a bounded twenty-percent window", () => {
+      const originalBaseDelay = process.env.OUTBOX_RETRY_BASE_DELAY_MS;
+      const originalMaxDelay = process.env.OUTBOX_RETRY_MAX_DELAY_MS;
+      process.env.OUTBOX_RETRY_BASE_DELAY_MS = "5000";
+      process.env.OUTBOX_RETRY_MAX_DELAY_MS = "10000";
+      const random = sandbox.stub(Math, "random");
+      random.onFirstCall().returns(0);
+      random.onSecondCall().returns(1);
+
+      try {
+        expect((outboxWorker as any).retryDelayMs(1)).to.equal(4000);
+        expect((outboxWorker as any).retryDelayMs(1)).to.equal(6000);
+      } finally {
+        restoreEnv("OUTBOX_RETRY_BASE_DELAY_MS", originalBaseDelay);
+        restoreEnv("OUTBOX_RETRY_MAX_DELAY_MS", originalMaxDelay);
+      }
+    });
+
     it("should process unprocessed events and mark them as processed", async () => {
       const handler = new TestEventHandler();
+      const infoLogger = sandbox.stub(logger, "info");
       const handleSpy = sandbox.stub(handler, "handle").resolves();
       eventBus.subscribe(TestEvent, handler);
 
@@ -207,10 +233,23 @@ describe("Transactional Outbox Pattern", () => {
       expect(metricsService.setOutboxPendingCount.secondCall.args[0]).to.equal(
         0,
       );
+      const [, terminalRecord] = infoLogger.lastCall.args as unknown as [
+        string,
+        {
+          event: string;
+        },
+      ];
+      expect(terminalRecord.event).to.equal("outbox.event.processed");
+      expect(terminalRecord).not.to.have.property("breadcrumbs");
     });
 
     it("should mark event as failed if handler throws an error", async () => {
       const handler = new TestEventHandler();
+      const terminalLogger = sandbox.stub(errorLogger, "error");
+      const failureTime = Date.parse("2026-07-30T12:00:00.000Z");
+      sandbox.stub(Date, "now").returns(failureTime);
+      sandbox.stub(Math, "random").returns(0.5);
+      let breadcrumbsAtMark: string[] | undefined;
       const handleSpy = sandbox
         .stub(handler, "handle")
         .rejects(new Error("Handler failed"));
@@ -229,7 +268,12 @@ describe("Transactional Outbox Pattern", () => {
       outboxRepository.countPendingEvents.onFirstCall().resolves(1);
       outboxRepository.countPendingEvents.onSecondCall().resolves(1);
       outboxRepository.claimPendingEvents.resolves(mockEvents as any);
-      outboxRepository.markAsFailed.resolves(true);
+      outboxRepository.markAsFailed.callsFake(async () => {
+        breadcrumbsAtMark = getRequestContext()?.breadcrumbs.map(
+          ({ event }) => event,
+        );
+        return true;
+      });
 
       await (outboxWorker as any).tick();
 
@@ -244,14 +288,241 @@ describe("Transactional Outbox Pattern", () => {
         "Handler failed",
       );
       expect(outboxRepository.markAsFailed.firstCall.args[2]).to.be.a("string");
+      expect(
+        outboxRepository.markAsFailed.firstCall.args[3],
+      ).to.deep.equal({
+        nextAttemptAt: new Date(failureTime + 60_000),
+        exhaustedAt: undefined,
+      });
       expect(metricsService.recordOutboxAttempt.calledOnce).to.be.true;
       expect(metricsService.recordOutboxAttempt.firstCall.args[1]).to.equal(
         "failed",
       );
+      expect(breadcrumbsAtMark).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+      ]);
+      sinon.assert.calledOnce(terminalLogger);
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
+        {
+          breadcrumbs: Array<{ event: string; offsetMs?: number }>;
+        },
+      ];
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+        "worker.outbox.retry.scheduled",
+      ]);
+      expect(
+        terminalRecord.breadcrumbs.every(
+          ({ offsetMs }) => typeof offsetMs === "number",
+        ),
+      ).to.equal(true);
+      expect(terminalRecord).to.have.property("message", "Outbox event failed");
       sandbox.assert.callOrder(
         metricsService.recordOutboxAttempt as any,
         outboxRepository.markAsFailed as any,
       );
+    });
+
+    it("marks exhausted events, updates the metric, and emits replay guidance", async () => {
+      const now = Date.parse("2026-07-30T12:00:00.000Z");
+      const createdAt = new Date(now - 90_000);
+      sandbox.stub(Date, "now").returns(now);
+      sandbox.stub(Math, "random").returns(0.5);
+      const handler = new TestEventHandler();
+      sandbox
+        .stub(handler, "handle")
+        .rejects(new Error("terminal handler failure"));
+      eventBus.subscribe(TestEvent, handler);
+      const exhaustionLog = sandbox.stub(logger, "error");
+      sandbox.stub(errorLogger, "error");
+      (outboxRepository as any).getBacklogStats = sandbox
+        .stub()
+        .onFirstCall()
+        .resolves({
+          pendingCount: 1,
+          exhaustedCount: 0,
+          oldestPendingAt: createdAt,
+        })
+        .onSecondCall()
+        .resolves({
+          pendingCount: 0,
+          exhaustedCount: 1,
+        });
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          createdAt,
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          processedHandlers: [],
+          retries: MAX_OUTBOX_RETRIES - 1,
+          traceId: "trace-1",
+        },
+      ] as any);
+      outboxRepository.markAsFailed.resolves(true);
+
+      await (outboxWorker as any).tick();
+
+      const failureState = outboxRepository.markAsFailed.firstCall.args[3];
+      if (!failureState) {
+        throw new Error("Expected outbox failure state");
+      }
+      expect(failureState.nextAttemptAt).to.equal(undefined);
+      expect(failureState.exhaustedAt).to.be.instanceOf(Date);
+      if (!(failureState.exhaustedAt instanceof Date)) {
+        throw new Error("Expected an exhaustion timestamp");
+      }
+      expect(failureState.exhaustedAt.getTime()).to.equal(now);
+      expect(
+        metricsService.setOutboxBacklogStatus.secondCall.args[0],
+      ).to.equal(1);
+      expect(exhaustionLog.calledOnce).to.equal(true);
+      expect(exhaustionLog.firstCall.args).to.deep.equal([
+        "Outbox event exhausted automatic retries",
+        {
+          event: "worker.outbox.event_exhausted",
+          eventId: "event1",
+          eventType: "TestEvent",
+          retryCount: MAX_OUTBOX_RETRIES,
+          ageMs: 90_000,
+          replayGuidance:
+            "Resolve the underlying failure, then run requeue-outbox-event with this event ID.",
+        },
+      ]);
+    });
+
+    it("records processing.failed for checkpoint ownership failures", async () => {
+      const handler = new TestEventHandler();
+      const terminalLogger = sandbox.stub(errorLogger, "error");
+      sandbox.stub(handler, "handle").resolves();
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.onFirstCall().resolves(1);
+      outboxRepository.countPendingEvents.onSecondCall().resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markHandlerProcessed.resolves(false);
+      outboxRepository.markAsFailed.resolves(true);
+
+      await (outboxWorker as any).tick();
+
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
+        { breadcrumbs: Array<{ event: string }> },
+      ];
+      expect(terminalRecord.breadcrumbs.map(({ event }) => event)).to.include(
+        "worker.outbox.processing.failed",
+      );
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).not.to.include("worker.outbox.handler.failed");
+    });
+
+    it("does not schedule a retry after ownership changes", async () => {
+      const handler = new TestEventHandler();
+      const terminalLogger = sandbox.stub(errorLogger, "error");
+      const warningLogger = sandbox.stub(logger, "warn");
+      sandbox.stub(handler, "handle").rejects(new Error("Handler failed"));
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.onFirstCall().resolves(1);
+      outboxRepository.countPendingEvents.onSecondCall().resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markAsFailed.resolves(false);
+
+      await (outboxWorker as any).tick();
+
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
+        { breadcrumbs: Array<{ event: string }> },
+      ];
+      const warningRecord = (
+        warningLogger.firstCall.args as unknown as [string, { event: string }]
+      )[1];
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).not.to.include("worker.outbox.retry.scheduled");
+      expect(warningRecord).to.deep.include({
+        event: "outbox.event.ownership_lost",
+      });
+    });
+
+    it("markAsFailed throwing preserves both primary and secondary errors", async () => {
+      const handler = new TestEventHandler();
+      const primaryFailure = new Error("Handler failed");
+      const markAsFailedFailure = new Error("markAsFailed failed");
+      const terminalLogger = sandbox.stub(errorLogger, "error");
+      sandbox.stub(handler, "handle").rejects(primaryFailure);
+      eventBus.subscribe(TestEvent, handler);
+
+      outboxRepository.countPendingEvents.resolves(1);
+      outboxRepository.claimPendingEvents.resolves([
+        {
+          _id: "event1",
+          eventType: "TestEvent",
+          payload: { payload: "first" },
+          retries: 0,
+          traceId: "trace-1",
+          processedHandlers: [],
+        },
+      ] as any);
+      outboxRepository.markAsFailed.rejects(markAsFailedFailure);
+
+      await (outboxWorker as any).executeTick();
+
+      sinon.assert.calledOnce(terminalLogger);
+      const [terminalRecord] = terminalLogger.firstCall.args as unknown as [
+        {
+          event: string;
+          error: {
+            name: string;
+            message: string;
+            errors?: Array<{ message: string }>;
+            cause?: { message: string };
+          };
+          breadcrumbs: Array<{ event: string; offsetMs?: number }>;
+        },
+      ];
+      expect(terminalRecord.event).to.equal("worker.polling.tick.failed");
+      expect(terminalRecord.error.name).to.equal("AggregateError");
+      expect(terminalRecord.error.errors?.map(({ message }) => message)).to.deep.equal([
+        "Handler failed",
+        "markAsFailed failed",
+      ]);
+      expect(terminalRecord.error.cause?.message).to.equal("Handler failed");
+      expect(
+        terminalRecord.breadcrumbs.map(({ event }) => event),
+      ).to.deep.equal([
+        "worker.outbox.received",
+        "worker.outbox.handler.enter",
+        "worker.outbox.handler.failed",
+        "worker.outbox.retry.requested",
+        "worker.polling.tick.failed",
+      ]);
+      expect(terminalRecord.breadcrumbs.every(({ offsetMs }) => typeof offsetMs === "number")).to.equal(true);
     });
 
     it("should continue processing later events when an earlier event fails", async () => {
@@ -294,13 +565,10 @@ describe("Transactional Outbox Pattern", () => {
 
       expect(handleSpy.calledTwice).to.be.true;
       expect(
-        outboxRepository.markAsFailed.calledOnceWith(
-          "event1",
-          "first failed",
-        ),
+        outboxRepository.markAsFailed.calledOnceWith("event1", "first failed"),
       ).to.be.true;
-      expect(outboxRepository.markAsProcessed.calledOnceWith("event2"))
-        .to.be.true;
+      expect(outboxRepository.markAsProcessed.calledOnceWith("event2")).to.be
+        .true;
     });
 
     it("should resume from the first unprocessed handler on retry", async () => {
@@ -342,8 +610,16 @@ describe("Transactional Outbox Pattern", () => {
           sinon.match.string,
         ),
       ).to.be.true;
-      expect(outboxRepository.markAsProcessed.calledOnceWith("event1"))
-        .to.be.true;
+      expect(outboxRepository.markAsProcessed.calledOnceWith("event1")).to.be
+        .true;
     });
   });
 });
+
+function restoreEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = value;
+}

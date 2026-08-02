@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { inject, injectable } from "tsyringe";
-import type { IUserReadRepository } from "@/repositories/interfaces";
+import type { UserAuthenticationLookup } from "@/application/ports/user-authentication-lookup";
 import {
   DTOService,
   AdminUserDTO,
@@ -47,8 +47,8 @@ export class AuthService {
    * - wires token logic to server-backed session storage
    */
   constructor(
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.UserAuthenticationLookup)
+    private readonly userReadRepository: UserAuthenticationLookup,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
     @inject(TOKENS.Services.AuthSession)
     private readonly authSessionService: AuthSessionService,

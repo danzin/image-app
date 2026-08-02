@@ -1,8 +1,7 @@
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { GetWhoToFollowQuery } from "./getWhoToFollow.query";
 import { inject, injectable } from "tsyringe";
-import type { IUserReadRepository } from "@/repositories/interfaces";
-import { RedisService } from "@/services/redis.service";
+import type { UserSuggestionsLookup } from "@/application/ports/user-suggestions-lookup";
 import {
   UserActivityService,
   PlatformActivityLevel,
@@ -11,6 +10,7 @@ import { Errors, wrapError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { TOKENS } from "@/types/tokens";
 import { MongoId, asMongoId, asUserPublicId } from "@/types/branded";
+import type { UserSuggestions } from "@/application/ports/user-suggestions";
 
 export interface SuggestedUser {
   publicId: string;
@@ -37,21 +37,21 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<
   GetWhoToFollowResult
 > {
   constructor(
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
-    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+    @inject(TOKENS.Repositories.UserSuggestionsLookup)
+    private readonly userReadRepository: UserSuggestionsLookup,
+    @inject(TOKENS.Services.UserSuggestions)
+    private readonly userSuggestions: UserSuggestions,
     @inject(TOKENS.Services.UserActivity)
     private readonly userActivityService: UserActivityService,
   ) {}
 
   async execute(query: GetWhoToFollowQuery): Promise<GetWhoToFollowResult> {
     try {
-      const cacheKey = `who_to_follow:${query.userPublicId}:limit:${query.limit}`;
-      const tags = ["who_to_follow", `user_suggestions:${query.userPublicId}`];
-
       // try to get from cache
-      const cached =
-        await this.redisService.getWithTags<GetWhoToFollowResult>(cacheKey);
+      const cached = await this.userSuggestions.getCached(
+        query.userPublicId,
+        query.limit,
+      );
       if (cached) {
         logger.info(`[WhoToFollow] Cache hit for user ${query.userPublicId}`);
         return { ...cached, cached: true };
@@ -116,7 +116,12 @@ export class GetWhoToFollowQueryHandler implements IQueryHandler<
         `[WhoToFollow] Caching with TTL: ${this.userActivityService.ttlToHuman(ttl)}`,
       );
 
-      await this.redisService.setWithTags(cacheKey, result, tags, ttl);
+      await this.userSuggestions.setCached(
+        query.userPublicId,
+        query.limit,
+        result,
+        ttl,
+      );
 
       logger.info(
         `[WhoToFollow] Generated ${suggestions.length} suggestions for user ${query.userPublicId}`,

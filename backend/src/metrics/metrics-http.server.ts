@@ -1,4 +1,6 @@
 import { createServer, type Server } from "node:http";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
+import { logger } from "@/utils/winston";
 import type { MetricsService } from "./metrics.service";
 
 export interface MetricsHttpServerOptions {
@@ -38,16 +40,28 @@ export function startMetricsHttpServer(
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Failed to collect metrics\n");
 
-      console.error("Failed to collect Prometheus metrics", error);
+      logger.error("Failed to collect Prometheus metrics", {
+        event: "metrics.collection.failed",
+        operation: "metrics_collection",
+        error,
+      });
     }
   });
 
   server.listen(port, host, () => {
-    console.info(`Metrics server listening on http://${host}:${port}/metrics`);
+    logger.info("Metrics server listening", {
+      event: "metrics.http.started",
+      host,
+      port,
+    });
   });
 
   server.on("error", (error) => {
-    console.error("Metrics HTTP server error", error);
+    logNonHttpTerminalError(error, {
+      message: "Metrics HTTP server error",
+      event: "metrics.http.server_error",
+      operation: "metrics_server",
+    });
   });
 
   return server;

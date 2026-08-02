@@ -10,6 +10,8 @@ import {
   IconButton,
   Tooltip,
   useMediaQuery,
+  Alert,
+  Button,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 
@@ -28,6 +30,24 @@ interface TabPanelProps {
   index: number;
   value: number;
 }
+
+interface FeedLoadErrorProps {
+  onRetry: () => void;
+}
+
+const FeedLoadError: React.FC<FeedLoadErrorProps> = ({ onRetry }) => (
+  <Alert
+    severity="error"
+    action={
+      <Button color="inherit" size="small" onClick={onRetry}>
+        Retry
+      </Button>
+    }
+    sx={{ mx: 2, my: 2 }}
+  >
+    Unable to load this feed.
+  </Alert>
+);
 
 const TabPanel: React.FC<TabPanelProps> = ({
   children,
@@ -72,6 +92,7 @@ const Discovery: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<number>(initialTab);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   // sync tab with URL param when it changes
   useEffect(() => {
@@ -96,6 +117,12 @@ const Discovery: React.FC = () => {
   const forYouFeedQuery = useForYouFeed({
     enabled: isLoggedIn && activeTab === 2,
   });
+  const newPosts =
+    newFeedQuery.data?.pages.flatMap((page) => page.data) ?? [];
+  const trendingPosts =
+    trendingFeedQuery.data?.pages.flatMap((page) => page.data) ?? [];
+  const forYouPosts =
+    forYouFeedQuery.data?.pages.flatMap((page) => page.data) ?? [];
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     if (newValue !== activeTab) {
@@ -107,9 +134,12 @@ const Discovery: React.FC = () => {
   const handleRefreshNewFeed = async () => {
     if (!isLoggedIn || isRefreshing) return;
     setIsRefreshing(true);
+    setRefreshError(null);
     try {
       await newFeedQuery.refreshFeed();
       await newFeedQuery.refetch();
+    } catch {
+      setRefreshError("Unable to refresh the latest feed.");
     } finally {
       setIsRefreshing(false);
     }
@@ -198,11 +228,12 @@ const Discovery: React.FC = () => {
               </Typography>
               {activeTab === 0 && isLoggedIn && (
                 <Tooltip title="Refresh for latest posts">
-                  <IconButton
-                    onClick={handleRefreshNewFeed}
-                    disabled={isRefreshing}
-                    size="small"
-                    sx={{
+                    <IconButton
+                      onClick={handleRefreshNewFeed}
+                      disabled={isRefreshing}
+                      size="small"
+                      aria-label="Refresh latest posts"
+                      sx={{
                       animation: isRefreshing
                         ? "spin 1s linear infinite"
                         : "none",
@@ -300,6 +331,7 @@ const Discovery: React.FC = () => {
                         onClick={handleRefreshNewFeed}
                         disabled={isRefreshing}
                         size="small"
+                        aria-label="Refresh latest posts"
                         sx={{
                           animation: isRefreshing
                             ? "spin 1s linear infinite"
@@ -315,57 +347,79 @@ const Discovery: React.FC = () => {
                     </Tooltip>
                   </Box>
                 )}
-                <Gallery
-                  posts={
-                    newFeedQuery.data?.pages.flatMap((page) => page.data) || []
-                  }
-                  fetchNextPage={newFeedQuery.fetchNextPage}
-                  hasNextPage={!!newFeedQuery.hasNextPage}
-                  isFetchingNext={newFeedQuery.isFetchingNextPage}
-                  isLoadingAll={
-                    newFeedQuery.isLoading || newFeedQuery.isPending
-                  }
-                  isFetchingAll={newFeedQuery.isFetching}
-                />
+                {refreshError && !newFeedQuery.isError && (
+                  <Alert
+                    severity="error"
+                    onClose={() => setRefreshError(null)}
+                    sx={{ mx: 2, my: 2 }}
+                  >
+                    {refreshError}
+                  </Alert>
+                )}
+                {newFeedQuery.isError && (
+                  <FeedLoadError
+                    onRetry={() => void newFeedQuery.refetch()}
+                  />
+                )}
+                {(!newFeedQuery.isError || newPosts.length > 0) && (
+                  <Gallery
+                    posts={newPosts}
+                    fetchNextPage={newFeedQuery.fetchNextPage}
+                    hasNextPage={!!newFeedQuery.hasNextPage}
+                    isFetchingNext={newFeedQuery.isFetchingNextPage}
+                    isLoadingAll={
+                      newFeedQuery.isLoading || newFeedQuery.isPending
+                    }
+                    isFetchingAll={newFeedQuery.isFetching}
+                  />
+                )}
               </Box>
             </TabPanel>
 
             <TabPanel value={activeTab} index={1}>
               <Box>
-                <Gallery
-                  posts={
-                    trendingFeedQuery.data?.pages.flatMap(
-                      (page) => page.data,
-                    ) || []
-                  }
-                  fetchNextPage={trendingFeedQuery.fetchNextPage}
-                  hasNextPage={!!trendingFeedQuery.hasNextPage}
-                  isFetchingNext={trendingFeedQuery.isFetchingNextPage}
-                  isLoadingAll={
-                    trendingFeedQuery.isLoading || trendingFeedQuery.isPending
-                  }
-                  isFetchingAll={trendingFeedQuery.isFetching}
-                />
+                {trendingFeedQuery.isError && (
+                  <FeedLoadError
+                    onRetry={() => void trendingFeedQuery.refetch()}
+                  />
+                )}
+                {(!trendingFeedQuery.isError ||
+                  trendingPosts.length > 0) && (
+                  <Gallery
+                    posts={trendingPosts}
+                    fetchNextPage={trendingFeedQuery.fetchNextPage}
+                    hasNextPage={!!trendingFeedQuery.hasNextPage}
+                    isFetchingNext={trendingFeedQuery.isFetchingNextPage}
+                    isLoadingAll={
+                      trendingFeedQuery.isLoading ||
+                      trendingFeedQuery.isPending
+                    }
+                    isFetchingAll={trendingFeedQuery.isFetching}
+                  />
+                )}
               </Box>
             </TabPanel>
 
             {isLoggedIn && (
               <TabPanel value={activeTab} index={2}>
                 <Box>
-                  <Gallery
-                    posts={
-                      forYouFeedQuery.data?.pages.flatMap(
-                        (page) => page.data,
-                      ) || []
-                    }
-                    fetchNextPage={forYouFeedQuery.fetchNextPage}
-                    hasNextPage={!!forYouFeedQuery.hasNextPage}
-                    isFetchingNext={forYouFeedQuery.isFetchingNextPage}
-                    isLoadingAll={
-                      forYouFeedQuery.isLoading || forYouFeedQuery.isPending
-                    }
-                    isFetchingAll={forYouFeedQuery.isFetching}
-                  />
+                  {forYouFeedQuery.isError && (
+                    <FeedLoadError
+                      onRetry={() => void forYouFeedQuery.refetch()}
+                    />
+                  )}
+                  {(!forYouFeedQuery.isError || forYouPosts.length > 0) && (
+                    <Gallery
+                      posts={forYouPosts}
+                      fetchNextPage={forYouFeedQuery.fetchNextPage}
+                      hasNextPage={!!forYouFeedQuery.hasNextPage}
+                      isFetchingNext={forYouFeedQuery.isFetchingNextPage}
+                      isLoadingAll={
+                        forYouFeedQuery.isLoading || forYouFeedQuery.isPending
+                      }
+                      isFetchingAll={forYouFeedQuery.isFetching}
+                    />
+                  )}
                 </Box>
               </TabPanel>
             )}

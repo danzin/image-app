@@ -42,6 +42,8 @@ export class AvatarUpdateMessageHandler implements IRealtimeMessageHandler {
       "broadcast",
     );
 
-    logger.info(`Real-time avatar update sent for user ${message.userId}`);
+    logger.info("Real-time avatar update sent", {
+      event: "realtime.avatar_update.sent",
+    });
   }
 }

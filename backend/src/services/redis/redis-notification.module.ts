@@ -160,7 +160,7 @@ export class RedisNotificationModule {
     } catch (error) {
       redisLogger.error("getUserNotifications failed", {
         userId,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
       return [];
     }
@@ -215,7 +215,7 @@ export class RedisNotificationModule {
     } catch (error) {
       redisLogger.error("getUnreadNotificationCount failed", {
         userId,
-        error: error instanceof Error ? error.message : String(error),
+        error,
       });
       throw error;
     }

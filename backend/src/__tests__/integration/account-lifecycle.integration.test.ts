@@ -16,8 +16,25 @@ import User from "@/models/user.model";
 import { AccountLifecycleService } from "@/services/lifecycle/account-lifecycle.service";
 import { AccountAuditSnapshotService } from "@/services/lifecycle/account-audit-snapshot.service";
 import { ContentCleanupService } from "@/services/lifecycle/content-cleanup.service";
+import { MongoAccountCommunityCleanupParticipant } from "@/services/lifecycle/account-community-cleanup.participant";
+import { MongoAccountContentCleanupParticipant } from "@/services/lifecycle/account-content-cleanup.participant";
+import { MongoAccountConversationCleanupParticipant } from "@/services/lifecycle/account-conversation-cleanup.participant";
+import { MongoAccountRecordCleanupParticipant } from "@/services/lifecycle/account-record-cleanup.participant";
+import { MongoAccountSocialCleanupParticipant } from "@/services/lifecycle/account-social-cleanup.participant";
 
 const uri = process.env.INTEGRATION_MONGODB_URI;
+
+function createLifecycle(): AccountLifecycleService {
+  const cleanup = new ContentCleanupService(Post);
+  return new AccountLifecycleService(
+    new MongoAccountContentCleanupParticipant(User, cleanup),
+    new MongoAccountSocialCleanupParticipant(User),
+    new MongoAccountConversationCleanupParticipant(User),
+    new MongoAccountCommunityCleanupParticipant(User, cleanup),
+    new MongoAccountRecordCleanupParticipant(User),
+    { enqueue: async () => undefined },
+  );
+}
 
 describe("AccountLifecycleService integration", () => {
   const departingId = new Types.ObjectId();
@@ -258,8 +275,7 @@ describe("AccountLifecycleService integration", () => {
   });
 
   it("purges owned data while preserving tombstones, messages, and view history", async () => {
-    const cleanup = new ContentCleanupService(Post);
-    const lifecycle = new AccountLifecycleService(User, cleanup);
+    const lifecycle = createLifecycle();
     const unitOfWork = new UnitOfWork();
 
     const result = await unitOfWork.executeInTransaction(async () => {
@@ -272,7 +288,11 @@ describe("AccountLifecycleService integration", () => {
           avatar: "",
           cover: "",
         },
-        { action: "delete", reason: "integration test" },
+        {
+          action: "delete",
+          reason: "integration test",
+          requestedByPublicId: departingPublicId,
+        },
       );
     });
 
@@ -343,8 +363,7 @@ describe("AccountLifecycleService integration", () => {
   });
 
   it("keeps only a banned shell and converts its tombstones on later deletion", async () => {
-    const cleanup = new ContentCleanupService(Post);
-    const lifecycle = new AccountLifecycleService(User, cleanup);
+    const lifecycle = createLifecycle();
     const unitOfWork = new UnitOfWork();
 
     await unitOfWork.executeInTransaction(async () => {
@@ -361,6 +380,7 @@ describe("AccountLifecycleService integration", () => {
           action: "ban",
           reason: "integration ban reason",
           bannedBy: survivorId,
+          requestedByPublicId: survivorPublicId,
         },
       );
     });
@@ -414,7 +434,11 @@ describe("AccountLifecycleService integration", () => {
           avatar: "",
           cover: "",
         },
-        { action: "delete", reason: "permanent removal after ban" },
+        {
+          action: "delete",
+          reason: "permanent removal after ban",
+          requestedByPublicId: departingPublicId,
+        },
       );
     });
 

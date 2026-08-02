@@ -1,9 +1,7 @@
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { SearchAllQuery } from "./searchAll.query";
-import type {
-  IPostReadRepository,
-  IUserReadRepository,
-} from "@/repositories/interfaces";
+import type { PostSearchLookup } from "@/application/ports/post-search-lookup";
+import type { UserDirectoryLookup } from "@/application/ports/user-directory-lookup";
 import { TagRepository } from "@/repositories/tag.repository";
 import { CommunityRepository } from "@/repositories/community.repository";
 import { PostDTO } from "@/types";
@@ -28,10 +26,10 @@ export class SearchAllQueryHandler implements IQueryHandler<
   SearchAllResult
 > {
   constructor(
-    @inject(TOKENS.Repositories.PostRead)
-    private readonly postReadRepository: IPostReadRepository,
-    @inject(TOKENS.Repositories.UserRead)
-    private readonly userReadRepository: IUserReadRepository,
+    @inject(TOKENS.Repositories.PostSearchLookup)
+    private readonly postReadRepository: PostSearchLookup,
+    @inject(TOKENS.Repositories.UserDirectoryLookup)
+    private readonly userReadRepository: UserDirectoryLookup,
     @inject(TOKENS.Repositories.Tag)
     private readonly tagRepository: TagRepository,
     @inject(TOKENS.Repositories.Community)

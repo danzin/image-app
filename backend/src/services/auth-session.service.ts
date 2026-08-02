@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { inject, injectable } from "tsyringe";
-import { RedisService } from "@/services/redis.service";
 import { AuthSessionRecord } from "@/types";
+import type { AuthSessionStore } from "@/application/ports/auth-session-store";
 import {
   asSessionId,
   asUserPublicId,
@@ -32,13 +32,14 @@ export interface CreateSessionInput extends SessionContext {
 @injectable()
 export class AuthSessionService {
   /**
-   * Creates a session service bound to Redis
+   * Creates a session service bound to the shared auth-session store
    *
    * - Session lifecycle state must live in shared storage across app instances
-   * - All auth session operations read/write through one Redis-backed service
+   * - All auth session operations use one session capability
    */
   constructor(
-    @inject(TOKENS.Services.Redis) private readonly redisService: RedisService,
+    @inject(TOKENS.Services.AuthSessionStore)
+    private readonly authSessionStore: AuthSessionStore,
   ) {}
 
   /**
@@ -79,7 +80,7 @@ export class AuthSessionService {
       status: "active",
     };
 
-    await this.redisService.saveAuthSession(session, ttlSeconds);
+    await this.authSessionStore.save(session, ttlSeconds);
 
     return session;
   }
@@ -92,7 +93,7 @@ export class AuthSessionService {
    */
   async getSession(sid: string): Promise<AuthSessionRecord | null> {
     if (!SESSION_ID_REGEX.test(sid)) return null;
-    return this.redisService.getAuthSession<AuthSessionRecord>(sid);
+    return this.authSessionStore.get<AuthSessionRecord>(sid);
   }
 
   /**
@@ -109,7 +110,7 @@ export class AuthSessionService {
     const session = await this.getSession(sid);
     if (!session) {
       // If the session key was evicted proactively clear stale membership index entry
-      await this.redisService.removeAuthSessionMembership(publicId, sid);
+      await this.authSessionStore.removeMembership(publicId, sid);
       throw Errors.authentication("Session is invalid or expired");
     }
     if (
@@ -160,7 +161,7 @@ export class AuthSessionService {
 
     let session: unknown;
     try {
-      session = await this.redisService.getAuthSession<unknown>(sid);
+      session = await this.authSessionStore.get<unknown>(sid);
     } catch {
       throw Errors.authentication("Session is invalid or expired");
     }
@@ -189,7 +190,7 @@ export class AuthSessionService {
     const now = Date.now();
     const normalizedTtl = this.normalizeTtlSeconds(ttlSeconds);
     const result =
-      await this.redisService.compareAndRotateAuthSession<AuthSessionRecord>({
+      await this.authSessionStore.compareAndRotate<AuthSessionRecord>({
         sid: current.sid,
         publicId: current.publicId,
         presentedRefreshTokenHash: this.hashRefreshToken(
@@ -243,7 +244,7 @@ export class AuthSessionService {
       throw Errors.authentication("Session is invalid or expired");
     }
 
-    await this.redisService.removeAuthSession(sid, session.publicId);
+    await this.authSessionStore.remove(sid, session.publicId);
   }
 
   async revokeSessionByRefreshToken(refreshToken: string): Promise<void> {
@@ -252,7 +253,7 @@ export class AuthSessionService {
       throw Errors.authentication("Invalid refresh token");
     }
 
-    const outcome = await this.redisService.revokeAuthSessionByRefreshToken({
+    const outcome = await this.authSessionStore.revokeByRefreshToken({
       sid,
       presentedRefreshTokenHash: this.hashRefreshToken(refreshToken),
       now: Date.now(),
@@ -279,17 +280,17 @@ export class AuthSessionService {
    * - Deletes all session keys plus the user index key
    */
   async revokeAllSessionsForUser(publicId: string): Promise<void> {
-    const sessionIds = await this.redisService.getUserAuthSessionIds(publicId);
-    await this.redisService.deleteUserAuthSessions(publicId, sessionIds);
+    const sessionIds = await this.authSessionStore.getUserSessionIds(publicId);
+    await this.authSessionStore.deleteUserSessions(publicId, sessionIds);
   }
 
   async markUserEmailVerified(publicId: string): Promise<void> {
-    const sessionIds = await this.redisService.getUserAuthSessionIds(publicId);
+    const sessionIds = await this.authSessionStore.getUserSessionIds(publicId);
     if (sessionIds.length === 0) return;
 
     const outcomes = await Promise.all(
       sessionIds.map((sid) =>
-        this.redisService.markAuthSessionEmailVerified({ sid, publicId }),
+        this.authSessionStore.markEmailVerified({ sid, publicId }),
       ),
     );
 
@@ -297,7 +298,7 @@ export class AuthSessionService {
       const outcome = outcomes[index];
       const sid = sessionIds[index];
       if (outcome === "missing") {
-        await this.redisService.removeAuthSessionMembership(publicId, sid);
+        await this.authSessionStore.removeMembership(publicId, sid);
       } else if (outcome !== "updated") {
         throw Errors.internal("Session metadata update failed");
       }
@@ -439,14 +440,14 @@ export class AuthSessionService {
       return;
     }
 
-    const outcome = await this.redisService.touchAuthSession({
+    const outcome = await this.authSessionStore.touch({
       sid: session.sid,
       publicId: session.publicId,
       lastSeenAt: now,
     });
     if (outcome === "updated") return;
     if (outcome === "missing") {
-      await this.redisService.removeAuthSessionMembership(
+      await this.authSessionStore.removeMembership(
         session.publicId,
         session.sid,
       );

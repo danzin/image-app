@@ -47,15 +47,11 @@ export class EditMessageCommandHandler implements ICommandHandler<
         "You can only edit your own messages",
       );
 
-      const hasAttachments =
-        message.attachments && message.attachments.length > 0;
-      const allowEmpty = hasAttachments;
-
       let sanitizedBody: string;
       try {
         sanitizedBody = sanitizeTextInput(newBody, {
           maxLength: 5000,
-          allowEmpty,
+          allowEmpty: false,
         });
       } catch (sanitizeError) {
         const errorMsg =

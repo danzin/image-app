@@ -18,18 +18,11 @@ export const sendMessageSchema = z
   .object({
     conversationPublicId: z.string().uuid().optional(),
     recipientPublicId: z.string().uuid().optional(),
-    body: z.string().trim().max(5000).default(""),
-    attachments: z
-      .array(
-        z.object({
-          url: z.string().url(),
-          type: z.string().max(50),
-          mimeType: z.string().max(100).optional(),
-          thumbnailUrl: z.string().url().optional(),
-        }),
-      )
-      .max(5, "Maximum of 5 attachments allowed")
-      .optional(),
+    body: z
+      .string()
+      .trim()
+      .min(1, "Message body is required")
+      .max(5000),
   })
   .strict()
   .transform(sanitizeForMongo)
@@ -53,7 +46,7 @@ export const messageParamsSchema = z
 
 export const editMessageSchema = z
   .object({
-    body: z.string().trim().max(5000),
+    body: z.string().trim().min(1, "Message body is required").max(5000),
   })
   .strict()
   .transform(sanitizeForMongo);

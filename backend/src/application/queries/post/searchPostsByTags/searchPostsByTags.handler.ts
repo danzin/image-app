@@ -1,7 +1,7 @@
 import { inject, injectable } from "tsyringe";
 import { IQueryHandler } from "@/application/common/interfaces/query-handler.interface";
 import { SearchPostsByTagsQuery } from "./searchPostsByTags.query";
-import type { IPostReadRepository } from "@/repositories/interfaces";
+import type { PostSearchLookup } from "@/application/ports/post-search-lookup";
 import { TagService } from "@/services/tag.service";
 import { DTOService } from "@/services/dto.service";
 import { PaginationResult, PostDTO } from "@/types";
@@ -13,8 +13,8 @@ export class SearchPostsByTagsQueryHandler implements IQueryHandler<
   PaginationResult<PostDTO>
 > {
   constructor(
-    @inject(TOKENS.Repositories.PostRead)
-    private readonly postReadRepository: IPostReadRepository,
+    @inject(TOKENS.Repositories.PostSearchLookup)
+    private readonly postReadRepository: PostSearchLookup,
     @inject(TOKENS.Services.Tag) private readonly tagService: TagService,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
   ) {}

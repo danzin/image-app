@@ -17,6 +17,11 @@ type RegisteredEventHandler<TEvent = unknown> = {
   handle: (event: TEvent) => Promise<void>;
 };
 
+type EventClass<TEvent extends IEvent> = {
+  new (...args: any[]): TEvent;
+  readonly type?: TEvent["type"];
+};
+
 @injectable()
 export class EventBus {
   private subscriptions = new Map<string, RegisteredEventHandler[]>();
@@ -34,10 +39,10 @@ export class EventBus {
    * @param handler - The handler responsible for processing the event.
    */
   subscribe<TEvent extends IEvent>(
-    eventType: { new (...args: any[]): TEvent },
+    eventType: EventClass<TEvent>,
     handler: IEventHandler<TEvent>,
   ): void {
-    const eventName = eventType.name;
+    const eventName = this.resolveEventType(eventType);
     const handlers = this.subscriptions.get(eventName) || [];
     handlers.push({
       key: this.resolveHandlerKey(handler),
@@ -51,14 +56,11 @@ export class EventBus {
    * @param event - The event instance to be published.
    */
   async publish<TEvent extends IEvent>(event: TEvent): Promise<void> {
-    const handlers = (this.subscriptions.get(event.constructor.name) ||
+    const handlers = (this.subscriptions.get(event.type) ||
       []) as RegisteredEventHandler<TEvent>[];
 
     await Promise.all(handlers.map((handler) => handler.handle(event)));
-    this.metricsService.recordDomainEventPublished(
-      event.constructor.name,
-      "immediate",
-    );
+    this.metricsService.recordDomainEventPublished(event.type, "immediate");
   }
 
   async publishByType<TEventType extends string>(
@@ -93,28 +95,43 @@ export class EventBus {
       );
     }
     await this.outboxRepository.saveEvent(
-      event.constructor.name,
+      event.type,
       event,
       randomUUID(),
       getCorrelationId(),
     );
     this.metricsService.recordDomainEventPublished(
-      event.constructor.name,
+      event.type,
       "transactional_outbox",
     );
   }
 
   async queueDurable<TEvent extends IEvent>(event: TEvent): Promise<void> {
     await this.outboxRepository.saveEvent(
-      event.constructor.name,
+      event.type,
       event,
       randomUUID(),
       getCorrelationId(),
     );
     this.metricsService.recordDomainEventPublished(
-      event.constructor.name,
+      event.type,
       "durable_outbox",
     );
+  }
+
+  private resolveEventType<TEvent extends IEvent>(
+    eventType: EventClass<TEvent>,
+  ): string {
+    if (typeof eventType.type === "string" && eventType.type.length > 0) {
+      return eventType.type;
+    }
+
+    const constructorName = (eventType as { name?: unknown }).name;
+    if (typeof constructorName === "string" && constructorName.length > 0) {
+      return constructorName;
+    }
+
+    throw new Error("Could not resolve event type for constructor");
   }
 
   private resolveHandlerKey(handler: unknown): string {

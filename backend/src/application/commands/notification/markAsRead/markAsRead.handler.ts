@@ -92,8 +92,8 @@ export class MarkAsReadCommandHandler implements ICommandHandler<
             plain.id ?? plain._id ?? notificationId,
           ),
         };
-        logger.info(`Sending notification_read to user ${userPublicId}:`, {
-          notification: payload,
+        logger.info("Sending notification-read update", {
+          event: "notification.mark_as_read.realtime_sending",
         });
         this.webSocketServer
           .getIO()

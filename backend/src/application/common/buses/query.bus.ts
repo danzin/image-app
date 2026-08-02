@@ -1,6 +1,7 @@
 import { IQueryHandler } from "../interfaces/query-handler.interface";
 import { IQuery } from "../interfaces/query.interface";
 import { Errors } from "@/utils/errors";
+import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 
 type QueryClass<TQuery extends IQuery> = {
 	new (...args: any[]): TQuery;
@@ -45,11 +46,24 @@ export class QueryBus {
 	 */
 	async execute<TResult>(query: IQuery): Promise<TResult> {
 		const handler = this.handlers.get(query.type) as IQueryHandler<IQuery, TResult> | undefined;
+		addRequestContextBreadcrumb("cqrs.query.dispatch", {
+			operation: query.type,
+		});
 
 		if (!handler) {
 			throw Errors.internal(`No handler found for query ${query.type}`);
 		}
 
-		return handler.execute(query);
+		addRequestContextBreadcrumb("cqrs.query.handler.enter", {
+			operation: query.type,
+		});
+		try {
+			return await handler.execute(query);
+		} catch (error) {
+			addRequestContextBreadcrumb("cqrs.query.handler.failed", {
+				operation: query.type,
+			});
+			throw error;
+		}
 	}
 }

@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import { expect } from "chai";
 import sinon from "sinon";
-import { TrendingWorker } from "@/workers/_impl/trending.worker.impl";
+import { createTrendingWorker } from "./trending-worker.test-helper";
 
 describe("TrendingWorker", () => {
   afterEach(() => {
@@ -28,7 +28,7 @@ describe("TrendingWorker", () => {
         },
       ]),
     } as any;
-    const worker = new TrendingWorker({} as any, redisService, postRepo);
+    const worker = createTrendingWorker({} as any, redisService, postRepo);
 
     await (worker as any).handleStreamMessage("1-0", { postId: "post-1" });
 
@@ -65,7 +65,7 @@ describe("TrendingWorker", () => {
         },
       ]),
     } as any;
-    const worker = new TrendingWorker({} as any, redisService, postRepo);
+    const worker = createTrendingWorker({} as any, redisService, postRepo);
 
     await (worker as any).handleStreamMessage("1-0", { postId: "post-1" });
     await (worker as any).flushPending();

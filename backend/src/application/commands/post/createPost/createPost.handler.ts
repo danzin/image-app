@@ -41,6 +41,7 @@ import { PublicId } from "@/utils/value-objects";
 import { TOKENS } from "@/types/tokens";
 
 const MAX_BODY_LENGTH = 300;
+const MAX_POST_MENTIONS = 10;
 
 interface TransactionResult {
   post: IPost;
@@ -93,6 +94,8 @@ export class CreatePostCommandHandler implements ICommandHandler<
       // ── Phase 1: pre-commit work ──────────────────────────────────────────
       const user = await this.validateUser(command.userPublicId);
       const normalizedBody = this.normalizeBody(command.body);
+      this.validateMentionCount(normalizedBody);
+      this.tagService.collectTagNames(normalizedBody, command.tags);
 
       let communityInternalId: Types.ObjectId | null = null;
       if (command.communityPublicId) {
@@ -343,13 +346,9 @@ export class CreatePostCommandHandler implements ICommandHandler<
     post: IPost,
     normalizedBody: string,
   ): Promise<void> {
-    const mentionRegex = /@([a-zA-Z0-9._]+)/g;
-    const mentions = [...normalizedBody.matchAll(mentionRegex)].map(
-      (m) => m[1],
-    );
-    if (mentions.length === 0) return;
+    const uniqueMentions = this.extractUniqueMentions(normalizedBody);
+    if (uniqueMentions.length === 0) return;
 
-    const uniqueMentions = [...new Set(mentions)];
     const mentionedUsers =
       await this.userReadRepository.findUsersByHandles(uniqueMentions);
 
@@ -372,6 +371,26 @@ export class CreatePostCommandHandler implements ICommandHandler<
         }),
       );
     }
+  }
+
+  private validateMentionCount(normalizedBody: string): void {
+    if (this.extractUniqueMentions(normalizedBody).length > MAX_POST_MENTIONS) {
+      throw Errors.validation(
+        `You can mention up to ${MAX_POST_MENTIONS} users.`,
+      );
+    }
+  }
+
+  private extractUniqueMentions(normalizedBody: string): string[] {
+    const uniqueMentions = new Map<string, string>();
+    for (const match of normalizedBody.matchAll(/@([a-zA-Z0-9._]+)/g)) {
+      const handle = match[1];
+      const normalizedHandle = handle.toLowerCase();
+      if (!uniqueMentions.has(normalizedHandle)) {
+        uniqueMentions.set(normalizedHandle, handle);
+      }
+    }
+    return [...uniqueMentions.values()];
   }
 
   private async finalizePost(result: TransactionResult): Promise<PostDTO> {

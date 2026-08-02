@@ -7,6 +7,7 @@ import { TOKENS } from "@/types/tokens";
 import User from "@/models/user.model";
 import { RequestLogModel } from "@/models/requestLog.model";
 import { SystemActor } from "@/utils/actors/SystemActor";
+import { isRequestLogPersistenceEnabled } from "@/config/requestLogConfig";
 
 @injectable()
 export class IpMonitorWorker {
@@ -21,6 +22,13 @@ export class IpMonitorWorker {
     ) {}
 
     start(): void {
+        if (!isRequestLogPersistenceEnabled()) {
+            logger.info("[ip-monitor] Worker disabled because request-log persistence is disabled", {
+                event: "worker.ip_monitor.disabled",
+            });
+            return;
+        }
+
         if (this.running) return;
         this.running = true;
 

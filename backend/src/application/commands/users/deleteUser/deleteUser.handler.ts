@@ -1,13 +1,6 @@
 import { Model, Types } from "mongoose";
 import { inject, injectable } from "tsyringe";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
-import { EventBus } from "@/application/common/buses/event.bus";
-import { ImageAssetCleanupRequestedEvent } from "@/application/events/image/image.event";
-import {
-  PostDeletedEvent,
-  PostLikeCountReconciledEvent,
-} from "@/application/events/post/post.event";
-import { UserDeletedEvent } from "@/application/events/user/user-interaction.event";
 import { verifyPassword } from "@/application/common/policies/password.policy";
 import { UnitOfWork } from "@/database/UnitOfWork";
 import type { IUserReadRepository } from "@/repositories/interfaces/IUserReadRepository";
@@ -15,11 +8,6 @@ import { AccountAuditSnapshotService } from "@/services/lifecycle/account-audit-
 import { AccountLifecycleService } from "@/services/lifecycle/account-lifecycle.service";
 import { AuthSessionService } from "@/services/auth-session.service";
 import { IUser, SecurityAuditActor } from "@/types";
-import {
-  asMongoId,
-  asPostPublicId,
-  asUserPublicId,
-} from "@/types/branded";
 import { TOKENS } from "@/types/tokens";
 import { Errors, wrapError } from "@/utils/errors";
 import { DeleteUserCommand } from "./deleteUser.command";
@@ -34,8 +22,6 @@ export class DeleteUserCommandHandler implements ICommandHandler<
     private readonly userReadRepository: IUserReadRepository,
     @inject(TOKENS.Repositories.UnitOfWork)
     private readonly unitOfWork: UnitOfWork,
-    @inject(TOKENS.CQRS.Handlers.EventBus)
-    private readonly eventBus: EventBus,
     @inject(TOKENS.Services.AccountLifecycle)
     private readonly accountLifecycleService: AccountLifecycleService,
     @inject(TOKENS.Services.AccountAuditSnapshot)
@@ -83,7 +69,7 @@ export class DeleteUserCommandHandler implements ICommandHandler<
           throw Errors.notFound("User");
         }
 
-        const result = await this.accountLifecycleService.purgeUser(
+        await this.accountLifecycleService.purgeUser(
           {
             _id: new Types.ObjectId(currentUser.id),
             publicId: currentUser.publicId,
@@ -92,60 +78,12 @@ export class DeleteUserCommandHandler implements ICommandHandler<
             avatar: currentUser.avatar,
             cover: currentUser.cover,
           },
-          { action: "delete", reason },
-        );
-
-        for (const post of result.deletedPosts) {
-          const authorPublicId = asUserPublicId(
-            post.authorPublicId || currentUser.publicId,
-          );
-          await this.eventBus.queueTransactional(
-            new PostDeletedEvent(
-              asPostPublicId(post.publicId),
-              authorPublicId,
-            ),
-          );
-        }
-
-        for (const asset of result.imageAssets) {
-          await this.eventBus.queueTransactional(
-            new ImageAssetCleanupRequestedEvent(
-              "account-deleted",
-              asset.storagePublicId,
-              asset.url,
+          {
+            action: "delete",
+            reason,
+            requestedByPublicId:
               command.requestedByPublicId ?? currentUser.publicId,
-              asUserPublicId(asset.ownerPublicId || currentUser.publicId),
-            ),
-          );
-        }
-
-        for (const post of result.reconciledPostLikes) {
-          await this.eventBus.queueTransactional(
-            new PostLikeCountReconciledEvent(
-              asPostPublicId(post.postPublicId),
-              post.likesCount,
-            ),
-          );
-        }
-
-        await this.eventBus.queueTransactional(
-          new UserDeletedEvent(
-            currentUser.publicId,
-            asMongoId(currentUser.id),
-            result.followerPublicIds.map((publicId) =>
-              asUserPublicId(publicId),
-            ),
-            result.affectedRelationshipPublicIds.map((publicId) =>
-              asUserPublicId(publicId),
-            ),
-            result.deletedPosts
-              .filter(
-                (post) =>
-                  (post.authorPublicId || currentUser.publicId) ===
-                  currentUser.publicId,
-              )
-              .map((post) => asPostPublicId(post.publicId)),
-          ),
+          },
         );
       });
     } catch (error) {

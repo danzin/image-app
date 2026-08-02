@@ -1,4 +1,10 @@
 import { logger } from "@/utils/winston";
+import {
+  addRequestContextBreadcrumb,
+  runWithRequestContext,
+} from "@/runtime/request-context";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
+import { randomUUID } from "node:crypto";
 import type { IWorker } from "./IWorker";
 
 /**
@@ -65,20 +71,32 @@ export abstract class BasePollingWorker implements IWorker {
   }
 
   private async executeTick(): Promise<void> {
-    try {
-      await this.tick();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      logger.error("Polling worker tick failed", {
-        event: "worker.polling.tick_failed",
-        worker: this.workerName,
-        message,
-        error,
-      });
-    } finally {
+    const operationId = randomUUID();
+    await runWithRequestContext(
+      {
+        correlationId: operationId,
+        requestStartTime: process.hrtime.bigint(),
+      },
+      async () => {
+        try {
+          await this.tick();
+        } catch (error: unknown) {
+          addRequestContextBreadcrumb("worker.polling.tick.failed", {
+            worker: this.workerName,
+          });
+          logNonHttpTerminalError(error, {
+            message: "Polling worker tick failed",
+            event: "worker.polling.tick.failed",
+            operation: "worker.polling.tick",
+            operationId,
+            worker: this.workerName,
+          });
+        }
+      },
+    ).finally(() => {
       if (this.isRunning) {
         this.timer = setTimeout(() => this.schedule(), this.intervalMs);
       }
-    }
+    });
   }
 }

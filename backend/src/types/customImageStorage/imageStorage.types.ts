@@ -25,6 +25,10 @@ export interface ImageUploadResult {
   height?: number;
 }
 
+export interface ImageAssetDeletionResult {
+  result: "ok" | "skipped";
+}
+
 export interface IImageStorageService {
   /**
    * Upload an image from a file path (legacy method).
@@ -47,11 +51,16 @@ export interface IImageStorageService {
   ): Promise<ImageUploadResult>;
 
   deleteImage(publicId: string): Promise<void>;
+  /**
+   * Deletes an asset idempotently.
+   * Callers must provide a valid owner ID. A missing, malformed, or already
+   * absent asset returns "skipped"; provider or filesystem failures reject.
+   */
   deleteAssetByUrl(
     requesterPublicId: string,
     ownerPublicId: UserPublicId,
     url: string,
-  ): Promise<{ result: string }>;
+  ): Promise<ImageAssetDeletionResult>;
   deleteMany(userId: string): Promise<{
     result: "ok" | "error";
     message?: string;

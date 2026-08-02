@@ -69,6 +69,13 @@ workers
   |
   +--> Redis streams / pub-sub / cache updates
   +--> MongoDB reads
+
+monitoring profile
+  |
+  +--> Prometheus scrapes API and worker metrics
+  +--> Alloy collects selected Docker logs
+  +--> Loki stores bounded structured logs
+  +--> Grafana queries Prometheus and Loki
 ```
 
 ### Actual deployment surfaces in this repo
@@ -82,16 +89,19 @@ workers
 | Background workers  | Trending, profile sync, new-feed warming, IP monitor, outbox  | `backend/src/workers/*`                                                                     |
 | Database            | MongoDB replica set required for transactions                 | `docker-compose*.yml`, `mongo-rs-init.sh`                                                   |
 | Cache/broker        | Redis for cache, sessions, streams, pub/sub, rate limiting    | `backend/src/services/redis.service.ts`                                                     |
-| Monitoring          | Prometheus scrapes backend metrics; Grafana visualizes them   | `monitoring/prometheus.yml`, `docker-compose*.yml`                                          |
+| Monitoring          | Prometheus metrics plus Alloy/Loki logs and Grafana views     | `monitoring/*`, `docker-compose-*.yml`                                                       |
 
 ### Important runtime nuance
 
-The two compose files represent **different topologies**, not a clean dev/prod split:
+The repository has three explicit Compose surfaces:
 
-- `docker-compose.yml` uses prebuilt GHCR images, a passworded Redis, and adds a **Caddy** layer in front of the app.
-- `docker-compose-prod.yml` builds backend/frontend locally, exposes Mongo/Redis ports directly, and serves the frontend on port 80 through the frontend container itself.
+- `docker-compose-dev.yml` builds local images, exposes the app on loopback port 8080, runs a Mongo replica set plus passworded Redis, and can add the monitoring profile.
+- `docker-compose.test.yml` contains isolated Mongo/Redis dependencies for the host-run integration harness.
+- `docker-compose-prod.yml` pulls immutable application image tags, runs Caddy as the public edge, keeps monitoring ports on loopback, and separates the API from `backend-worker`.
 
-Also note that `docker-compose.yml` references a `Caddyfile`, but **no `Caddyfile` exists in the repo right now**.
+`Caddyfile` is committed. It terminates TLS with the mounted origin certificate,
+trusts Cloudflare proxy ranges, forwards the client IP, and routes app,
+Prometheus, and Grafana hostnames.
 
 ---
 
@@ -102,17 +112,18 @@ root/
 ├── backend/
 │   ├── src/
 │   │   ├── application/         # CQRS commands, queries, events, handlers
+│   │   │   └── ports/           # narrow application-facing lookup/cache contracts
 │   │   ├── config/              # db, cache, cors, cookie, bloom, rate limit
 │   │   ├── controllers/         # HTTP controllers
 │   │   ├── database/            # UnitOfWork and session propagation
 │   │   ├── di/                  # TSyringe registration and CQRS wiring
 │   │   ├── metrics/             # Prometheus metrics service
-│   │   ├── middleware/          # auth, request logging, admin guards
+│   │   ├── middleware/          # auth, request completion, auditing, admin guards
 │   │   ├── models/              # Mongoose schemas
 │   │   ├── repositories/        # MongoDB data access and aggregations
 │   │   ├── routes/              # Express routers
 │   │   ├── server/              # Express + Socket.IO bootstrap
-│   │   ├── services/            # legacy services and Redis facade
+│   │   ├── services/            # domain services, Redis facade/capabilities, lifecycle participants
 │   │   ├── utils/               # helpers, cache key builders, cursor codec
 │   │   └── workers/             # worker entrypoints and implementations
 │   ├── backend.Dockerfile
@@ -130,10 +141,11 @@ root/
 │   ├── nginx.conf
 │   ├── frontend.Dockerfile
 │   └── package.json
-├── monitoring/
-│   └── prometheus.yml
-├── docker-compose.yml
+├── monitoring/                  # Prometheus, Loki, Alloy, Grafana provisioning
+├── docker-compose-dev.yml
+├── docker-compose.test.yml
 ├── docker-compose-prod.yml
+├── Caddyfile
 └── mongo-rs-init.sh
 ```
 
@@ -173,7 +185,7 @@ Key registration files:
 - `routes.di.ts` - route/controller wiring
 - `handlers.di.ts` - command, query, and event handler registration
 
-This makes the CQRS buses, repositories, services, and routes resolve through a common container.
+This makes the CQRS buses, repositories, services, and routes resolve through a common container. The newer registrations also alias concrete read repositories behind narrow application ports and bind Redis capability adapters separately from the legacy `RedisService` facade.
 
 ### 3. HTTP layer and middleware
 
@@ -187,7 +199,17 @@ Key middleware responsibilities:
 - Prometheus HTTP metrics
 - cookie parsing
 - JSON / urlencoded parsing
-- request logging and request-log persistence
+- one completion listener that builds a normalized request context
+- auth/security audit dispatch, optional high-volume request-log persistence, and throttled user-activity updates
+
+The completion work is split under `middleware/request-logging/`:
+
+- `completed-request-context.ts` owns normalized request metadata
+- `request-audit.ts` dispatches auth activity and security audit commands
+- `request-log-persistence.ts` persists general request logs only when `REQUEST_LOG_PERSISTENCE_ENABLED=true` (the default is off in production)
+- `user-activity-tracker.ts` updates `lastActive`/`lastIp` through a dedicated command and a bounded five-minute throttle
+
+Disabling request-log persistence does not disable auth/security audits. The IP-monitor worker is skipped when request-log persistence is disabled because it has no request-log source to inspect.
 
 Main non-API endpoints:
 
@@ -272,6 +294,8 @@ Important characteristics:
 - many capabilities are split into **read** and **write** interfaces or implementations
 - the container binds these through explicit DI tokens
 - repositories are where most Mongo query logic, aggregation pipelines, and session-aware persistence live
+- application handlers can depend on narrow contracts under `application/ports/*` instead of importing an oversized concrete repository
+- Redis-backed implementations under `services/redis/capabilities/*` expose only auth-session, feed-cache, user-lookup, or user-suggestion behavior needed by a caller
 
 Representative separations:
 
@@ -279,6 +303,8 @@ Representative separations:
 - `UserReadRepository` vs `UserWriteRepository`
 - `FeedReadDao` for aggregation-heavy feed reads
 - `OutboxRepository` for transactional event persistence
+
+The former broad `repositories/user.repository.ts` has been removed; its remaining reads live in `UserReadRepository`, while writes stay in the dedicated write repository. The unused `services/post.service.ts` was also removed rather than kept as a second orchestration path.
 
 Repositories are also coupled to the Unit of Work through session propagation, so transaction-aware writes do not have to pass the Mongo session manually through every call.
 
@@ -304,6 +330,19 @@ Important transaction settings:
 
 This is more than a convenience wrapper. It is the repository's main **consistency boundary**.
 
+### 5.5 Account lifecycle orchestration
+
+`AccountLifecycleService` keeps the transaction and ordering boundary for account deletion and banning, but it no longer contains every Mongo cleanup operation itself. It coordinates injected participants for:
+
+- authored content, reactions, comments, and image-asset discovery
+- follows, notifications, user actions, and relationship counter repair
+- conversation preservation and departed-sender snapshots
+- community ownership transfer or deletion
+- the final user/ban record transition
+- transactional outbox events for cache, realtime, feed, and image cleanup
+
+The participant contracts live in `services/lifecycle/account-lifecycle.ports.ts`. Implementations receive the caller's Mongo session, so extracting responsibilities does not weaken the single-transaction lifecycle boundary.
+
 ### 6. Eventing and the outbox
 
 The backend has **two event dispatch modes**:
@@ -326,9 +365,22 @@ The outbox record stores:
 - `traceId`
 - `processed`
 - `retries`
+- `processingOwner` / `processingStartedAt`
+- `nextAttemptAt` / `exhaustedAt`
+- `processedHandlers`
 - `processedAt`
 
-The outbox worker polls pending events, replays them through `publishByType`, tracks success/failure metrics, and increments retry counts on failure.
+Events now expose a stable explicit `type`; the bus persists and dispatches that value instead of relying on JavaScript constructor names. This keeps the durable contract stable across refactors and minification.
+
+The outbox worker claims work with an owner token, resumes individual handler progress, and records pending/exhausted/oldest-age metrics. Failures use bounded exponential backoff with jitter. After `OUTBOX_MAX_ATTEMPTS` (default 5), the record becomes exhausted and leaves automatic circulation.
+
+After resolving the underlying fault, an operator can requeue a single exhausted record:
+
+```bash
+node backend/dist/scripts/requeue-outbox-event.js <outbox-object-id>
+```
+
+Retry timing is controlled by `OUTBOX_RETRY_BASE_DELAY_MS` and `OUTBOX_RETRY_MAX_DELAY_MS`.
 
 ### 6.5 This is not event sourcing
 
@@ -369,17 +421,21 @@ Workers are long-running background loops over Redis or timed refresh logic.
 
 | Worker                     | What it does                                                                                                   | Main file                                       |
 | -------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| Trending worker            | consumes `stream:interactions`, batches post interaction deltas, recomputes scores, writes trending sorted set | `workers/_impl/trending.worker.impl.ts`         |
+| Trending worker            | owns lifecycle/retry while stream, projection, score policy, and Redis storage are delegated                | `workers/_impl/trending.worker.impl.ts`, `workers/trending/*` |
 | Profile sync worker        | propagates profile snapshot changes into denormalized content                                                  | `workers/_impl/profile-sync.worker.impl.ts`     |
 | New feed warm-cache worker | prewarms first pages of the chronological feed                                                                 | `workers/_impl/newFeedWarmCache.worker.impl.ts` |
 | IP monitor worker          | monitors suspicious IP activity / operational signals                                                          | `workers/_impl/ip-monitor.worker.impl.ts`       |
 | Outbox worker              | dispatches persisted transactional events                                                                      | `workers/outbox.worker.ts`                      |
 
-Important behavioral detail: `main.ts` logs worker startup failures but does **not** crash the API if they fail to start.
+The trending worker is the lifecycle owner: it starts and stops one restartable read loop, batches callbacks, reclaims stalled messages, and records terminal failures. `TrendingStreamConsumer` validates Redis stream replies, `TrendingProjectionService` prepares updates, `trending-score.policy.ts` owns the pure score calculation, and Redis adapters own stream/cache commands.
+
+Important behavioral detail: `main.ts` logs worker startup failures but does **not** crash the API if they fail to start. Dedicated worker mode exposes metrics on port 9464 and production health checks require the outbox worker status metric to be healthy.
 
 ### 9. Redis usage by concern
 
 Redis is not one thing in this repo. It plays several different roles.
+
+Newer consumers depend on focused capability ports rather than the whole Redis facade: `AuthSessionStore`, `FeedCache`, `UserLookup`, `UserSuggestions`, and the trending stream/cache stores. `RedisService` still exists for broader legacy behavior, but the direction is explicit capability ownership rather than one ever-growing dependency.
 
 | Concern                  | Pattern                                  | Example keys / channels                                                 |
 | ------------------------ | ---------------------------------------- | ----------------------------------------------------------------------- |
@@ -484,6 +540,8 @@ Trending can be served through:
 - cursor pagination over computed trend score
 - Redis sorted-set structures maintained by the trending worker
 
+Redis transport failures fall back to the MongoDB cursor path, while application/validation errors still propagate. The worker's score calculation is a pure policy and the projection service owns post validation plus cache-update preparation; stream acknowledgement happens only after projection writes succeed (or after a missing/malformed source item is intentionally handled).
+
 #### Read-time streaming
 
 The feed controller can stream larger feed payloads using `streamCursorResponse` / `streamPaginatedResponse` when the result crosses `STREAM_THRESHOLD`.
@@ -502,7 +560,7 @@ MongoDB aggregations are concentrated mostly in repositories, especially `FeedRe
 | Ranked feed           | computes weighted ranking using recency + popularity + tag overlap                       | `repositories/read/FeedReadDao.ts`        |
 | Trending tags         | unwinds tags, joins `tags`, groups by tag name, computes engagement-weighted trend score | `repositories/read/FeedReadDao.ts`        |
 | Conversations         | joins last message and sender and supports cursor pagination                             | `repositories/conversation.repository.ts` |
-| Who to follow         | multiple aggregation strategies based on traffic level                                   | `repositories/user.repository.ts`         |
+| Who to follow         | multiple aggregation strategies based on traffic level                                   | `repositories/read/UserReadRepository.ts` |
 | Request-log analytics | simple operational aggregation like average response time                                | `repositories/requestLog.repository.ts`   |
 
 #### Feed aggregation strategy details
@@ -549,10 +607,11 @@ This means auth is **not purely stateless JWT auth**. Redis is part of the trust
 
 ### 15. Observability
 
-There are **two separate observability layers**:
+There are **three separate observability layers**:
 
 1. **Operational metrics** via Prometheus
-2. **Product telemetry** via custom frontend events
+2. **Operational logs** via structured stdout, Alloy, Loki, and Grafana
+3. **Product telemetry** via custom frontend events
 
 Operational metrics are exposed from `metrics.service.ts` and include:
 
@@ -560,7 +619,13 @@ Operational metrics are exposed from `metrics.service.ts` and include:
 - worker state / restarts
 - Redis connection state
 - optional-auth failure counts
-- outbox queue size, batch size, and processing duration
+- outbox pending/exhausted counts, oldest age, batch size, and processing duration
+
+The API and each background execution root receive AsyncLocalStorage request context. Correlation IDs, trace IDs, event IDs, and bounded breadcrumbs follow awaited request, event, and worker chains. HTTP failures have one terminal owner at the Express error boundary; worker callbacks, polling roots, process handlers, and other non-HTTP roots use the non-HTTP terminal logger.
+
+Production Winston output is JSON. Error serialization is cycle-safe, depth/breadth/string bounded, and redacts sensitive keys and secret-like text. `SERVICE_NAME` identifies API versus worker logs, while `GIT_SHA`/`RELEASE` identifies the deployed revision.
+
+Alloy discovers containers from the `ascendance-social` Compose project, retains a bounded label set, removes known Mongo/Loki maintenance noise, extracts useful structured metadata, and forwards to Loki. Grafana provisions both Prometheus and Loki plus the focused `ascendance-operational-logs` dashboard. Loki, Alloy, Prometheus, and Grafana host ports are loopback-only in Compose.
 
 Frontend product telemetry is sent to `/api/telemetry`, validated, aggregated in-memory in 5-minute buckets, and exposed to admins through `/api/telemetry/summary`.
 
@@ -743,6 +808,7 @@ Representative pages:
 - post view and comment thread view
 - favorites, messages, notifications, settings
 - admin dashboard and admin user detail
+- a lazy-loaded `NotFound` screen for unmatched routes
 
 ### 3. Auth model on the frontend
 
@@ -756,6 +822,8 @@ Instead:
 - `axiosClient` performs centralized refresh-on-401 logic
 
 Important detail: the axios interceptor also sanitizes some backend error wording before surfacing it to the UI.
+
+Login preserves the requested protected-route destination and returns there after authentication. Password reset and email verification read tokens from the URL fragment and clear it promptly, keeping secrets out of ordinary request targets and browser history state.
 
 ### 4. API layer
 
@@ -787,6 +855,8 @@ Patterns used throughout hooks:
   - `["notifications"]`
   - `["messaging", ...]`
   - feed keys like `["personalizedFeed"]`, `["forYouFeed"]`, `["trendingFeed"]`, `["newFeed"]`
+
+Recent UI hardening adds explicit retry/error states to Discovery, Notifications, and Messages; debounces server-backed Admin and mention searches; and keeps rich-text mentions/links semantic and keyboard-accessible. `MessagesConversationList.tsx` owns conversation-list rendering while `Messages.tsx` retains query and mutation ownership.
 
 ### 6. Socket integration
 
@@ -831,11 +901,13 @@ This is not just CSS shrinking; it is a separate composition path.
 
 ### 8. UI stack
 
-The frontend uses a blended UI approach:
+The frontend uses:
 
-- **MUI** for theme, layout primitives, dialogs, forms, tabs, cards
-- **TailwindCSS** utility support and general styling infrastructure
+- **MUI** for theme, layout primitives, dialogs, forms, tabs, and cards
+- **Emotion**, through MUI, for component styling
 - **Framer Motion** for selected animated interactions
+
+Tailwind is not installed or configured, and the frontend does not use Tailwind utility classes.
 
 The theme lives in `theme/theme.ts` and is currently a dark theme with app-wide MUI overrides.
 
@@ -859,6 +931,8 @@ The theme lives in `theme/theme.ts` and is currently a dark theme with app-wide 
 
 Telemetry is batched client-side and sent with `fetch` or `navigator.sendBeacon`.
 
+Failed `fetch` and rejected beacon deliveries are requeued instead of being silently discarded. The app error boundary reports to browser `reportError` when available and exposes an alert-role fallback. Swipe-drawer listeners remain stable while gesture state lives in refs, and message image previews clean up object URLs and failed media state.
+
 The admin dashboard exposes the aggregated summary via the telemetry tab.
 
 ---
@@ -876,6 +950,7 @@ The admin dashboard exposes the aggregated summary via the telemetry tab.
 - copies compiled output into a production Node image
 - runs as a non-root user
 - exposes port 3000
+- retains generated source maps; production Node entrypoints use `--enable-source-maps`
 
 #### Frontend image
 
@@ -899,11 +974,7 @@ This is why Docker is the easiest way to get a working backend setup.
 
 ### 3. Redis deployment differences
 
-Be aware of environment differences:
-
-- `docker-compose.yml` uses passworded Redis and persistent storage
-- `docker-compose-prod.yml` exposes Redis directly and does not mirror the same auth setup
-- local non-Docker fallback in code uses `redis://127.0.0.1:6379`
+Both development and production Compose use passworded, persistent Redis. Development uses fixed local-only credentials in `docker-compose-dev.yml`; production injects `REDIS_PASSWORD` and pins Redis 7.4 Alpine. The local non-Docker fallback in code remains `redis://127.0.0.1:6379`.
 
 ### 4. Proxying and edge behavior
 
@@ -922,17 +993,20 @@ Be aware of environment differences:
 
 #### Caddy
 
-`docker-compose.yml` adds a Caddy container on ports 80/443, but the referenced `Caddyfile` is currently missing from the repo. If you are debugging the compose topology, treat that as an incomplete edge layer.
+`docker-compose-prod.yml` runs Caddy on ports 80/443 using the committed `Caddyfile` and mounted origin certificates. It trusts Cloudflare proxy ranges, preserves the real client IP, routes the main domain to frontend Nginx, and routes monitoring subdomains to Prometheus and Grafana.
 
 ### 5. Monitoring
 
-Prometheus currently scrapes only:
+The opt-in `monitoring` profile includes:
 
-- `backend:3000/metrics`
+- Prometheus scraping the API, worker metrics endpoint, Redis exporter, cAdvisor, and node exporter
+- Alloy discovering selected Compose containers and forwarding filtered logs
+- Loki retaining the log streams
+- Grafana with provisioned Prometheus/Loki datasources and dashboards
 
-Grafana is wired on top of that.
+Prometheus, Loki, Alloy, and Grafana publish only loopback host ports. Caddy is the intended authenticated/controlled production route for the Prometheus and Grafana subdomains; Loki and Alloy are not public application endpoints.
 
-This means the monitoring stack is currently **backend-centric**. There is no Redis exporter or Mongo exporter configured here.
+The production deploy workflow builds backend/frontend images tagged with the commit SHA, serializes deployments, verifies the SSH host fingerprint, requires the existing `.env` and TLS certificate files, updates the Redis secret atomically, exports `IMAGE_TAG`/`GIT_SHA`, and asserts the running containers use the requested images.
 
 ---
 
@@ -941,10 +1015,12 @@ This means the monitoring stack is currently **backend-centric**. There is no Re
 | Pattern                  | Where it shows up                                       |
 | ------------------------ | ------------------------------------------------------- |
 | Dependency Injection     | TSyringe registrations under `backend/src/di`           |
+| Ports and adapters       | application lookup/cache ports and Redis capabilities   |
 | Repository Pattern       | `backend/src/repositories/*`                            |
 | CQRS                     | `backend/src/application/commands`, `queries`, `events` |
 | Unit of Work             | `backend/src/database/UnitOfWork.ts`                    |
 | Transactional Outbox     | `EventBus.queueTransactional`, outbox worker            |
+| Participant orchestration | account-lifecycle transaction and cleanup participants |
 | Cache-aside              | feed reads, trending tags, who-to-follow                |
 | Fan-out on write         | Redis per-user feed sorted sets                         |
 | Read-time hydration      | core feed + enrichment split                            |
@@ -970,17 +1046,19 @@ Other important conventions:
 - feeds and many other reads are cursor-capable even when legacy page/limit variants still exist
 - Redis caches usually store JSON, not hashes, unless the structure is intentionally list/hash based
 - events can be immediate or transactional; do not assume every event uses the outbox
+- durable events must expose a stable explicit `type`
+- high-volume request-log persistence is optional; auth/security audit persistence is separate
 
 ---
 
 ## Known caveats and mismatches
 
-1. **Docs vs code:** `README.md` still talks about an API gateway, but the current codebase routes through frontend Nginx and, in one compose topology, Caddy.
-2. **Worker duplication risk in local dev:** `backend/src/main.ts` starts in-process workers by default, while the root `npm run dev` script also launches separate worker processes. Unless env flags disable one side, local dev can double-run worker responsibilities.
-3. **Caddy config gap:** `docker-compose.yml` references a `Caddyfile` that is not present.
-4. **Mixed architecture:** some controllers and services still use legacy service-layer orchestration rather than going through command/query handlers.
-5. **Telemetry storage is in-memory:** backend telemetry summaries are not persisted to a long-term analytics store.
-6. **Monitoring is partial:** only backend Prometheus metrics are configured out of the box.
+1. **Mixed architecture remains:** some controllers and services still use legacy service-layer orchestration rather than command/query handlers or narrow ports.
+2. **Redis migration is incremental:** focused capability adapters exist, but the broad `RedisService` still owns several older call paths.
+3. **Request-log persistence is environment-sensitive:** it defaults off in production and disables the IP monitor, while auth/security audits remain enabled.
+4. **Telemetry storage is in-memory:** backend product-telemetry summaries are not persisted to a long-term analytics store.
+5. **Message attachment cleanup is conservative:** unsafe legacy attachment identifiers are not deleted automatically; the handler records a structured warning instead.
+6. **Outbox exhaustion requires operations:** records that reach the retry limit stay exhausted until their cause is fixed and an operator requeues them.
 
 ---
 
@@ -994,18 +1072,20 @@ npm run dev
 npm run build
 npm run build:backend
 npm run build:frontend
-npm run test-backend
-npm run test-integration
-docker-compose up --build
+npm run test:backend
+npm run test:integration
+npm run test:integration:list
+docker compose -f docker-compose-dev.yml up --build
+docker compose -f docker-compose-dev.yml --profile monitoring up --build
 ```
 
 Backend-only:
 
 ```bash
-npm run start-backend
-npm run start-trending-worker
-npm run start-profile-sync-worker
-npm run start-newFeed-worker
+npm run start:backend
+npm run start:trending-worker
+npm run start:profile-sync-worker
+npm run start:newFeed-worker
 ```
 
 ---
@@ -1019,16 +1099,19 @@ If you want to understand the system quickly, read in this order:
 3. `backend/src/server/socketServer.ts`
 4. `backend/src/database/UnitOfWork.ts`
 5. `backend/src/application/common/buses/event.bus.ts`
-6. `backend/src/repositories/read/FeedReadDao.ts`
-7. `backend/src/services/redis.service.ts`
-8. `backend/src/workers/_impl/trending.worker.impl.ts`
-9. `frontend/src/main.tsx`
-10. `frontend/src/App.tsx`
-11. `frontend/src/api/axiosClient.ts`
-12. `frontend/src/components/Layout.tsx`
-13. `frontend/src/hooks/feeds/useFeedSocketIntegration.ts`
-14. `frontend/nginx.conf`
-15. `docker-compose.yml`
-16. `docker-compose-prod.yml`
+6. `backend/src/application/ports/*`
+7. `backend/src/repositories/read/FeedReadDao.ts`
+8. `backend/src/services/lifecycle/account-lifecycle.service.ts`
+9. `backend/src/services/redis.service.ts` and `backend/src/services/redis/capabilities/*`
+10. `backend/src/workers/_impl/trending.worker.impl.ts` and `backend/src/workers/trending/*`
+11. `backend/src/middleware/requestLogger.ts` and `backend/src/middleware/request-logging/*`
+12. `frontend/src/main.tsx`
+13. `frontend/src/App.tsx`
+14. `frontend/src/api/axiosClient.ts`
+15. `frontend/src/components/Layout.tsx`
+16. `frontend/src/hooks/feeds/useFeedSocketIntegration.ts`
+17. `frontend/nginx.conf`
+18. `docker-compose-dev.yml`
+19. `docker-compose-prod.yml`
 
 That path gives you the process model, the request path, the consistency model, the caching model, the real-time model, and the deployment model in roughly the right order.

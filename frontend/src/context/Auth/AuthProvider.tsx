@@ -23,7 +23,7 @@ export default function AuthProvider({ children }: AuthProviderProps) {
 	const logout = useCallback(async () => {
 		try {
 			setError(null);
-			await axiosClient.post("/api/users/logout");
+			await axiosClient.post("/api/users/refresh/logout");
 		} catch {
 			setError("Logout failed");
 		} finally {

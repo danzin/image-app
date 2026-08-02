@@ -14,7 +14,7 @@ import {
   asPopulatedMessage,
 } from "@/utils/messaging-helpers";
 import { sanitizeTextInput } from "@/utils/sanitizers";
-import { IImageStorageService, MessageDTO, toObjectId } from "@/types";
+import { MessageDTO, toObjectId } from "@/types";
 import { inject, injectable } from "tsyringe";
 import mongoose from "mongoose";
 import { TOKENS } from "@/types/tokens";
@@ -22,7 +22,6 @@ import {
   requireUserInternalId,
   resolveParticipantPublicIds,
 } from "@/application/messaging/messaging-support";
-import { logger } from "@/utils/winston";
 
 @injectable()
 export class SendMessageCommandHandler implements ICommandHandler<
@@ -40,54 +39,24 @@ export class SendMessageCommandHandler implements ICommandHandler<
     private readonly unitOfWork: UnitOfWork,
     @inject(TOKENS.Services.DTO) private readonly dtoService: DTOService,
     @inject(TOKENS.CQRS.Handlers.EventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.Services.ImageStorage)
-    private readonly imageStorageService: IImageStorageService,
   ) {}
 
   async execute(command: SendMessageCommand): Promise<MessageDTO> {
-    let uploadedAttachmentPublicId: string | undefined;
-
     try {
       const { senderPublicId, payload, file } = command;
 
-      const hasContent =
-        (payload.body && payload.body.trim().length > 0) ||
-        (payload.attachments && payload.attachments.length > 0) ||
-        !!file;
-
-      if (!hasContent) {
-        throw Errors.validation(
-          "Message must contain either text or an attachment",
-        );
+      if (file || (payload.attachments?.length ?? 0) > 0) {
+        throw Errors.validation("Message attachments are not supported");
       }
-
-      if (file) {
-        if (!file.mimetype.startsWith("image/")) {
-          throw Errors.validation("Only image files are allowed");
-        }
-      }
-
-      const currentAttachmentsCount = payload.attachments
-        ? payload.attachments.length
-        : 0;
-      const newFileCount = file ? 1 : 0;
-      if (currentAttachmentsCount + newFileCount > 5) {
-        throw Errors.validation("Maximum of 5 attachments allowed per message");
-      }
-
-      if (payload.attachments) {
-        for (const attachment of payload.attachments) {
-          if (attachment.type !== "image") {
-            throw Errors.validation("Only image attachments are allowed");
-          }
-        }
+      if (!payload.body?.trim()) {
+        throw Errors.validation("Message body cannot be empty");
       }
 
       let sanitizedBody: string;
       try {
         sanitizedBody = sanitizeTextInput(payload.body, {
           maxLength: 5000,
-          allowEmpty: true,
+          allowEmpty: false,
         });
       } catch (error) {
         const message =
@@ -133,30 +102,6 @@ export class SendMessageCommandHandler implements ICommandHandler<
           this.userReadRepository,
           payload.recipientPublicId,
         );
-      }
-
-      const attachments = [...(payload.attachments || [])];
-      if (file) {
-        const convIdForPath = targetConversation
-          ? targetConversation.publicId
-          : "initial";
-        const uploadPath = `${senderPublicId}/${convIdForPath}`;
-
-        const { url, publicId } = await this.imageStorageService.uploadImageStream(
-          {
-            buffer: file.buffer,
-            originalName: file.originalname,
-            mimeType: file.mimetype,
-          },
-          senderPublicId,
-          uploadPath,
-        );
-        uploadedAttachmentPublicId = publicId;
-        attachments.push({
-          url,
-          type: "image",
-          mimeType: file.mimetype,
-        });
       }
 
       const messageDoc = await this.unitOfWork.executeInTransaction(
@@ -223,10 +168,6 @@ export class SendMessageCommandHandler implements ICommandHandler<
             conversation: new mongoose.Types.ObjectId(conversationId),
             sender: new mongoose.Types.ObjectId(senderInternalId),
             body: sanitizedBody,
-            attachments:
-              Array.isArray(attachments) && attachments.length > 0
-                ? attachments.map((attachment) => ({ ...attachment }))
-                : undefined,
             readBy: [new mongoose.Types.ObjectId(senderInternalId)],
             status: "sent",
           });
@@ -282,7 +223,6 @@ export class SendMessageCommandHandler implements ICommandHandler<
           return message;
         },
       );
-      uploadedAttachmentPublicId = undefined;
 
       if (!targetConversation) {
         throw Errors.internal(
@@ -295,24 +235,9 @@ export class SendMessageCommandHandler implements ICommandHandler<
         targetConversation.publicId,
       );
     } catch (error) {
-      if (uploadedAttachmentPublicId) {
-        await this.deleteUploadedAttachment(uploadedAttachmentPublicId);
-      }
       if (error instanceof Error && error.name === "AppError") throw error;
       throw wrapError(error, "InternalServerError", {
         context: { operation: "sendMessage" },
-      });
-    }
-  }
-
-  private async deleteUploadedAttachment(publicId: string): Promise<void> {
-    try {
-      await this.imageStorageService.deleteImage(publicId);
-    } catch (error) {
-      logger.warn("Failed to delete uploaded message attachment", {
-        event: "messaging.attachment_cleanup_failed",
-        publicId,
-        error,
       });
     }
   }

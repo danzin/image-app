@@ -4,6 +4,7 @@ import { setupContainerCore, registerCQRS, initCQRS } from "@/di/container";
 import { logger } from "@/utils/winston";
 import { IWorker } from "@/workers/base/IWorker";
 import { registerGlobalProcessHandlers } from "@/runtime/process-handlers";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 
 let runtimeInitialized = false;
 
@@ -26,19 +27,21 @@ type WorkerEntrypointOptions<TWorker extends IWorker> = {
   workerName: string;
   resolveWorker: () => TWorker;
   startWorker: (worker: TWorker) => Promise<void>;
+  initializeRuntime?: () => Promise<void>;
 };
 
 export async function runWorkerEntrypoint<TWorker extends IWorker>({
   workerName,
   resolveWorker,
   startWorker,
+  initializeRuntime = initializeBackendRuntime,
 }: WorkerEntrypointOptions<TWorker>): Promise<void> {
   registerGlobalProcessHandlers();
 
   let worker: TWorker | undefined;
 
   try {
-    await initializeBackendRuntime();
+    await initializeRuntime();
     worker = resolveWorker();
     await startWorker(worker);
     logger.info("Worker started", {
@@ -46,10 +49,11 @@ export async function runWorkerEntrypoint<TWorker extends IWorker>({
       worker: workerName,
     });
   } catch (error) {
-    logger.error("Worker failed to start", {
+    logNonHttpTerminalError(error, {
+      message: "Worker failed to start",
       event: "worker.start_failed",
+      operation: "startup",
       worker: workerName,
-      error,
     });
     process.exit(1);
     return;
@@ -71,11 +75,12 @@ export async function runWorkerEntrypoint<TWorker extends IWorker>({
       });
       process.exit(0);
     } catch (error) {
-      logger.error("Worker shutdown failed", {
+      logNonHttpTerminalError(error, {
+        message: "Worker shutdown failed",
         event: "worker.shutdown.failed",
+        operation: "shutdown",
         worker: workerName,
         signal,
-        error,
       });
       process.exit(1);
     }

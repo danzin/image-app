@@ -1,22 +1,9 @@
-import { errorLogger } from "@/utils/winston";
+import { logNonHttpTerminalError } from "@/runtime/non-http-error-logger";
 
 let handlersRegistered = false;
 
 function scheduleFatalExit(): void {
   setImmediate(() => process.exit(1));
-}
-
-function getErrorDetails(error: unknown): { message: string; stack?: string } {
-  if (error instanceof Error) {
-    return {
-      message: error.message,
-      stack: error.stack,
-    };
-  }
-
-  return {
-    message: String(error),
-  };
 }
 
 export function registerGlobalProcessHandlers(): void {
@@ -27,24 +14,19 @@ export function registerGlobalProcessHandlers(): void {
   handlersRegistered = true;
 
   process.on("uncaughtException", (error: Error) => {
-    errorLogger.error({
+    logNonHttpTerminalError(error, {
+      message: "Uncaught exception",
       event: "process.uncaught_exception",
-      type: "UncaughtException",
-      message: error.message,
-      stack: error.stack,
+      operation: "uncaught_exception",
     });
     scheduleFatalExit();
   });
 
-  process.on("unhandledRejection", (reason: unknown, promise: Promise<unknown>) => {
-    const details = getErrorDetails(reason);
-
-    errorLogger.error({
+  process.on("unhandledRejection", (reason: unknown) => {
+    logNonHttpTerminalError(reason, {
+      message: "Unhandled promise rejection",
       event: "process.unhandled_rejection",
-      type: "UnhandledRejection",
-      message: details.message,
-      stack: details.stack,
-      promise: String(promise),
+      operation: "unhandled_rejection",
     });
     scheduleFatalExit();
   });

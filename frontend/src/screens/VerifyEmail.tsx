@@ -1,20 +1,34 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, Link as RouterLink } from "react-router-dom";
+import { useEffect, useLayoutEffect, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import { Box, Button, Container, TextField, Typography, Alert, Link } from "@mui/material";
 import { useVerifyEmail } from "../hooks/user/useVerifyEmail";
 import { useAuth } from "../hooks/context/useAuth";
 
+const readVerificationLink = (): { email: string; token: string } => {
+	const fragment = new URLSearchParams(window.location.hash.slice(1));
+	const query = new URLSearchParams(window.location.search);
+	return {
+		email: fragment.get("email") ?? query.get("email") ?? "",
+		token: fragment.get("token") ?? query.get("token") ?? "",
+	};
+};
+
 const VerifyEmail = () => {
-	const [searchParams] = useSearchParams();
-	const tokenFromUrl = searchParams.get("token") ?? "";
+	const [linkData] = useState(readVerificationLink);
+	const tokenFromUrl = linkData.token;
 	const [token, setToken] = useState(tokenFromUrl);
 	const [autoSubmitted, setAutoSubmitted] = useState(false);
 	const { user } = useAuth();
 
 	const resolvedEmail =
-		user && "email" in user && typeof user.email === "string" ? user.email : (searchParams.get("email") ?? "");
+		user && "email" in user && typeof user.email === "string" ? user.email : linkData.email;
 
 	const { mutate, isPending, isSuccess, error } = useVerifyEmail();
+
+	useLayoutEffect(() => {
+		if (!window.location.search && !window.location.hash) return;
+		window.history.replaceState(window.history.state, document.title, window.location.pathname);
+	}, []);
 
 	useEffect(() => {
 		if (resolvedEmail && tokenFromUrl && !autoSubmitted) {

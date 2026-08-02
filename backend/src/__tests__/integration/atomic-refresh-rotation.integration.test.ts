@@ -4,8 +4,8 @@ import { expect } from "chai";
 import { after, before, beforeEach, describe, it } from "mocha";
 import { createClient, RedisClientType } from "redis";
 import { AuthSessionService } from "@/services/auth-session.service";
-import { RedisService } from "@/services/redis.service";
 import { RedisSessionModule } from "@/services/redis/redis-session.module";
+import type { AuthSessionStore } from "@/application/ports/auth-session-store";
 
 type TestSession = {
   sid: string;
@@ -124,18 +124,21 @@ describe("Atomic refresh-token rotation integration", function () {
     sessions = new RedisSessionModule(client);
     peerSessions = new RedisSessionModule(peerClient);
     authSessions = new AuthSessionService({
-      getAuthSession: sessions.getSession.bind(sessions),
-      saveAuthSession: sessions.saveSession.bind(sessions),
-      compareAndRotateAuthSession:
+      get: sessions.getSession.bind(sessions),
+      save: sessions.saveSession.bind(sessions),
+      compareAndRotate:
         sessions.compareAndRotateSession.bind(sessions),
-      revokeAuthSessionByRefreshToken:
+      revokeByRefreshToken:
         sessions.revokeRefreshSession.bind(sessions),
-      getUserAuthSessionIds: sessions.getUserSessionIds.bind(sessions),
-      markAuthSessionEmailVerified:
+      getUserSessionIds: sessions.getUserSessionIds.bind(sessions),
+      markEmailVerified:
         sessions.markSessionEmailVerified.bind(sessions),
-      removeAuthSessionMembership:
+      removeMembership:
         sessions.removeSessionMembership.bind(sessions),
-    } as unknown as RedisService);
+      remove: sessions.removeSession.bind(sessions),
+      deleteUserSessions: sessions.deleteUserSessions.bind(sessions),
+      touch: sessions.touchSession.bind(sessions),
+    } satisfies AuthSessionStore);
   });
 
   beforeEach(async () => {
