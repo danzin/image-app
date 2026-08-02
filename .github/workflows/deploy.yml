@@ -64,7 +64,6 @@ jobs:
           fingerprint: ${{ secrets.HOST_FINGERPRINT }}
           port: 22
           envs: REDIS_PASSWORD,DEPLOY_SHA
-          script_stop: true
           script: |
             set -eu
 
