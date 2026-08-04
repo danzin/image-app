@@ -192,7 +192,7 @@ services:
       - app-network
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: ghcr.io/google/cadvisor:v0.57.0
     container_name: cadvisor
     restart: unless-stopped
     logging: *default-logging
