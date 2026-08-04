@@ -255,6 +255,7 @@ npm run test:integration:list
 # frontend production build
 npm run build:frontend
 ```
+**Important note: Integration tests use docker-compose-test.yml which creates disposable MongoDB and Redis in an isolated container. It requires docker running**
 
 ## Security And Reliability Notes
 
