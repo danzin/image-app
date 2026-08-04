@@ -225,7 +225,7 @@ npm install
 npm run dev
 ```
 
-**Important note: `npm run dev` requires a running Redis instance on the default 6379 port**
+**Important note: `npm run dev` requires a running Redis instance on the default 6379 port, as well as a valid MONGODB_URI**
 
 What `npm run dev` does now:
 
