@@ -64,7 +64,6 @@ services:
       - app-network
 
     volumes:
-      - ./backend/uploads:/app/uploads
       - ./backend/audit/logs:/app/audit/logs
       - ./backend/audit/archives:/app/audit/archives
 
@@ -358,7 +357,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -q -O - http://localhost:9464/metrics | grep -q 'worker_thread_status{[^}]*worker=\"outbox.worker\"[^}]*} 1$'",
+          'wget -q -O - http://localhost:9464/metrics | grep -q ''worker_thread_status{[^}]*worker="outbox.worker"[^}]*} 1$''',
         ]
       interval: 30s
       timeout: 5s
@@ -373,7 +372,6 @@ services:
       - app-network
 
     volumes:
-      - ./backend/uploads:/app/uploads
       - ./backend/audit/logs:/app/audit/logs
       - ./backend/audit/archives:/app/audit/archives
 
