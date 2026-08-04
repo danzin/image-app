@@ -1,0 +1,419 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+x-backend-local: &backend-local
+  build:
+    context: .
+    dockerfile: backend/backend.Dockerfile
+    provenance: false
+  image: ascendance-backend:local
+name: ascendance-social
+
+services:
+  # --- DATABASE ---
+  mongo-keyfile:
+    image: mongo:latest
+    container_name: mongo-keyfile
+    logging: *default-logging
+    network_mode: none
+    command:
+      - bash
+      - -ec
+      - |
+        if [ ! -s /etc/mongo-keyfile/keyfile ]; then
+          umask 077
+          openssl rand -base64 756 > /etc/mongo-keyfile/keyfile
+        fi
+        chown mongodb:mongodb /etc/mongo-keyfile/keyfile
+        chmod 400 /etc/mongo-keyfile/keyfile
+    volumes:
+      - mongo_keyfile:/etc/mongo-keyfile
+
+  mongo:
+    image: mongo:latest
+    container_name: local-mongo
+    restart: always
+    logging: *default-logging
+    command:
+      [
+        "mongod",
+        "--replSet",
+        "rs0",
+        "--bind_ip_all",
+        "--keyFile",
+        "/etc/mongo-keyfile/keyfile",
+      ]
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-dev}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dev-mongo-password}
+
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+
+    volumes:
+      - mongo_data:/data/db
+      - mongo_keyfile:/etc/mongo-keyfile:ro
+
+    depends_on:
+      mongo-keyfile:
+        condition: service_completed_successfully
+
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --host localhost -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "quit(db.adminCommand({ ping: 1 }).ok ? 0 : 1)"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 12
+
+  mongo-rs-init:
+    image: mongo:latest
+    container_name: mongo-rs-init
+    logging: *default-logging
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-dev}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-dev-mongo-password}
+      MONGO_REPLICA_SET_NAME: rs0
+      MONGO_APP_DATABASE: PhotoAppOOP
+      MONGO_APP_USERNAME: ascendance
+      MONGO_APP_PASSWORD: dev-app-password
+    volumes:
+      - type: bind
+        source: ./mongo-rs-init.sh
+        target: /mongo-rs-init.sh
+        read_only: true
+        bind:
+          create_host_path: false
+    command: ["bash", "/mongo-rs-init.sh"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # --- CACHE ---
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    logging: *default-logging
+    command: redis-server --appendonly yes --requirepass dev-redis-password
+    environment:
+      REDIS_PASSWORD: dev-redis-password
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "sh", "-c", 'redis-cli -a "$$REDIS_PASSWORD" ping']
+      interval: 5s
+      retries: 5
+
+  # --- APP LAYER ---
+  backend:
+    <<: *backend-local
+    container_name: backend
+    restart: always
+    logging: *default-logging
+    environment: &backend-environment
+      ENABLE_WORKERS: "false"
+      NODE_ENV: development
+      GIT_SHA: ${GIT_SHA:-local}
+      SERVICE_NAME: backend
+      PERF_MONGO_COMMAND_METRICS: ${PERF_MONGO_COMMAND_METRICS:-false}
+      GLOBAL_RATE_LIMIT_MAX: ${GLOBAL_RATE_LIMIT_MAX:-1000000}
+      MONGODB_URI: "mongodb://ascendance:dev-app-password@mongo:27017/PhotoAppOOP?authSource=PhotoAppOOP&replicaSet=rs0"
+      REDIS_URL: redis://:dev-redis-password@redis:6379
+      JWT_SECRET: local-development-only-jwt-secret
+      FRONTEND_URL: "http://localhost:${DEV_HTTP_PORT:-8080}"
+      ALLOWED_ORIGINS: "http://localhost:${DEV_HTTP_PORT:-8080},http://127.0.0.1:${DEV_HTTP_PORT:-8080}"
+      COOKIE_SECURE: "false"
+      ALLOW_INSECURE_COOKIES: "true"
+      TRUST_PROXY: "1"
+      REGISTER_IP_MAX: "1000"
+      LOGIN_IP_MAX: "1000"
+      LOGIN_EMAIL_MAX: "1000"
+      VERIFY_EMAIL_IP_MAX: "1000"
+      VERIFY_EMAIL_ADDRESS_MAX: "1000"
+      EMAIL_DELIVERY_MODE: log
+      SECURITY_AUDIT_MONGO_TTL_DAYS: ${SECURITY_AUDIT_MONGO_TTL_DAYS:-90}
+      AUDIT_LOG_DIR: /app/audit/logs
+      AUDIT_ARCHIVE_DIR: /app/audit/archives
+    ports:
+      - "127.0.0.1:${DEV_API_PORT:-8000}:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo-rs-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/audit/logs:/app/audit/logs
+      - ./backend/audit/archives:/app/audit/archives
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      retries: 5
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.12.0
+    container_name: node-exporter
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    pid: host
+
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.processes"
+      - "--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run/credentials/.+|var/lib/docker/.+)($$|/)"
+
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+    expose:
+      - "9100"
+
+    networks:
+      - app-network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["monitoring"]
+    privileged: true
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=10s"
+      - "--allow_dynamic_housekeeping=false"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    expose:
+      - "8080"
+    networks:
+      - app-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: redis-exporter
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["monitoring"]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: dev-redis-password
+    expose:
+      - "9121"
+    networks:
+      - app-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: ascendance-frontend:local
+    container_name: frontend
+    build:
+      context: .
+      dockerfile: frontend/frontend.Dockerfile
+      provenance: false
+      args:
+        VITE_API_URL: ""
+        VITE_SOCKET_URL: ""
+    restart: always
+    logging: *default-logging
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${DEV_HTTP_PORT:-8080}:80"
+    networks:
+      - app-network
+
+  prometheus:
+    image: prom/prometheus:v3.0.0
+    container_name: prometheus
+    restart: always
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+
+    ports:
+      - "127.0.0.1:9090:9090"
+
+    volumes:
+      - type: bind
+        source: ./monitoring/prometheus.yml
+        target: /etc/prometheus/prometheus.yml
+        read_only: true
+        bind:
+          create_host_path: false
+      - prometheus_data:/prometheus
+
+    networks:
+      - app-network
+
+    depends_on:
+      node-exporter:
+        condition: service_started
+      cadvisor:
+        condition: service_started
+      redis-exporter:
+        condition: service_started
+
+    mem_limit: 256m
+
+  loki:
+    image: grafana/loki:3.7.0
+    container_name: loki
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    command:
+      - "-config.file=/etc/loki/loki-config.yml"
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:3100/ready",
+        ]
+    ports:
+      - "127.0.0.1:3100:3100"
+
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+
+    networks:
+      - app-network
+
+    mem_limit: 384m
+
+  alloy:
+    image: grafana/alloy:v1.18.0
+    container_name: alloy
+    restart: unless-stopped
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+
+    ports:
+      - "127.0.0.1:12345:12345"
+
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    networks:
+      - app-network
+
+    depends_on:
+      loki:
+        condition: service_started
+
+    mem_limit: 128m
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: grafana
+    restart: always
+    logging: *default-logging
+    profiles: ["monitoring"]
+
+    ports:
+      - "127.0.0.1:3001:3000"
+
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+
+    networks:
+      - app-network
+
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+
+    mem_limit:
+      256m
+      # Dedicated worker container
+  backend-worker:
+    <<: *backend-local
+    container_name: backend-worker
+    restart: always
+    logging: *default-logging
+    environment:
+      <<: *backend-environment
+      ENABLE_API: "false"
+      ENABLE_WORKERS: "true"
+      SERVICE_NAME: backend-worker
+      METRICS_PORT: "9464"
+    expose:
+      - "9464"
+    depends_on:
+      redis:
+        condition: service_healthy
+      mongo-rs-init:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/audit/logs:/app/audit/logs
+      - ./backend/audit/archives:/app/audit/archives
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongo_data:
+  mongo_keyfile:
+  redis_data:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  alloy_data:

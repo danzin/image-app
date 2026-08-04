@@ -1,0 +1,123 @@
+services:
+  mongodb:
+    # Ideally use the same MongoDB major/minor version as production.
+    image: "${INTEGRATION_MONGO_IMAGE:-mongo:8.0}"
+    restart: "no"
+
+    command:
+      - mongod
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      - --oplogSize
+      - "128"
+
+    ports:
+      - "127.0.0.1:${INTEGRATION_MONGO_PORT:-37017}:27017"
+
+    volumes:
+      - integration-mongo-data:/data/db
+
+    # This only checks whether mongod accepts commands.
+    # It intentionally does not require a replica-set primary yet,
+    # because mongo-rs-init runs afterward.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--host",
+          "127.0.0.1",
+          "--eval",
+          "db.adminCommand({ ping: 1 })",
+        ]
+      interval: 1s
+      timeout: 5s
+      retries: 60
+      start_period: 2s
+
+  redis:
+    # Ideally use the same Redis version as production.
+    image: "${INTEGRATION_REDIS_IMAGE:-redis:7.2-alpine}"
+    restart: "no"
+
+    # Persistence is unnecessary because every test run is disposable.
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+      - --loglevel
+      - warning
+
+    ports:
+      - "127.0.0.1:${INTEGRATION_REDIS_PORT:-36379}:6379"
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
+      start_period: 1s
+
+  # One-shot utility container. It does not stay running.
+  mongo-rs-init:
+    image: "${INTEGRATION_MONGO_IMAGE:-mongo:8.0}"
+    restart: "no"
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+    entrypoint:
+      - mongosh
+      - --quiet
+      - mongodb://mongodb:27017/admin
+      - --eval
+
+    command:
+      - |
+        const config = {
+          _id: "rs0",
+          members: [
+            {
+              _id: 0,
+              host: "mongodb:27017",
+            },
+          ],
+        };
+
+        try {
+          rs.status();
+        } catch (error) {
+          if (error.code !== 94 && error.codeName !== "NotYetInitialized") {
+            throw error;
+          }
+
+          const result = rs.initiate(config);
+
+          if (!result.ok) {
+            throw new Error(
+              "Replica-set initiation failed: " + JSON.stringify(result),
+            );
+          }
+        }
+
+        const deadline = Date.now() + 30000;
+
+        while (!db.hello().isWritablePrimary) {
+          if (Date.now() >= deadline) {
+            throw new Error(
+              "MongoDB replica set did not elect a primary within 30 seconds",
+            );
+          }
+
+          sleep(250);
+        }
+
+        print("MongoDB replica set rs0 is writable");
+
+volumes:
+  integration-mongo-data:
