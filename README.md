@@ -148,13 +148,13 @@ The value here is not "more architecture." The value is demonstrating where that
 
 ## Tech Stack
 
-| Area     | Stack                                                                                        |
-| -------- | -------------------------------------------------------------------------------------------- |
-| Frontend | React, Vite, TypeScript, TanStack Query, Material UI, Emotion, Socket.IO client, i18next   |
-| Backend  | Node.js, Express, TypeScript, TSyringe, Mongoose, Redis, Socket.IO, Zod, Winston             |
-| Testing  | Mocha, Chai, Sinon, Supertest, Cypress                                                       |
-| Infra    | Docker, Docker Compose, Nginx, Caddy, Prometheus, Grafana, Loki, Alloy                       |
-| Storage  | MongoDB, Redis, Cloudinary in production, local uploads in development                       |
+| Area     | Stack                                                                                    |
+| -------- | ---------------------------------------------------------------------------------------- |
+| Frontend | React, Vite, TypeScript, TanStack Query, Material UI, Emotion, Socket.IO client, i18next |
+| Backend  | Node.js, Express, TypeScript, TSyringe, Mongoose, Redis, Socket.IO, Zod, Winston         |
+| Testing  | Mocha, Chai, Sinon, Supertest, Cypress                                                   |
+| Infra    | Docker, Docker Compose, Nginx, Caddy, Prometheus, Grafana, Loki, Alloy                   |
+| Storage  | MongoDB, Redis, Cloudinary in production, local uploads in development                   |
 
 ## Running The Project
 
@@ -224,6 +224,8 @@ Then install dependencies and start the workspace:
 npm install
 npm run dev
 ```
+
+**Important note: `npm run dev` requires a running Redis instance on the default 6379 port**
 
 What `npm run dev` does now:
 
