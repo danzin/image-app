@@ -18708,7 +18708,7 @@
         "definition": "label_values(node_uname_info{job=\"$job\"}, nodename)",
         "hide": 0,
         "includeAll": false,
-        "label": "Nodename",
+        "label": "Host",
         "multi": false,
         "name": "nodename",
         "options": [],
