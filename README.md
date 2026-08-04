@@ -78,6 +78,11 @@ flowchart LR
 
 The production edge is more specific than the runtime view above: Caddy terminates TLS, trusts Cloudflare proxy headers, forwards the real client IP downstream, sends app traffic to the frontend container, and exposes Prometheus and Grafana on separate subdomains.
 
+### Metrics
+This shows part of one Grafana dashboard: 
+<img width="1904" height="941" alt="services_and_node_runtime" src="https://github.com/user-attachments/assets/e16bc869-a566-4d2a-a970-a3e27e9a6c79" />
+
+
 ### Current Runtime Shape
 
 | Layer       | What runs now                                | Why it matters                                                                        |
