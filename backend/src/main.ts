@@ -173,6 +173,7 @@ async function startInProcessWorkers(
   }
 
   try {
+    //for any of the workers to start, ENABLE_SCHEDULED_WORKERS must be true.
     const scheduledWorkersEnabled =
       process.env.ENABLE_SCHEDULED_WORKERS !== "false";
 
@@ -224,6 +225,7 @@ async function startInProcessWorkers(
       },
     });
 
+    // for the ip monitor worker to start, REQUEST_LOG_PERSISTENCE_ENABLED must be true
     if (isRequestLogPersistenceEnabled()) {
       await startWorker(metricsService, {
         metricName: "ip-monitor.worker",
