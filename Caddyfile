@@ -9,6 +9,11 @@
 {$DOMAIN_NAME}, www.{$DOMAIN_NAME} {
         tls /etc/caddy/certs/cert.pem /etc/caddy/certs/key.pem
 
+        log {
+                output stdout
+                format json
+        }
+
         @www host www.{$DOMAIN_NAME}
         redir @www https://{$DOMAIN_NAME}{uri} permanent
 
