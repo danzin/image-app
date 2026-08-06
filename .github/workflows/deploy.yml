@@ -115,13 +115,34 @@ jobs:
             temporary_path.replace(path)
             PY
 
-            git fetch origin master
+            git fetch --prune origin master
+            git cat-file -e "$DEPLOY_SHA^{commit}"
+
+            git sparse-checkout init --no-cone
+
+            git sparse-checkout set --no-cone \
+              /.gitignore \
+              /Caddyfile \
+              /docker-compose-prod.yml \
+              /monitoring/ \
+              /scripts/audit/
+
             git reset --hard "$DEPLOY_SHA"
+            git sparse-checkout reapply
 
             test "$(git rev-parse HEAD)" = "$DEPLOY_SHA"
+
+            test -s .env
+            test -s certs/cert.pem
+            test -s certs/key.pem
             test -s Caddyfile
             test -s docker-compose-prod.yml
-            test -s frontend/nginx.conf
+            test -s monitoring/prometheus.yml
+            test -s monitoring/alloy/config.alloy
+            test -s scripts/audit/seal-audit-docker.sh
+            test -s scripts/audit/audit-droplet-security.sh
+            test -d backend/audit/logs
+            test -d backend/audit/archives
 
             export COMPOSE_PROFILES=monitoring
             export GIT_SHA="$DEPLOY_SHA"
