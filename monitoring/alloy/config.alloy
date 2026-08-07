@@ -22,7 +22,7 @@ discovery.relabel "containers" {
     source_labels = [
       "__meta_docker_container_label_com_docker_compose_service",
     ]
-    regex  = "backend|backend-worker|frontend|redis|mongo"
+    regex  = "backend|backend-worker|frontend|redis|mongo|caddy"
     action = "keep"
   }
 
