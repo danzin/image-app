@@ -3,7 +3,10 @@ import { Model } from "mongoose";
 import { ICommandHandler } from "@/application/common/interfaces/command-handler.interface";
 import { ChangePasswordCommand } from "./changePassword.command";
 import type { IUserWriteRepository } from "@/repositories/interfaces/IUserWriteRepository";
-import { UnitOfWork, sessionALS } from "@/database/UnitOfWork";
+import {
+  requireTransactionSession,
+  UnitOfWork,
+} from "@/database/UnitOfWork";
 import { UserActionRepository } from "@/repositories/userAction.repository";
 import { IUser } from "@/types";
 import { Errors } from "@/utils/errors";
@@ -42,7 +45,7 @@ export class ChangePasswordCommandHandler implements ICommandHandler<
       const user = await this.userModel
         .findOne({ publicId: command.userPublicId })
         .select("+password")
-        .session(sessionALS.getStore() ?? null)
+        .session(requireTransactionSession())
         .exec();
 
       if (!user) {

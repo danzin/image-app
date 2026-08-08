@@ -15,7 +15,7 @@ import { authCookieNames } from "@/config/cookieConfig";
 import { AuthSessionService } from "@/services/auth-session.service";
 import { MetricsService } from "@/metrics/metrics.service";
 import { TOKENS } from "@/types/tokens";
-import { setRequestContextUserId } from "@/runtime/request-context";
+import { setRequestContextAuthentication } from "@/runtime/request-context";
 import { createAdminOnlyMiddleware } from "@/middleware/admin-auth.middleware";
 
 declare global {
@@ -271,7 +271,12 @@ export class AuthenticationMiddleware {
           sessionId: req.decodedUser.sid,
           tokenFamilyId: req.decodedUser.sid,
         };
-        setRequestContextUserId(req.decodedUser.publicId);
+        setRequestContextAuthentication({
+          userId: req.decodedUser.publicId,
+          sessionId: req.decodedUser.sid,
+          tokenFamilyId: req.decodedUser.sid,
+          authSource: "access_token",
+        });
         next();
       } catch (error) {
         req.authLogMetadata = {
@@ -301,7 +306,12 @@ export class AuthenticationMiddleware {
           sessionId: req.decodedUser.sid,
           tokenFamilyId: req.decodedUser.sid,
         };
-        setRequestContextUserId(req.decodedUser.publicId);
+        setRequestContextAuthentication({
+          userId: req.decodedUser.publicId,
+          sessionId: req.decodedUser.sid,
+          tokenFamilyId: req.decodedUser.sid,
+          authSource: "access_token",
+        });
       } catch (error) {
         if (!isExpectedOptionalAuthenticationRejection(error)) {
           return next(error);

@@ -292,7 +292,14 @@ export class AdminUserController {
     res: Response,
   ) => {
     const { publicId } = req.params;
-    const command = new DemoteFromAdminCommand(asUserPublicId(publicId));
+    const adminPublicId = req.adminContext?.adminId;
+    if (!adminPublicId) {
+      throw Errors.authentication("Admin user not found");
+    }
+    const command = new DemoteFromAdminCommand(
+      asUserPublicId(publicId),
+      adminPublicId,
+    );
     const result = await this.commandBus.dispatch<AdminUserDTO>(command);
     res.status(200).json(result);
   };

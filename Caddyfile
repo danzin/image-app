@@ -17,6 +17,10 @@
         @www host www.{$DOMAIN_NAME}
         redir @www https://{$DOMAIN_NAME}{uri} permanent
 
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        }
+
         reverse_proxy frontend:80 {
                 header_up Host {http.request.host}
                 header_up X-Forwarded-Proto {http.request.scheme}

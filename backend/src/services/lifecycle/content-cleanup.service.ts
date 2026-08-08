@@ -1,9 +1,8 @@
-import { ClientSession, Model, mongo } from "mongoose";
+import { Model, mongo } from "mongoose";
 import { inject, injectable } from "tsyringe";
-import { sessionALS } from "@/database/UnitOfWork";
+import { requireTransactionSession } from "@/database/UnitOfWork";
 import { IPost } from "@/types";
 import { TOKENS } from "@/types/tokens";
-import { Errors } from "@/utils/errors";
 
 type Db = mongo.Db;
 type Document = mongo.Document;
@@ -71,7 +70,7 @@ export class ContentCleanupService {
   ) {}
 
   async findPostIdsByUser(userId: ObjectId): Promise<ObjectId[]> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const posts = await this.db()
       .collection<StoredPost>("posts")
       .find({ user: userId }, { session, projection: { _id: 1 } })
@@ -80,7 +79,7 @@ export class ContentCleanupService {
   }
 
   async findPostIdsByCommunity(communityId: ObjectId): Promise<ObjectId[]> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const posts = await this.db()
       .collection<StoredPost>("posts")
       .find({ communityId }, { session, projection: { _id: 1 } })
@@ -89,10 +88,10 @@ export class ContentCleanupService {
   }
 
   async deletePostGraph(rootPostIds: ObjectId[]): Promise<ContentCleanupResult> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const db = this.db();
     const postsCollection = db.collection<StoredPost>("posts");
-    const posts = await this.collectPostGraph(rootPostIds, session);
+    const posts = await this.collectPostGraph(rootPostIds);
     if (posts.length === 0) {
       return { posts: [], imageAssets: [] };
     }
@@ -171,10 +170,9 @@ export class ContentCleanupService {
         )
         .map((post) => post.repostOf),
     );
-    await this.recomputeRepostCounts(survivingRepostTargets, session);
+    await this.recomputeRepostCounts(survivingRepostTargets);
     await this.recomputeUserPostCounts(
       uniqueObjectIds(posts.map((post) => post.user)),
-      session,
     );
     await this.recomputeTagCounts(
       uniqueObjectIds(
@@ -182,11 +180,9 @@ export class ContentCleanupService {
           .filter((post) => post.type !== "repost")
           .flatMap((post) => post.tags ?? []),
       ),
-      session,
     );
     await this.recomputeCommunityPostCounts(
       uniqueObjectIds(posts.map((post) => post.communityId)),
-      session,
     );
 
     const imageAssets = posts.flatMap<RemovedImageAsset>((post) => {
@@ -212,10 +208,8 @@ export class ContentCleanupService {
     };
   }
 
-  async recomputePostLikeCounts(
-    postIds: ObjectId[],
-    session: ClientSession = this.requireSession(),
-  ): Promise<void> {
+  async recomputePostLikeCounts(postIds: ObjectId[]): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(postIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -241,10 +235,8 @@ export class ContentCleanupService {
     );
   }
 
-  async recomputeCommentLikeCounts(
-    commentIds: ObjectId[],
-    session: ClientSession = this.requireSession(),
-  ): Promise<void> {
+  async recomputeCommentLikeCounts(commentIds: ObjectId[]): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(commentIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -271,7 +263,7 @@ export class ContentCleanupService {
   }
 
   async removeCommentInteractions(commentIds: ObjectId[]): Promise<void> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(commentIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -290,7 +282,7 @@ export class ContentCleanupService {
   }
 
   async recomputePostCommentCounts(postIds: ObjectId[]): Promise<void> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(postIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -321,7 +313,7 @@ export class ContentCleanupService {
   }
 
   async recomputeCommentReplyCounts(commentIds: ObjectId[]): Promise<void> {
-    const session = this.requireSession();
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(commentIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -351,8 +343,8 @@ export class ContentCleanupService {
 
   private async collectPostGraph(
     rootPostIds: ObjectId[],
-    session: ClientSession,
   ): Promise<StoredPost[]> {
+    const session = requireTransactionSession();
     const roots = uniqueObjectIds(rootPostIds);
     if (roots.length === 0) return [];
     const postsCollection = this.db().collection<StoredPost>("posts");
@@ -381,8 +373,8 @@ export class ContentCleanupService {
 
   private async recomputeRepostCounts(
     postIds: ObjectId[],
-    session: ClientSession,
   ): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(postIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -416,8 +408,8 @@ export class ContentCleanupService {
 
   private async recomputeUserPostCounts(
     userIds: ObjectId[],
-    session: ClientSession,
   ): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(userIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -445,8 +437,8 @@ export class ContentCleanupService {
 
   private async recomputeTagCounts(
     tagIds: ObjectId[],
-    session: ClientSession,
   ): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(tagIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -488,8 +480,8 @@ export class ContentCleanupService {
 
   private async recomputeCommunityPostCounts(
     communityIds: ObjectId[],
-    session: ClientSession,
   ): Promise<void> {
+    const session = requireTransactionSession();
     const ids = uniqueObjectIds(communityIds);
     if (ids.length === 0) return;
     const db = this.db();
@@ -515,16 +507,6 @@ export class ContentCleanupService {
       })),
       { session },
     );
-  }
-
-  private requireSession(): ClientSession {
-    const session = sessionALS.getStore();
-    if (!session) {
-      throw Errors.internal(
-        "Content cleanup must run inside a UnitOfWork transaction",
-      );
-    }
-    return session;
   }
 
   private db(): Db {

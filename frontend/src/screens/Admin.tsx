@@ -914,7 +914,15 @@ export const AdminDashboard: React.FC = () => {
                     <Button
                       color="warning"
                       variant="contained"
-                      onClick={() => clearCacheMutation.mutate("feed:*")}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            "Clear the feed cache now? This may temporarily increase feed load.",
+                          )
+                        ) {
+                          clearCacheMutation.mutate("feed:*");
+                        }
+                      }}
                       disabled={clearCacheMutation.isPending}
                     >
                       {clearCacheMutation.isPending ? "Clearing…" : "Clear"}
@@ -1202,9 +1210,15 @@ export const AdminDashboard: React.FC = () => {
                                   aria-label="Restore account"
                                   size="small"
                                   color="success"
-                                  onClick={() =>
-                                    unbanUserMutation.mutate(user.publicId)
-                                  }
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Restore ${user.username}'s account?`,
+                                      )
+                                    ) {
+                                      unbanUserMutation.mutate(user.publicId);
+                                    }
+                                  }}
                                 >
                                   <CheckCircleIcon />
                                 </IconButton>
@@ -1226,9 +1240,15 @@ export const AdminDashboard: React.FC = () => {
                                 <IconButton
                                   aria-label="Remove administrator access"
                                   size="small"
-                                  onClick={() =>
-                                    demoteUserMutation.mutate(user.publicId)
-                                  }
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Remove administrator access from ${user.username}?`,
+                                      )
+                                    ) {
+                                      demoteUserMutation.mutate(user.publicId);
+                                    }
+                                  }}
                                 >
                                   <RemoveCircleIcon />
                                 </IconButton>
@@ -1239,9 +1259,15 @@ export const AdminDashboard: React.FC = () => {
                                   aria-label="Make administrator"
                                   size="small"
                                   color="warning"
-                                  onClick={() =>
-                                    promoteUserMutation.mutate(user.publicId)
-                                  }
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        `Grant administrator access to ${user.username}?`,
+                                      )
+                                    ) {
+                                      promoteUserMutation.mutate(user.publicId);
+                                    }
+                                  }}
                                 >
                                   <AdminPanelSettingsIcon />
                                 </IconButton>

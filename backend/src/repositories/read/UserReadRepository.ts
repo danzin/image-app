@@ -13,7 +13,7 @@ import { MongoId, UserPublicId, asMongoId } from "@/types/branded";
 import { Errors, handleMongoError } from "@/utils/errors";
 import { logger } from "@/utils/winston";
 import { escapeRegex } from "@/utils/sanitizers";
-import { sessionALS } from "@/database/UnitOfWork";
+import { getTransactionSession } from "@/database/UnitOfWork";
 import { addRequestContextBreadcrumb } from "@/runtime/request-context";
 import type { UserAuthenticationLookup } from "@/application/ports/user-authentication-lookup";
 import type { UserDirectoryLookup } from "@/application/ports/user-directory-lookup";
@@ -40,7 +40,7 @@ export class UserReadRepository
   }
 
   private getSession() {
-    return sessionALS.getStore() ?? undefined;
+    return getTransactionSession();
   }
 
   async findById(
@@ -338,7 +338,7 @@ export class UserReadRepository
   }
 
   async countDocuments(filter: Record<string, unknown>): Promise<number> {
-    return this.model.countDocuments(filter).exec();
+    return await this.withSession(this.model.countDocuments(filter)).exec();
   }
 
   async getSuggestedUsersToFollow(

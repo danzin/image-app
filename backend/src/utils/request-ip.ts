@@ -17,5 +17,5 @@ export const stripPort = (raw: string): string => {
 };
 
 export const getClientIp = (req: Request): string => {
-  return stripPort(req.ip || req.socket.remoteAddress || "unknown");
+  return stripPort(req.ip || req.socket?.remoteAddress || "unknown");
 };
