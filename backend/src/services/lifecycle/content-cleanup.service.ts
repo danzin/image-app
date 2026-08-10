@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 import { requireTransactionSession } from "@/database/UnitOfWork";
 import { IPost } from "@/types";
 import { TOKENS } from "@/types/tokens";
+import { Errors } from "@/utils/errors";
 
 type Db = mongo.Db;
 type Document = mongo.Document;
